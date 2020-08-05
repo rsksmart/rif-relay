@@ -1,2 +1,2 @@
 # enveloping
-Meta-transaction support for RSKJ
+Meta-transactions support for RSKJ
