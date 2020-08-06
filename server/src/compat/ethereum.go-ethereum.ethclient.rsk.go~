@@ -1,0 +1,7 @@
+package ethclient
+
+import "github.com/ethereum/go-ethereum/rpc"
+
+func (ec *Client) RPCClient() (*rpc.Client) {
+	return ec.c
+}

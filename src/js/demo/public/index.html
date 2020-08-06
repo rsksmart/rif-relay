@@ -1,0 +1,39 @@
+<html>
+    <head>
+        <script src="./app.js"></script>
+        <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/css-spinning-spinners/1.1.0/load4.css" />
+        <link rel="stylesheet" href="./app.css"></link>
+    </head>
+    <body>
+        <div class="main-container">
+            <div class="title"><h1>Counter Dapp with GSN Demo</h1></div>
+            <div class="notes">
+                <div class='noteblock'>Using RPC host: <span class='rpc-host'></span></div>
+                <div class='noteblock'>Using counter @ <span class='contract-address'></span></div>
+            </div>
+            <table class='counters-table'>
+                <thead>
+                    <tr class='counter-head'>
+                        <th>Address</th>
+                        <th>Count</th>
+                        <th>Actions</th>
+                    </tr>
+                    <tr class='counter-row-template' style="display:none;">
+                        <td class='counter-row-address'></td>
+                        <td class='counter-row-count'><span class='count'></span><div class="loading" style="display: none;"></div></td>
+                        <td>
+                            <button class='counter-row-refresh'>Refresh</button>
+                            <button class='counter-row-increment'>Add one</button>
+                        </td>
+                    </tr>
+                </thead>
+                <tbody class='counters-body'>
+                </tbody>
+            </table>
+            <div class='button-bar'>
+                <button class='btn-new-account'>New account</button>
+                <button class='btn-reset-accounts'>Reset accounts</button>
+            </div>
+        </div>
+    </body>
+</html>
