@@ -22,8 +22,7 @@ In a nutshell, you must install in your machine:
 Then you must execute [rsknode/rskj.sh](rsknode/rskj.sh) to run the node. In order to deploy the RelayHub contracts and start up the relay server, you can follow the steps used to startup the demo: [start-demo.sh](start-demo.sh).
 
 ### Running using Docker (Recommended)
-See [demo-setup.md](demo-setup.md) for an explanation about running a simple "Counter" contract along with a sample web app that uses a test relay network to send gasless transactions.
-Such sample showcases how the different components are setup and executed, and how they interact with each other. See [demo-setup.md](demo-setup.md) for details.
+See [demo-setup.md](demo-setup.md) for an explanation about running a simple "Counter" contract along with a sample web app that uses a test relay network to send gasless transactions. Such sample showcases how the different components are setup and executed, and how they interact with each other.
 
 **NOTE:** If you are a Mac User, keep reading.
 
