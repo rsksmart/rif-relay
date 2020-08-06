@@ -54,7 +54,7 @@ cat settings.json.backup | jq '.["socksProxyPort"]=8888' > settings.json
 
 Then enable the SOCKS proxy server on your system: go to `Apple System Preferences → Network → Advanced → Proxies`, and enable "SOCKS Proxy" using "localhost:8888", hit OK and then Apply.
 
-![diagram](socks.png)
+<img src="socks.png" width=600 align=center>
 
 ### RelayClient options:
 
