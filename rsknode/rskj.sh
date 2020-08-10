@@ -1,5 +1,4 @@
 #!/bin/bash -e
-
 ROOTDIR=`dirname $0`
 ROOTDIR=`readlink -f $ROOTDIR`
 REPO="https://github.com/rsksmart/rskj.git"
@@ -36,4 +35,4 @@ java -Drsk.conf.file=./node.conf -Dlogback.configurationFile=./log.conf.xml \
 	-Ddatabase.dir=./db \
 	-Drpc.providers.web.http.hosts.0=localhost \
 	-Drpc.providers.web.http.hosts.1=$LOCALIP \
-	-jar $JARPATH/$JAR co.rsk.Start --regtest
+	-jar "$JARPATH/$JAR" co.rsk.Start --regtest
