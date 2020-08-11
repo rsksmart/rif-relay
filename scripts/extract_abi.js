@@ -1,62 +1,100 @@
 #!/usr/bin/env node
 
-var solc
-fs=require('fs')
+// extract ABI from truffle-compiled files
 
-contractsFolder ="contracts"
-outAbiFolder = "src/js/relayclient"
+const fs = require('fs')
+const path = require('path')
 
-contractsToExtract =[ "IRelayHub", "IRelayRecipient" ]
+// TODO: pass all these things as parameters
+const outAbiFolder = 'src/common'
+const contractsFolderToExtract = './contracts/interfaces'
 
-contractsToExtract.forEach( c=>{
+/*
+const contractsFolder = 'contracts'
 
-	contractFile = contractsFolder + "/"+ c + ".sol"
-	outAbiFile = outAbiFolder + "/" + c +".js"
+function compileFile (contractFile, c) {
+  console.log('compiling ' + contractFile)
+  const contractSource = fs.readFileSync(contractFile, { encoding: 'utf8' })
 
-	try {
-		if ( fs.statSync(contractFile).mtime <= fs.statSync(outAbiFile).mtime ) {
-			console.log( "not modified: ", outAbiFile )
-			return
-		}
-	} catch(e){
-		//target file is missing.
-	}
-	if ( !solc )
-		solc=require('solc')
+  const input = {
+    language: 'Solidity',
+    sources: {
+      contractFile: {
+        content: contractSource
+      }
+    },
+    settings: {
+      outputSelection: {
+        '*': {
+          '*': ['*']
+        }
+      },
+      optimizer: {
+        enabled: true,
+        runs: 1 // optimized for deployment. higher value optimize for runtime.
+      }
+    }
+  }
+  let result
+  let abi
+  let binary
+  const parts = c.split('/')
+  const lastSegment = parts.pop() || parts.pop()
+  try {
+    const compile = solc.compile(JSON.stringify(input), function (path) {
+      const subPath = parts.length === 0 ? '' : '/' + parts.join('/')
+      let realPath = contractsFolder + subPath + '/' + path
+      // Try neighboring directories first
+      if (path.split('/').length > 1) {
+        realPath = contractsFolder + '/' + path
+      }
+      if (!fs.existsSync(realPath)) {
+        realPath = 'node_modules/' + path
+      }
+      console.log(fs.existsSync(realPath) ? 'resolved:' : 'failed to resolve', realPath)
 
-	hubApi = fs.readFileSync( contractFile, {encoding:'utf8'} )
+      return {
+        contents: fs.readFileSync(realPath).toString()
+      }
+    })
+    result = JSON.parse(compile)
+    abi = JSON.stringify(result.contracts.contractFile[lastSegment].abi)
+    binary = result.contracts.contractFile[lastSegment].evm.bytecode.object
+  } catch (e) {
+    console.log(e)
+  }
+  if (!abi) {
+    console.log('ERROR: failed to extract abi:', result)
+    process.exit(1)
+  }
 
-	let input = {
-		language: 'Solidity',
-		sources: {
-			contractFile: {
-				content: hubApi
-			}
-		},
-		settings: {
-			outputSelection: {
-				'*': {
-					'*': [ '*' ]
-				}
-			}
-		}
-	}
-	result = JSON.parse(solc.compile(JSON.stringify(input)))
+  return { abi, binary }
+}
+*/
 
-	if ( result.errors ) {
-		console.log( "ERROR: ", result )
-		process.exit(1)
-	}
+const files = fs.readdirSync(contractsFolderToExtract)
+files.push('IForwarder.sol')
+files.forEach(file => {
+  const c = 'interfaces/' + file.replace(/.sol/, '')
 
-	abi = JSON.stringify(result.contracts.contractFile[ c ].abi)
-
-	if ( !abi )  {
-		console.log( "ERROR: failed to extract abi:", result)
-		process.exit(1);
-	} else {
-
-		fs.writeFileSync( outAbiFile, "module.exports="+abi )
-		console.log( "written \""+outAbiFile+"\"" )
-	}
+  const outNodeFile = outAbiFolder + '/' + c + '.json'
+  // const outAbiFile = outAbiFolder + '/' + c + '.json'
+  // const outBinFile = outAbiFolder + '/' + c + '.bin'
+  // TODO: Cannot depend on timestamps when working with interdependent contracts
+  /*
+    try {
+        if (fs.existsSync(outAbiFile) &&
+            fs.statSync(contractFile).mtime <= fs.statSync(outAbiFile).mtime) {
+            console.log("not modified: ", contractFile);
+            return;
+        }
+    } catch (e) {
+        console.log(e);
+    }
+    */
+  const jsonFile = `./build/contracts/${c.replace(/interfaces./, '')}.json`
+  const abiStr = JSON.parse(fs.readFileSync(jsonFile, { encoding: 'ascii' }))
+  fs.mkdirSync(path.dirname(outNodeFile), { recursive: true })
+  fs.writeFileSync(outNodeFile, JSON.stringify(abiStr.abi))
+  console.log('written "' + outNodeFile + '"')
 })
-
