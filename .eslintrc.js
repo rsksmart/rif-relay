@@ -24,7 +24,8 @@ module.exports = {
   },
   ignorePatterns: [
     'types/truffle-contracts',
-    'dist/'
+    'dist/',
+    'rsknode/'
   ],
   rules: {
     'no-console': 'off'

@@ -46,7 +46,8 @@
     "tsc": "tsc --noEmit",
     "postinstall": "patch-package",
     "postpack": "./scripts/postpack",
-    "prepare": "./scripts/prepublish"
+    "prepare": "./scripts/prepublish",
+    "test-rsk": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network rsk"
   },
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
