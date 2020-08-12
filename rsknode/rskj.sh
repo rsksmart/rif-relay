@@ -4,7 +4,6 @@ ROOTDIR=`dirname $0`
 ROOTDIR=`readlink -f $ROOTDIR`
 REPO="https://github.com/rsksmart/rskj.git"
 SRCDIR="`pwd`/src"
-#TAG="WASABI-1.0.2"
 TAG="PAPYRUS-2.0.1"
 
 cd $ROOTDIR
