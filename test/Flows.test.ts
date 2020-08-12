@@ -51,7 +51,7 @@ options.forEach(params => {
       const gasPricePercent = 20
 
       gasless = await web3.eth.personal.newAccount('password')
-      await web3.eth.personal.unlockAccount(gasless, 'password', 0)
+      await web3.eth.personal.unlockAccount(gasless, 'password')
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
