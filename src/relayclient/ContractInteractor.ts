@@ -209,6 +209,9 @@ export default class ContractInteractor {
           gasPrice: relayRequest.relayData.gasPrice,
           gas: externalGasLimit
         })
+
+      console.log(`Called RelayHub.relayCall - Result = ${JSON.stringify(res)}`)
+
       if (this.config.verbose) {
         console.log(res)
       }

@@ -36,3 +36,9 @@ java -Drsk.conf.file=./node.conf -Dlogback.configurationFile=./log.conf.xml \
 	-Drpc.providers.web.http.hosts.0=localhost \
 	-Drpc.providers.web.http.hosts.1=$LOCALIP \
 	-jar $JARPATH/$JAR co.rsk.Start --regtest
+
+#java -Drsk.conf.file=./node.conf \
+#	-Ddatabase.dir=./db \
+#	-Drpc.providers.web.http.hosts.0=localhost \
+#	-Drpc.providers.web.http.hosts.1=$LOCALIP \
+#	-jar $JARPATH/$JAR co.rsk.Start --regtest

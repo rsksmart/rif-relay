@@ -9,7 +9,7 @@ import { RelayHubInstance, StakeManagerInstance } from '../types/truffle-contrac
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
-import { defaultEnvironment } from '../src/common/Environments'
+import { Environment, defaultEnvironment } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 require('source-map-support').install({ errorFormatterForce: true })
@@ -223,15 +223,16 @@ export function encodeRevertReason (reason: string): PrefixedHexString {
 
 export async function deployHub (
   stakeManager: string = constants.ZERO_ADDRESS,
-  penalizer: string = constants.ZERO_ADDRESS): Promise<RelayHubInstance> {
+  penalizer: string = constants.ZERO_ADDRESS,
+  environment: Environment = defaultEnvironment): Promise<RelayHubInstance> {
   return await RelayHub.new(
     stakeManager,
     penalizer,
-    defaultEnvironment.relayHubConfiguration.maxWorkerCount,
-    defaultEnvironment.relayHubConfiguration.gasReserve,
-    defaultEnvironment.relayHubConfiguration.postOverhead,
-    defaultEnvironment.relayHubConfiguration.gasOverhead,
-    defaultEnvironment.relayHubConfiguration.maximumRecipientDeposit,
-    defaultEnvironment.relayHubConfiguration.minimumUnstakeDelay,
-    defaultEnvironment.relayHubConfiguration.minimumStake)
+    environment.relayHubConfiguration.maxWorkerCount,
+    environment.relayHubConfiguration.gasReserve,
+    environment.relayHubConfiguration.postOverhead,
+    environment.relayHubConfiguration.gasOverhead,
+    environment.relayHubConfiguration.maximumRecipientDeposit,
+    environment.relayHubConfiguration.minimumUnstakeDelay,
+    environment.relayHubConfiguration.minimumStake)
 }

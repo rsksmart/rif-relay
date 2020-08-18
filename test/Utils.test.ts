@@ -84,6 +84,24 @@ contract('Utils', function (accounts) {
       assert.equal(typeName, TypedDataUtils.encodeType(dataToSign.primaryType, dataToSign.types))
     })
 
+    /*
+    it.only('Debug contract signature', async () => {
+      console.log(`Chain id = ${await testUtil.libGetChainID()}`)
+
+      // @ts-ignore
+      const { forwardRequest, typeHash, suffixData } = await testUtil.splitRequest(relayRequest)
+
+      console.log(`Relay request = ${JSON.stringify(relayRequest)}`);
+      console.log(`Forward request = ${JSON.stringify(forwardRequest)}`);
+      console.log(`Type hash = ${JSON.stringify(typeHash)}`);
+      console.log(`Suffix data = ${JSON.stringify(suffixData)}`);
+
+      console.log(await testUtil.libEncodedDomain(forwarder));
+      console.log(await testUtil.libEncodedData(relayRequest.relayData));
+      console.log(await testUtil.libEncodedRequest(forwardRequest, typeHash, suffixData));
+    })
+    */
+
     it('#_getEncoded should extract data exactly as local encoded data', async () => {
       // @ts-ignore
       const { forwardRequest, typeHash, suffixData } = await testUtil.splitRequest(relayRequest)

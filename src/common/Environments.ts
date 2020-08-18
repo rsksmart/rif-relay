@@ -5,7 +5,7 @@
  */
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 
-interface Environment {
+export interface Environment {
   readonly chainId: number
   readonly mintxgascost: number
   readonly relayHubConfiguration: RelayHubConfiguration
@@ -31,7 +31,19 @@ export const environments: { [key: string]: Environment } = {
     chainId: 1,
     relayHubConfiguration: defaultRelayHubConfiguration,
     mintxgascost: 21000
+  },
+  rsk: {
+    chainId: 33,
+    relayHubConfiguration: defaultRelayHubConfiguration,
+    mintxgascost: 21000
   }
 }
 
 export const defaultEnvironment = environments.istanbul
+
+export function getEnvironment (networkName: string): Environment {
+  if (networkName.startsWith('rsk')) {
+    return environments.rsk
+  }
+  return defaultEnvironment
+}

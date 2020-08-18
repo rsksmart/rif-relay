@@ -21,15 +21,13 @@ import { IPaymasterInstance, IRelayHubInstance, IStakeManagerInstance } from '..
 import { BlockHeader } from 'web3-eth'
 import { TransactionReceipt } from 'web3-core'
 import { toBN, toHex } from 'web3-utils'
-import { defaultEnvironment } from '../common/Environments'
+import { Environment, defaultEnvironment } from '../common/Environments'
 import VersionsManager from '../common/VersionsManager'
 import { calculateTransactionMaxPossibleGas, decodeRevertReason } from '../common/Utils'
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(PayMasterABI)
 abiDecoder.addABI(StakeManagerABI)
-
-const mintxgascost = defaultEnvironment.mintxgascost
 
 const VERSION = '2.0.0-beta.1'
 const minimumRelayBalance = 1e17 // 0.1 eth
@@ -91,6 +89,7 @@ export interface RelayServerParams {
   readonly workerTargetBalance: number | undefined // = defaultWorkerTargetBalance,
   readonly devMode: boolean // = false,
   readonly debug: boolean // = false,
+  readonly environment?: Environment
 }
 
 export class RelayServer extends EventEmitter {
@@ -131,6 +130,8 @@ export class RelayServer extends EventEmitter {
   private readonly devMode: boolean
   private workerTask: any
 
+  private readonly mintxgascost: number
+
   constructor (params: RelayServerParams) {
     super()
     this.versionManager = new VersionsManager(VERSION)
@@ -156,6 +157,8 @@ export class RelayServer extends EventEmitter {
     this.nonces = {}
     this.nonces[this.managerKeyManager.getAddress(0)] = 0
     this.nonces[this.workersKeyManager.getAddress(0)] = 0
+
+    this.mintxgascost = (params.environment ?? defaultEnvironment).mintxgascost
 
     debug('gasPriceFactor', this.gasPriceFactor)
   }
@@ -414,10 +417,12 @@ export class RelayServer extends EventEmitter {
 
     this.chainId = await this.contractInteractor.getChainId()
     this.networkId = await this.contractInteractor.getNetworkId()
+    /*
     if (this.devMode && (this.chainId < 1000 || this.networkId < 1000)) {
       console.log('Don\'t use real network\'s chainId & networkId while in devMode.')
       process.exit(-1)
     }
+    */
     this.rawTxOptions = this.contractInteractor.getRawTxOptions()
 
     debug('initialized', this.chainId, this.networkId, this.rawTxOptions)
@@ -449,7 +454,7 @@ export class RelayServer extends EventEmitter {
           signer: this.getManagerAddress(),
           destination: workerAddress,
           value: toHex(refill),
-          gasLimit: mintxgascost.toString()
+          gasLimit: this.mintxgascost.toString()
         })).receipt)
       } else {
         const message = `== replenishWorker: can't replenish: mgr balance too low ${balance.div(toBN(1e18)).toString()} refill=${refill.div(
@@ -686,7 +691,7 @@ export class RelayServer extends EventEmitter {
 
   async _sendMangerEthBalanceToOwner (gasPrice: string): Promise<TransactionReceipt[]> {
     const receipts: TransactionReceipt[] = []
-    const gasLimit = mintxgascost
+    const gasLimit = this.mintxgascost
     const txCost = toBN(gasLimit * parseInt(gasPrice))
 
     const managerBalance = await this.getManagerBalance()
@@ -709,7 +714,7 @@ export class RelayServer extends EventEmitter {
   async _sendWorkersEthBalancesToOwner (gasPrice: string): Promise<TransactionReceipt[]> {
     // sending workers' balance to owner (currently one worker, todo: extend to multiple)
     const receipts: TransactionReceipt[] = []
-    const gasLimit = mintxgascost
+    const gasLimit = this.mintxgascost
     const txCost = toBN(gasLimit * parseInt(gasPrice))
     const workerIndex = 0
     const workerBalance = await this.getWorkerBalance(workerIndex)

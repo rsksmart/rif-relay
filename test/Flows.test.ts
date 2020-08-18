@@ -16,6 +16,7 @@ import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import { environments, defaultEnvironment } from '../src/common/Environments'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -26,10 +27,12 @@ const Penalizer = artifacts.require('Penalizer')
 const Forwarder = artifacts.require('Forwarder')
 
 const options = [
+  /*
   {
     title: 'Direct-',
     relay: false
   },
+  */
   {
     title: 'Relayed-',
     relay: true
@@ -50,12 +53,16 @@ options.forEach(params => {
     before(async () => {
       const gasPricePercent = 20
 
+      const networkId = await web3.eth.net.getId()
+      console.log(`NetworkId = ${networkId}`)
+      const env = networkId === 33 ? environments.rsk : defaultEnvironment
+
       gasless = await web3.eth.personal.newAccount('password')
       await web3.eth.personal.unlockAccount(gasless, 'password')
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
-      rhub = await deployHub(sm.address, p.address)
+      rhub = await deployHub(sm.address, p.address, env)
       if (params.relay) {
         relayproc = await startRelay(rhub.address, sm, {
           stake: 1e18,
@@ -66,7 +73,7 @@ options.forEach(params => {
           // @ts-ignore
           ethereumNodeUrl: web3.currentProvider.host,
           gasPricePercent: gasPricePercent,
-          relaylog: process.env.relaylog
+          relaylog: true // process.env.relaylog
         })
         console.log('relay started')
         from = gasless
@@ -95,11 +102,16 @@ options.forEach(params => {
       before(params.title + 'enable relay', async function () {
         await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
 
+        const networkId = await web3.eth.net.getId()
+        console.log(`NetworkId = ${networkId}`)
+        const chainId = networkId === 33 ? environments.rsk.chainId : defaultEnvironment.chainId
+
         relayClientConfig = {
           relayHubAddress: rhub.address,
           stakeManagerAddress: sm.address,
           paymasterAddress: paymaster.address,
-          verbose: false
+          verbose: false,
+          chainId
         }
 
         // @ts-ignore
@@ -114,7 +126,7 @@ options.forEach(params => {
       })
     }
 
-    it(params.title + 'send normal transaction', async () => {
+    it/* .only */(params.title + 'send normal transaction', async () => {
       console.log('running emitMessage (should succeed)')
       let res
       try {
@@ -127,7 +139,7 @@ options.forEach(params => {
       assert.equal('hello', res.logs[0].args.message)
     })
 
-    it(params.title + 'send gasless tranasaction', async () => {
+    it(params.title + 'send gasless transaction', async () => {
       console.log('gasless=' + gasless)
 
       console.log('running gasless-emitMessage (should fail for direct, succeed for relayed)')

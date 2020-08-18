@@ -74,4 +74,53 @@ contract TestUtil {
     function libGetChainID() public pure returns (uint256) {
         return GsnEip712Library.getChainID();
     }
+
+    function libEncodedDomain(address forwarder) public pure returns (bytes memory) {
+        GsnEip712Library.EIP712Domain memory req = GsnEip712Library.EIP712Domain({
+            name : "GSN Relayed Transaction",
+            version : "2",
+            chainId : libGetChainID(),
+            verifyingContract : forwarder
+        });
+        return abi.encode(
+                GsnEip712Library.EIP712DOMAIN_TYPEHASH,
+                keccak256(bytes(req.name)),
+                keccak256(bytes(req.version)),
+                req.chainId,
+                req.verifyingContract
+        );
+    }
+
+    function libEncodedData(GsnTypes.RelayData calldata req) public pure returns (bytes memory) {
+        return abi.encode(
+                GsnEip712Library.RELAYDATA_TYPEHASH,
+                req.gasPrice,
+                req.pctRelayFee,
+                req.baseRelayFee,
+                req.relayWorker,
+                req.paymaster,
+                req.forwarder,
+                keccak256(req.paymasterData),
+                req.clientId
+        );
+    }
+
+    function libEncodedRequest(
+            IForwarder.ForwardRequest memory req, 
+            bytes32 requestTypeHash,
+            bytes calldata suffixData) public pure returns (bytes memory) {
+                
+        return abi.encodePacked(
+            requestTypeHash,
+            abi.encode(
+                req.from,
+                req.to,
+                req.value,
+                req.gas,
+                req.nonce,
+                keccak256(req.data)
+            ),
+            suffixData
+        );
+    }
 }

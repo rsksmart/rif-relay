@@ -32,7 +32,7 @@ class GsnTestEnvironmentClass {
    * @param debug
    * @return
    */
-  async startGsn (host?: string, deployPaymaster: boolean = true, debug = false): Promise<TestEnvironment> {
+  async startGsn (host?: string, environment = defaultEnvironment, deployPaymaster: boolean = true, debug = false): Promise<TestEnvironment> {
     await this.stopGsn()
     const _host: string = getNetworkUrl(host)
     console.log('_host=', _host)
@@ -48,7 +48,7 @@ class GsnTestEnvironmentClass {
     const deploymentResult = await commandsLogic.deployGsnContracts({
       from,
       deployPaymaster,
-      relayHubConfiguration: defaultEnvironment.relayHubConfiguration
+      relayHubConfiguration: environment.relayHubConfiguration
     })
     if (deployPaymaster) {
       const balance = await commandsLogic.fundPaymaster(from, deploymentResult.naivePaymasterAddress, ether('1'))

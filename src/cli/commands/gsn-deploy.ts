@@ -9,7 +9,7 @@ import {
   saveDeployment,
   showDeployment
 } from '../utils'
-import { defaultEnvironment } from '../../common/Environments'
+import { getEnvironment } from '../../common/Environments'
 
 gsnCommander(['n', 'f', 'm', 'g'])
   .option('-w, --workdir <directory>', 'relative work directory (defaults to build/gsn/)', 'build/gsn')
@@ -22,7 +22,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
   const nodeURL = getNetworkUrl(network)
 
   const mnemonic = getMnemonic(commander.mnemonic)
-  const relayHubConfiguration = getRelayHubConfiguration(commander.config) ?? defaultEnvironment.relayHubConfiguration
+  const relayHubConfiguration = getRelayHubConfiguration(commander.config) ?? getEnvironment(network).relayHubConfiguration
   const logic = new CommandsLogic(nodeURL, configureGSN({}), mnemonic)
   const from = commander.from ?? await logic.findWealthyAccount()
   const gasPrice = commander.gasPrice
