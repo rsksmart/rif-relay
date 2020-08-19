@@ -126,7 +126,7 @@ options.forEach(params => {
       })
     }
 
-    it/* .only */(params.title + 'send normal transaction', async () => {
+    it.only(params.title + 'send normal transaction', async () => {
       console.log('running emitMessage (should succeed)')
       let res
       try {
