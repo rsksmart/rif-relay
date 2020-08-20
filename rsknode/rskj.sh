@@ -5,13 +5,15 @@ ROOTDIR=`readlink -f $ROOTDIR`
 REPO="https://github.com/rsksmart/rskj.git"
 SRCDIR="`pwd`/src"
 TAG="PAPYRUS-2.0.1"
+#Using a branch from Papyrus to use eth_signTypedData for testing
+BRANCH="eip712"
 
 cd $ROOTDIR
 
 if [ ! -d "$SRCDIR" ]; then
 	git clone $REPO $SRCDIR
 	cd $SRCDIR
-	git checkout $TAG
+	git checkout $BRANCH
 	./configure.sh
 	mkdir -p ~/.gradle
 	export GRADLE_USER_HOME=`readlink -f ~/.gradle`
