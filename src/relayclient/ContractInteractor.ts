@@ -196,8 +196,12 @@ export default class ContractInteractor {
     approvalData: PrefixedHexString): Promise<{ paymasterAccepted: boolean, returnValue: string, reverted: boolean }> {
     const relayHub = await this._createRelayHub(this.config.relayHubAddress)
     try {
-      const externalGasLimit = await this._getBlockGasLimit()
 
+      console.log('Getting gas limit')
+      const externalGasLimit = await this._getBlockGasLimit()
+      console.log(`Gas limit = ${externalGasLimit}`)
+
+      console.log('Calling relayCall')
       const res = await relayHub.contract.methods.relayCall(
         relayRequest,
         signature,
@@ -209,7 +213,6 @@ export default class ContractInteractor {
           gasPrice: relayRequest.relayData.gasPrice,
           gas: externalGasLimit
         })
-
       console.log(`Called RelayHub.relayCall - Result = ${JSON.stringify(res)}`)
 
       if (this.config.verbose) {

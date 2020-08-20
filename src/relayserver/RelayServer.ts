@@ -796,8 +796,9 @@ export class RelayServer extends EventEmitter {
         continue
       }
       if (receipt.blockNumber == null) {
+        continue
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        throw new Error(`invalid block number in receipt ${receipt.toString()}`)
+        // throw new Error(`invalid block number in receipt ${receipt.toString()}`)
       }
       const txBlockNumber = receipt.blockNumber
       const confirmations = blockHeader.number - txBlockNumber

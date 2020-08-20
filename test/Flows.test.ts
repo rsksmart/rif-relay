@@ -126,7 +126,7 @@ options.forEach(params => {
       })
     }
 
-    it.only(params.title + 'send normal transaction', async () => {
+    it(params.title + 'send normal transaction', async () => {
       console.log('running emitMessage (should succeed)')
       let res
       try {
@@ -187,7 +187,6 @@ options.forEach(params => {
           try {
             await approvalPaymaster.setExpectedApprovalData('0x414243', {
               from: accounts[0],
-              useGSN: false
             })
             approvalData = '0x414243'
             await sr.emitMessage('xxx', {
@@ -200,7 +199,6 @@ options.forEach(params => {
           } finally {
             await approvalPaymaster.setExpectedApprovalData('0x', {
               from: accounts[0],
-              useGSN: false
             })
           }
         })
@@ -210,7 +208,6 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
               from: accounts[0],
-              useGSN: false
             })
             await asyncShouldThrow(async () => {
               approvalData = '0x'
@@ -226,7 +223,6 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
               from: accounts[0],
-              useGSN: false
             })
           }
         })
