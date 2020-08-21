@@ -11,7 +11,7 @@ import {
   TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
   TestRecipientInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay } from './TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -50,10 +50,7 @@ options.forEach(params => {
 
     before(async () => {
       const gasPricePercent = 20
-
-      const networkId = await web3.eth.net.getId()
-      console.log(`NetworkId = ${networkId}`)
-      const env = networkId === 33 ? environments.rsk : defaultEnvironment
+      const env = await getTestingEnvironment()
 
       gasless = await web3.eth.personal.newAccount('password')
       await web3.eth.personal.unlockAccount(gasless, 'password')
@@ -100,16 +97,14 @@ options.forEach(params => {
       before(params.title + 'enable relay', async function () {
         await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
 
-        const networkId = await web3.eth.net.getId()
-        console.log(`NetworkId = ${networkId}`)
-        const chainId = networkId === 33 ? environments.rsk.chainId : defaultEnvironment.chainId
-
+        const env = await getTestingEnvironment()
+        
         relayClientConfig = {
           relayHubAddress: rhub.address,
           stakeManagerAddress: sm.address,
           paymasterAddress: paymaster.address,
           verbose: false,
-          chainId
+          chainId: env.chainId
         }
 
         // @ts-ignore
