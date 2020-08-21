@@ -5,8 +5,8 @@ ROOTDIR=`readlink -f $ROOTDIR`
 REPO="https://github.com/rsksmart/rskj.git"
 SRCDIR="`pwd`/src"
 TAG="PAPYRUS-2.0.1"
-#Using a branch from Papyrus to use eth_signTypedData for testing
-BRANCH="eip712"
+#Using a branch from Papyrus with eth_signTypedData and rpc revert reason for testing
+BRANCH="rpc-revert-reason"
 
 cd $ROOTDIR
 
