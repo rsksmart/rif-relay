@@ -9,7 +9,7 @@ import { RelayHubInstance, StakeManagerInstance } from '../types/truffle-contrac
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
-import { Environment, defaultEnvironment } from '../src/common/Environments'
+import { Environment, defaultEnvironment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 require('source-map-support').install({ errorFormatterForce: true })
@@ -219,6 +219,11 @@ export function encodeRevertReason (reason: string): PrefixedHexString {
     inputs: [{ name: 'error', type: 'string' }]
   }, [reason])
   // return '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', reason))
+}
+
+export async function getTestingEnvironment () {
+  const networkId = await web3.eth.net.getId()
+  return networkId === 33 ? environments.rsk : defaultEnvironment
 }
 
 export async function deployHub (

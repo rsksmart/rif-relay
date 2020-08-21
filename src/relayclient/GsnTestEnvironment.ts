@@ -13,7 +13,7 @@ import { Address } from './types/Aliases'
 import { RelayProvider } from './RelayProvider'
 import Web3 from 'web3'
 import ContractInteractor from './ContractInteractor'
-import { defaultEnvironment } from '../common/Environments'
+import { Environment, defaultEnvironment } from '../common/Environments'
 
 export interface TestEnvironment {
   deploymentResult: DeploymentResult
@@ -40,7 +40,7 @@ class GsnTestEnvironmentClass {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new Error(`startGsn: expected network (${supportedNetworks().join('|')}) or url`)
     }
-    const commandsLogic = new CommandsLogic(_host, configureGSN({}))
+    const commandsLogic = new CommandsLogic(_host, configureGSN({chainId: environment.chainId}))
     const from = await commandsLogic.findWealthyAccount()
     if (from == null) {
       throw new Error('could not get unlocked account with sufficient balance')
@@ -57,7 +57,7 @@ class GsnTestEnvironmentClass {
 
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
-    this._runServer(_host, deploymentResult, from, relayUrl, port, debug)
+    this._runServer(_host, deploymentResult, from, relayUrl, port, debug, environment)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -83,7 +83,8 @@ class GsnTestEnvironmentClass {
       relayHubAddress: deploymentResult.relayHubAddress,
       stakeManagerAddress: deploymentResult.stakeManagerAddress,
       paymasterAddress: deploymentResult.naivePaymasterAddress,
-      preferredRelays: [relayUrl]
+      preferredRelays: [relayUrl],
+      chainId: environment.chainId
     })
 
     const relayProvider = new RelayProvider(new Web3.providers.HttpProvider(_host), config)
@@ -130,7 +131,8 @@ class GsnTestEnvironmentClass {
     from: Address,
     relayUrl: string,
     port: number,
-    debug = true
+    debug = true,
+    environment: Environment = defaultEnvironment
   ): void {
     if (this.httpServer !== undefined) {
       return
@@ -145,7 +147,7 @@ class GsnTestEnvironmentClass {
       readonly workerTargetBalance: number | undefined // = defaultWorkerTargetBalance,
      */
     const interactor = new ContractInteractor(new Web3.providers.HttpProvider(host),
-      configureGSN({}))
+      configureGSN({chainId: environment.chainId}))
     const relayServerParams = {
       contractInteractor: interactor,
       txStoreManager,
