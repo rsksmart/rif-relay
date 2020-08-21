@@ -60,7 +60,7 @@ contract('Forwarder', ([from]) => {
   describe('#registerRequestType', () => {
     it('should fail to register with invalid name', async () => {
       // this is an example of a typename that attempt to add a new field at the beginning.
-      await expectRevert(fwd.registerRequestType('asd(uint a,Request asd)Request(', ')'), 'invalid typename')
+      await expectRevert(fwd.registerRequestType('asd(uint a,Request asd)Request(', ')'), 'error')
     })
 
     it('should have a registered default type with no extra params', async () => {
@@ -115,7 +115,7 @@ contract('Forwarder', ([from]) => {
         await expectRevert(fwd.verify({
           ...req,
           nonce: 123
-        }, dummyDomainSeparator, typeHash, '0x', '0x'), 'revert nonce mismatch')
+        }, dummyDomainSeparator, typeHash, '0x', '0x'), 'nonce mismatch')
       })
       it('should fail on invalid signature', async () => {
         await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x'), 'invalid signature length')
@@ -315,7 +315,7 @@ contract('Forwarder', ([from]) => {
       assert.equal(ret.logs[0].args.error, 'always fail')
       assert.equal(ret.logs[0].args.success, false)
 
-      await expectRevert(testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig), 'nonce mismatch')
+      await expectRevert(testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig), 'error')
     })
 
     describe('value transfer', () => {
