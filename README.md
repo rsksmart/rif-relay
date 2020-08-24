@@ -45,19 +45,15 @@ blockchain.config {
 }
 ```
 
-- Running a test, it throw Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
+- Running a test, it throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
 
-You should check you're standing in the project's root directory, the test name is well written without typos
-
-- Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
-
-You should stop the running node, delete the db used by the node. Run it again and test.
+You should check you're standing in the project's root directory and the test's name is well written without typos
 
 - Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
 
-You should stop the running node, delete the db used by the node. Run it again and test.
+You should stop the running node and delete the db used by the node. Run it again and test.
 
-- Running some test, one of them throws: Error: listen EADDRINUSE: address already in use :::8090
+- Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 This is the relay server running background. To solve it, you should run the bash file `scripts/kill-relay-server.sh`
 
