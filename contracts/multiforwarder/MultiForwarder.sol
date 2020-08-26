@@ -52,7 +52,8 @@ contract MultiForwarder is IMultiForwarder {
     override
     returns (uint256 lastSuccTx, bytes memory lastRetTx, uint256 gasUsedByLastTx) {
 
-        
+        uint256 remainingGas = gasleft();
+
         for (uint i = 0; i < reqList.length; i++) {
             ForwardRequest memory req = reqList[i];
             _verifyNonce(req);
@@ -62,24 +63,24 @@ contract MultiForwarder is IMultiForwarder {
             (bool success, bytes memory ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
             // TODO: currently, relayed transaction does not report exception string. when it does, this
             // will propagate the inner call exception description
-            
-             if (address(this).balance>0 ) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-               payable(req.from).transfer(address(this).balance);
-            }
-            
+
             if (!success){
                 // re-throw the revert with the same revert reason.
                 // GsnUtils.revertWithData(ret);
                 break;
             }
             
+            if (address(this).balance>0 ) {
+                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
+                payable(req.from).transfer(address(this).balance);
+            }
+            
             lastSuccTx = i+1;
             lastRetTx = ret;
+            gasUsedByLastTx = remainingGas - gasleft();
+            remainingGas = gasleft();
         }
 
-
-        
         return (lastSuccTx, lastRetTx, gasUsedByLastTx);
     }
 
