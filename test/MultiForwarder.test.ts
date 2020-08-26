@@ -6,10 +6,9 @@ import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import { expectRevert } from '@openzeppelin/test-helpers'
+import { getTestingEnvironment } from './TestUtils'
 
 const MultiForwarder = artifacts.require('MultiForwarder')
-
-const keccak256 = web3.utils.keccak256
 
 
 function bytes32 (n: number): string {
@@ -18,7 +17,9 @@ function bytes32 (n: number): string {
 
 function addr (n: number): string {
     return '0x' + n.toString().repeat(40)
-  }
+}
+
+const keccak256 = web3.utils.keccak256
 
 // Global EIP712 type definitions.
 const EIP712DomainType = [
@@ -129,12 +130,13 @@ contract('MultiForwarder', ([from]) => {
       
             let data: EIP712TypedData
 
-            before(() => {
+            before(async () => {
+                const env = await getTestingEnvironment()
                 data = {
                   domain: {
                     name: 'Test Domain',
                     version: '1',
-                    chainId: 1234,
+                    chainId: env.chainId,
                     verifyingContract: mfwd.address
                   },
                   primaryType: 'ForwardRequest',
