@@ -1,14 +1,18 @@
 import {
-    MultiForwarderInstance
+    MultiForwarderInstance,
+    TestMultiForwarderTargetInstance,
+    TestMultiForwarderInstance
   } from '../types/truffle-contracts'
   // @ts-ignore
-import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from 'eth-sig-util'
+import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData, EIP712Types } from 'eth-sig-util'
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import { expectRevert } from '@openzeppelin/test-helpers'
 import { getTestingEnvironment } from './TestUtils'
 
 const MultiForwarder = artifacts.require('MultiForwarder')
+const TestMultiForwarderTarget = artifacts.require('TestMultiForwarderTarget')
+const TestMultiForwarder = artifacts.require('TestMultiForwarder')
 
 
 function bytes32 (n: number): string {
@@ -17,6 +21,14 @@ function bytes32 (n: number): string {
 
 function addr (n: number): string {
     return '0x' + n.toString().repeat(40)
+}
+
+// sanity: verify that we calculated the type locally just like eth-utils:
+function sanitizedParameters (typeName: string, typeHash: string, dataTypes: EIP712Types) {
+    const calcType = TypedDataUtils.encodeType('ForwardRequest', dataTypes)
+    assert.equal(calcType, typeName)
+    const calcTypeHash = bufferToHex(TypedDataUtils.hashType('ForwardRequest', dataTypes))
+    assert.equal(calcTypeHash, typeHash)
 }
 
 const keccak256 = web3.utils.keccak256
@@ -146,11 +158,7 @@ contract('MultiForwarder', ([from]) => {
                   },
                   message: req
                 }
-                // sanity: verify that we calculated the type locally just like eth-utils:
-                const calcType = TypedDataUtils.encodeType('ForwardRequest', data.types)
-                assert.equal(calcType, typeName)
-                const calcTypeHash = bufferToHex(TypedDataUtils.hashType('ForwardRequest', data.types))
-                assert.equal(calcTypeHash, typeHash)
+                sanitizedParameters(typeName, typeHash, data.types);
             })
             it('should verify valid signature', async () => {
                 const sig = signTypedData_v4(senderPrivateKey, { data })
@@ -207,6 +215,84 @@ contract('MultiForwarder', ([from]) => {
                 const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
         
                 await mfwd.verify(extendedReq, bufferToHex(domainSeparator), typeHash, suffixData, sig)
+            })
+
+            describe('#verifyAndCallOneReq', () => {
+                let data: EIP712TypedData
+                let typeName: string
+                let typeHash: string
+                let recipient: TestMultiForwarderTargetInstance
+                let testmfwd: TestMultiForwarderInstance
+                let domainSeparator: string
+
+                before(async () => {
+                    const env = await getTestingEnvironment()
+                    typeName = `ForwardRequest(${GENERIC_PARAMS})`
+                    typeHash = web3.utils.keccak256(typeName)
+                    await mfwd.registerRequestType('TestCall', '')
+                    data = {
+                      domain: {
+                        name: 'Test Domain',
+                        version: '1',
+                        chainId: env.chainId,
+                        verifyingContract: mfwd.address
+                      },
+                      primaryType: 'ForwardRequest',
+                      types: {
+                        EIP712Domain: EIP712DomainType,
+                        ForwardRequest: ForwardRequestType
+                      },
+                      message: {}
+                    }
+                    sanitizedParameters(typeName, typeHash, data.types);
+                    recipient = await TestMultiForwarderTarget.new(mfwd.address)
+                    testmfwd = await TestMultiForwarder.new()
+              
+                    domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
+                })
+
+                it.only('should call function', async () => {
+                  const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+            
+                  const req1 = {
+                    to: recipient.address,
+                    data: func,
+                    value: '0',
+                    from: senderAddress,
+                    nonce: 0,
+                    gas: 1e6
+				  }
+				  const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
+                  const domainSeparator = TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types)
+            
+                  // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
+				  // declared in solidity
+				  await mfwd.execute([req1], bufferToHex(domainSeparator), typeHash, '0x', sig)
+                  // @ts-ignore
+				  const logs = await recipient.getPastEvents('TestMultiForwarderMessage')
+				  assert.equal(logs.length, 1, 'TestRecipient should emit')
+				  assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
+				  assert.equal('1', (await mfwd.getNonce(senderAddress)).toString(), 'verifyAndCall should increment nonce')
+				})
+				
+				it.skip('should return revert message of target revert', async () => {
+					const func = recipient.contract.methods.testRevert().encodeABI()
+			  
+					const req1 = {
+					  to: recipient.address,
+					  data: func,
+					  value: '0',
+					  from: senderAddress,
+					  nonce: (await mfwd.getNonce(senderAddress)).toString(),
+					  gas: 1e6
+					}
+					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
+			  
+					// the helper simply emits the method return values
+					const ret = await testmfwd.callExecute(mfwd.address, [req], domainSeparator, typeHash, '0x', sig)
+					console.log(ret.logs)
+					assert.equal(ret.logs[0].args.error, 'always fail')
+				  })
             })
         })
     })
