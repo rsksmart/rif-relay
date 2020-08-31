@@ -9,10 +9,11 @@ contract TestMultiForwarder {
     function callExecute(MultiForwarder multiForwarder, MultiForwarder.ForwardRequest[] memory reqList,
         bytes32 domainSeparator, bytes32 requestTypeHash, bytes memory suffixData, bytes memory sig) public payable {
         (uint256 lastSuccTx, bytes memory lastRetTx, uint256 gasUsedByLastTx) = multiForwarder.execute{value:msg.value}(reqList, domainSeparator, requestTypeHash, suffixData, sig);
-        emit Result(lastSuccTx, lastRetTx, gasUsedByLastTx);
+        string memory retValue = lastSuccTx != 0 ? "" : this.decodeErrorMessage(lastRetTx);
+        emit Result(lastSuccTx, retValue, gasUsedByLastTx);
     }
 
-    event Result(uint256 lastSuccTx, bytes lastRetTx, uint256 gasUsedByLastTx);
+    event Result(uint256 lastSuccTx, string lastRetTx, uint256 gasUsedByLastTx);
 
     function decodeErrorMessage(bytes calldata ret) external pure returns (string memory message) {
         //decode evert string: assume it has a standard Error(string) signature: simply skip the (selector,offset,length) fields
