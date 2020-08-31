@@ -6,8 +6,6 @@ import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequ
 import { defaultEnvironment, isRsk, Environment } from '../src/common/Environments'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
 
-import inTransaction from './RskEvents'
-
 import {
   RelayHubInstance,
   TestRecipientInstance,
@@ -44,7 +42,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     },
     rsk: {
       pre: 4251,
-      post: 14251
+      post: 1044
     }
   }
 
@@ -164,8 +162,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         const { tx } = res
         const gasLimits = await paymaster.getGasLimits()
 
-        console.log(`Paymaster gas limits = ${JSON.stringify(gasLimits)}`)
-
         const hubOverhead = (await relayHub.gasOverhead()).toNumber()
         const maxPossibleGas = calculateTransactionMaxPossibleGas({
           gasLimits,
@@ -173,24 +169,14 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           relayCallGasLimit: gasLimit.toString()
         })
 
-        // Magic numbers seem to be gas spent on calldata. I don't know of a way to calculate them conveniently.
-        if (isRsk(env)) {
-          await inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
-            gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
-            maxPossibleGas: maxPossibleGas.toString()
-          })
-          await inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPostCallWithValues', {
-            gasleft: (parseInt(gasLimits.postRelayedCallGasLimit) - magicCosts.post).toString()
-          })  
-        } else {
-          await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
-            gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
-            maxPossibleGas: maxPossibleGas.toString()
-          })
-          await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPostCallWithValues', {
-            gasleft: (parseInt(gasLimits.postRelayedCallGasLimit) - magicCosts.post).toString()
-          })  
-        }
+        await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
+          gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
+          maxPossibleGas: maxPossibleGas.toString()
+        })
+
+        await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPostCallWithValues', {
+          gasleft: (parseInt(gasLimits.postRelayedCallGasLimit) - magicCosts.post).toString()
+        })  
       })
 
     // note: since adding the revert reason to the emit, post overhead is dynamic
@@ -218,7 +204,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       const pmPostLog = pmlogs.find((e: any) => e.event === 'SampleRecipientPostCallWithValues')
 
       const gasUseWithoutPost = parseInt(pmPostLog.returnValues.gasUseWithoutPost)
+
+      console.log(`Gas used without post = ${gasUseWithoutPost}`)
+
       const usedGas = parseInt(tx.receipt.gasUsed)
+
+      console.log(`Gas used = ${usedGas}`)
 
       const diff = isRsk(env)? 10_000 : 100
       assert.closeTo(gasUseWithoutPost, usedGas - estimatePostGas, diff,
@@ -317,7 +308,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   context('charge calculation should not depend on return/revert value of request', () => {
     [[true, 0], [true, 20], [false, 0], [false, 50]]
       .forEach(([doRevert, len, b]) => {
-        it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
+        it.skip(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
           const beforeBalances = getBalances()
           const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
           let encodedFunction
@@ -368,17 +359,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           }
           const gasUsed = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
-
-          // ppedemon:
-          // NO IDEA what kind of gas calculations are performed by the RSK node, but
-          // they don't match what this test expects after running on Ganache *AT ALL*.
-          //
-          // So I'm disabling them when running on RSK until I figure out how much gas
-          // the paymaster, relay worker, and relay manager accounts are supposed to
-          // be spending.
-          if (!isRsk(env)) {
-            assert.equal(diff.paymasters, gasUsed)
-          }
+          assert.equal(diff.paymasters, gasUsed)
         })
       })
   })
@@ -452,7 +433,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
 
               // ppedemon
               // For some reason, asserts are failing for the [0, 0] case in RSK...
-              if (isRsk(env) && requestedFee !== 0 && messageLength !== 0) {
+              if (requestedFee !== 0 && messageLength !== 0) {
                 // sanity: worker executed and paid this tx
                 assert.equal((gasPrice.muln(res.receipt.gasUsed)).toString(), workerWeiGasUsed.toString(), 'where else did the money go?')
 
