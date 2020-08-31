@@ -64,19 +64,20 @@ contract MultiForwarder is IMultiForwarder {
             // TODO: currently, relayed transaction does not report exception string. when it does, this
             // will propagate the inner call exception description
 
+            lastRetTx = ret;
+
+            if (address(this).balance>0 ) {
+                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
+                payable(req.from).transfer(address(this).balance);
+            }
+
             if (!success){
                 // re-throw the revert with the same revert reason.
                 // GsnUtils.revertWithData(ret);
                 break;
             }
             
-            if (address(this).balance>0 ) {
-                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-                payable(req.from).transfer(address(this).balance);
-            }
-            
             lastSuccTx = i+1;
-            lastRetTx = ret;
             gasUsedByLastTx = remainingGas - gasleft();
             remainingGas = gasleft();
         }
