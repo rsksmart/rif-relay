@@ -254,7 +254,7 @@ contract('MultiForwarder', ([from]) => {
 				it('should call function', async () => {
 					const func = recipient.contract.methods.emitMessage('hello').encodeABI()
 			
-					const req1 = {
+					const fwReq = {
 						to: recipient.address,
 						data: func,
 						value: '0',
@@ -262,12 +262,18 @@ contract('MultiForwarder', ([from]) => {
 						nonce: 0,
 						gas: 1e6
 					}
-					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-					const domainSeparator = TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types)
-			
+
+					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+					const reqDetail = {
+						req: fwReq,
+						domainSeparator: domainSeparator,
+						requestTypeHash: typeHash,
+						suffixData: '0x',
+						signature: sig,
+					}
 					// note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
 					// declared in solidity
-					await mfwd.execute([req1], bufferToHex(domainSeparator), typeHash, '0x', sig)
+					await mfwd.execute([reqDetail])
 					// @ts-ignore
 					const logs = await recipient.getPastEvents('TestMultiForwarderMessage')
 					assert.equal(logs.length, 1, 'TestRecipient should emit')
@@ -277,7 +283,7 @@ contract('MultiForwarder', ([from]) => {
 				it('should return revert message of target revert', async () => {
 					const func = recipient.contract.methods.testRevert().encodeABI()
 			
-					const req1 = {
+					const fwReq = {
 					to: recipient.address,
 					data: func,
 					value: '0',
@@ -285,17 +291,24 @@ contract('MultiForwarder', ([from]) => {
 					nonce: (await mfwd.getNonce(senderAddress)).toString(),
 					gas: 1e6
 					}
-					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
+					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
 			
+					const reqDetail = {
+						req: fwReq,
+						domainSeparator: domainSeparator,
+						requestTypeHash: typeHash,
+						suffixData: '0x',
+						signature: sig,
+					}
 					// the helper simply emits the method return values
-					const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig)
+					const ret = await testmfwd.callExecute(mfwd.address, [reqDetail])
 					assert.equal(ret.logs[0].args.lastSuccTx, 0) //On the spec, if the first tx fails, it retutrns in the lastSuccTx parameter a 0
 					assert.equal(ret.logs[0].args.lastRetTx, 'always fail')
 				})
 				it('should not be able to re-submit after revert (its repeated nonce)', async () => {
 					const func = recipient.contract.methods.testRevert().encodeABI()
 			
-					const req1 = {
+					const fwReq = {
 					to: recipient.address,
 					data: func,
 					value: 0,
@@ -303,14 +316,20 @@ contract('MultiForwarder', ([from]) => {
 					nonce: (await mfwd.getNonce(senderAddress)).toString(),
 					gas: 1e6
 					}
-					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-			
+					const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+					const reqDetail = {
+						req: fwReq,
+						domainSeparator: domainSeparator,
+						requestTypeHash: typeHash,
+						suffixData: '0x',
+						signature: sig,
+					}
 					// the helper simply emits the method return values
 
-					const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig)
+					const ret = await testmfwd.callExecute(mfwd.address, [reqDetail])
 					assert.equal(ret.logs[0].args.lastSuccTx, 0)
 					assert.equal(ret.logs[0].args.lastRetTx, 'always fail') //TODO: solved how to know the last tx failed
-					await expectRevert(testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig), 'error')
+					await expectRevert(testmfwd.callExecute(mfwd.address, [reqDetail]), 'error')
 				})
 				
 				describe('value transfer', () => {
@@ -327,7 +346,7 @@ contract('MultiForwarder', ([from]) => {
 						const value = ether('1')
 						const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 			 
-						const req1 = {
+						const fwReq = {
 						  to: recipient.address,
 						  data: func,
 						  from: senderAddress,
@@ -335,16 +354,22 @@ contract('MultiForwarder', ([from]) => {
 						  value: value.toString(),
 						  gas: 1e6
 						}
-						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-
-						const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig)
+						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+						const reqDetail = {
+							req: fwReq,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig,
+						}
+						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail])
 						assert.equal(ret.logs[0].args.lastSuccTx, 0)
 					  })
 					  it('should fail to forward request if value specified but not enough not provided', async () => {
 						const value = ether('1')
 						const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 			 
-						const req1 = {
+						const fwReq = {
 						  to: recipient.address,
 						  data: func,
 						  from: senderAddress,
@@ -352,9 +377,15 @@ contract('MultiForwarder', ([from]) => {
 						  value: ether('2').toString(),
 						  gas: 1e6
 						}
-						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-			 
-						const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig, { value })
+						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+						const reqDetail = {
+							req: fwReq,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig,
+						}
+						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail], { value })
 						assert.equal(ret.logs[0].args.lastSuccTx, 0)
 					})
 					it('should forward request with value', async () => {
@@ -362,7 +393,7 @@ contract('MultiForwarder', ([from]) => {
 						const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 			 
 						// value = ether('0');
-						const req1 = {
+						const fwReq = {
 						  to: recipient.address,
 						  data: func,
 						  from: senderAddress,
@@ -370,15 +401,21 @@ contract('MultiForwarder', ([from]) => {
 						  value: value.toString(),
 						  gas: 1e6
 						}
-						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-			 
-						const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig, { value })
+						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+						const reqDetail = {
+							req: fwReq,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig,
+						}
+						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail], { value })
 						assert.equal(ret.logs[0].args.lastSuccTx, 1) //TODO: If it's the result of a transfer value, it must verify retValue and also the usedGas?
 						assert.equal(ret.logs[0].args.lastRetTx, '')
 						assert.equal(await web3.eth.getBalance(recipient.address), value.toString())
 					})
 
-					it.only('should forward all funds left in forwarder to "from" address', async () => {
+					it('should forward all funds left in forwarder to "from" address', async () => {
 						const senderPrivateKey = toBuffer(bytes32(2))
 						const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
 			 
@@ -386,7 +423,7 @@ contract('MultiForwarder', ([from]) => {
 						const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 			 
 						// value = ether('0');
-						const req1 = {
+						const fwReq = {
 						  to: recipient.address,
 						  data: func,
 						  from: senderAddress,
@@ -398,10 +435,16 @@ contract('MultiForwarder', ([from]) => {
 						const extraFunds = ether('4')
 						await web3.eth.sendTransaction({ from, to: mfwd.address, value: extraFunds })
 			 
-						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-			 
+						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq } })
+						const reqDetail = {
+							req: fwReq,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig,
+						}
 						// note: not transfering value in TX.
-						const ret = await testmfwd.callExecute(mfwd.address, [req1], domainSeparator, typeHash, '0x', sig)
+						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail])
 						console.log(ret.logs)
 						assert.equal(ret.logs[0].args.lastSuccTx, 1) //TODO: If it's the result of a transfer value, it must verify retValue and also the usedGas?
 						assert.equal(ret.logs[0].args.lastRetTx, '')

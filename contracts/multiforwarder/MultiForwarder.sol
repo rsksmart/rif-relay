@@ -42,11 +42,7 @@ contract MultiForwarder is IMultiForwarder {
 
 
     function execute(
-        ForwardRequest[] memory reqList,
-        bytes32 domainSeparator,
-        bytes32 requestTypeHash,
-        bytes calldata suffixData,
-        bytes calldata sig
+        ForwardRequestDetail[] memory reqList
     )
     external payable
     override
@@ -55,10 +51,12 @@ contract MultiForwarder is IMultiForwarder {
         uint256 remainingGas = gasleft();
 
         for (uint i = 0; i < reqList.length; i++) {
-            ForwardRequest memory req = reqList[i];
+            ForwardRequestDetail memory reqDetail = reqList[i];
+            ForwardRequest memory req = reqDetail.req;
+            _verifySig(req, reqDetail.domainSeparator, reqDetail.requestTypeHash, reqDetail.suffixData, reqDetail.signature);
             _verifyNonce(req);
-            _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
             _updateNonce(req);
+
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, bytes memory ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
             // TODO: currently, relayed transaction does not report exception string. when it does, this

@@ -13,6 +13,14 @@ interface IMultiForwarder {
         bytes data;
     }
 
+    struct ForwardRequestDetail {
+        ForwardRequest req;
+        bytes32 domainSeparator;
+        bytes32 requestTypeHash;
+        bytes suffixData; 
+        bytes signature;
+    }
+
     function getNonce(address from)
     external view
     returns(uint256);
@@ -27,28 +35,19 @@ interface IMultiForwarder {
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes calldata suffixData,
-        bytes calldata signature
+        bytes calldata signature   // @param signature - signature to validate.
     ) external view;
 
     /**
      * execute a transaction
-     * @param forwardRequest - all transaction parameters
-     * @param domainSeparator - domain used when signing this request
-     * @param requestTypeHash - request type used when signing this request.
-     * @param suffixData - the extension data used when signing this request.
-     * @param signature - signature to validate.
-     *
+     * @param reqList - All ForwardRequest to be relayed, which also include domainSeparator, typeHash and suffixData
      * the transaction is verified, and then executed.
      * the success and ret of "call" are returned.
      * This method would revert only verification errors. target errors
      * are reported using the returned "success" and ret string
      */
     function execute(
-        ForwardRequest[] calldata forwardRequest,
-        bytes32 domainSeparator,
-        bytes32 requestTypeHash,
-        bytes calldata suffixData,
-        bytes calldata signature
+        ForwardRequestDetail[] calldata reqList
     )
     external payable
     returns (uint256 lastSuccTx, bytes memory lastRetTx, uint256 gasUsedByLastTx);
