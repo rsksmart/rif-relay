@@ -6,7 +6,7 @@ import {
 import BN from 'bn.js'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
-import { deployHub } from './TestUtils'
+import { deployHub, getTestingEnvironment } from './TestUtils'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -45,7 +45,7 @@ contract('SampleRecipient', function (accounts) {
     const deposit = new BN('100000000000000000')
     const stakeManager = await StakeManager.new()
     const penalizer = await Penalizer.new()
-    const rhub = await deployHub(stakeManager.address, penalizer.address)
+    const rhub = await deployHub(stakeManager.address, penalizer.address, await getTestingEnvironment())
     await paymaster.setTrustedForwarder(forwarder)
     await paymaster.setRelayHub(rhub.address)
     await forwarderInstance.registerRequestType(

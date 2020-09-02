@@ -9,19 +9,21 @@ import { RelayInfoUrl, RelayRegisteredEventInfo } from '../../src/relayclient/ty
 import { PartialRelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { register, stake } from './KnownRelaysManager.test'
 import PingResponse from '../../src/common/PingResponse'
-import { deployHub } from '../TestUtils'
+import { deployHub, getTestingEnvironment } from '../TestUtils'
+import { constants } from '@openzeppelin/test-helpers'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
 contract('RelaySelectionManager', function (accounts) {
   const sliceSize = 3
   const verbose = false
-  const dependencyTree = getDependencies(configureGSN({}), web3.currentProvider as HttpProvider)
+  const dependencyTree = getDependencies(configureGSN({chainId: 33}), web3.currentProvider as HttpProvider)
   const stubGetRelaysSorted = sinon.stub(dependencyTree.knownRelaysManager, 'getRelaysSortedForTransaction')
   const errors = new Map<string, Error>()
   const config = configureGSN({
     sliceSize,
-    verbose
+    verbose,
+    chainId: 33
   })
   const eventInfo = {
     relayManager: '',
@@ -91,17 +93,20 @@ contract('RelaySelectionManager', function (accounts) {
       let stubGetNextSlice: SinonStub
       let relayHub: any
       let dependencyTree: GSNDependencies
+      let chainId: number
 
       before(async function () {
+        chainId = (await getTestingEnvironment()).chainId
         const StakeManager = artifacts.require('StakeManager')
         const stakeManager = await StakeManager.new()
-        relayHub = await deployHub(stakeManager.address)
+        relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
         await stake(stakeManager, relayHub, relayManager, accounts[0])
         await register(relayHub, relayManager, accounts[2], preferredRelayUrl, '666', '777')
 
         const config = configureGSN({
           relayHubAddress: relayHub.address,
-          stakeManagerAddress: stakeManager.address
+          stakeManagerAddress: stakeManager.address,
+          chainId
         })
         dependencyTree = getDependencies(config, web3.currentProvider as HttpProvider)
 
@@ -160,7 +165,8 @@ contract('RelaySelectionManager', function (accounts) {
       for (let i = 1; i < 5; i++) {
         const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
           sliceSize: i,
-          verbose
+          verbose,
+          chainId: (await getTestingEnvironment()).chainId
         }))
         const returned = await rsm._getNextSlice(transactionDetails)
         assert.equal(returned.length, i)
@@ -172,7 +178,8 @@ contract('RelaySelectionManager', function (accounts) {
       stubGetRelaysSorted.returns(Promise.resolve(relaysLeft))
       const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
         sliceSize: 7,
-        verbose
+        verbose,
+        chainId: (await getTestingEnvironment()).chainId
       }))
       const returned = await rsm._getNextSlice(transactionDetails)
       assert.deepEqual(returned, relaysLeft[0])
@@ -191,7 +198,8 @@ contract('RelaySelectionManager', function (accounts) {
       stubGetRelaysSorted.returns(Promise.resolve(relaysLeft))
       const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
         sliceSize: 7,
-        verbose
+        verbose,
+        chainId: (await getTestingEnvironment()).chainId
       }))
       // Initial request only returns the top preference relays
       const returned1 = await rsm._getNextSlice(transactionDetails)

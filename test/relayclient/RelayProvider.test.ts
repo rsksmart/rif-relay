@@ -1,4 +1,4 @@
-import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
+import { ether, expectEvent, expectRevert, constants } from '@openzeppelin/test-helpers'
 import { HttpProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
@@ -18,7 +18,7 @@ import {
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { defaultEnvironment } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay } from '../TestUtils'
+import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 import { getEip712Signature } from '../../src/common/Utils'
@@ -64,7 +64,8 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
     }
   }
   const dataToSign = new TypedRequestData(
-    defaultEnvironment.chainId,
+    //domain.defaultEnvironment.chainId,
+    (await getTestingEnvironment()).chainId,
     testRecipientForwarderAddress,
     relayRequest
   )
@@ -93,7 +94,7 @@ contract('RelayProvider', function (accounts) {
     web3 = new Web3(underlyingProvider)
     gasLess = await web3.eth.personal.newAccount('password')
     stakeManager = await StakeManager.new()
-    relayHub = await deployHub(stakeManager.address)
+    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
     const forwarderInstance = await Forwarder.new()
     forwarderAddress = forwarderInstance.address
     await forwarderInstance.registerRequestType(
@@ -122,11 +123,13 @@ contract('RelayProvider', function (accounts) {
   describe('Use Provider to relay transparently', () => {
     let testRecipient: TestRecipientInstance
     before(async () => {
+      const env = await getTestingEnvironment()
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
       const gsnConfig = configureGSN({
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address
+        stakeManagerAddress: stakeManager.address,
+        chainId: env.chainId
       })
       const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
@@ -136,7 +139,7 @@ contract('RelayProvider', function (accounts) {
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
     })
-    it('should relay transparently', async function () {
+    it.only('should relay transparently', async function () {
       const res = await testRecipient.emitMessage('hello world', {
         from: gasLess,
         forceGasPrice: '0x51f4d5c00',
@@ -223,7 +226,8 @@ contract('RelayProvider', function (accounts) {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
 
-      gsnConfig = configureGSN({ relayHubAddress: relayHub.address })
+      const env = await getTestingEnvironment()
+      gsnConfig = configureGSN({ relayHubAddress: relayHub.address, chainId: env.chainId })
       // call to emitMessage('hello world')
       jsonRpcPayload = {
         jsonrpc: '2.0',
@@ -263,9 +267,11 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should convert a returned transaction to a compatible rpc transaction hash response', async function () {
+      const env = await getTestingEnvironment()
       const gsnConfig = configureGSN({
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address
+        stakeManagerAddress: stakeManager.address,
+        chainId: env.chainId
       })
       const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
       const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result: JsonRpcResponse | undefined): void => {
@@ -296,7 +302,9 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address })
+
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, chainId: env.chainId })
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
         // @ts-ignore
@@ -406,11 +414,12 @@ contract('RelayProvider', function (accounts) {
 
   describe('new contract deployment', function () {
     let TestRecipient: TestRecipientContract
-    before(function () {
+    before(async function () {
       TestRecipient = artifacts.require('TestRecipient')
       const gsnConfig = configureGSN({
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address
+        stakeManagerAddress: stakeManager.address,
+        chainId: (await getTestingEnvironment()).chainId
       })
       const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)

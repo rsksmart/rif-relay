@@ -24,10 +24,11 @@ import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDet
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import { constants } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -60,7 +61,7 @@ contract('RelayClient', function (accounts) {
   before(async function () {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
-    relayHub = await deployHub(stakeManager.address)
+    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
     const forwarderInstance = await Forwarder.new()
     forwarderAddress = forwarderInstance.address
     testRecipient = await TestRecipient.new(forwarderAddress)
@@ -83,7 +84,8 @@ contract('RelayClient', function (accounts) {
 
     gsnConfig = {
       relayHubAddress: relayHub.address,
-      stakeManagerAddress: stakeManager.address
+      stakeManagerAddress: stakeManager.address,
+      chainId: (await getTestingEnvironment()).chainId
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
     gasLess = await web3.eth.personal.newAccount('password')
@@ -163,7 +165,8 @@ contract('RelayClient', function (accounts) {
       const minGasPrice = 1e18
       const gsnConfig = {
         relayHubAddress: relayHub.address,
-        minGasPrice
+        minGasPrice,
+        chainId: 33 // Pablo: wired in, since this is not a async context :(
       }
       const relayClient = new RelayClient(underlyingProvider, gsnConfig)
       const calculatedGasPrice = await relayClient._calculateGasPrice()

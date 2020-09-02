@@ -1,4 +1,4 @@
-import { ether } from '@openzeppelin/test-helpers'
+import { ether, constants } from '@openzeppelin/test-helpers'
 import { HttpProvider } from 'web3-core'
 
 import KnownRelaysManager, { DefaultRelayScore } from '../../src/relayclient/KnownRelaysManager'
@@ -10,12 +10,13 @@ import {
   TestPaymasterConfigurableMisbehaviorInstance,
   TestRecipientInstance
 } from '../../types/truffle-contracts'
-import { deployHub, evmMineMany, startRelay, stopRelay } from '../TestUtils'
+import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import { prepareTransaction } from './RelayProvider.test'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import { Environment } from '../../src/common/Environments'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -61,15 +62,19 @@ contract('KnownRelaysManager', function (
     let workerNotActive
     const gas = 4e6
 
+    let env: Environment
+
     before(async function () {
+      env = await getTestingEnvironment()
       workerRelayWorkersAdded = await web3.eth.personal.newAccount('password')
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
       stakeManager = await StakeManager.new()
-      relayHub = await deployHub(stakeManager.address)
+      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, env)
       config = configureGSN({
         relayHubAddress: relayHub.address,
-        relayLookupWindowBlocks
+        relayLookupWindowBlocks,
+        chainId: env.chainId
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
 
@@ -142,7 +147,8 @@ contract('KnownRelaysManager', function (
 })
 
 contract('KnownRelaysManager 2', function (accounts) {
-  const contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configureGSN({}))
+  const contractInteractor = new ContractInteractor(
+    web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
   const transactionDetails = {
     gas: '0x10000',
     gasPrice: '0x300000',
@@ -160,14 +166,17 @@ contract('KnownRelaysManager 2', function (accounts) {
     let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
     let config: GSNConfig
+    let env: Environment
 
     before(async function () {
+      env = await getTestingEnvironment()
       stakeManager = await StakeManager.new()
-      relayHub = await deployHub(stakeManager.address)
+      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, env)
       config = configureGSN({
         preferredRelays: ['http://localhost:8090'],
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address
+        stakeManagerAddress: stakeManager.address,
+        chainId: env.chainId
       })
       relayProcess = await startRelay(relayHub.address, stakeManager, {
         stake: 1e18,
@@ -232,7 +241,8 @@ contract('KnownRelaysManager 2', function (accounts) {
       pctRelayFee: '50'
     }
 
-    const knownRelaysManager = new KnownRelaysManager(contractInteractor, configureGSN({}))
+    const knownRelaysManager = new KnownRelaysManager(
+      contractInteractor, configureGSN({ chainId: 33 }))
 
     describe('#_refreshFailures()', function () {
       let lastErrorTime: number
@@ -288,7 +298,8 @@ contract('KnownRelaysManager 2', function (accounts) {
         return await Promise.resolve(100)
       }
     }
-    const knownRelaysManager = new KnownRelaysManager(contractInteractor, configureGSN({}), undefined, biasedRelayScore)
+    const knownRelaysManager = new KnownRelaysManager(
+      contractInteractor, configureGSN({ chainId: 33 }), undefined, biasedRelayScore)
     before(function () {
       const activeRelays: RelayRegisteredEventInfo[][] = [[], [{
         relayManager: accounts[0],

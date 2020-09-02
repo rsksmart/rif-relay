@@ -6,14 +6,14 @@ import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequ
 
 import { getEip712Signature } from '../src/common/Utils'
 
-import { defaultEnvironment } from '../src/common/Environments'
 import {
   RelayHubInstance,
   TestPaymasterEverythingAcceptedInstance,
   TestRecipientInstance,
   BatchForwarderInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
+import { getEnvironment } from '../src/common/Environments'
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
 const StakeManager = artifacts.require('StakeManager')
@@ -27,14 +27,15 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
   let hub: RelayHubInstance
   let forwarder: BatchForwarderInstance
   let sharedRelayRequestData: RelayRequest
-  const chainId = defaultEnvironment.chainId
 
   before(async () => {
+    const env = await getTestingEnvironment()
+    const chainId = env.chainId
     const paymasterDeposit = 1e18.toString()
 
     const stakeManager = await StakeManager.new()
     const penalizer = await Penalizer.new()
-    hub = await deployHub(stakeManager.address, penalizer.address)
+    hub = await deployHub(stakeManager.address, penalizer.address, env)
     const relayHub = hub
     await stakeManager.stakeForAddress(relayManager, 2000, {
       value: ether('2'),
@@ -46,7 +47,7 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
     await relayHub.registerRelayServer(baseRelayFee, pctRelayFee, 'url', { from: relayManager })
 
-    paymaster = await TestPaymasterEverythingAccepted.new({ gas: 1e7 })
+    paymaster = await TestPaymasterEverythingAccepted.new({ gas: 9e6/*1e7*/ })
     await hub.depositFor(paymaster.address, { value: paymasterDeposit })
 
     forwarder = await BatchForwarder.new()
@@ -82,6 +83,12 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
   })
 
   context('#sendBatch', function () {
+    let chainId: number
+
+    beforeEach(async () => {
+      chainId = (await getTestingEnvironment()).chainId
+    })
+
     it('should send all methods in the batch', async () => {
       const relayRequest = cloneRelayRequest(sharedRelayRequestData)
       relayRequest.request.nonce = (await forwarder.getNonce(from)).toString()
