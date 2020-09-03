@@ -6,12 +6,10 @@ import "../MultiForwarder.sol";
 
 // helper class for testing the forwarder.
 contract TestMultiForwarder {
-    function callExecute(MultiForwarder multiForwarder, MultiForwarder.ForwardRequestDetail[] memory reqList) public payable 
-        returns (string memory){
+    function callExecute(MultiForwarder multiForwarder, MultiForwarder.ForwardRequestDetail[] memory reqList) public payable {
         (uint256 lastSuccTx, bytes memory lastRetTx, uint256 gasUsedByLastTx) = multiForwarder.execute{value:msg.value}(reqList);
         string memory retValue = lastSuccTx != 0 ? "" : this.decodeErrorMessage(lastRetTx);
         emit Result(lastSuccTx, retValue, gasUsedByLastTx);
-        return retValue;
     }
 
     event Result(uint256 lastSuccTx, string lastRetTx, uint256 gasUsedByLastTx);
