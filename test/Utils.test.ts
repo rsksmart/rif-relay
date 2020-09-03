@@ -12,11 +12,20 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason } from './TestUtils'
 
+import web3Utils from 'web3-utils'
+
 const assert = require('chai').use(chaiAsPromised).assert
 
 const TestUtil = artifacts.require('TestUtil')
 const Forwarder = artifacts.require('Forwarder')
 const TestRecipient = artifacts.require('TestRecipient')
+
+import ForwardRequest from '../src/common/EIP712/ForwardRequest'
+import RelayData from '../src/common/EIP712/RelayData'
+interface SplittedRelayRequest {
+  request: ForwardRequest
+  encodedRelayData: string
+}
 
 contract('Utils', function (accounts) {
   describe('#getEip712Signature()', function () {
@@ -27,6 +36,11 @@ contract('Utils', function (accounts) {
     const senderAddress = accounts[0]
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
+
+    let forwardRequest: ForwardRequest
+    let anotherForwardRequest: ForwardRequest
+    let relayData: RelayData
+    let anotherRelayData: RelayData
 
     let forwarderInstance: ForwarderInstance
     before(async () => {
@@ -55,6 +69,37 @@ contract('Utils', function (accounts) {
       )
 
       const typeName = res.logs[0].args.typeStr
+
+      forwardRequest = {
+        to: target,
+        data: encodedFunction,
+        from: senderAddress,
+        nonce: senderNonce,
+        value: '0',
+        gas: gasLimit
+      };
+
+      anotherForwardRequest = {
+        ...forwardRequest,
+        data: '0xcafebabe',
+        nonce: '1'
+      }
+
+      relayData = {
+        gasPrice,
+        pctRelayFee,
+        baseRelayFee,
+        relayWorker,
+        forwarder,
+        paymaster,
+        paymasterData,
+        clientId
+      };
+
+      anotherRelayData = {
+        ...relayData,
+        clientId: '1'
+      }
 
       relayRequest = {
         request: {
@@ -101,6 +146,75 @@ contract('Utils', function (accounts) {
       console.log(await testUtil.libEncodedRequest(forwardRequest, typeHash, suffixData));
     })
     */
+
+
+
+    it.only("Signs typed data with multiple relay requests", async () => {
+      /*
+      const relayRequests = [
+        {
+          request: forwardRequest,
+          relayData
+        },
+        {
+          request: anotherForwardRequest,
+          relayData: anotherRelayData
+        }
+      ]
+      */
+      const relayRequests = [
+        {
+          request: {
+            to: '0xD1F0892ecce4f9f6f37D34634fF956A17BD647ed',
+            data: '0xdeadbeef',
+            from: '0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826',
+            nonce: '0',
+            value: '0',
+            gas: '500000'
+          },
+          relayData: {
+            gasPrice: '10000000',
+            pctRelayFee: '15',
+            baseRelayFee: '1000',
+            relayWorker: '0x09a1edA29F664ac8f68106F6567276dF0C65D859',
+            forwarder: '0x0C24045B556ec463aD2F7253D1843d336682fb86',
+            paymaster: '0x7857288e171C6159C5576d1bD9AC40c0c48a771C',
+            paymasterData: '0x',
+            clientId: '0'
+          }
+        },
+        {
+          request: {
+            to: '0xD1F0892ecce4f9f6f37D34634fF956A17BD647ed',
+            data: '0xcafebabe',
+            from: '0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826',
+            nonce: '1',
+            value: '0',
+            gas: '500000'
+          },
+          relayData: {
+            gasPrice: '10000000',
+            pctRelayFee: '15',
+            baseRelayFee: '1000',
+            relayWorker: '0x09a1edA29F664ac8f68106F6567276dF0C65D859',
+            forwarder: '0x0C24045B556ec463aD2F7253D1843d336682fb86',
+            paymaster: '0x7857288e171C6159C5576d1bD9AC40c0c48a771C',
+            paymasterData: '0x',
+            clientId: '1'
+          }
+        }
+      ]
+      
+      //console.log(`Relay requests = ${JSON.stringify(relayRequests)}`)
+
+      const result = await testUtil.mockExecute(
+        relayRequests,
+        '0x0C24045B556ec463aD2F7253D1843d336682fb86',
+        '0xdeadbeef')
+        
+      // The expected result is what the node is returning when encoding relayRequests
+      assert.equal(result, "0xeffdafba17bae0af215feb069260ee187b6152c054a0b8f0a27b826de93d9cb8")
+    })
 
     it('#_getEncoded should extract data exactly as local encoded data', async () => {
       // @ts-ignore

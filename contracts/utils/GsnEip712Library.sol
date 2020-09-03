@@ -26,8 +26,15 @@ library GsnEip712Library {
     bytes public constant RELAY_REQUEST_TYPE = abi.encodePacked(
         RELAY_REQUEST_NAME,"(",GENERIC_PARAMS,",", RELAY_REQUEST_SUFFIX);
 
+    string public constant MULTI_RELAY_REQUEST_SUFFIX =
+        "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,RelayData relayData)";
+
+    bytes public constant MULTI_RELAY_REQUEST_TYPE = abi.encodePacked(
+        "RelayRequests(RelayRequest[] requests)", RELAYDATA_TYPE, MULTI_RELAY_REQUEST_SUFFIX);
+
     bytes32 public constant RELAYDATA_TYPEHASH = keccak256(RELAYDATA_TYPE);
     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256(RELAY_REQUEST_TYPE);
+    bytes32 public constant MULTI_RELAY_REQUEST_TYPEHASH = keccak256(MULTI_RELAY_REQUEST_TYPE);
 
 
     struct EIP712Domain {

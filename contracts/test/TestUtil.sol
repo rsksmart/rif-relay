@@ -77,7 +77,7 @@ contract TestUtil {
 
     function libEncodedDomain(address forwarder) public pure returns (bytes memory) {
         GsnEip712Library.EIP712Domain memory req = GsnEip712Library.EIP712Domain({
-            name : "GSN Relayed Transaction",
+            name : "GSN Relayed Transactions",
             version : "2",
             chainId : libGetChainID(),
             verifyingContract : forwarder
@@ -91,7 +91,7 @@ contract TestUtil {
         );
     }
 
-    function libEncodedData(GsnTypes.RelayData calldata req) public pure returns (bytes memory) {
+    function libEncodedData(GsnTypes.RelayData memory req) public pure returns (bytes memory) {
         return abi.encode(
                 GsnEip712Library.RELAYDATA_TYPEHASH,
                 req.gasPrice,
@@ -108,7 +108,7 @@ contract TestUtil {
     function libEncodedRequest(
             IForwarder.ForwardRequest memory req, 
             bytes32 requestTypeHash,
-            bytes calldata suffixData) public pure returns (bytes memory) {
+            bytes32 suffixData) public pure returns (bytes memory) {
                 
         return abi.encodePacked(
             requestTypeHash,
@@ -122,5 +122,68 @@ contract TestUtil {
             ),
             suffixData
         );
+    }
+
+    // -------------------------------------------------------------------
+    // Prototype code: signature verification of multiple relay requests
+    // -------------------------------------------------------------------
+
+    struct SplittedRelayRequest {
+        IForwarder.ForwardRequest request;
+        bytes32 encodedRelayData;
+    }
+
+    function mockExecute(GsnTypes.RelayRequest[] memory relayRequests, address forwarder, bytes memory signature)
+        public pure returns (bytes32)
+    {
+        SplittedRelayRequest[] memory splittedRequests = new SplittedRelayRequest[](relayRequests.length);
+        for (uint i = 0; i < relayRequests.length; i++) {
+            splittedRequests[i] = SplittedRelayRequest({
+                request: relayRequests[i].request,
+                encodedRelayData: hashRelayData(relayRequests[i].relayData)
+            });
+        }
+
+        bytes32 domainSeparator = keccak256(libEncodedDomain(forwarder));
+        return eip712EncodeV4(splittedRequests, domainSeparator, signature);
+    }
+
+    function eip712EncodeV4(
+        SplittedRelayRequest[] memory requests,
+        bytes32 domainSeparator,
+        bytes memory signature)
+    public pure returns (bytes32 encoding)
+    {
+        bytes memory encodedRequests = encodeSplittedRequests(requests);
+        encoding = keccak256(abi.encodePacked(
+            "\x19\x01", 
+            domainSeparator,
+            keccak256(encodedRequests)
+        ));
+        //require(digest.recover(signature) == req.from, "signature mismatch");
+    }
+
+    function hashRelayData(GsnTypes.RelayData memory req) internal pure returns (bytes32) {
+        return keccak256(libEncodedData(req));
+    }
+
+    function encodeSplittedRequests(SplittedRelayRequest[] memory requests) 
+        public pure returns (bytes memory) 
+    {
+        bytes memory encoding = new bytes(32 * requests.length);
+        for (uint i = 0; i < requests.length; i++) {
+            bytes memory requestEncoding = libEncodedRequest(
+                requests[i].request, 
+                GsnEip712Library.RELAY_REQUEST_TYPEHASH,
+                requests[i].encodedRelayData);
+            bytes32 hashedRequestEncoding = keccak256(requestEncoding);
+            uint ix = (i + 1) << 5;
+            assembly {
+                mstore(add(encoding, ix), hashedRequestEncoding)
+            }
+        }
+
+        bytes32 encodingHash = keccak256(encoding);
+        return abi.encodePacked(GsnEip712Library.MULTI_RELAY_REQUEST_TYPEHASH, encodingHash);
     }
 }
