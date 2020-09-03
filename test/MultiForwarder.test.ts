@@ -5,7 +5,7 @@ import {
   } from '../types/truffle-contracts'
   // @ts-ignore
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData, EIP712Types } from 'eth-sig-util'
-import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
+import { bufferToHex, privateToAddress, toBuffer, BN } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import { expectRevert, ether } from '@openzeppelin/test-helpers'
 import { getTestingEnvironment } from './TestUtils'
@@ -451,6 +451,58 @@ contract('MultiForwarder', ([from]) => {
 			 
 						// assert.equal(await web3.eth.getBalance(senderAddress), extraFunds.sub(value).toString())
 					 })
+
+					 it.only('should forward two requests with value', async () => {
+						const value = ether('2')
+						const reqValue = ether('1')
+						const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
+
+						const nonce = await mfwd.getNonce(senderAddress);
+			 
+						const fwReq1 = {
+						  to: recipient.address,
+						  data: func,
+						  from: senderAddress,
+						  nonce: nonce.toString(),
+						  value: reqValue.toString(),
+						  gas: 1e6
+						}
+
+						const fwReq2 = {
+							to: recipient.address,
+							data: func,
+							from: senderAddress,
+							nonce: (nonce.add(new BN(1))).toString(),
+							value: reqValue.toString(),
+							gas: 1e6
+						  }
+
+						console.log(fwReq1, fwReq2)
+
+						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq1 } })
+
+						console.log(sig)
+						const reqDetail1 = {
+							req: fwReq1,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig,
+						}
+
+						const reqDetail2 = {
+							req: fwReq2,
+							domainSeparator: domainSeparator,
+							requestTypeHash: typeHash,
+							suffixData: '0x',
+							signature: sig
+						}
+
+						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail1, reqDetail2], { value })
+						assert.equal(ret.logs[0].args.lastSuccTx, 1) //TODO: If it's the result of a transfer value, it must verify retValue and also the usedGas?
+						assert.equal(ret.logs[0].args.lastRetTx, '')
+						assert.equal(await web3.eth.getBalance(recipient.address), value.toString())
+					})
 				})
 			})
 		})
