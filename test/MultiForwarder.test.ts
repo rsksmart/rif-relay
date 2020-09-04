@@ -479,28 +479,32 @@ contract('MultiForwarder', ([from]) => {
 
 						console.log(fwReq1, fwReq2)
 
-						const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq1 } })
+						const sig1 = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq1 } })
 
-						console.log(sig)
+						console.log(sig1)
 						const reqDetail1 = {
 							req: fwReq1,
 							domainSeparator: domainSeparator,
 							requestTypeHash: typeHash,
 							suffixData: '0x',
-							signature: sig,
+							signature: sig1,
 						}
 
+						const sig2 = signTypedData_v4(senderPrivateKey, { data: { ...data, message: fwReq2 } })
 						const reqDetail2 = {
 							req: fwReq2,
 							domainSeparator: domainSeparator,
 							requestTypeHash: typeHash,
 							suffixData: '0x',
-							signature: sig
+							signature: sig2
 						}
+						console.log(sig2)
 
 						const ret = await testmfwd.callExecute(mfwd.address, [reqDetail1, reqDetail2], { value })
-						assert.equal(ret.logs[0].args.lastSuccTx, 1) //TODO: If it's the result of a transfer value, it must verify retValue and also the usedGas?
-						assert.equal(ret.logs[0].args.lastRetTx, '')
+						//assert.equal(ret.logs[0].args.error, '')
+						//assert.equal(ret.logs[0].args.success, true)
+						console.log(ret.logs[0])
+
 						assert.equal(await web3.eth.getBalance(recipient.address), value.toString())
 					})
 				})
