@@ -90,3 +90,8 @@ Last but not least, some bugs were fixed:
 
 - On the `RelayServer`: only look at the last relayer registration event
 - On the `RelayClient`: upon relaying failure, fix the error status setting
+
+## Some useful tools:
+
+- [Solidity decompiler](https://ethervm.io/decompile)
+- [EVM Simulator] (https://github.com/tanmaster/EVM-Simulator)
