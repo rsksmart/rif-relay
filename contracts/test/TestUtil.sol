@@ -133,9 +133,11 @@ contract TestUtil {
         bytes32 encodedRelayData;
     }
 
-    function mockExecute(GsnTypes.RelayRequest[] memory relayRequests, address forwarder, bytes memory signature)
-        public pure returns (bytes32)
-    {
+    function mockExecute(
+            GsnTypes.RelayRequest[] memory relayRequests, 
+            address forwarder, 
+            bytes memory signature) public pure returns (bytes32) {
+
         SplittedRelayRequest[] memory splittedRequests = new SplittedRelayRequest[](relayRequests.length);
         for (uint i = 0; i < relayRequests.length; i++) {
             splittedRequests[i] = SplittedRelayRequest({
@@ -149,33 +151,29 @@ contract TestUtil {
     }
 
     function eip712EncodeV4(
-        SplittedRelayRequest[] memory requests,
-        bytes32 domainSeparator,
-        bytes memory signature)
-    public pure returns (bytes32 encoding)
-    {
-        bytes memory encodedRequests = encodeSplittedRequests(requests);
+            SplittedRelayRequest[] memory splittedRequests,
+            bytes32 domainSeparator,
+            bytes memory signature) public pure returns (bytes32 encoding) {
+
+        bytes memory encodedSplittedRequests = encodeSplittedRequests(splittedRequests);
         encoding = keccak256(abi.encodePacked(
-            "\x19\x01", 
+            "\x19\x01",
             domainSeparator,
-            keccak256(encodedRequests)
+            keccak256(encodedSplittedRequests)
         ));
-        //require(digest.recover(signature) == req.from, "signature mismatch");
+        // TODO: who the well signs the incomiong set of relay requests?
+        // require(digest.recover(signature) == req.from, "signature mismatch");
     }
 
-    function hashRelayData(GsnTypes.RelayData memory req) internal pure returns (bytes32) {
-        return keccak256(libEncodedData(req));
-    }
+    function encodeSplittedRequests(
+            SplittedRelayRequest[] memory splittedRequests) public pure returns (bytes memory) {
 
-    function encodeSplittedRequests(SplittedRelayRequest[] memory requests) 
-        public pure returns (bytes memory) 
-    {
-        bytes memory encoding = new bytes(32 * requests.length);
-        for (uint i = 0; i < requests.length; i++) {
+        bytes memory encoding = new bytes(32 * splittedRequests.length);
+        for (uint i = 0; i < splittedRequests.length; i++) {
             bytes memory requestEncoding = libEncodedRequest(
-                requests[i].request, 
+                splittedRequests[i].request, 
                 GsnEip712Library.RELAY_REQUEST_TYPEHASH,
-                requests[i].encodedRelayData);
+                splittedRequests[i].encodedRelayData);
             bytes32 hashedRequestEncoding = keccak256(requestEncoding);
             uint ix = (i + 1) << 5;
             assembly {
@@ -185,5 +183,9 @@ contract TestUtil {
 
         bytes32 encodingHash = keccak256(encoding);
         return abi.encodePacked(GsnEip712Library.MULTI_RELAY_REQUEST_TYPEHASH, encodingHash);
+    }
+
+    function hashRelayData(GsnTypes.RelayData memory req) internal pure returns (bytes32) {
+        return keccak256(libEncodedData(req));
     }
 }
