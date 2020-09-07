@@ -52,7 +52,8 @@ contract('GsnTestEnvironment', function () {
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
-        tokenDest: '',
+        tokenRecipient: '',
+        tokenContract: '',
         paybackTokens: '0',
         tokenGas: '0x0'
       })

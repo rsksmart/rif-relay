@@ -97,7 +97,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     const gasLimit = new BN('5000000')
     const txData = recipient.contract.methods.emitMessage('').encodeABI()
     const tokenPayment = {
-      tokenDest: '',
+      tokenRecipient: '',
+      tokenContract: '',
       paybackTokens: '0',
       tokenGas: '0x0'
     }
@@ -390,7 +391,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const senderNonce = new BN('0')
           const txData = recipient.contract.methods.emitMessage('').encodeABI()
           const tokenPayment = {
-            tokenDest: '',
+            tokenRecipient: '',
+            tokenContract: '',
             paybackTokens: '0',
             tokenGas: '0x0'
           }
@@ -508,9 +510,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const relayWorker = privateToAddress(privateKey).toString('hex')
       // TODO: 'encodedCallArgs' is no longer needed. just keep the RelayRequest in test
       const tokenPayment = {
-        tokenDest: relayWorker,
-        paybackTokens: '1',
-        tokenGas: encodedCallArgs.gasLimit.toString()
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: '0x0'
       }
       const relayRequest: RelayRequest =
         {

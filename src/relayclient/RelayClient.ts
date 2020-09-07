@@ -42,7 +42,8 @@ interface EstimateGasParams {
   to: Address
   data: PrefixedHexString
   gasPrice?: PrefixedHexString
-  readonly tokenDest: Address
+  readonly tokenRecipient: Address
+  readonly tokenContract: Address
   readonly paybackTokens: IntString
   readonly tokenGas: IntString
   
@@ -243,7 +244,8 @@ export class RelayClient {
         value: value,
         nonce: senderNonce,
         gas: gasLimit,
-        tokenDest: gsnTransactionDetails.tokenDest,
+        tokenRecipient: gsnTransactionDetails.tokenRecipient,
+        tokenContract: gsnTransactionDetails.tokenContract,
         paybackTokens: tokensValue,
         tokenGas: tokenGas
       },
@@ -287,7 +289,8 @@ export class RelayClient {
       approvalData,
       relayHubAddress: this.config.relayHubAddress,
       relayMaxNonce,
-      tokenDest: gsnTransactionDetails.tokenDest,
+      tokenRecipient: gsnTransactionDetails.tokenRecipient,
+      tokenContract: gsnTransactionDetails.tokenContract,
       paybackTokens: tokensValue,
       tokenGas: tokenGas
     }
@@ -343,7 +346,8 @@ export class RelayClient {
       to: gsnTransactionDetails.to, 
       gasPrice: gsnTransactionDetails.gasPrice,
       data: gsnTransactionDetails.data,
-      tokenDest: gsnTransactionDetails.tokenDest,
+      tokenRecipient: gsnTransactionDetails.tokenRecipient,
+      tokenContract: gsnTransactionDetails.tokenContract,
       paybackTokens: gsnTransactionDetails.paybackTokens,
       tokenGas: gsnTransactionDetails.tokenGas
     }

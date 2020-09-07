@@ -101,7 +101,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         nonce: senderNonce.toString(),
         value: '0',
         gas: gasLimit.toString(),
-        tokenDest: '',
+        tokenRecipient: '',
+        tokenContract: '',
         paybackTokens: '0',
         tokenGas: '0x0'
       },
@@ -325,7 +326,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               nonce: senderNonce,
               value: '0',
               gas: gasLimit.toString(),
-              tokenDest: '',
+              tokenRecipient: '',
+              tokenContract: '',
               paybackTokens: '0',
               tokenGas: '0x0'
             },
@@ -394,7 +396,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                   nonce: senderNonce,
                   value: '0',
                   gas: gasLimit.toString(),
-                  tokenDest: '',
+                  tokenRecipient: '',
+                  tokenContract: '',
                   paybackTokens: '0',
                   tokenGas: '0x0'
                 },

@@ -44,7 +44,8 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
   const testRecipientForwarder = await IForwarder.at(testRecipientForwarderAddress)
   const senderNonce = (await testRecipientForwarder.getNonce(account)).toString()
   const tokenPayment = {
-    tokenDest: '',
+    tokenRecipient: '',
+    tokenContract: '',
     paybackTokens: '0',
     tokenGas: '0x0'
   }
