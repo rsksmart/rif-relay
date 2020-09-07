@@ -33,13 +33,21 @@ const EIP712DomainType = [
   { name: 'verifyingContract', type: 'address' }
 ]
 
+const TokenPaymentType = [
+  { name: 'tokenRecipient', type: 'address' },
+  { name: 'tokenContract', type: 'address' },
+  { name: 'paybackTokens', type: 'uint256' },
+  { name: 'tokenGas', type: 'uint256' }
+]
+
 const ForwardRequestType = [
   { name: 'from', type: 'address' },
   { name: 'to', type: 'address' },
   { name: 'value', type: 'uint256' },
   { name: 'gas', type: 'uint256' },
   { name: 'nonce', type: 'uint256' },
-  { name: 'data', type: 'bytes' }
+  { name: 'data', type: 'bytes' },
+  ...TokenPaymentType
 ]
 
 contract('Forwarder', ([from]) => {
@@ -102,13 +110,21 @@ contract('Forwarder', ([from]) => {
     describe('#verify failures', () => {
       const dummyDomainSeparator = bytes32(1)
 
+      const tknPayment = {
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: 0
+      }
+
       const req = {
         to: addr(1),
         data: '0x',
         from: senderAddress,
         value: '0',
         nonce: 0,
-        gas: 123
+        gas: 123,
+        ...tknPayment
       }
 
       it('should fail on wrong nonce', async () => {
@@ -124,13 +140,21 @@ contract('Forwarder', ([from]) => {
       })
     })
     describe('#verify success', () => {
+      const tknPayment = {
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: 0
+      }
+
       const req = {
         to: addr(1),
         data: '0x',
         value: '0',
         from: senderAddress,
         nonce: 0,
-        gas: 123
+        gas: 123,
+        ...tknPayment
       }
 
       let data: EIP712TypedData
@@ -173,6 +197,13 @@ contract('Forwarder', ([from]) => {
           { name: 'extraAddr', type: 'address' }
         ]
 
+        const tknPayment = {
+          tokenRecipient: '',
+          tokenContract: '',
+          paybackTokens: '0',
+          tokenGas: 0
+        }
+
         const extendedReq = {
           to: addr(1),
           data: '0x',
@@ -180,6 +211,7 @@ contract('Forwarder', ([from]) => {
           from: senderAddress,
           nonce: 0,
           gas: 123,
+          ...tknPayment,
           extra: {
             extraAddr: addr(5)
           }
@@ -257,6 +289,12 @@ contract('Forwarder', ([from]) => {
     it('should call function', async () => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       // const func = recipient.contract.methods.testRevert().encodeABI()
+      const tknPayment = {
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: 0
+      }
 
       const req1 = {
         to: recipient.address,
@@ -264,7 +302,8 @@ contract('Forwarder', ([from]) => {
         value: '0',
         from: senderAddress,
         nonce: 0,
-        gas: 1e6
+        gas: 1e6,
+        ...tknPayment
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
       const domainSeparator = TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types)
@@ -281,14 +320,20 @@ contract('Forwarder', ([from]) => {
 
     it('should return revert message of target revert', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
-
+      const tknPayment = {
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: 0
+      }
       const req1 = {
         to: recipient.address,
         data: func,
         value: '0',
         from: senderAddress,
         nonce: (await fwd.getNonce(senderAddress)).toString(),
-        gas: 1e6
+        gas: 1e6,
+        ...tknPayment
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -299,14 +344,20 @@ contract('Forwarder', ([from]) => {
 
     it('should not be able to re-submit after revert (its repeated nonce)', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
-
+      const tknPayment = {
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0',
+        tokenGas: 0
+      }
       const req1 = {
         to: recipient.address,
         data: func,
         value: 0,
         from: senderAddress,
         nonce: (await fwd.getNonce(senderAddress)).toString(),
-        gas: 1e6
+        gas: 1e6,
+        ...tknPayment
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -331,14 +382,20 @@ contract('Forwarder', ([from]) => {
       it('should fail to forward request if value specified but not provided', async () => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-
+        const tknPayment = {
+          tokenRecipient: '',
+          tokenContract: '',
+          paybackTokens: '0',
+          tokenGas: 0
+        }
         const req1 = {
           to: recipient.address,
           data: func,
           from: senderAddress,
           nonce: (await fwd.getNonce(senderAddress)).toString(),
           value: value.toString(),
-          gas: 1e6
+          gas: 1e6,
+          ...tknPayment
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -349,14 +406,20 @@ contract('Forwarder', ([from]) => {
       it('should fail to forward request if value specified but not enough not provided', async () => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-
+        const tknPayment = {
+          tokenRecipient: '',
+          tokenContract: '',
+          paybackTokens: '0',
+          tokenGas: 0
+        }
         const req1 = {
           to: recipient.address,
           data: func,
           from: senderAddress,
           nonce: (await fwd.getNonce(senderAddress)).toString(),
           value: ether('2').toString(),
-          gas: 1e6
+          gas: 1e6,
+          ...tknPayment
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -367,7 +430,12 @@ contract('Forwarder', ([from]) => {
       it('should forward request with value', async () => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-
+        const tknPayment = {
+          tokenRecipient: '',
+          tokenContract: '',
+          paybackTokens: '0',
+          tokenGas: 0
+        }
         // value = ether('0');
         const req1 = {
           to: recipient.address,
@@ -375,7 +443,8 @@ contract('Forwarder', ([from]) => {
           from: senderAddress,
           nonce: (await fwd.getNonce(senderAddress)).toString(),
           value: value.toString(),
-          gas: 1e6
+          gas: 1e6,
+          ...tknPayment
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -392,7 +461,12 @@ contract('Forwarder', ([from]) => {
 
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-
+        const tknPayment = {
+          tokenRecipient: '',
+          tokenContract: '',
+          paybackTokens: '0',
+          tokenGas: 0
+        }
         // value = ether('0');
         const req1 = {
           to: recipient.address,
@@ -400,7 +474,8 @@ contract('Forwarder', ([from]) => {
           from: senderAddress,
           nonce: (await fwd.getNonce(senderAddress)).toString(),
           value: value.toString(),
-          gas: 1e6
+          gas: 1e6,
+          ...tknPayment
         }
 
         const extraFunds = ether('4')
