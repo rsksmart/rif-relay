@@ -11,6 +11,10 @@ interface IForwarder {
         uint256 gas;
         uint256 nonce;
         bytes data;
+        address tokenRecipient;
+        address tokenContract;
+        uint256 paybackTokens;
+        uint256 tokenGas;
     }
 
     function getNonce(address from)

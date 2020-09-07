@@ -3,7 +3,9 @@ pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
+import "../utils/GsnUtils.sol";
 
 contract Forwarder is IForwarder {
     using ECDSA for bytes32;
@@ -52,8 +54,21 @@ contract Forwarder is IForwarder {
     external payable
     override
     returns (bool success, bytes memory ret) {
+        
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _updateNonce(req);
+
+        // solhint-disable-next-line avoid-low-level-calls
+        (success,ret) = req.tokenContract.call{gas: req.tokenGas}(
+            abi.encodeWithSelector(IERC20.transfer.selector, req.tokenRecipient, req.paybackTokens)
+        );
+        
+        if (!success){
+            //re-throw the revert with the same revert reason.
+            GsnUtils.revertWithData(ret);
+        }
+        
         _updateNonce(req);
 
         // solhint-disable-next-line avoid-low-level-calls
@@ -132,7 +147,11 @@ contract Forwarder is IForwarder {
                 req.value,
                 req.gas,
                 req.nonce,
-                keccak256(req.data)
+                keccak256(req.data),
+                req.tokenRecipient,
+                req.tokenContract,
+                req.paybackTokens,
+                req.tokenGas
             ),
             suffixData
         );
