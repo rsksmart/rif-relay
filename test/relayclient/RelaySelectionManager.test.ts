@@ -44,12 +44,18 @@ contract('RelaySelectionManager', function (accounts) {
     pingResponse,
     relayInfo: eventInfo
   }
+  const tokenPaymentDetails = {
+    tokenDest:'',
+    paybackTokens:'0',
+    tokenGas:'0x0'
+  }
   const transactionDetails = {
     from: '',
     data: '',
     to: '',
     forwarder: '',
-    paymaster: ''
+    paymaster: '',
+    ...tokenPaymentDetails
   }
 
   let stubPingResponse: SinonStub

@@ -96,6 +96,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     const gasPrice = new BN('1')
     const gasLimit = new BN('5000000')
     const txData = recipient.contract.methods.emitMessage('').encodeABI()
+    const tokenPayment = {
+      tokenDest: '',
+      paybackTokens: '0',
+      tokenGas: '0x0'
+    }
     const relayRequest: RelayRequest = {
       request: {
         to: recipient.address,
@@ -103,8 +108,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         from: sender,
         nonce: '0',
         value: '0',
-        gas: gasLimit.toString()
-      },
+        gas: gasLimit.toString(),
+        ...tokenPayment
+        },
       relayData: {
         gasPrice: gasPrice.toString(),
         baseRelayFee: '300',
@@ -383,6 +389,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const gasLimit = new BN('1000000')
           const senderNonce = new BN('0')
           const txData = recipient.contract.methods.emitMessage('').encodeABI()
+          const tokenPayment = {
+            tokenDest: '',
+            paybackTokens: '0',
+            tokenGas: '0x0'
+          }
           const relayRequest: RelayRequest = {
             request: {
               to: recipient.address,
@@ -390,7 +401,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
               from: sender,
               nonce: senderNonce.toString(),
               value: '0',
-              gas: gasLimit.toString()
+              gas: gasLimit.toString(),
+              ...tokenPayment
             },
             relayData: {
               gasPrice: gasPrice.toString(),
@@ -495,6 +507,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const privateKey = Buffer.from(relayCallArgs.privateKey, 'hex')
       const relayWorker = privateToAddress(privateKey).toString('hex')
       // TODO: 'encodedCallArgs' is no longer needed. just keep the RelayRequest in test
+      const tokenPayment = {
+        tokenDest: relayWorker,
+        paybackTokens: '1',
+        tokenGas: encodedCallArgs.gasLimit.toString()
+      }
       const relayRequest: RelayRequest =
         {
           request: {
@@ -503,8 +520,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             from: encodedCallArgs.sender,
             nonce: encodedCallArgs.nonce.toString(),
             value: '0',
-            gas: encodedCallArgs.gasLimit.toString()
-          },
+            gas: encodedCallArgs.gasLimit.toString(),
+            ...tokenPayment
+                    },
           relayData: {
             baseRelayFee: encodedCallArgs.baseFee.toString(),
             pctRelayFee: encodedCallArgs.fee.toString(),

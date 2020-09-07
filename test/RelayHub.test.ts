@@ -201,7 +201,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
-          gas: gasLimit
+          gas: gasLimit,
+          tokenDest: '',
+          paybackTokens: '0',
+          tokenGas: '0x0'
         },
         relayData: {
           pctRelayFee,

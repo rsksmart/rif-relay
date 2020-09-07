@@ -51,7 +51,10 @@ contract('GsnTestEnvironment', function () {
         forwarder: await sr.getTrustedForwarder(),
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
         gas: '0x' + 1e6.toString(16),
-        data: sr.contract.methods.emitMessage('hello').encodeABI()
+        data: sr.contract.methods.emitMessage('hello').encodeABI(),
+        tokenDest: '',
+        paybackTokens: '0',
+        tokenGas: '0x0'
       })
       assert.deepEqual([...ret.relayingErrors.values(), ...ret.pingErrors.values()], [])
       const events = await sr.contract.getPastEvents()
