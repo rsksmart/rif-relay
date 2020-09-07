@@ -240,8 +240,8 @@ export class RelayClient {
         gas: gasLimit
       },
       relayData: {
-        pctRelayFee: relayInfo.relayInfo.pctRelayFee,
-        baseRelayFee: relayInfo.relayInfo.baseRelayFee,
+        pctRelayFee: relayInfo.relayInfo.pctRelayFee ? relayInfo.relayInfo.pctRelayFee : "0",
+        baseRelayFee: relayInfo.relayInfo.baseRelayFee ? relayInfo.relayInfo.baseRelayFee : "0",
         gasPrice,
         paymaster,
         paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
@@ -251,7 +251,7 @@ export class RelayClient {
       }
     }
     const paymasterData = await this.asyncPaymasterData(relayRequest)
-
+    
     // put paymasterData into struct before signing
     relayRequest.relayData.paymasterData = paymasterData
     const signature = await this.accountManager.sign(relayRequest)
