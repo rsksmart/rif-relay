@@ -61,6 +61,11 @@ contract('AccountManager', function (accounts) {
 
   describe('#sign()', function () {
     accountManager.addAccount(keypair)
+    const tokenRequest = {
+      tokenDest: '',
+      paybackTokens: '0',
+      tokenGas: '0x0',
+    }
     const relayRequest: RelayRequest = {
       request: {
         to: constants.ZERO_ADDRESS,
@@ -68,7 +73,8 @@ contract('AccountManager', function (accounts) {
         from: '',
         nonce: '1',
         value: '0',
-        gas: '1'
+        gas: '1',
+        ...tokenRequest
       },
       relayData: {
         pctRelayFee: '1',

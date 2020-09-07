@@ -229,6 +229,8 @@ export class RelayClient {
     const gasLimit = parseInt(gasLimitHex, 16).toString()
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = gsnTransactionDetails.value ?? '0'
+    const tokensValue = gsnTransactionDetails.paybackTokens ?? '0'
+    const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
     const relayRequest: RelayRequest = {
       request: {
         to: gsnTransactionDetails.to,
@@ -236,7 +238,10 @@ export class RelayClient {
         from: gsnTransactionDetails.from,
         value: value,
         nonce: senderNonce,
-        gas: gasLimit
+        gas: gasLimit,
+        tokenDest: gsnTransactionDetails.tokenDest,
+        paybackTokens: tokensValue,
+        tokenGas: tokenGas
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee ? relayInfo.relayInfo.pctRelayFee : "0",
@@ -277,7 +282,10 @@ export class RelayClient {
       signature,
       approvalData,
       relayHubAddress: this.config.relayHubAddress,
-      relayMaxNonce
+      relayMaxNonce,
+      tokenDest: gsnTransactionDetails.tokenDest,
+      paybackTokens: tokensValue,
+      tokenGas: tokenGas
     }
     if (this.config.verbose) {
       console.log(`Created HTTP relay request: ${JSON.stringify(httpRequest)}`)

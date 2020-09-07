@@ -43,6 +43,11 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
   const testRecipientForwarderAddress = await testRecipient.getTrustedForwarder()
   const testRecipientForwarder = await IForwarder.at(testRecipientForwarderAddress)
   const senderNonce = (await testRecipientForwarder.getNonce(account)).toString()
+  const tokenPayment = {
+    tokenDest: '',
+    paybackTokens: '0',
+    tokenGas: '0x0'
+  }
   const relayRequest: RelayRequest = {
     request: {
       to: testRecipient.address,
@@ -50,7 +55,8 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       from: account,
       nonce: senderNonce,
       value: '0',
-      gas: '10000'
+      gas: '10000',
+      ...tokenPayment
     },
     relayData: {
       pctRelayFee: '1',

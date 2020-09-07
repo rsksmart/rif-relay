@@ -150,6 +150,11 @@ contract('KnownRelaysManager', function (
 contract('KnownRelaysManager 2', function (accounts) {
   const contractInteractor = new ContractInteractor(
     web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
+  const tokenPaymentDetails = {
+    tokenDest:'',
+    paybackTokens:'0',
+    tokenGas:'0x0'
+  }
   const transactionDetails = {
     gas: '0x10000',
     gasPrice: '0x300000',
@@ -157,7 +162,8 @@ contract('KnownRelaysManager 2', function (accounts) {
     data: '',
     to: '',
     forwarder: '',
-    paymaster: ''
+    paymaster: '',
+    ...tokenPaymentDetails
   }
 
   describe('#refresh()', function () {

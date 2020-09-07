@@ -67,7 +67,10 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
-
+      
+      const tokenDest = relayWorker
+      const tokenAmount = '1'
+      const tokenGas = gasLimit
       const res = await forwarderInstance.registerRequestType(
         GsnRequestType.typeName,
         GsnRequestType.typeSuffix
@@ -75,13 +78,20 @@ contract('Utils', function (accounts) {
 
       const typeName = res.logs[0].args.typeStr
 
+      const tokenPayment = {
+        tokenDest: tokenDest,
+        paybackTokens: tokenAmount,
+        tokenGas: tokenGas
+      }
+      
       forwardRequest = {
         to: target,
         data: encodedFunction,
         from: senderAddress,
         nonce: senderNonce,
         value: '0',
-        gas: gasLimit
+        gas: gasLimit,
+        ...tokenPayment
       };
 
       anotherForwardRequest = {
@@ -113,7 +123,8 @@ contract('Utils', function (accounts) {
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
-          gas: gasLimit
+          gas: gasLimit,
+          ...tokenPayment
         },
         relayData: {
           gasPrice,

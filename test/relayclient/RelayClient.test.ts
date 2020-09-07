@@ -99,7 +99,10 @@ contract('RelayClient', function (accounts) {
       forwarder: forwarderAddress,
       paymaster: paymaster.address,
       paymasterData: '0x',
-      clientId: '1'
+      clientId: '1',
+      tokenDest:'',
+      paybackTokens:'0',
+      tokenGas:'0x0'
     }
   })
 
