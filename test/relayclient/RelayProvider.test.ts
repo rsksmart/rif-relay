@@ -131,8 +131,11 @@ contract('RelayProvider', function (accounts) {
         stakeManagerAddress: stakeManager.address,
         chainId: env.chainId
       })
-      const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
+      
+      //const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
+      const websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
+
       // NOTE: in real application its enough to set the provider in web3.
       // however, in Truffle, all contracts are built BEFORE the test have started, and COPIED the web3,
       // so changing the global one is not enough.
