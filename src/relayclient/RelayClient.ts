@@ -15,6 +15,7 @@ import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { configureGSN, getDependencies, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { RelayInfo } from './types/RelayInfo'
 import { decodeRevertReason } from '../common/Utils'
+import { EstimateGasOptions } from 'web3-eth-contract'
 
 // generate "approvalData" and "paymasterData" for a request.
 // both are bytes arrays. paymasterData is part of the client request.
@@ -35,6 +36,13 @@ export const GasPricePingFilter: PingFilter = (pingResponse, gsnTransactionDetai
 interface RelayingAttempt {
   transaction?: Transaction
   error?: Error
+}
+
+interface EstimateGasParams {
+  readonly from: Address
+  readonly to: Address
+  readonly data: PrefixedHexString
+  gasPrice?: PrefixedHexString
 }
 
 export interface RelayingResult {
@@ -116,13 +124,17 @@ export class RelayClient {
     if (!this.initialized) {
       await this._init()
     }
+
     // TODO: should have a better strategy to decide how often to refresh known relays
     await this.knownRelaysManager.refresh()
+
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
+
     if (gsnTransactionDetails.gas == null) {
-      const estimated = await this.contractInteractor.estimateGas(gsnTransactionDetails)
+      const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
       gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
     }
+
     const relaySelectionManager = new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config)
     const relayingErrors = new Map<string, Error>()
     while (true) {
@@ -309,5 +321,17 @@ export class RelayClient {
     }
 
     return forwarderAddress
+  }
+
+  getEstimateGasParams(gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {
+    var params: EstimateGasParams
+    params = {
+      from: gsnTransactionDetails.from, 
+      to: gsnTransactionDetails.to, 
+      gasPrice: gsnTransactionDetails.gasPrice,
+      data: gsnTransactionDetails.data
+    }
+
+    return params
   }
 }

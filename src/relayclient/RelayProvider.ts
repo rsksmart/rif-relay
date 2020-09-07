@@ -101,7 +101,9 @@ export class RelayProvider implements HttpProvider {
         return
       }
       if (rpcResponse == null || rpcResponse.result == null) {
-        console.error('Empty JsonRpcResponse with no error message')
+        // Commenting out this line: RSKJ replies immediatly with a null response if the transaction
+        // is still pending to be mined
+        //(console.error('Empty JsonRpcResponse with no error message')
         callback(error, rpcResponse)
         return
       }
