@@ -5,7 +5,7 @@ import { constants } from '../common/Constants'
 import RelayRequest from '../common/EIP712/RelayRequest'
 import RelayTransactionRequest from './types/RelayTransactionRequest'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
-import { Address, AsyncDataCallback, PingFilter } from './types/Aliases'
+import { Address, AsyncDataCallback, PingFilter, IntString } from './types/Aliases'
 import HttpClient from './HttpClient'
 import ContractInteractor from './ContractInteractor'
 import RelaySelectionManager from './RelaySelectionManager'
@@ -42,6 +42,10 @@ interface EstimateGasParams {
   to: Address
   data: PrefixedHexString
   gasPrice?: PrefixedHexString
+  readonly tokenDest: Address
+  readonly paybackTokens: IntString
+  readonly tokenGas: IntString
+  
 }
 
 export interface RelayingResult {
@@ -338,7 +342,10 @@ export class RelayClient {
       from: gsnTransactionDetails.from, 
       to: gsnTransactionDetails.to, 
       gasPrice: gsnTransactionDetails.gasPrice,
-      data: gsnTransactionDetails.data
+      data: gsnTransactionDetails.data,
+      tokenDest: gsnTransactionDetails.tokenDest,
+      paybackTokens: gsnTransactionDetails.paybackTokens,
+      tokenGas: gsnTransactionDetails.tokenGas
     }
 
     return params
