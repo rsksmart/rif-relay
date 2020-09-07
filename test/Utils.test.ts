@@ -176,6 +176,12 @@ contract('Utils', function (accounts) {
         }
       ]
       */
+     const tknPayment = {
+      tokenRecipient: '',
+      tokenContract: '',
+      paybackTokens: '0',
+      tokenGas: 0
+    }
       const relayRequests = [
         {
           request: {
@@ -184,7 +190,8 @@ contract('Utils', function (accounts) {
             from: '0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826',
             nonce: '0',
             value: '0',
-            gas: '500000'
+            gas: '500000',
+            ...tknPayment
           },
           relayData: {
             gasPrice: '10000000',
@@ -204,7 +211,8 @@ contract('Utils', function (accounts) {
             from: '0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826',
             nonce: '1',
             value: '0',
-            gas: '500000'
+            gas: '500000',
+            ...tknPayment
           },
           relayData: {
             gasPrice: '10000000',
