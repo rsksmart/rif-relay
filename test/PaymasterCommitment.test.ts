@@ -150,7 +150,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenDest: '',
+          tokenRecipient: '',
+          tokenContract: '',
           paybackTokens: '0',
           tokenGas: '0x0'
         },

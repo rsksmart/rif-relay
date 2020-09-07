@@ -209,7 +209,8 @@ contract('RelayServer', function (accounts) {
       paymaster: paymaster.address,
       paymasterData,
       clientId,
-      tokenDest: '',
+      tokenRecipient: '',
+      tokenContract: '',
       paybackTokens: '0',
       tokenGas: '0x0'
     }
@@ -299,7 +300,8 @@ contract('RelayServer', function (accounts) {
         pctRelayFee: relayRequest.relayData.pctRelayFee,
         relayHubAddress: rhub.address,
         forwarder: relayRequest.relayData.forwarder,
-        tokenDest: relayRequest.request.tokenDest,
+        tokenRecipient: relayRequest.request.tokenRecipient,
+        tokenContract: relayRequest.request.tokenContract,
         paybackTokens: relayRequest.request.paybackTokens,
         tokenGas: relayRequest.request.tokenGas,
         ...overrideArgs
@@ -338,7 +340,8 @@ contract('RelayServer', function (accounts) {
       gas: toHex(1e6),
       gasPrice: toHex(await _web3.eth.getGasPrice()),
       to: options.to,
-      tokenDest: options.tokenDest,
+      tokenRecipient: options.tokenRecipient,
+      tokenContract: options.tokenContract,
       paybackTokens: options.paybackTokens,
       tokenGas: options.tokenGas,
     }

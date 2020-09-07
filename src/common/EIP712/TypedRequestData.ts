@@ -24,7 +24,8 @@ const RelayDataType = [
 ]
 
 const TokenPaymentType = [
-  { name: 'tokenDest', type: 'address' },
+  { name: 'tokenRecipient', type: 'address' },
+  { name: 'tokenContract', type: 'address' },
   { name: 'paybackTokens', type: 'uint256' },
   { name: 'tokenGas', type: 'uint256' }
 ]

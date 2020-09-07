@@ -62,7 +62,8 @@ contract('AccountManager', function (accounts) {
   describe('#sign()', function () {
     accountManager.addAccount(keypair)
     const tokenRequest = {
-      tokenDest: '',
+      tokenRecipient: '',
+      tokenContract: '',
       paybackTokens: '0',
       tokenGas: '0x0',
     }
