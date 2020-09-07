@@ -45,7 +45,8 @@ contract('RelaySelectionManager', function (accounts) {
     relayInfo: eventInfo
   }
   const tokenPaymentDetails = {
-    tokenDest:'',
+    tokenRecipient:'',
+    tokenContract:'',
     paybackTokens:'0',
     tokenGas:'0x0'
   }

@@ -151,7 +151,8 @@ contract('KnownRelaysManager 2', function (accounts) {
   const contractInteractor = new ContractInteractor(
     web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
   const tokenPaymentDetails = {
-    tokenDest:'',
+    tokenRecipient:'',
+    tokenContract:'',
     paybackTokens:'0',
     tokenGas:'0x0'
   }

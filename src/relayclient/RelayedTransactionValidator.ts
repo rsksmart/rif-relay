@@ -42,7 +42,8 @@ export default class RelayedTransactionValidator {
         from: transactionJsonRequest.from,
         nonce: transactionJsonRequest.senderNonce,
         value: transactionJsonRequest.value,
-        tokenDest: transactionJsonRequest.tokenDest,
+        tokenRecipient: transactionJsonRequest.tokenRecipient,
+        tokenContract: transactionJsonRequest.tokenContract,
         paybackTokens: transactionJsonRequest.paybackTokens,
         tokenGas: transactionJsonRequest.tokenGas
       },

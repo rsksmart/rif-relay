@@ -202,7 +202,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenDest: '',
+          tokenRecipient: '',
+          tokenContract: '',
           paybackTokens: '0',
           tokenGas: '0x0'
         },

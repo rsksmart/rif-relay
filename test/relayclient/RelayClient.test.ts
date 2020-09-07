@@ -100,7 +100,8 @@ contract('RelayClient', function (accounts) {
       paymaster: paymaster.address,
       paymasterData: '0x',
       clientId: '1',
-      tokenDest:'',
+      tokenRecipient:'',
+      tokenContract:'',
       paybackTokens:'0',
       tokenGas:'0x0'
     }

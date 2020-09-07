@@ -20,7 +20,8 @@ export default interface TmpRelayTransactionJsonRequest {
   baseRelayFee: IntString
   pctRelayFee: IntString
   relayHubAddress: Address
-  tokenDest: Address
+  tokenRecipient: Address
+  tokenContract: Address
   paybackTokens: IntString
   tokenGas: IntString
 }

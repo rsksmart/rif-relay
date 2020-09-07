@@ -8,7 +8,8 @@ export default interface ForwardRequest {
   value: IntString
   nonce: IntString
   gas: IntString
-  tokenDest: Address
+  tokenRecipient: Address
+  tokenContract: Address
   paybackTokens: IntString
   tokenGas: IntString
 }
