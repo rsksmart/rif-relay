@@ -10,8 +10,7 @@ import "../utils/GsnUtils.sol";
 contract Forwarder is IForwarder {
     using ECDSA for bytes32;
 
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data";
-
+    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas";
     mapping(bytes32 => bool) public typeHashes;
 
     // Nonces of senders, used to prevent replay attacks

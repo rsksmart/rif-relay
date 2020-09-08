@@ -51,7 +51,7 @@ const ForwardRequestType = [
 ]
 
 contract('Forwarder', ([from]) => {
-  const GENERIC_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data'
+  const GENERIC_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas'
   // our generic params has 6 bytes32 values
   const countParams = ForwardRequestType.length
 
@@ -111,8 +111,8 @@ contract('Forwarder', ([from]) => {
       const dummyDomainSeparator = bytes32(1)
 
       const tknPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: addr(2),
+        tokenContract: addr(3),
         paybackTokens: '0',
         tokenGas: 0
       }
@@ -141,8 +141,8 @@ contract('Forwarder', ([from]) => {
     })
     describe('#verify success', () => {
       const tknPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: addr(2),
+        tokenContract: addr(3),
         paybackTokens: '0',
         tokenGas: 0
       }
@@ -198,8 +198,8 @@ contract('Forwarder', ([from]) => {
         ]
 
         const tknPayment = {
-          tokenRecipient: '',
-          tokenContract: '',
+          tokenRecipient: addr(2),
+          tokenContract: addr(3),
           paybackTokens: '0',
           tokenGas: 0
         }
@@ -290,8 +290,8 @@ contract('Forwarder', ([from]) => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       // const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: addr(2),
+        tokenContract: addr(3),
         paybackTokens: '0',
         tokenGas: 0
       }
@@ -315,15 +315,15 @@ contract('Forwarder', ([from]) => {
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
       assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
-      assert.equal('1', (await fwd.getNonce(senderAddress)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal('2', (await fwd.getNonce(senderAddress)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
-        paybackTokens: '0',
+        tokenRecipient: addr(2),
+        tokenContract: addr(3),
+        paybackTokens: '0', 
         tokenGas: 0
       }
       const req1 = {
@@ -345,8 +345,8 @@ contract('Forwarder', ([from]) => {
     it('should not be able to re-submit after revert (its repeated nonce)', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: addr(2),
+        tokenContract: addr(3),
         paybackTokens: '0',
         tokenGas: 0
       }
@@ -383,8 +383,8 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: '',
-          tokenContract: '',
+          tokenRecipient: addr(2),
+          tokenContract: addr(3),
           paybackTokens: '0',
           tokenGas: 0
         }
@@ -407,8 +407,8 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: '',
-          tokenContract: '',
+          tokenRecipient: addr(2),
+          tokenContract: addr(3),
           paybackTokens: '0',
           tokenGas: 0
         }
@@ -431,8 +431,8 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: '',
-          tokenContract: '',
+          tokenRecipient: addr(2),
+          tokenContract: addr(3),
           paybackTokens: '0',
           tokenGas: 0
         }
@@ -462,8 +462,8 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: '',
-          tokenContract: '',
+          tokenRecipient: addr(2),
+          tokenContract: addr(3),
           paybackTokens: '0',
           tokenGas: 0
         }
