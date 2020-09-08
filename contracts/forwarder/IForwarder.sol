@@ -55,7 +55,7 @@ interface IForwarder {
         bytes calldata signature
     )
     external payable
-    returns (bool success, bytes memory ret);
+    returns (bool success, bytes memory ret, uint256 lastTxSucc);
 
     /**
      * Register a new Request typehash.

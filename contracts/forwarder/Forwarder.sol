@@ -52,7 +52,7 @@ contract Forwarder is IForwarder {
     )
     external payable
     override
-    returns (bool success, bytes memory ret) {
+    returns (bool success, bytes memory ret, uint256 lastTxSucc) {
         
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
@@ -64,19 +64,24 @@ contract Forwarder is IForwarder {
         );
         
         if (!success){
-            //re-throw the revert with the same revert reason.
-            GsnUtils.revertWithData(ret);
+            return (success,ret, 0);
         }
         
         _updateNonce(req);
 
         // solhint-disable-next-line avoid-low-level-calls
         (success,ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
+        
         if ( address(this).balance>0 ) {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(req.from).transfer(address(this).balance);
         }
-        return (success,ret);
+
+        if (!success) {
+            return (success, ret, 1);
+        }
+
+        return (success,ret, 2);
     }
 
 

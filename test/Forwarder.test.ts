@@ -1,17 +1,19 @@
 import {
   ForwarderInstance,
   TestForwarderInstance,
-  TestForwarderTargetInstance
+  TestForwarderTargetInstance,
+  TestTokenInstance
 } from '../types/truffle-contracts'
 // @ts-ignore
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from 'eth-sig-util'
-import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
+import { bufferToHex, privateToAddress, toBuffer, BN } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 
 const Forwarder = artifacts.require('Forwarder')
+const TestToken = artifacts.require('TestToken')
 const TestForwarder = artifacts.require('TestForwarder')
 
 const keccak256 = web3.utils.keccak256
@@ -56,11 +58,12 @@ contract('Forwarder', ([from]) => {
   const countParams = ForwardRequestType.length
 
   let fwd: ForwarderInstance
-
+  let token: TestTokenInstance
   const senderPrivateKey = toBuffer(bytes32(1))
   const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
 
   before(async () => {
+    token = await TestToken.new()
     fwd = await Forwarder.new()
     assert.equal(await fwd.GENERIC_PARAMS(), GENERIC_PARAMS)
   })
@@ -106,26 +109,32 @@ contract('Forwarder', ([from]) => {
   describe('#verify', () => {
     const typeName = `ForwardRequest(${GENERIC_PARAMS})`
     const typeHash = keccak256(typeName)
-
+    
+    beforeEach(async () => {
+      assert.equal(await fwd.GENERIC_PARAMS(), GENERIC_PARAMS)
+    })
     describe('#verify failures', () => {
       const dummyDomainSeparator = bytes32(1)
-
-      const tknPayment = {
-        tokenRecipient: addr(2),
-        tokenContract: addr(3),
-        paybackTokens: '0',
-        tokenGas: 0
-      }
-
-      const req = {
-        to: addr(1),
-        data: '0x',
-        from: senderAddress,
-        value: '0',
-        nonce: 0,
-        gas: 123,
-        ...tknPayment
-      }
+      let tknPayment
+      let req : any
+      before(() => {
+        tknPayment = {
+          tokenRecipient: addr(2),
+          tokenContract: token.address,
+          paybackTokens: '0',
+          tokenGas: 1e6
+        }
+  
+        req = {
+          to: addr(1),
+          data: '0x',
+          from: senderAddress,
+          value: '0',
+          nonce: 0,
+          gas: 123,
+          ...tknPayment
+        }
+      })
 
       it('should fail on wrong nonce', async () => {
         await expectRevert(fwd.verify({
@@ -140,26 +149,29 @@ contract('Forwarder', ([from]) => {
       })
     })
     describe('#verify success', () => {
-      const tknPayment = {
-        tokenRecipient: addr(2),
-        tokenContract: addr(3),
-        paybackTokens: '0',
-        tokenGas: 0
-      }
-
-      const req = {
-        to: addr(1),
-        data: '0x',
-        value: '0',
-        from: senderAddress,
-        nonce: 0,
-        gas: 123,
-        ...tknPayment
-      }
 
       let data: EIP712TypedData
+      let tknPayment
+      let req : any
 
       before(() => {
+        tknPayment = {
+          tokenRecipient: addr(1),
+          tokenContract: token.address,
+          paybackTokens: '0',
+          tokenGas: 1e6
+        }
+  
+        req = {
+          to: addr(1),
+          data: '0x',
+          value: '0',
+          from: senderAddress,
+          nonce: 0,
+          gas: 123,
+          ...tknPayment
+        }
+
         data = {
           domain: {
             name: 'Test Domain',
@@ -199,9 +211,9 @@ contract('Forwarder', ([from]) => {
 
         const tknPayment = {
           tokenRecipient: addr(2),
-          tokenContract: addr(3),
+          tokenContract: token.address,
           paybackTokens: '0',
-          tokenGas: 0
+          tokenGas: 1e6
         }
 
         const extendedReq = {
@@ -256,11 +268,13 @@ contract('Forwarder', ([from]) => {
     let recipient: TestForwarderTargetInstance
     let testfwd: TestForwarderInstance
     let domainSeparator: string
+    let tokensPaid : number
 
     before(async () => {
       typeName = `ForwardRequest(${GENERIC_PARAMS})`
       typeHash = web3.utils.keccak256(typeName)
       await fwd.registerRequestType('TestCall', '')
+      tokensPaid = 1
       data = {
         domain: {
           name: 'Test Domain',
@@ -280,20 +294,53 @@ contract('Forwarder', ([from]) => {
       assert.equal(calcType, typeName)
       const calcTypeHash = bufferToHex(TypedDataUtils.hashType('ForwardRequest', data.types))
       assert.equal(calcTypeHash, typeHash)
-      recipient = await TestForwarderTarget.new(fwd.address)
       testfwd = await TestForwarder.new()
 
       domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
     })
 
+    beforeEach(async () => {
+      recipient = await TestForwarderTarget.new(fwd.address)
+      await token.mint('1000', fwd.address)
+    })
+
+    it.only('should return revert message of token payment revert', async () => {
+      const func = recipient.contract.methods.testRevert().encodeABI()
+      const tknPayment = {
+        tokenRecipient: recipient.address,
+        tokenContract: token.address,
+        paybackTokens: '1001', 
+        tokenGas: 1e6
+      }
+      const req1 = {
+        to: recipient.address,
+        data: func,
+        value: '0',
+        from: senderAddress,
+        nonce: (await fwd.getNonce(senderAddress)).toString(),
+        gas: 1e6,
+        ...tknPayment
+      }
+      const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
+
+      // the helper simply emits the method return values
+      const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig)
+
+      const tknBalance = await token.balanceOf(recipient.address)
+      assert.isTrue(new BN(0).eq(tknBalance))
+
+      assert.equal(ret.logs[0].args.success, false)
+      assert.equal(ret.logs[0].args.lastTxSucc, 0)
+      assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
+    })
+
     it('should call function', async () => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-      // const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
-        tokenRecipient: addr(2),
-        tokenContract: addr(3),
-        paybackTokens: '0',
-        tokenGas: 0
+        tokenRecipient: recipient.address,
+        tokenContract: token.address,
+        paybackTokens: tokensPaid.toString(),
+        tokenGas: 1e6
       }
 
       const req1 = {
@@ -311,6 +358,9 @@ contract('Forwarder', ([from]) => {
       // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
       // declared in solidity
       await fwd.execute(req1, bufferToHex(domainSeparator), typeHash, '0x', sig)
+
+      const tknBalance = await token.balanceOf(recipient.address)
+      assert.isTrue(new BN(tokensPaid).eq(tknBalance))
       // @ts-ignore
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
@@ -321,10 +371,10 @@ contract('Forwarder', ([from]) => {
     it('should return revert message of target revert', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
-        tokenRecipient: addr(2),
-        tokenContract: addr(3),
-        paybackTokens: '0', 
-        tokenGas: 0
+        tokenRecipient: recipient.address,
+        tokenContract: token.address,
+        paybackTokens: tokensPaid.toString(), 
+        tokenGas: 1e6
       }
       const req1 = {
         to: recipient.address,
@@ -339,6 +389,12 @@ contract('Forwarder', ([from]) => {
 
       // the helper simply emits the method return values
       const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig)
+
+      const tknBalance = await token.balanceOf(recipient.address)
+      assert.isTrue(new BN(tokensPaid).eq(tknBalance))
+
+      assert.equal(ret.logs[0].args.success, false)
+      assert.equal(ret.logs[0].args.lastTxSucc, 1)
       assert.equal(ret.logs[0].args.error, 'always fail')
     })
 
@@ -346,9 +402,9 @@ contract('Forwarder', ([from]) => {
       const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
         tokenRecipient: addr(2),
-        tokenContract: addr(3),
+        tokenContract: token.address,
         paybackTokens: '0',
-        tokenGas: 0
+        tokenGas: 1e6
       }
       const req1 = {
         to: recipient.address,
@@ -369,11 +425,13 @@ contract('Forwarder', ([from]) => {
       await expectRevert.unspecified(testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig), 'nonce mismatch')
     })
 
-    describe('value transfer', () => {
+    describe('value transfer', async () => {
       let recipient: TestForwarderTargetInstance
+      let tokensPaid = 1;
 
       beforeEach(async () => {
         recipient = await TestForwarderTarget.new(fwd.address)
+        await token.mint('1000', fwd.address)
       })
       afterEach('should not leave funds in the forwarder', async () => {
         assert.equal(await web3.eth.getBalance(fwd.address), '0')
@@ -383,10 +441,10 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: addr(2),
-          tokenContract: addr(3),
-          paybackTokens: '0',
-          tokenGas: 0
+          tokenRecipient: recipient.address,
+          tokenContract: token.address,
+          paybackTokens: tokensPaid.toString(),
+          tokenGas: 1e6
         }
         const req1 = {
           to: recipient.address,
@@ -401,16 +459,20 @@ contract('Forwarder', ([from]) => {
 
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig)
         assert.equal(ret.logs[0].args.success, false)
+        assert.equal(ret.logs[0].args.lastTxSucc, 1)
+
+        const tknBalance = await token.balanceOf(recipient.address)
+        assert.isTrue(new BN(tokensPaid).eq(tknBalance))
       })
 
       it('should fail to forward request if value specified but not enough not provided', async () => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: addr(2),
-          tokenContract: addr(3),
-          paybackTokens: '0',
-          tokenGas: 0
+          tokenRecipient: recipient.address,
+          tokenContract: token.address,
+          paybackTokens: tokensPaid.toString(),
+          tokenGas: 1e6
         }
         const req1 = {
           to: recipient.address,
@@ -425,16 +487,20 @@ contract('Forwarder', ([from]) => {
 
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig, { value })
         assert.equal(ret.logs[0].args.success, false)
+        assert.equal(ret.logs[0].args.lastTxSucc, 1)
+
+        const tknBalance = await token.balanceOf(recipient.address)
+        assert.isTrue(new BN(tokensPaid).eq(tknBalance))
       })
 
       it('should forward request with value', async () => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: addr(2),
-          tokenContract: addr(3),
-          paybackTokens: '0',
-          tokenGas: 0
+          tokenRecipient: recipient.address,
+          tokenContract: token.address,
+          paybackTokens: tokensPaid.toString(),
+          tokenGas: 1e6
         }
         // value = ether('0');
         const req1 = {
@@ -449,8 +515,13 @@ contract('Forwarder', ([from]) => {
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig, { value })
-        assert.equal(ret.logs[0].args.error, '')
+
+        assert. equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
+        assert.equal(ret.logs[0].args.lastTxSucc, 2)
+
+        const tknBalance = await token.balanceOf(recipient.address)
+        assert.isTrue(new BN(tokensPaid).eq(tknBalance))
 
         assert.equal(await web3.eth.getBalance(recipient.address), value.toString())
       })
@@ -462,12 +533,11 @@ contract('Forwarder', ([from]) => {
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
         const tknPayment = {
-          tokenRecipient: addr(2),
-          tokenContract: addr(3),
-          paybackTokens: '0',
-          tokenGas: 0
+          tokenRecipient: recipient.address,
+          tokenContract: token.address,
+          paybackTokens: tokensPaid.toString(),
+          tokenGas: 1e6
         }
-        // value = ether('0');
         const req1 = {
           to: recipient.address,
           data: func,
@@ -483,12 +553,13 @@ contract('Forwarder', ([from]) => {
         await web3.eth.sendTransaction({ from, to: fwd.address, value: extraFunds })
 
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-
         // note: not transfering value in TX.
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig)
         assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
-
+        assert.equal(ret.logs[0].args.lastTxSucc, 2)
+        const tknBalance = await token.balanceOf(recipient.address)
+        assert.isTrue(new BN(tokensPaid).eq(tknBalance))
         assert.equal(await web3.eth.getBalance(senderAddress), extraFunds.sub(value).toString())
       })
     })
