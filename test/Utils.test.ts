@@ -149,7 +149,7 @@ contract('Utils', function (accounts) {
 
 
 
-    it.only("Signs typed data with multiple relay requests", async () => {
+    it("Signs typed data with multiple relay requests", async () => {
       /*
       const relayRequests = [
         {

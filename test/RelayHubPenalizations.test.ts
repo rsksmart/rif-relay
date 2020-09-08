@@ -146,15 +146,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const stake = stakeInfo.stake
       const expectedReward = stake.divn(2)
 
-      console.log('*** PENALIZING')
-
       // A gas price of zero makes checking the balance difference simpler
       const receipt = await penalizeWithOpts({
         from: reporter,
         gasPrice: 0
       })
-
-      console.log('*** PENALIZING DONE')
 
       expectEvent.inLogs(receipt.logs, 'StakePenalized', {
         relayManager: relayManager,
@@ -218,9 +214,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         it('penalizes transactions with same nonce and different data', async function () {
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(Object.assign({}, encodedCallArgs, { data: '0xabcd' }), relayCallArgs, chainId), chainId)
-          
-          console.log('*** HERE')
-          console.log(JSON.stringify(txDataSigA))
           
           await expectPenalization(async (opts) =>
             await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts)
@@ -482,9 +475,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           }
         }
       const encodedCall = relayHub.contract.methods.relayCall(relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
-
-      console.log(`>>>> Chain ID = ${chainId}`)
       
+      //TODO: fix this, for now we are passing istanbul as an RSK hardwfork.
       let common
       if (isRsk(env)) {
         common = new Common({
@@ -564,13 +556,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       }
       let v = tx.v[0]
 
-      console.log(`Original v = ${v}`)
-
       if (v > 28) {
         v -= chainId * 2 + 8
       }
-
-      console.log(`ChainId = ${chainId}, v = ${v}`)
 
       const data = `0x${encode(input).toString('hex')}`
       const signature = `0x${'00'.repeat(32 - tx.r.length) + tx.r.toString('hex')}${'00'.repeat(

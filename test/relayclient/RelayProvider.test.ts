@@ -131,7 +131,7 @@ contract('RelayProvider', function (accounts) {
         stakeManagerAddress: stakeManager.address,
         chainId: env.chainId
       })
-      
+
       //const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       const websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
@@ -142,7 +142,7 @@ contract('RelayProvider', function (accounts) {
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
     })
-    it.only('should relay transparently', async function () {
+    it('should relay transparently', async function () {
       const res = await testRecipient.emitMessage('hello world', {
         from: gasLess,
         forceGasPrice: '0x51f4d5c00',
