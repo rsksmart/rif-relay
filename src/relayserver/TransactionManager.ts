@@ -163,7 +163,8 @@ export class TransactionManager {
       }
       if (receipt.blockNumber == null) {
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
-        throw new Error(`invalid block number in receipt ${receipt.toString()}`)
+        //throw new Error(`invalid block number in receipt ${receipt.toString()}`)
+        continue
       }
       const txBlockNumber = receipt.blockNumber
       const confirmations = blockNumber - txBlockNumber
