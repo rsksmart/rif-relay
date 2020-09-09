@@ -153,8 +153,8 @@ contract('Utils', function (accounts) {
     */
 
 
-
-    it("Signs typed data with multiple relay requests", async () => {
+    //SKIPPED: RSK WIP to support multiple relay requests in a single relay
+    it.skip("Signs typed data with multiple relay requests", async () => {
       /*
       const relayRequests = [
         {
