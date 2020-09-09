@@ -180,15 +180,12 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         paymaster: ''
       }
 
-      // RSK requires a new private key
-      const privateKey = '88fcad7d65de4bf854b88191df9bf38648545e7e5ea367dff6e025b06a28244d'
-      // '6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c'
-
+      // RSK requires a different relay's private key, original was '6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c'
       const relayCallArgs = {
         gasPrice: 50,
         gasLimit: 1000000,
         nonce: 0,
-        privateKey
+        privateKey: '88fcad7d65de4bf854b88191df9bf38648545e7e5ea367dff6e025b06a28244d' // RSK relay's private key
       }
 
       before(async function () {
@@ -196,8 +193,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         // private key is not what's defined in relayCallArgs.privateKey
         // in the RSK case.
         // @ts-ignore
-        expect( '0x' + privateToAddress('0x' + relayCallArgs.privateKey).toString('hex'))
-            .to.equal(relayWorker.toLowerCase())
+        expect( '0x' + privateToAddress('0x' + relayCallArgs.privateKey).toString('hex')).to.equal(relayWorker.toLowerCase())
         // TODO: I don't want to refactor everything here, but this value is not available before 'before' is run :-(
         encodedCallArgs.paymaster = paymaster.address
       })
@@ -280,6 +276,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
       describe('illegal call', function () {
         // TODO: this tests are excessive, and have a lot of tedious build-up
+        // TODO: re-enable
         it.skip('penalizes relay transactions to addresses other than RelayHub', async function () {
           // Relay sending ether to another account
           const { transactionHash } = await send.ether(relayWorker, other, ether('0.5'))
@@ -299,6 +296,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts))
         })
 
+        // TODO: re-enable
         it.skip('penalizes relay worker transactions to illegal RelayHub functions (penalize)', async function () {
           // A second relay is registered
           await stakeManager.stakeForAddress(otherRelayManager, 1000, {
@@ -329,7 +327,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             from: other,
             value: ether('1')
           })
-          const relayCallTx = await relayHub.relayCall(relayRequest, signature, '0x', gasLimit.add(new BN(2e6)), {
+          const relayCallTx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gasLimit.add(new BN(2e6)), {
             from: relayWorker,
             gas: gasLimit.add(new BN(1e6)),
             gasPrice
@@ -384,7 +382,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             value: ether('1')
           })
           const externalGasLimit = gasLimit.add(new BN(1e6))
-          const relayCallTx = await relayHub.relayCall(relayRequest, signature, '0x', externalGasLimit, {
+          const relayCallTx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
             from: relayWorker,
             gas: externalGasLimit,
             gasPrice
@@ -437,6 +435,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             await relayHub.addRelayWorkers([thirdRelayWorker], { from: relayManager })
           })
 
+          // TODO enable these tests
           it.skip('relay can be penalized', async function () {
             await penalize()
           })
@@ -474,7 +473,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             clientId
           }
         }
-      const encodedCall = relayHub.contract.methods.relayCall(relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
+      const encodedCall = relayHub.contract.methods.relayCall(10e6, relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
       
       //TODO: fix this, for now we are passing istanbul as an RSK hardwfork.
       let common
@@ -546,7 +545,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     function getDataAndSignature (tx: Transaction, chainId: number): { data: string, signature: string } {
       const input = [tx.nonce, tx.gasPrice, tx.gasLimit, tx.to, tx.value, tx.data]
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-
       if (chainId) {
         input.push(
           toBuffer(chainId),
@@ -555,11 +553,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         )
       }
       let v = tx.v[0]
-
       if (v > 28) {
         v -= chainId * 2 + 8
       }
-
       const data = `0x${encode(input).toString('hex')}`
       const signature = `0x${'00'.repeat(32 - tx.r.length) + tx.r.toString('hex')}${'00'.repeat(
         32 - tx.s.length) + tx.s.toString('hex')}${v.toString(16)}`

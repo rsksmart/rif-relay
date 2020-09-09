@@ -153,7 +153,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       async function () {
         const magicCosts = isRsk(env)? magicNumbers.rsk : magicNumbers.istanbul
         const transactionGasLimit = gasLimit.mul(new BN(3))
-        const res = await relayHub.relayCall(relayRequest, signature, '0x', transactionGasLimit, {
+        const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', transactionGasLimit, {
           from: relayWorker,
           gas: transactionGasLimit.toString(),
           gasPrice
@@ -194,7 +194,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       }, { from: relayHub.address })) - 21000
 
       const externalGasLimit = 5e6
-      const tx = await relayHub.relayCall(relayRequest, signature, '0x', externalGasLimit, {
+      const tx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
         from: relayWorker,
         gas: externalGasLimit.toString(),
         gasPrice
@@ -239,23 +239,20 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         web3,
         dataToSign
       )
-
       const viewRelayCallResponse =
         await relayHub.contract.methods
-          .relayCall(relayRequestMisbehaving, signature, '0x', externalGasLimit)
+          .relayCall(10e6, relayRequestMisbehaving, signature, '0x', externalGasLimit)
           .call({
             from: relayRequestMisbehaving.relayData.relayWorker,
-            gas: externalGasLimit,
-            gasPrice
+            gas: externalGasLimit
           })
-
       assert.equal(viewRelayCallResponse[0], false)
       assert.equal(viewRelayCallResponse[1], null) // no revert string on out-of-gas
 
-      const res = await relayHub.relayCall(relayRequestMisbehaving, signature, '0x', externalGasLimit, {
+      const res = await relayHub.relayCall(10e6, relayRequestMisbehaving, signature, '0x', externalGasLimit, {
         from: relayWorker,
         gas: externalGasLimit,
-        gasPrice
+        gasPrice: gasPrice
       })
 
       assert.equal('TransactionRejectedByPaymaster', res.logs[0].event)
@@ -308,7 +305,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   context('charge calculation should not depend on return/revert value of request', () => {
     [[true, 0], [true, 20], [false, 0], [false, 50]]
       .forEach(([doRevert, len, b]) => {
-        it.skip(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
+        it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
           const beforeBalances = getBalances()
           const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
           let encodedFunction
@@ -346,7 +343,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             web3,
             dataToSign
           )
-          const res = await relayHub.relayCall(relayRequest, signature, '0x', externalGasLimit, {
+          const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
             from: relayWorker,
             gas: externalGasLimit,
             gasPrice: gasPrice
@@ -355,7 +352,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           if (len === 0) {
             assert.equal(resultEvent, null, 'should not get TransactionResult with zero len')
           } else {
-            assert.notEqual(resultEvent, null, 'didn\'t get TransactionResult where it should.')
+            assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
           const gasUsed = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
@@ -412,7 +409,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                 web3,
                 dataToSign
               )
-              const res = await relayHub.relayCall(relayRequest, signature, '0x', externalGasLimit, {
+              const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
                 from: relayWorker,
                 gas: externalGasLimit,
                 gasPrice: gasPrice
@@ -431,7 +428,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                 logOverhead(weiActualCharge, workerWeiGasUsed)
               }
 
-              // ppedemon
+              // TODO ppedemon
               // For some reason, asserts are failing for the [0, 0] case in RSK...
               if (requestedFee !== 0 && messageLength !== 0) {
                 // sanity: worker executed and paid this tx

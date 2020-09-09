@@ -36,7 +36,6 @@ library GsnEip712Library {
     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256(RELAY_REQUEST_TYPE);
     bytes32 public constant MULTI_RELAY_REQUEST_TYPEHASH = keccak256(MULTI_RELAY_REQUEST_TYPE);
 
-
     struct EIP712Domain {
         string name;
         string version;

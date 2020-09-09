@@ -14,7 +14,6 @@ GitHub: https://github.com/opengsn/metacoin
 
 https://docs.opengsn.org/
 
-
 ## How to use (from the project's root directory)
 
 - yarn install

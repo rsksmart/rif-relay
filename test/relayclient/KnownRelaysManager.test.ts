@@ -120,29 +120,30 @@ contract('KnownRelaysManager', function (
       await relayHub.addRelayWorkers([workerRelayWorkersAdded], {
         from: activeRelayWorkersAdded
       })
-      await relayHub.relayCall(txTransactionRelayed.relayRequest, txTransactionRelayed.signature, '0x', gas, {
+      await relayHub.relayCall(10e6, txTransactionRelayed.relayRequest, txTransactionRelayed.signature, '0x', gas, {
         from: workerTransactionRelayed,
         gas,
         gasPrice: txTransactionRelayed.relayRequest.relayData.gasPrice
       })
       await paymaster.setReturnInvalidErrorCode(true)
-      await relayHub.relayCall(txPaymasterRejected.relayRequest, txPaymasterRejected.signature, '0x', gas, {
+      await relayHub.relayCall(10e6, txPaymasterRejected.relayRequest, txPaymasterRejected.signature, '0x', gas, {
         from: workerPaymasterRejected,
         gas,
         gasPrice: txPaymasterRejected.relayRequest.relayData.gasPrice
       })
     })
 
-    it('should contain all relay managers only if their workers were active in the last \'relayLookupWindowBlocks\' blocks', async function () {
-      const knownRelaysManager = new KnownRelaysManager(contractInteractor, config)
-      const res = await knownRelaysManager._fetchRecentlyActiveRelayManagers()
-      const actual = Array.from(res.values())
-      assert.equal(actual.length, 4)
-      assert.equal(actual[0], activeRelayServerRegistered)
-      assert.equal(actual[1], activeRelayWorkersAdded)
-      assert.equal(actual[2], activeTransactionRelayed)
-      assert.equal(actual[3], activePaymasterRejected)
-    })
+    it('should contain all relay managers only if their workers were active in the last \'relayLookupWindowBlocks\' blocks',
+      async function () {
+        const knownRelaysManager = new KnownRelaysManager(contractInteractor, config)
+        const res = await knownRelaysManager._fetchRecentlyActiveRelayManagers()
+        const actual = Array.from(res.values())
+        assert.equal(actual.length, 4)
+        assert.equal(actual[0], activeRelayServerRegistered)
+        assert.equal(actual[1], activeRelayWorkersAdded)
+        assert.equal(actual[2], activeTransactionRelayed)
+        assert.equal(actual[3], activePaymasterRejected)
+      })
   })
 })
 
@@ -311,14 +312,25 @@ contract('KnownRelaysManager 2', function (accounts) {
         relayUrl: 'joe',
         baseRelayFee: '100',
         pctRelayFee: '5'
+      }, {
+        relayManager: accounts[1],
+        relayUrl: 'joe',
+        baseRelayFee: '10',
+        pctRelayFee: '4'
       }]]
       sinon.stub(knownRelaysManager, 'knownRelays').value(activeRelays)
     })
 
     it('should use provided score calculation method to sort the known relays', async function () {
-      const sortedRelays = await knownRelaysManager.getRelaysSortedForTransaction(transactionDetails)
+      const sortedRelays = (await knownRelaysManager.getRelaysSortedForTransaction(transactionDetails)) as RelayRegisteredEventInfo[][]
       assert.equal(sortedRelays[1][0].relayUrl, 'alex')
+      // checking the relayers are sorted AND they cannot overshadow each other's url
       assert.equal(sortedRelays[1][1].relayUrl, 'joe')
+      assert.equal(sortedRelays[1][1].baseRelayFee, '100')
+      assert.equal(sortedRelays[1][1].pctRelayFee, '5')
+      assert.equal(sortedRelays[1][2].relayUrl, 'joe')
+      assert.equal(sortedRelays[1][2].baseRelayFee, '10')
+      assert.equal(sortedRelays[1][2].pctRelayFee, '4')
     })
   })
 })

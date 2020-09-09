@@ -32,7 +32,9 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['*.test.js', '*.test.ts'],
+      files: [
+        './test/**/*.ts'
+      ],
       rules: {
         'no-unused-expressions': 'off',
         // chai assertions trigger this rule
@@ -51,6 +53,7 @@ module.exports = {
           {
             allowNumber: true,
             allowBoolean: true,
+            allowNullish: true,
             allowNullable: true
           }
         ]

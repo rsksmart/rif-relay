@@ -5,7 +5,7 @@
 // the entire 'contract' test is doubled. all tests titles are prefixed by either "Direct:" or "Relay:"
 
 import { RelayProvider } from '../src/relayclient/RelayProvider'
-import { Address } from '../src/relayclient/types/Aliases'
+import { Address, AsyncDataCallback } from '../src/relayclient/types/Aliases'
 import {
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
@@ -14,9 +14,7 @@ import {
 import { deployHub, startRelay, stopRelay, getTestingEnvironment } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
-import { PrefixedHexString } from 'ethereumjs-tx'
 import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
-import { environments, defaultEnvironment } from '../src/common/Environments'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -148,9 +146,8 @@ options.forEach(params => {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         assert.ok(ex == null, `should succeed sending gasless transaction through relay. got: ${ex?.toString()}`)
       } else {
-        assert.ok(ex != null, `should fail sending gasless transaction with no relay`)
         // eslint-disable-next-line @typescript-eslint/no-base-to-string,@typescript-eslint/restrict-template-expressions
-        //assert.ok(ex!.toString().indexOf('funds') > 0, `Expected Error with 'funds'. got: ${ex?.toString()}`)
+        assert.ok(ex!.toString().indexOf('funds') > 0, `Expected Error with 'funds'. got: ${ex?.toString()}`)
       }
     })
     it(params.title + 'running testRevert (should always fail)', async () => {
@@ -161,28 +158,33 @@ options.forEach(params => {
 
     if (params.relay) {
       let approvalPaymaster: TestPaymasterPreconfiguredApprovalInstance
+      let relayProvider: RelayProvider
 
       describe('request with approvaldata', () => {
-        let approvalData: PrefixedHexString
         before(async function () {
           approvalPaymaster = await TestPaymasterPreconfiguredApproval.new()
           await approvalPaymaster.setRelayHub(rhub.address)
           await approvalPaymaster.setTrustedForwarder(await sr.getTrustedForwarder())
           await rhub.depositFor(approvalPaymaster.address, { value: (1e18).toString() })
+        })
 
-          const relayProvider =
+        const setRecipientProvider = function (asyncApprovalData: AsyncDataCallback): void {
+          relayProvider =
             // @ts-ignore
             new RelayProvider(web3.currentProvider,
-              relayClientConfig, { asyncApprovalData: async () => await Promise.resolve(approvalData) })
+              relayClientConfig, { asyncApprovalData })
           TestRecipient.web3.setProvider(relayProvider)
-        })
+        }
 
         it(params.title + 'wait for specific approvalData', async () => {
           try {
             await approvalPaymaster.setExpectedApprovalData('0x414243', {
               from: accounts[0],
+              useGSN: false
             })
-            approvalData = '0x414243'
+
+            setRecipientProvider(async () => await Promise.resolve('0x414243'))
+
             await sr.emitMessage('xxx', {
               from: gasless,
               paymaster: approvalPaymaster.address
@@ -193,8 +195,19 @@ options.forEach(params => {
           } finally {
             await approvalPaymaster.setExpectedApprovalData('0x', {
               from: accounts[0],
+              useGSN: false
             })
           }
+        })
+
+        it(params.title + 'fail if asyncApprovalData throws', async () => {
+          setRecipientProvider(() => { throw new Error('approval-exception') })
+          await asyncShouldThrow(async () => {
+            await sr.emitMessage('xxx', {
+              from: gasless,
+              paymaster: approvalPaymaster.address
+            })
+          }, 'Error: approval-exception')
         })
 
         it(params.title + 'fail on no approval data', async () => {
@@ -202,9 +215,11 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
               from: accounts[0],
+              useGSN: false
             })
             await asyncShouldThrow(async () => {
-              approvalData = '0x'
+              setRecipientProvider(async () => await Promise.resolve('0x'))
+
               await sr.emitMessage('xxx', {
                 from: gasless,
                 paymaster: approvalPaymaster.address
@@ -217,6 +232,7 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
               from: accounts[0],
+              useGSN: false
             })
           }
         })

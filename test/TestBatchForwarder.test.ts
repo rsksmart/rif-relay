@@ -110,7 +110,7 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
         dataToSign
       )
 
-      const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+      const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
         from: relayWorker
       })
 
@@ -146,7 +146,7 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
         dataToSign
       )
 
-      const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+      const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
         from: relayWorker
       })
       const expectedReturnValue = encodeRevertReason('always fail')
@@ -177,7 +177,7 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
         dataToSign
       )
 
-      const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+      const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
         from: relayWorker
       })
       expectEvent(ret, 'TransactionRelayed', { status: '1' })
