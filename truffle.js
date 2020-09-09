@@ -66,7 +66,14 @@ module.exports = {
     }
   },
   mocha: {
-    slow: 1000
+    slow: 1000,
+    reporter: 'eth-gas-reporter',
+    reporterOptions: {
+      currency: 'USD',
+      onlyCalledMethods: true,
+      showTimeSpent: true,
+      excludeContracts: []
+    }
   },
   compilers: {
     solc: {
