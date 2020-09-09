@@ -60,7 +60,7 @@ contract('Forwarder', ([from]) => {
   describe('#registerRequestType', () => {
     it('should fail to register with invalid name', async () => {
       // this is an example of a typename that attempt to add a new field at the beginning.
-      await expectRevert(fwd.registerRequestType('asd(uint a,Request asd)Request(', ')'), 'invalid typename')
+      await expectRevert.unspecified(fwd.registerRequestType('asd(uint a,Request asd)Request(', ')'), 'invalid typename')
     })
 
     it('should have a registered default type with no extra params', async () => {
@@ -115,12 +115,12 @@ contract('Forwarder', ([from]) => {
         await expectRevert(fwd.verify({
           ...req,
           nonce: 123
-        }, dummyDomainSeparator, typeHash, '0x', '0x'), 'revert nonce mismatch')
+        }, dummyDomainSeparator, typeHash, '0x', '0x'), 'VM execution error: nonce mismatch')
       })
       it('should fail on invalid signature', async () => {
-        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x'), 'invalid signature length')
-        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x123456'), 'invalid signature length')
-        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x' + '1b'.repeat(65)), 'signature mismatch')
+        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x'), 'Returned error: VM execution error: ECDSA: invalid signature length')
+        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x123456'), 'Returned error: VM execution error: ECDSA: invalid signature length')
+        await expectRevert(fwd.verify(req, dummyDomainSeparator, typeHash, '0x', '0x' + '1b'.repeat(65)), 'VM execution error: signature mismatch')
       })
     })
     describe('#verify success', () => {
@@ -315,7 +315,7 @@ contract('Forwarder', ([from]) => {
       assert.equal(ret.logs[0].args.error, 'always fail')
       assert.equal(ret.logs[0].args.success, false)
 
-      await expectRevert(testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig), 'nonce mismatch')
+      await expectRevert.unspecified(testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig), 'nonce mismatch')
     })
 
     describe('value transfer', () => {
@@ -404,6 +404,7 @@ contract('Forwarder', ([from]) => {
         }
 
         const extraFunds = ether('4')
+
         await web3.eth.sendTransaction({ from, to: fwd.address, value: extraFunds })
 
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
