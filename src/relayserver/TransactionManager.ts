@@ -162,6 +162,7 @@ export class TransactionManager {
         continue
       }
       if (receipt.blockNumber == null) {
+        // Avoid throwing an error when blockNumber is null, for RSK this means that the block wasn't mined yet
         // eslint-disable-next-line @typescript-eslint/no-base-to-string
         //throw new Error(`invalid block number in receipt ${receipt.toString()}`)
         continue
