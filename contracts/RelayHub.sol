@@ -264,6 +264,7 @@ contract RelayHub is IRelayHub {
         bytes recipientContext;
         bytes data;
         bool rejectOnRecipientRevert;
+        uint256 lastSuccTx;
     }
 
     function innerRelayCall(
@@ -313,7 +314,7 @@ contract RelayHub is IRelayHub {
 
         {
             bool forwarderSuccess;
-            (forwarderSuccess, vars.relayedCallSuccess, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);
+            (forwarderSuccess, vars.relayedCallSuccess, vars.relayedCallReturnValue, vars.lastSuccTx) = GsnEip712Library.execute(relayRequest, signature);
             if ( !forwarderSuccess ) {
                 revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
             }
@@ -346,7 +347,17 @@ contract RelayHub is IRelayHub {
             revertWithStatus(RelayCallStatus.PaymasterBalanceChanged, "");
         }
 
-        return (vars.relayedCallSuccess ? RelayCallStatus.OK : RelayCallStatus.RelayedCallFailed, vars.relayedCallReturnValue);
+        if (!vars.relayedCallSuccess) {
+            if (vars.lastSuccTx == 0) {
+                    return (RelayCallStatus.RelayedTokenPaymentFailed, vars.relayedCallReturnValue);
+            }
+            
+            if (vars.lastSuccTx == 1) {
+                return (RelayCallStatus.RelayedCallFailed, vars.relayedCallReturnValue);
+            }
+        }
+
+        return (RelayCallStatus.OK, vars.relayedCallReturnValue);
     }
 
     /**
