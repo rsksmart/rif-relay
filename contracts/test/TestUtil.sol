@@ -41,17 +41,18 @@ contract TestUtil {
     external
     returns (
         bool success,
-        bytes memory ret
+        bytes memory ret,
+        uint256 lastSuccTx
     ) {
         bool forwarderSuccess;
-        (forwarderSuccess, success, ret) = GsnEip712Library.execute(relayRequest, signature);
+        (forwarderSuccess, success, ret, lastSuccTx) = GsnEip712Library.execute(relayRequest, signature);
         if ( !forwarderSuccess) {
             GsnUtils.revertWithData(ret);
         }
-        emit Called(success, success == false ? ret : bytes(""));
+        emit Called(success, success == false ? ret : bytes(""), lastSuccTx);
     }
 
-    event Called(bool success, bytes error);
+    event Called(bool success, bytes error, uint256 lastSuccTx);
 
     function splitRequest(
         GsnTypes.RelayRequest calldata relayRequest

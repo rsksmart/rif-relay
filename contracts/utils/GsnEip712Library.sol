@@ -90,7 +90,7 @@ library GsnEip712Library {
         verifySignature(relayRequest, signature);
     }
 
-    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, bytes memory ret) {
+    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, bytes memory ret, uint256 lastSuccTx) {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
         bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
         /* solhint-disable-next-line avoid-low-level-calls */
@@ -101,7 +101,7 @@ library GsnEip712Library {
         if ( forwarderSuccess ) {
 
           //decode return value of execute:
-          (callSuccess, ret) = abi.decode(ret, (bool, bytes));
+          (callSuccess, ret, lastSuccTx) = abi.decode(ret, (bool, bytes, uint256));
         }
         truncateInPlace(ret);
     }
