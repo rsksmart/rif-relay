@@ -15,7 +15,8 @@ import {
   TestRecipientInstance,
   ForwarderInstance,
   TestPaymasterEverythingAcceptedInstance,
-  TestPaymasterConfigurableMisbehaviorInstance
+  TestPaymasterConfigurableMisbehaviorInstance,
+  TestTokenInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason } from './TestUtils'
 
@@ -26,6 +27,7 @@ const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythi
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterStoreContext = artifacts.require('TestPaymasterStoreContext')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const TestToken = artifacts.require('TestToken')
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, senderAddress, other, dest, incorrectWorker]) { // eslint-disable-line no-unused-vars
   const RelayCallStatusCodes = {
@@ -35,7 +37,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     RejectedByForwarder: new BN('3'),
     RejectedByRecipientRevert: new BN('4'),
     PostRelayedFailed: new BN('5'),
-    PaymasterBalanceChanged: new BN('6')
+    PaymasterBalanceChanged: new BN('6'),
+    RelayedTokenPaymentFailed : new BN('7')
   }
 
   let chainId: number
@@ -46,9 +49,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let recipientContract: TestRecipientInstance
   let paymasterContract: TestPaymasterEverythingAcceptedInstance
   let forwarderInstance: ForwarderInstance
+  let tokenContract: TestTokenInstance
   let target: string
   let paymaster: string
   let forwarder: string
+  let tokenAddress: string
 
   let env: Environment
 
@@ -61,7 +66,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     forwarderInstance = await Forwarder.new()
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new(forwarder)
-
+    tokenContract = await TestToken.new()
+    await tokenContract.mint('1000', forwarder)
     chainId = env.chainId
 
     // register hub's RelayRequest with forwarder, if not already done.
@@ -73,6 +79,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     target = recipientContract.address
     paymaster = paymasterContract.address
     relayHub = relayHubInstance.address
+    tokenAddress = tokenContract.address
+
 
     await paymasterContract.setTrustedForwarder(forwarder)
     await paymasterContract.setRelayHub(relayHub)
@@ -192,6 +200,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     let sharedRelayRequestData: RelayRequest
     const paymasterData = '0x'
     const clientId = '1'
+    const tokensPaid = 1
 
     beforeEach(function () {
       sharedRelayRequestData = {
@@ -202,10 +211,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: '',
-          tokenContract: '',
-          paybackTokens: '0',
-          tokenGas: '0x0'
+          tokenRecipient: target,
+          tokenContract: tokenAddress,
+          paybackTokens: tokensPaid.toString(),
+          tokenGas: gasLimit,
         },
         relayData: {
           pctRelayFee,
@@ -327,6 +336,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
                 gas
               }),
             'relay worker cannot be a smart contract')
+            const tknBalance = await tokenContract.balanceOf(target)
+            assert.isTrue(new BN(0).eq(tknBalance))
         })
       })
       context('with view functions only', function () {
@@ -448,8 +459,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gasPrice
           })
           const nonceAfter = await forwarderInstance.getNonce(senderAddress)
-          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
-
+          // assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
+          assert.equal(nonceBefore.addn(2).toNumber(), nonceAfter.toNumber()) //Each execution increment the nonce twice (tkn payment + call)
+          
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(tokensPaid).eq(tknBalance))
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message,
             realSender: senderAddress,
@@ -474,12 +488,17 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gasPrice
           })
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted')
+          
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(tokensPaid).eq(tknBalance))
 
           const ret = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
             gas,
             gasPrice
           })
+          const afterTknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(tokensPaid).eq(afterTknBalance))
 
           await expectEvent(ret, 'TransactionRejectedByPaymaster', { reason: encodeRevertReason('nonce mismatch') })
         })
@@ -502,6 +521,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gas,
             gasPrice
           })
+
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(tokensPaid).eq(tknBalance))
+
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message: messageWithNoParams,
             realSender: senderAddress,
@@ -537,7 +560,44 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           expectEvent.inLogs(logs, 'TransactionRelayed', {
             status: RelayCallStatusCodes.RelayedCallFailed
           })
+
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(tokensPaid).eq(tknBalance))
         })
+
+        it('relayCall cant transfer more tokens than sender balance', async function () {
+          const encodedFunction = recipientContract.contract.methods.testRevert().encodeABI()
+          const relayRequestRevert = cloneRelayRequest(relayRequest)
+          relayRequestRevert.request.data = encodedFunction
+          relayRequestRevert.request.paybackTokens = '1001'
+          const dataToSign = new TypedRequestData(
+            chainId,
+            forwarder,
+            relayRequestRevert
+          )
+          signature = await getEip712Signature(
+            web3,
+            dataToSign
+          )
+          const { logs } = await relayHubInstance.relayCall(relayRequestRevert, signature, '0x', gas, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+
+          const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'ERC20: transfer amount exceeds balance'))
+          expectEvent.inLogs(logs, 'TransactionResult', {
+            status: RelayCallStatusCodes.RelayedTokenPaymentFailed,
+            returnValue: expectedReturnValue
+          })
+          expectEvent.inLogs(logs, 'TransactionRelayed', {
+            status: RelayCallStatusCodes.RelayedTokenPaymentFailed
+          })
+
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(0).eq(tknBalance))
+        })
+
 
         it('postRelayedCall receives values returned in preRelayedCall', async function () {
           const { tx } = await relayHubInstance.relayCall(10e6, relayRequestPaymasterWithContext,
@@ -678,6 +738,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             toBlock: 'latest'
           })
           assert.equal(0, logsMessages.length)
+          const tknBalance = await tokenContract.balanceOf(target)
+          assert.isTrue(new BN(0).eq(tknBalance))
           expectEvent.inLogs(logs, 'TransactionRelayed', { status: RelayCallStatusCodes.PostRelayedFailed })
         })
 
