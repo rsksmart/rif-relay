@@ -579,7 +579,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             web3,
             dataToSign
           )
-          const { logs } = await relayHubInstance.relayCall(relayRequestRevert, signature, '0x', gas, {
+          const { logs } = await relayHubInstance.relayCall(10e6, relayRequestRevert, signature, '0x', gas, {
             from: relayWorker,
             gas,
             gasPrice

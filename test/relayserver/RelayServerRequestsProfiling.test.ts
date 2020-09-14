@@ -114,7 +114,10 @@ contract('RelayServerRequestsProfiling', function ([relayOwner]) {
         to: sr.address,
         pctRelayFee: 0,
         baseRelayFee: '0',
-        paymaster: paymaster.address
+        paymaster: paymaster.address,
+        tokenRecipient: '',
+        tokenContract: '',
+        paybackTokens: '0'
       }
     })
 

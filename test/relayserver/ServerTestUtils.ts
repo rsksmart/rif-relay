@@ -172,6 +172,7 @@ export interface RelayTransactionParams {
   web3: Web3
   relayServer: RelayServer
   relayClient: RelayClient
+  
 }
 
 export async function relayTransaction (
@@ -189,6 +190,9 @@ export interface PrepareRelayRequestOption {
   paymaster: string
   pctRelayFee: number
   baseRelayFee: string
+  tokenRecipient: string
+  tokenContract: string
+  paybackTokens: string
 }
 
 export async function prepareRelayRequest (
@@ -222,7 +226,11 @@ export async function prepareRelayRequest (
     from: options.from,
     gas: toHex(1e6),
     gasPrice: toHex(await web3.eth.getGasPrice()),
-    to: options.to
+    to: options.to,
+    tokenRecipient: options.tokenRecipient,
+    tokenContract: options.tokenContract,
+    paybackTokens: options.paybackTokens,
+    tokenGas: toHex(1e6)
   }
   const { relayRequest, relayMaxNonce, approvalData, signature, httpRequest } = await params.relayClient._prepareRelayHttpRequest(relayInfo,
     gsnTransactionDetails)
@@ -263,6 +271,10 @@ export async function relayTransactionFromRequest (
       pctRelayFee: fromRequestParam.relayRequest.relayData.pctRelayFee,
       relayHubAddress: params.relayHubAddress,
       forwarder: fromRequestParam.relayRequest.relayData.forwarder,
+      tokenRecipient: fromRequestParam.relayRequest.request.tokenRecipient,
+      tokenContract: fromRequestParam.relayRequest.request.tokenContract,
+      paybackTokens: fromRequestParam.relayRequest.request.paybackTokens,
+      tokenGas: fromRequestParam.relayRequest.request.tokenGas,
       ...overrideArgs
     })
   const txhash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))

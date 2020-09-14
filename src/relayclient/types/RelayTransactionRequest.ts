@@ -20,4 +20,8 @@ export default interface RelayTransactionRequest {
   baseRelayFee: IntString
   pctRelayFee: IntString
   relayHubAddress: Address
+  tokenRecipient: Address
+  tokenContract: Address
+  paybackTokens: IntString
+  tokenGas: IntString
 }

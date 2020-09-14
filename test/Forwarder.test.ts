@@ -304,7 +304,7 @@ contract('Forwarder', ([from]) => {
       await token.mint('1000', fwd.address)
     })
 
-    it.only('should return revert message of token payment revert', async () => {
+    it('should return revert message of token payment revert', async () => {
       const func = recipient.contract.methods.testRevert().encodeABI()
       const tknPayment = {
         tokenRecipient: recipient.address,
@@ -336,6 +336,8 @@ contract('Forwarder', ([from]) => {
 
     it('should call function', async () => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+      const initialNonce = await fwd.getNonce(senderAddress)
+
       const tknPayment = {
         tokenRecipient: recipient.address,
         tokenContract: token.address,
@@ -348,10 +350,11 @@ contract('Forwarder', ([from]) => {
         data: func,
         value: '0',
         from: senderAddress,
-        nonce: 0,
+        nonce: initialNonce.toString(),
         gas: 1e6,
         ...tknPayment
       }
+      console.log(initialNonce.toString())
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
       const domainSeparator = TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types)
 
@@ -365,7 +368,7 @@ contract('Forwarder', ([from]) => {
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
       assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
-      assert.equal('2', (await fwd.getNonce(senderAddress)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal((await fwd.getNonce(senderAddress)).toString(), initialNonce.add(new BN(2)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
