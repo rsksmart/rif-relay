@@ -25,4 +25,7 @@ artifacts
 /yarn-error.log
 /jsrelay/gsndata/
 /jsrelay/dist/relayserver.js
-/json-input.json
+json-input.json
+.vscode/
+dockers/
+tsconfig.
