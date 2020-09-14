@@ -12,7 +12,7 @@
 //   TestRecipientInstance,
 //   BatchForwarderInstance
 // } from '../types/truffle-contracts'
-// import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
+// import { deployHub, encodeRevertReason, getTestingEnvironment } from '../test/TestUtils'
 // import { getEnvironment } from '../src/common/Environments'
 
 // const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
@@ -110,7 +110,7 @@
 //         dataToSign
 //       )
 
-//       const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+//       const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
 //         from: relayWorker
 //       })
 
@@ -146,7 +146,7 @@
 //         dataToSign
 //       )
 
-//       const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+//       const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
 //         from: relayWorker
 //       })
 //       const expectedReturnValue = encodeRevertReason('always fail')
@@ -177,7 +177,7 @@
 //         dataToSign
 //       )
 
-//       const ret = await hub.relayCall(relayRequest, signature, '0x', 7e6, {
+//       const ret = await hub.relayCall(10e6, relayRequest, signature, '0x', 7e6, {
 //         from: relayWorker
 //       })
 //       expectEvent(ret, 'TransactionRelayed', { status: '1' })
