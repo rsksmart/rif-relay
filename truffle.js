@@ -62,7 +62,9 @@ module.exports = {
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
       port: 4444,
-      network_id: '*'
+      network_id: '*',
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
     }
   },
   mocha: {
