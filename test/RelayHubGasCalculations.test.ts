@@ -12,7 +12,8 @@ import {
   TestPaymasterVariableGasLimitsInstance,
   StakeManagerInstance,
   IForwarderInstance,
-  PenalizerInstance
+  PenalizerInstance,
+  TestTokenInstance
 } from '../types/truffle-contracts'
 import { deployHub, getTestingEnvironment } from './TestUtils'
 
@@ -20,6 +21,7 @@ const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
+const TestToken = artifacts.require('TestToken')
 const TestPaymasterVariableGasLimits = artifacts.require('TestPaymasterVariableGasLimits')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 
@@ -56,6 +58,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   let signature: string
   let relayRequest: RelayRequest
   let forwarder: string
+  let tokenContract: TestTokenInstance
+  let tokenAddress: string
 
   let chainId: number
   let env: Environment
@@ -71,6 +75,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     paymaster = await TestPaymasterVariableGasLimits.new()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
+    tokenContract = await TestToken.new()
+    tokenAddress = tokenContract.address
+    
     relayHub = await deployHub(stakeManager.address, penalizer.address, env)
     await paymaster.setTrustedForwarder(forwarder)
     await paymaster.setRelayHub(relayHub.address)
@@ -79,7 +86,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       GsnRequestType.typeName,
       GsnRequestType.typeSuffix
     )
-
     await relayHub.depositFor(paymaster.address, {
       value: ether('1'),
       from: other
@@ -101,10 +107,10 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         nonce: senderNonce.toString(),
         value: '0',
         gas: gasLimit.toString(),
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: recipient.address,
+        tokenContract: tokenAddress,
         paybackTokens: '0',
-        tokenGas: '0x0'
+        tokenGas: gasLimit.toString()
       },
       relayData: {
         baseRelayFee: baseFee.toString(),
@@ -127,6 +133,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       web3,
       dataToSign
     )
+    await tokenContract.mint('1000', forwarder)
   })
 
   describe('#calculateCharge()', function () {
@@ -326,10 +333,10 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               nonce: senderNonce,
               value: '0',
               gas: gasLimit.toString(),
-              tokenRecipient: '',
-              tokenContract: '',
-              paybackTokens: '0',
-              tokenGas: '0x0'
+              tokenRecipient: recipient.address,
+              tokenContract: tokenAddress,
+              paybackTokens: '1',
+              tokenGas: gasLimit.toString()
             },
             relayData: {
               baseRelayFee: '0',
@@ -372,6 +379,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   describe('check calculation does not break for different fees', function () {
     before(async function () {
       await relayHub.depositFor(relayOwner, { value: (1).toString() })
+      
     });
 
     [0, 1000]
@@ -396,10 +404,10 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                   nonce: senderNonce,
                   value: '0',
                   gas: gasLimit.toString(),
-                  tokenRecipient: '',
-                  tokenContract: '',
-                  paybackTokens: '0',
-                  tokenGas: '0x0'
+                  tokenRecipient: recipient.address,
+                  tokenContract: tokenAddress,
+                  paybackTokens: '1',
+                  tokenGas: gasLimit.toString()
                 },
                 relayData: {
                   baseRelayFee,
@@ -439,6 +447,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               if (requestedFee === 0) {
                 logOverhead(weiActualCharge, workerWeiGasUsed)
               }
+                              
+              const tknBalance = await tokenContract.balanceOf(recipient.address)
+              assert.isTrue(new BN(1).eq(tknBalance))
 
               // TODO ppedemon
               // For some reason, asserts are failing for the [0, 0] case in RSK...
