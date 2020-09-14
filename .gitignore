@@ -29,3 +29,6 @@ artifacts
 rsknode/db/
 rsknode/logs/
 rsknode/src/
+.vscode/
+dockers/
+tsconfig.
