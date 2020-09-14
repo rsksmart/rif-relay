@@ -151,7 +151,11 @@ contract('RelayServer', function (accounts) {
       to: sr.address,
       pctRelayFee,
       baseRelayFee,
-      paymaster: paymaster.address
+      paymaster: paymaster.address,
+      tokenRecipient: '',
+      tokenContract: '',
+      paybackTokens: '0'
+      
     }
     relayTransactionParams = {
       gasLess,

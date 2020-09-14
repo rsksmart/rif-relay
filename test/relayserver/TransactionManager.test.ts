@@ -112,7 +112,10 @@ contract('TransactionManager', function (accounts) {
       to: sr.address,
       pctRelayFee: 0,
       baseRelayFee: '0',
-      paymaster: paymaster.address
+      paymaster: paymaster.address,
+      tokenRecipient: '',
+      tokenContract: '',
+      paybackTokens: '0'
     }
 
     // two gas-less accounts are needed to prevent race for sender's forwarder nonce
