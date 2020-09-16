@@ -16,7 +16,8 @@ import {
   PenalizerInstance,
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance,
-  TestRecipientInstance
+  TestRecipientInstance,
+  TestTokenInstance
 } from '../types/truffle-contracts'
 
 import { deployHub, getTestingEnvironment } from './TestUtils'
@@ -30,6 +31,7 @@ const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const Forwarder = artifacts.require('Forwarder')
+const TestToken = artifacts.require('TestToken')
 
 const paymasterData = '0x'
 const clientId = '0'
@@ -42,6 +44,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let penalizer: PenalizerInstance
   let recipient: TestRecipientInstance
   let paymaster: TestPaymasterEverythingAcceptedInstance
+  let tokenContract: TestTokenInstance
+  let tokenAddress: string
+
 
   let forwarder: string
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
@@ -59,6 +64,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     const forwarderInstance = await Forwarder.new()
     forwarder = forwarderInstance.address
     recipient = await TestRecipient.new(forwarder)
+    tokenContract = await TestToken.new()
+    tokenAddress = tokenContract.address
+    await tokenContract.mint('1000', forwarder)
+
     // register hub's RelayRequest with forwarder, if not already done.
     await forwarderInstance.registerRequestType(
       GsnRequestType.typeName,
@@ -97,10 +106,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     const gasLimit = new BN('5000000')
     const txData = recipient.contract.methods.emitMessage('').encodeABI()
     const tokenPayment = {
-      tokenRecipient: '',
-      tokenContract: '',
-      paybackTokens: '0',
-      tokenGas: '0x0'
+      tokenRecipient: recipient.address,
+      tokenContract: tokenAddress,
+      paybackTokens: '1',
+      tokenGas: gasLimit.toString()
     }
     const relayRequest: RelayRequest = {
       request: {
@@ -380,6 +389,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
           )
+          const tknBalance = await tokenContract.balanceOf(recipient.address)
+          assert.isTrue(new BN(1).eq(tknBalance))
         })
 
         it('does not penalize legal relay transactions', async function () {
@@ -391,10 +402,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const senderNonce = new BN('0')
           const txData = recipient.contract.methods.emitMessage('').encodeABI()
           const tokenPayment = {
-            tokenRecipient: '',
-            tokenContract: '',
-            paybackTokens: '0',
-            tokenGas: '0x0'
+            tokenRecipient: recipient.address,
+            tokenContract: tokenAddress,
+            paybackTokens: '1',
+            tokenGas: gasLimit.toString()
           }
           const relayRequest: RelayRequest = {
             request: {
@@ -437,6 +448,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             gas: externalGasLimit,
             gasPrice
           })
+
+          const tknBalance = await tokenContract.balanceOf(recipient.address)
+          assert.isTrue(new BN(1).eq(tknBalance))
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, chainId)
           await expectRevert.unspecified(
@@ -510,10 +524,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const relayWorker = privateToAddress(privateKey).toString('hex')
       // TODO: 'encodedCallArgs' is no longer needed. just keep the RelayRequest in test
       const tokenPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
+        tokenRecipient: recipient.address,
+        tokenContract: tokenAddress,
         paybackTokens: '0',
-        tokenGas: '0x0'
+        tokenGas: encodedCallArgs.gasLimit.toString()
       }
       const relayRequest: RelayRequest =
         {
