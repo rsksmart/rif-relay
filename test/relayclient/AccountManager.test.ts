@@ -62,10 +62,10 @@ contract('AccountManager', function (accounts) {
   describe('#sign()', function () {
     accountManager.addAccount(keypair)
     const tokenRequest = {
-      tokenRecipient: '',
-      tokenContract: '',
+      tokenRecipient: constants.ZERO_ADDRESS,
+      tokenContract: constants.ZERO_ADDRESS,
       paybackTokens: '0',
-      tokenGas: '0x0',
+      tokenGas: '1',
     }
     const relayRequest: RelayRequest = {
       request: {
