@@ -9,9 +9,9 @@ import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getEip712Signature } from '../src/common/Utils'
 import TypedRequestData, { getDomainSeparatorHash, GsnRequestType } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { ForwarderInstance, TestRecipientInstance, TestUtilInstance } from '../types/truffle-contracts'
+import { ForwarderInstance, TestRecipientInstance, TestUtilInstance, TestTokenInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { bufferToHex } from 'ethereumjs-util'
+import { BN, bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
@@ -24,6 +24,7 @@ const { expect, assert } = chai.use(chaiAsPromised)
 const TestUtil = artifacts.require('TestUtil')
 const Forwarder = artifacts.require('Forwarder')
 const TestRecipient = artifacts.require('TestRecipient')
+const TestToken = artifacts.require('TestToken')
 
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import RelayData from '../src/common/EIP712/RelayData'
@@ -41,6 +42,9 @@ contract('Utils', function (accounts) {
     const senderAddress = accounts[0]
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
+    let tokenContract: TestTokenInstance
+    let tokenAddress: string
+
 
     let forwardRequest: ForwardRequest
     let anotherForwardRequest: ForwardRequest
@@ -48,12 +52,14 @@ contract('Utils', function (accounts) {
     let anotherRelayData: RelayData
 
     let forwarderInstance: ForwarderInstance
-    before(async () => {
+    beforeEach(async () => {
       testUtil = await TestUtil.new()
       chainId = (await testUtil.libGetChainID()).toNumber()
       forwarderInstance = await Forwarder.new()
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new(forwarder)
+      tokenContract = await TestToken.new()
+      tokenAddress = tokenContract.address
 
       const senderNonce = '0'
       const target = recipient.address
@@ -67,6 +73,8 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
+
+      await tokenContract.mint('1000', forwarder)
       
       const res = await forwarderInstance.registerRequestType(
         GsnRequestType.typeName,
@@ -76,10 +84,10 @@ contract('Utils', function (accounts) {
       const typeName = res.logs[0].args.typeStr
 
       const tokenPayment = {
-        tokenRecipient: '',
-        tokenContract: '',
-        paybackTokens: '0',
-        tokenGas: '0x0'
+        tokenRecipient: recipient.address,
+        tokenContract: tokenAddress,
+        paybackTokens: '1',
+        tokenGas: gasLimit
       }
       
       forwardRequest = {
@@ -162,7 +170,7 @@ contract('Utils', function (accounts) {
     */
 
 
-    //SKIPPED: RSK WIP to support multiple relay requests in a single relay
+    //SKIPPED: RSK WIP to support multiple relay requests in a single relay, if it's unskipped tknPayment must be fixed
     it.skip("Signs typed data with multiple relay requests", async () => {
       /*
       const relayRequests = [
@@ -301,6 +309,10 @@ contract('Utils', function (accounts) {
           ))
         const ret = await testUtil.callForwarderVerifyAndCall(relayRequest, sig)
         const expectedReturnValue = encodeRevertReason('always fail')
+        
+        const tknBalance = await tokenContract.balanceOf(recipient.address)
+        assert.isTrue(new BN(1).eq(tknBalance))
+
         expectEvent(ret, 'Called', {
           success: false,
           error: expectedReturnValue
@@ -322,6 +334,9 @@ contract('Utils', function (accounts) {
         })
         const logs = await recipient.contract.getPastEvents(null, { fromBlock: 1 })
         assert.equal(logs[0].event, 'SampleRecipientEmitted')
+
+        const tknBalance = await tokenContract.balanceOf(recipient.address)
+        assert.isTrue(new BN(1).eq(tknBalance))
       })
     })
   })
