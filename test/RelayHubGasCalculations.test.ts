@@ -245,13 +245,15 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           .relayCall(10e6, relayRequestMisbehaving, signature, '0x', externalGasLimit)
           .call({
             from: relayRequestMisbehaving.relayData.relayWorker,
-            gas: externalGasLimit, 
+            gas: externalGasLimit,
+            gasPrice: gasPrice
           })
+
       assert.equal(viewRelayCallResponse[0], false)
       assert.equal(viewRelayCallResponse[1], null) // no revert string on out-of-gas
 
       const res = await relayHub.relayCall(10e6, relayRequestMisbehaving, signature, '0x', externalGasLimit, {
-        from: relayWorker,
+        from: relayRequestMisbehaving.relayData.relayWorker,
         gas: externalGasLimit,
         gasPrice: gasPrice
       })
