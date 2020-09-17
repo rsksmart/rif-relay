@@ -23,7 +23,6 @@ contract TokenPaymaster is BasePaymaster {
         return "2.0.0-beta.1+opengsn.token.ipaymaster";
     }
 
-
     IERC20[] public tokens;
 
     uint public gasUsedByPost;
@@ -48,10 +47,6 @@ contract TokenPaymaster is BasePaymaster {
         emit Received(msg.value);
     }
 
-    function _getToken(bytes memory paymasterData) internal view returns (IERC20 token) {
-        //if no specific token specified, assume the first in the list.
-    }
-
     function _calculatePreCharge(
         IERC20 token,
         GsnTypes.RelayRequest calldata relayRequest,
@@ -59,10 +54,14 @@ contract TokenPaymaster is BasePaymaster {
     internal
     view
     returns (address payer, uint256 tokenPreCharge) {
+        payer = this.getPayer(relayRequest);
+        
+        require(tokenPreCharge <= token.balanceOf(payer), "balance too low");
     }
 
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
+        IERC20 token,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -72,6 +71,10 @@ contract TokenPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
+        (relayRequest, signature, approvalData, maxPossibleGas);
+        (address payer, uint256 tokenPrecharge) = _calculatePreCharge(token, uniswap, relayRequest, maxPossibleGas);
+        token.transferFrom(payer, address(this), tokenPrecharge);
+        return (abi.encode(payer, tokenPrecharge, token, uniswap), false);
     }
 
     function postRelayedCall(
@@ -84,7 +87,7 @@ contract TokenPaymaster is BasePaymaster {
     override
     virtual
     relayHubOnly {
-        //sdkjaskdjs
+        
     }
 
     function _postRelayedCallInternal(
