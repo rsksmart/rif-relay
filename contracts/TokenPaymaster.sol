@@ -65,7 +65,7 @@ contract TokenPaymaster is BasePaymaster {
     returns (bytes memory context, bool revertOnRecipientRevert) {
         address payer = this.getPayer(relayRequest);
         IERC20 token = this.getToken(relayRequest);
-        uint256 tokenPrecharge = relayRequest.request.tokenGas;
+        uint256 tokenPrecharge = relayRequest.request.tokenPayback;
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         token.transferFrom(payer, address(this), tokenPrecharge);
         return (abi.encode(payer, tokenPrecharge, token), false);
@@ -73,7 +73,7 @@ contract TokenPaymaster is BasePaymaster {
 
     function postRelayedCall(
         bytes calldata context,
-        bool,
+        bool success,
         uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
@@ -81,30 +81,8 @@ contract TokenPaymaster is BasePaymaster {
     override
     virtual
     relayHubOnly {
-        
-    }
-
-    function _postRelayedCallInternal(
-        address payer,
-        uint256 tokenPrecharge,
-        uint256 valueRequested,
-        uint256 gasUseWithoutPost,
-        GsnTypes.RelayData calldata relayData,
-        IERC20 token
-    ) internal {
-    }
-
-    function _refundPayer(
-        address payer,
-        IERC20 token,
-        uint256 tokenRefund
-    ) private {
-        require(token.transfer(payer, tokenRefund), "failed refund");
-    }
-
-    function _depositProceedsToHub(uint256 ethActualCharge) private {
-        //solhint-disable-next-line
-        relayHub.depositFor{value:ethActualCharge}(address(this));
+        // for now we dont produce any refund
+        // so there is nothing to be done here
     }
 
     event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
