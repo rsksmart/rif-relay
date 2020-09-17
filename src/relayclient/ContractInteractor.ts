@@ -331,7 +331,8 @@ export default class ContractInteractor {
 
   async isContractDeployed (address: Address): Promise<boolean> {
     const code = await this.web3.eth.getCode(address)
-    return code !== '0x'
+    //Check added for RSKJ: when the contract does not exist in RSKJ it replies to the getCode call with 0x00
+    return code !== '0x' && code !== '0x00'
   }
 
   async getStakeInfo (managerAddress: Address): Promise<{
