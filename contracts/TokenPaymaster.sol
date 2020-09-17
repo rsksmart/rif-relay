@@ -42,26 +42,18 @@ contract TokenPaymaster is BasePaymaster {
         return relayRequest.request.to;
     }
 
+    function getToken(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (IERC20) {
+        (this);
+        return IERC20(relayRequest.request.tokenContract);
+    }
+
     event Received(uint eth);
     receive() external override payable {
         emit Received(msg.value);
     }
 
-    function _calculatePreCharge(
-        IERC20 token,
-        GsnTypes.RelayRequest calldata relayRequest,
-        uint256 maxPossibleGas)
-    internal
-    view
-    returns (address payer, uint256 tokenPreCharge) {
-        payer = this.getPayer(relayRequest);
-        
-        require(tokenPreCharge <= token.balanceOf(payer), "balance too low");
-    }
-
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
-        IERC20 token,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -71,10 +63,12 @@ contract TokenPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
-        (relayRequest, signature, approvalData, maxPossibleGas);
-        (address payer, uint256 tokenPrecharge) = _calculatePreCharge(token, uniswap, relayRequest, maxPossibleGas);
+        address payer = this.getPayer(relayRequest);
+        IERC20 token = this.getToken(relayRequest);
+        uint256 tokenPrecharge = relayRequest.request.tokenGas;
+        require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(payer, tokenPrecharge, token, uniswap), false);
+        return (abi.encode(payer, tokenPrecharge, token), false);
     }
 
     function postRelayedCall(
