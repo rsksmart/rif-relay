@@ -42,10 +42,6 @@ interface EstimateGasParams {
   to: Address
   data: PrefixedHexString
   gasPrice?: PrefixedHexString
-  readonly tokenRecipient: Address
-  readonly tokenContract: Address
-  readonly paybackTokens: IntString
-  readonly tokenGas: IntString
   
 }
 
@@ -217,6 +213,7 @@ export class RelayClient {
   ): Promise<{ relayRequest: RelayRequest, relayMaxNonce: number, maxAcceptanceBudget: number, approvalData: PrefixedHexString, signature: PrefixedHexString, httpRequest: RelayTransactionRequest }> {
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
     const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
+    const token = gsnTransactionDetails.tokenContract ?? this.config.tokenContract
 
     const senderNonce = await this.contractInteractor.getSenderNonce(gsnTransactionDetails.from, forwarderAddress)
     const relayWorker = relayInfo.pingResponse.RelayServerAddress
@@ -235,7 +232,7 @@ export class RelayClient {
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = gsnTransactionDetails.value ?? '0'
     const tokensValue = gsnTransactionDetails.paybackTokens ?? '0'
-    const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
+    const tokenGas = gsnTransactionDetails.tokenGas ?? gasLimit
     const relayRequest: RelayRequest = {
       request: {
         to: gsnTransactionDetails.to,
@@ -244,8 +241,8 @@ export class RelayClient {
         value: value,
         nonce: senderNonce,
         gas: gasLimit,
-        tokenRecipient: gsnTransactionDetails.tokenRecipient,
-        tokenContract: gsnTransactionDetails.tokenContract,
+        tokenRecipient: paymaster,
+        tokenContract: token,
         paybackTokens: tokensValue,
         tokenGas: tokenGas
       },
@@ -289,8 +286,8 @@ export class RelayClient {
       approvalData,
       relayHubAddress: this.config.relayHubAddress,
       relayMaxNonce,
-      tokenRecipient: gsnTransactionDetails.tokenRecipient,
-      tokenContract: gsnTransactionDetails.tokenContract,
+      tokenRecipient: paymaster,
+      tokenContract: token,
       paybackTokens: tokensValue,
       tokenGas: tokenGas
     }
@@ -345,11 +342,7 @@ export class RelayClient {
       from: gsnTransactionDetails.from, 
       to: gsnTransactionDetails.to, 
       gasPrice: gsnTransactionDetails.gasPrice,
-      data: gsnTransactionDetails.data,
-      tokenRecipient: gsnTransactionDetails.tokenRecipient,
-      tokenContract: gsnTransactionDetails.tokenContract,
-      paybackTokens: gsnTransactionDetails.paybackTokens,
-      tokenGas: gsnTransactionDetails.tokenGas
+      data: gsnTransactionDetails.data
     }
 
     return params

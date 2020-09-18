@@ -10,7 +10,7 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  TestPaymasterEverythingAcceptedInstance
+  TestPaymasterEverythingAcceptedInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
 
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
@@ -29,11 +29,13 @@ import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '@openzeppelin/test-helpers'
+import { BN } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const Forwarder = artifacts.require('Forwarder')
+const TestToken = artifacts.require('TestToken')
 
 const expect = chai.expect
 chai.use(sinonChai)
@@ -50,6 +52,7 @@ contract('RelayClient', function (accounts) {
   let gasLess: Address
   let relayProcess: ChildProcessWithoutNullStreams
   let forwarderAddress: Address
+  let tokenContract: TestTokenInstance
 
   let relayClient: RelayClient
   let gsnConfig: Partial<GSNConfig>
@@ -57,14 +60,28 @@ contract('RelayClient', function (accounts) {
   let to: Address
   let from: Address
   let data: PrefixedHexString
+  let tokensPaid: string
 
-  before(async function () {
+  before(async () => {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
+    relayProcess = await startRelay(relayHub.address, stakeManager, {
+      stake: 1e18,
+      url: 'asd',
+      relayOwner: accounts[1],
+      ethereumNodeUrl: underlyingProvider.host
+    })
+  })
+
+  beforeEach(async function () {
     const forwarderInstance = await Forwarder.new()
+    tokenContract = await TestToken.new()
     forwarderAddress = forwarderInstance.address
+    await tokenContract.mint('1000', forwarderAddress)
     testRecipient = await TestRecipient.new(forwarderAddress)
+    tokensPaid = '1'
+
     // register hub's RelayRequest with forwarder, if not already done.
     await forwarderInstance.registerRequestType(
       GsnRequestType.typeName,
@@ -75,17 +92,11 @@ contract('RelayClient', function (accounts) {
     await paymaster.setRelayHub(relayHub.address)
     await paymaster.deposit({ value: web3.utils.toWei('1', 'ether') })
 
-    relayProcess = await startRelay(relayHub.address, stakeManager, {
-      stake: 1e18,
-      url: 'asd',
-      relayOwner: accounts[1],
-      ethereumNodeUrl: underlyingProvider.host
-    })
-
     gsnConfig = {
       relayHubAddress: relayHub.address,
       stakeManagerAddress: stakeManager.address,
-      chainId: (await getTestingEnvironment()).chainId
+      chainId: (await getTestingEnvironment()).chainId,
+      tokenContract: tokenContract.address
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
     gasLess = await web3.eth.personal.newAccount('password')
@@ -100,10 +111,10 @@ contract('RelayClient', function (accounts) {
       paymaster: paymaster.address,
       paymasterData: '0x',
       clientId: '1',
-      tokenRecipient:'',
-      tokenContract:'',
-      paybackTokens:'0',
-      tokenGas:'0x0'
+      tokenRecipient: paymaster.address,
+      tokenContract: tokenContract.address,
+      paybackTokens: tokensPaid,
+      tokenGas: '100000'
     }
   })
 
@@ -130,6 +141,8 @@ contract('RelayClient', function (accounts) {
 
       const destination: string = validTransaction.to.toString('hex')
       assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+      const tknBalance = await tokenContract.balanceOf(paymaster.address)
+      assert.isTrue(new BN(tokensPaid).eq(tknBalance))
     })
 
     it('should use forceGasPrice if provided', async function () {
@@ -139,6 +152,8 @@ contract('RelayClient', function (accounts) {
       assert.equal(pingErrors.size, 0)
       assert.equal(relayingErrors.size, 0)
       assert.equal(parseInt(transaction!.gasPrice.toString('hex'), 16), parseInt(forceGasPrice))
+      const tknBalance = await tokenContract.balanceOf(paymaster.address)
+      assert.isTrue(new BN(tokensPaid).eq(tknBalance))
     })
 
     it('should return errors encountered in ping', async function () {
