@@ -30,7 +30,8 @@ const defaultGsnConfig: GSNConfig = {
   paymasterAddress: constants.ZERO_ADDRESS,
   forwarderAddress: constants.ZERO_ADDRESS,
   verbose: false,
-  clientId: '1'
+  clientId: '1',
+  tokenContract: constants.ZERO_ADDRESS
 }
 
 /**
@@ -87,6 +88,7 @@ export interface GSNConfig {
   forwarderAddress: Address
   chainId: number
   clientId: IntString
+  tokenContract: Address
 }
 
 export interface GSNDependencies {
