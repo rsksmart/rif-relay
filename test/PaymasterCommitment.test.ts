@@ -219,7 +219,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
 
       const gasLimits = await paymasterContract.getGasLimits()
       // fail if a bit lower
-      expectRevert(relayHubInstance.relayCall(parseInt(gasLimits.acceptanceBudget) - 1, r.req, r.sig, '0x', externalGasLimit, {
+      expectRevert.unspecified(relayHubInstance.relayCall(parseInt(gasLimits.acceptanceBudget) - 1, r.req, r.sig, '0x', externalGasLimit, {
         from: relayWorker,
         gas: externalGasLimit,
         gasPrice
