@@ -26,7 +26,7 @@ import {
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 
-import { deployHub, evmMine, evmMineMany, revert, snapshot } from '../TestUtils'
+import { deployHub, evmMine, evmMineMany, revert, snapshot, getTestingEnvironment} from '../TestUtils'
 import {
   NewRelayParams,
   PrepareRelayRequestOption,
@@ -144,6 +144,7 @@ contract('RelayServer', function (accounts) {
     }
 
     const config = configureGSN(relayClientConfig)
+    config.chainId = (await getTestingEnvironment()).chainId
     const relayClient = new RelayClient(new Web3.providers.HttpProvider(ethereumNodeUrl), config)
 
     options = {
