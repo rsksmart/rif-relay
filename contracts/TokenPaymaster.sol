@@ -39,7 +39,7 @@ contract TokenPaymaster is BasePaymaster {
     // for account-based target, this is the target account.
     function getPayer(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (address) {
         (this);
-        return relayRequest.request.to;
+        return relayRequest.request.from;
     }
 
     function getToken(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (IERC20) {
@@ -47,12 +47,30 @@ contract TokenPaymaster is BasePaymaster {
         return IERC20(relayRequest.request.tokenContract);
     }
 
+    function getTokenPrecharge(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (uint256) {
+        (this);
+        return relayRequest.request.paybackTokens;
+    }
+
     event Received(uint eth);
     receive() external override payable {
         emit Received(msg.value);
     }
 
-    function preRelayedCall(
+    function preRelayedCallInternal(
+        GsnTypes.RelayRequest calldata relayRequest
+    )
+    public
+    returns (bytes memory context, bool revertOnRecipientRevert) {
+        address payer = this.getPayer(relayRequest);
+        IERC20 token = this.getToken(relayRequest);
+        uint256 tokenPrecharge = this.getTokenPrecharge(relayRequest);
+        require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
+        token.transferFrom(payer, address(this), tokenPrecharge);
+        return (abi.encode(payer, tokenPrecharge, token), false);
+    }
+
+     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
@@ -63,12 +81,7 @@ contract TokenPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
-        address payer = this.getPayer(relayRequest);
-        IERC20 token = this.getToken(relayRequest);
-        uint256 tokenPrecharge = relayRequest.request.tokenPayback;
-        require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
-        token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(payer, tokenPrecharge, token), false);
+        return preRelayedCallInternal(relayRequest);
     }
 
     function postRelayedCall(
