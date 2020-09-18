@@ -21,6 +21,8 @@ import { RelayClient } from '../../src/relayclient/RelayClient'
 import { TestPaymasterEverythingAcceptedInstance } from '../../types/truffle-contracts'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { Environment, isRsk } from '../../src/common/Environments'
+import { getTestingEnvironment } from '../TestUtils'
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -31,6 +33,7 @@ const Forwarder = artifacts.require('Forwarder')
 contract('TransactionManager', function (accounts) {
   let id: string
   let _web3: Web3
+  let env: Environment
   let relayServer: RelayServer
   let paymaster: TestPaymasterEverythingAcceptedInstance
   let gasLess: Address
@@ -44,8 +47,10 @@ contract('TransactionManager', function (accounts) {
   before(async function () {
     const ethereumNodeUrl = (web3.currentProvider as HttpProvider).host
     _web3 = new Web3(new Web3.providers.HttpProvider(ethereumNodeUrl))
+    env = await getTestingEnvironment()
 
-    const relayClient = new RelayClient(_web3.currentProvider as HttpProvider, {})
+    const chainId = (await getTestingEnvironment()).chainId
+    const relayClient = new RelayClient(_web3.currentProvider as HttpProvider, {chainId: chainId})
 
     const stakeManager = await StakeManager.new()
     const penalizer = await Penalizer.new()
@@ -78,7 +83,8 @@ contract('TransactionManager', function (accounts) {
     const latestBlock = await _web3.eth.getBlock('latest')
     await relayServer._worker(latestBlock.number)
 
-    paymaster = await TestPaymasterEverythingAccepted.new({ gas: 1e7 })
+    const gasValue = isRsk(env) ? 68e5 : 1e7
+    paymaster = await TestPaymasterEverythingAccepted.new({ gas: gasValue })
 
     paymasterAddress = paymaster.address
 
