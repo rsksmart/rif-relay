@@ -48,7 +48,7 @@ contract('RelaySelectionManager', function (accounts) {
     tokenRecipient:'',
     tokenContract:'',
     paybackTokens:'0',
-    tokenGas:'0x0'
+    tokenGas:'0'
   }
   const transactionDetails = {
     from: '',
