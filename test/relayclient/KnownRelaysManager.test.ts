@@ -8,7 +8,8 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
-  TestRecipientInstance
+  TestRecipientInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import { prepareTransaction } from './RelayProvider.test'
@@ -22,6 +23,7 @@ const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 const Forwarder = artifacts.require('Forwarder')
+const TestToken = artifacts.require('TestToken')
 
 export async function stake (stakeManager: StakeManagerInstance, relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
   await stakeManager.stakeForAddress(manager, 1000, {
@@ -57,6 +59,7 @@ contract('KnownRelaysManager', function (
     let relayHub: RelayHubInstance
     let testRecipient: TestRecipientInstance
     let paymaster: TestPaymasterConfigurableMisbehaviorInstance
+    let tokenContract: TestTokenInstance
     let workerRelayWorkersAdded
     let workerRelayServerRegistered
     let workerNotActive
@@ -70,6 +73,7 @@ contract('KnownRelaysManager', function (
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
       stakeManager = await StakeManager.new()
+      tokenContract = await TestToken.new()
       relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, env)
       config = configureGSN({
         relayHubAddress: relayHub.address,
@@ -95,8 +99,8 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, activePaymasterRejected, owner)
       await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
       await stake(stakeManager, relayHub, notActiveRelay, owner)
-      const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3)
-      const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3)
+      const txPaymasterRejected = await prepareTransaction(testRecipient, tokenContract, other, workerPaymasterRejected, paymaster.address, web3)
+      const txTransactionRelayed = await prepareTransaction(testRecipient, tokenContract, other, workerTransactionRelayed, paymaster.address, web3)
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {

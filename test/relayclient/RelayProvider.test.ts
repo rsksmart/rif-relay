@@ -14,7 +14,8 @@ import {
   TestPaymasterEverythingAcceptedInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
   TestRecipientContract,
-  TestRecipientInstance
+  TestRecipientInstance,
+  TestTokenInstance, TestTokenContract
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
@@ -32,6 +33,7 @@ const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const TestToken = artifacts.require('TestToken')
 
 const underlyingProvider = web3.currentProvider as HttpProvider
 
@@ -39,15 +41,15 @@ const paymasterData = '0x'
 const clientId = '1'
 
 // TODO: once Utils.js is translated to TypeScript, move to Utils.ts
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3): Promise<{ relayRequest: RelayRequest, signature: string }> {
+export async function prepareTransaction (testRecipient: TestRecipientInstance, tokenContract: TestTokenInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3): Promise<{ relayRequest: RelayRequest, signature: string }> {
   const testRecipientForwarderAddress = await testRecipient.getTrustedForwarder()
   const testRecipientForwarder = await IForwarder.at(testRecipientForwarderAddress)
   const senderNonce = (await testRecipientForwarder.getNonce(account)).toString()
   const tokenPayment = {
-    tokenRecipient: '',
-    tokenContract: '',
+    tokenRecipient: paymaster,
+    tokenContract: tokenContract.address,
     paybackTokens: '0',
-    tokenGas: '0x0'
+    tokenGas: '100000'
   }
   const relayRequest: RelayRequest = {
     request: {
@@ -96,11 +98,13 @@ contract('RelayProvider', function (accounts) {
   let relayProcess: ChildProcessWithoutNullStreams
   let relayProvider: provider
   let forwarderAddress: Address
+  let tokenContract: TestTokenInstance
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
     gasLess = await web3.eth.personal.newAccount('password')
     stakeManager = await StakeManager.new()
+    tokenContract = await TestToken.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
     const forwarderInstance = await Forwarder.new()
     forwarderAddress = forwarderInstance.address
@@ -136,7 +140,8 @@ contract('RelayProvider', function (accounts) {
       const gsnConfig = configureGSN({
         relayHubAddress: relayHub.address,
         stakeManagerAddress: stakeManager.address,
-        chainId: env.chainId
+        chainId: env.chainId,
+        tokenContract: tokenContract.address
       })
 
       let websocketProvider: WebsocketProvider
@@ -309,6 +314,7 @@ contract('RelayProvider', function (accounts) {
   describe('_getTranslatedGsnResponseResult', function () {
     let relayProvider: RelayProvider
     let testRecipient: TestRecipientInstance
+    let tokenContract: TestTokenInstance
     let paymasterRejectedTxReceipt: BaseTransactionReceipt
     let innerTxFailedReceipt: BaseTransactionReceipt
     let innerTxSucceedReceipt: BaseTransactionReceipt
@@ -319,9 +325,10 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
+      tokenContract = await TestToken.new()
 
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, chainId: env.chainId })
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, tokenContract: tokenContract.address,  chainId: env.chainId })
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
         // @ts-ignore
@@ -344,7 +351,7 @@ contract('RelayProvider', function (accounts) {
       await misbehavingPaymaster.setTrustedForwarder(forwarderAddress)
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, accounts[0], accounts[0], misbehavingPaymaster.address, web3)
+      const { relayRequest, signature } = await prepareTransaction(testRecipient, tokenContract, accounts[0], accounts[0], misbehavingPaymaster.address, web3)
       await misbehavingPaymaster.setReturnInvalidErrorCode(true)
       const paymasterRejectedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
         from: accounts[0],
