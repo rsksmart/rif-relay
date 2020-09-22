@@ -164,6 +164,7 @@ contract('RelayProvider', function (accounts) {
       // note: this test only validates we process the "value" parameter of the request properly.
       // a real use-case should have a paymaster to transfer the value into the forwarder,
       // probably by swapping user's tokens into eth.
+
       await web3.eth.sendTransaction({
         from: accounts[0],
         to: forwarderAddress,
@@ -212,7 +213,7 @@ contract('RelayProvider', function (accounts) {
     // note that the revert reason here was discovered via some truffle/ganache magic (see truffle/reason.js)
     // this is not the way the revert reason is being reported by GSN solidity contracts
     it('should fail if transaction failed', async () => {
-      await expectRevert(testRecipient.testRevert({
+      await expectRevert.unspecified(testRecipient.testRevert({
         from: gasLess,
         paymaster
       }), 'always fail')
