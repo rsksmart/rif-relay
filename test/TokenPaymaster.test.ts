@@ -2,6 +2,8 @@ import {
     TestRecipientInstance,
     TokenPaymasterInstance,
     TestTokenInstance,
+    ForwarderInstance,
+    TestForwarderTargetInstance
   } from '../types/truffle-contracts'
 //  import BN from 'bn.js'
 //  import { PrefixedHexString } from 'ethereumjs-tx'
@@ -10,16 +12,18 @@ import {
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import BN = require('bn.js')
   
+const Forwarder = artifacts.require('Forwarder')
 const TokenPaymaster = artifacts.require('TokenPaymaster')
 const TestToken = artifacts.require('TestToken')
+const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 
   
-  contract('TokenPaymaster', function ([_, relayOwner, relayManager, relayWorker, senderAddress, other, dest, incorrectWorker]) {
+  contract('TokenPaymaster', function ([_, dest, relayManager, relayWorker, senderAddress, other, paymasterOwner, incorrectWorker]) {
     let paymaster: TokenPaymasterInstance
     let token: TestTokenInstance
+    let fwd: ForwarderInstance
+    let recipient : TestForwarderTargetInstance
     let forwarder: string
-    let tokenAddress: string
-    let paymasterAddress: string
 
     const baseRelayFee = '10000'
     const pctRelayFee = '10'
@@ -30,24 +34,28 @@ const TestToken = artifacts.require('TestToken')
     const paymasterData = '0x'
     const clientId = '1'
     const tokensPaid = 1
-    forwarder = other;
+    
   
     before(async function () {
-      paymaster = await TokenPaymaster.new()
+      fwd = await Forwarder.new();
+      forwarder = fwd.address;
+
+      recipient = await TestForwarderTarget.new(forwarder);
+      paymaster = await TokenPaymaster.new({from:paymasterOwner});
       token = await TestToken.new()
-      paymasterAddress = paymaster.address
-      tokenAddress = token.address
+
+      paymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
 
       relayRequestData = {
         request: {
-          to: dest,
+          to: recipient.address,
           data: '0x00',
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
           tokenRecipient: dest,
-          tokenContract: tokenAddress,
+          tokenContract: token.address,
           paybackTokens: tokensPaid.toString(),
           tokenGas: gasLimit,
         },
@@ -57,7 +65,7 @@ const TestToken = artifacts.require('TestToken')
           gasPrice,
           relayWorker,
           forwarder,
-          paymaster: paymasterAddress,
+          paymaster: paymaster.address,
           paymasterData,
           clientId
         }
@@ -66,6 +74,8 @@ const TestToken = artifacts.require('TestToken')
     })
   
     it('should succeed on transfer tokens to paymaster contract', async function () {
+      let paymasterAddress = paymaster.address;
+
       let expectedTokens = new BN(tokensPaid);
       
       //we mint tokens to the sender, and aprrove the allowance
