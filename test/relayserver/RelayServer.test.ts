@@ -21,7 +21,8 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
-  TestPaymasterEverythingAcceptedInstance
+  TestPaymasterEverythingAcceptedInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
@@ -44,10 +45,12 @@ import { sleep } from '../../src/common/Utils'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'
+import { BN } from 'ethereumjs-util'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
 const TestRecipient = artifacts.require('TestRecipient')
+const TestToken = artifacts.require('TestToken')
 const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -69,6 +72,7 @@ contract('RelayServer', function (accounts) {
   const workerIndex = 0
   const paymasterData = '0x'
   const clientId = '0'
+  const tokensPaid = 1
 
   let relayTransactionParams: RelayTransactionParams
   let rhub: RelayHubInstance
@@ -77,6 +81,7 @@ contract('RelayServer', function (accounts) {
   let penalizer: PenalizerInstance
   let paymaster: TestPaymasterEverythingAcceptedInstance
   let relayServer: RelayServer
+  let tokenContract: TestTokenInstance
   let ethereumNodeUrl: string
   let _web3: Web3
   let id: string
@@ -94,7 +99,9 @@ contract('RelayServer', function (accounts) {
     penalizer = await Penalizer.new()
     rhub = await deployHub(stakeManager.address, penalizer.address)
     forwarder = await Forwarder.new()
+    tokenContract = await TestToken.new()
     const forwarderAddress = forwarder.address
+    await tokenContract.mint('1000', forwarderAddress)
     const sr = await TestRecipient.new(forwarderAddress)
     paymaster = await TestPaymasterEverythingAccepted.new()
     // register hub's RelayRequest with forwarder, if not already done.
@@ -153,9 +160,9 @@ contract('RelayServer', function (accounts) {
       pctRelayFee,
       baseRelayFee,
       paymaster: paymaster.address,
-      tokenRecipient: '',
-      tokenContract: '',
-      paybackTokens: '0'
+      tokenRecipient: paymaster.address,
+      tokenContract: tokenContract.address,
+      paybackTokens: tokensPaid.toString()
       
     }
     relayTransactionParams = {
@@ -220,6 +227,8 @@ contract('RelayServer', function (accounts) {
   describe('relay transaction flows', function () {
     it('should relay transaction', async function () {
       await relayTransaction(relayTransactionParams, options)
+      const tknBalance = await tokenContract.balanceOf(paymaster.address)
+      assert.isTrue(new BN(tokensPaid).eq(tknBalance))
     })
 
     // skipped because error message changed here for no apparent reason
@@ -256,6 +265,8 @@ contract('RelayServer', function (accounts) {
       try {
         await relayTransaction(relayTransactionParams, options,
           { signature: '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c' })
+          const tknBalance = await tokenContract.balanceOf(paymaster.address)
+          assert.isTrue(new BN(0).eq(tknBalance))
         assert.fail()
       } catch (e) {
         assert.include(e.message, 'Paymaster rejected in server: signature mismatch')
