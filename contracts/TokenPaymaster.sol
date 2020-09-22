@@ -64,6 +64,9 @@ contract TokenPaymaster is BasePaymaster {
     returns (bytes memory context, bool revertOnRecipientRevert) {
         address payer = this.getPayer(relayRequest);
         IERC20 token = this.getToken(relayRequest);
+
+        _verifyForwarder(relayRequest);
+  
         uint256 tokenPrecharge = this.getTokenPrecharge(relayRequest);
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         token.transferFrom(payer, address(this), tokenPrecharge);
