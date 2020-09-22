@@ -9,6 +9,7 @@ import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
+import { JsonRpc, JsonRpcParsed } from 'jsonrpc-lite'
 
 abiDecoder.addABI(relayHubAbi)
 
@@ -84,7 +85,7 @@ export class RelayProvider implements HttpProvider {
       }
     }
 
-    this.origProviderSend(payload, (error: Error | null, result?: JsonRpcResponse) => {
+    this.origProviderSend(this._getPayloadForRSKProvider(payload), (error: Error | null, result?: JsonRpcResponse) => {
       callback(error, result)
     })
   }
@@ -236,5 +237,19 @@ export class RelayProvider implements HttpProvider {
       }
       callback(error, rpcResponse)
     })
+  }
+
+  //The RSKJ node doesn't support additional parameters in RPC calls. 
+  //When using the original provider with the RSKJ node it is necessary to remove the additional useGSN property.
+  _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
+    let p = payload
+    
+    if (payload.params[0] !== undefined && payload.params[0].hasOwnProperty('useGSN')) {
+      // Deep copy the payload to safely remove the useGSN property
+      p = JSON.parse(JSON.stringify(payload));
+      delete p.params[0].useGSN
+    }
+
+    return p
   }
 }
