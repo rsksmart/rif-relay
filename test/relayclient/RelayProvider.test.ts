@@ -1,5 +1,5 @@
 import { ether, expectEvent, expectRevert, constants } from '@openzeppelin/test-helpers'
-import { HttpProvider } from 'web3-core'
+import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
 import chaiAsPromised from 'chai-as-promised'
@@ -17,7 +17,7 @@ import {
   TestRecipientInstance
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
-import { defaultEnvironment } from '../../src/common/Environments'
+import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
@@ -132,8 +132,14 @@ contract('RelayProvider', function (accounts) {
         chainId: env.chainId
       })
 
-      //const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
-      const websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
+      let websocketProvider: WebsocketProvider
+
+      if (isRsk(await getTestingEnvironment())) {
+        websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
+      } else {
+        websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
+      }
+
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
 
       // NOTE: in real application its enough to set the provider in web3.
@@ -425,7 +431,15 @@ contract('RelayProvider', function (accounts) {
         stakeManagerAddress: stakeManager.address,
         chainId: (await getTestingEnvironment()).chainId
       })
-      const websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
+
+      let websocketProvider: WebsocketProvider
+
+      if (isRsk(await getTestingEnvironment())) {
+        websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
+      } else {
+        websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
+      }
+
       relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
