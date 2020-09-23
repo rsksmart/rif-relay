@@ -158,7 +158,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     tokenRecipient:'',
     tokenContract:'',
     paybackTokens:'0',
-    tokenGas:'0x0'
+    tokenGas:'0'
   }
   const transactionDetails = {
     gas: '0x10000',
