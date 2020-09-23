@@ -11,7 +11,7 @@ import {
   StakeManagerInstance,
   TestRecipientInstance,
   ForwarderInstance,
-  TestPaymasterConfigurableMisbehaviorInstance
+  TestPaymasterConfigurableMisbehaviorInstance, TestTokenInstance
 } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
@@ -25,6 +25,7 @@ const Penalizer = artifacts.require('Penalizer')
 const TestUtil = artifacts.require('TestUtil')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const TestToken = artifacts.require('TestToken')
 
 interface PartialRelayRequest {
   request?: Partial<ForwardRequest>
@@ -72,7 +73,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     RejectedByForwarder: new BN('3'),
     RejectedByRecipientRevert: new BN('4'),
     PostRelayedFailed: new BN('5'),
-    PaymasterBalanceChanged: new BN('6')
+    PaymasterBalanceChanged: new BN('6'),
+    RelayedTokenPaymentFailed: new BN('7')
   }
 
   let chainId: number
@@ -87,6 +89,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
   let target: string
   let paymaster: string
   let forwarder: string
+  let tokenContract : TestTokenInstance
 
   const baseRelayFee = '0'
   const pctRelayFee = '0'
@@ -130,6 +133,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     const paymasterData = '0x'
     const clientId = '1'
     const externalGasLimit = 5e6
+    const tokenPaid = 1
 
     beforeEach(async () => {
       // brand new paymaster for each test...
@@ -142,6 +146,9 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         from: other
       })
 
+      tokenContract = await TestToken.new()
+      await tokenContract.mint('1000', forwarder)
+
       sharedRelayRequestData = {
         request: {
           to: target,
@@ -150,10 +157,10 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: '',
-          tokenContract: '',
-          paybackTokens: '0',
-          tokenGas: '0x0'
+          tokenRecipient: paymaster,
+          tokenContract: tokenContract.address,
+          paybackTokens: tokenPaid.toString(),
+          tokenGas: gasLimit
         },
         relayData: {
           pctRelayFee,
@@ -190,6 +197,9 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       })
       // gasPrice is '1', so price=gasUsed...
       expectEvent(res, 'TransactionRelayed', { status: '0' })
+
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(tokenPaid).eq(tknBalance))
 
       const gasUsed = res.receipt.gasUsed
       const paid = paymasterBalance.sub(await relayHubInstance.balanceOf(paymaster)).toNumber()
@@ -312,6 +322,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         gasPrice
       })
 
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(0).eq(tknBalance))
       expectEvent(res, 'TransactionRejectedByPaymaster', { reason: encodeRevertReason('nonce mismatch') })
 
       const paid = paymasterBalance.sub(await relayHubInstance.balanceOf(paymaster)).toNumber()
@@ -339,6 +351,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         gasPrice
       })
 
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(0).eq(tknBalance))
       expectEvent(res, 'TransactionRelayed', { status: RelayCallStatusCodes.RejectedByForwarder })
     })
 
@@ -360,6 +374,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
 
       expectEvent(res, 'TransactionRejectedByPaymaster', { reason: encodeRevertReason('always fail') })
 
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(0).eq(tknBalance))
       const paid = paymasterBalance.sub(await relayHubInstance.balanceOf(paymaster)).toNumber()
       assert.equal(paid, 0)
     })
@@ -382,7 +398,31 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         gasPrice
       })
 
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(0).eq(tknBalance))
       expectEvent(res, 'TransactionRelayed', { status: RelayCallStatusCodes.RejectedByRecipientRevert })
+    })
+
+    it.only('paymaster should pay for token transfer revert', async () => {
+      const r = await makeRequest(web3, {
+        request: {
+          // nonce: '4',
+          data: recipientContract.contract.methods.emitMessage('').encodeABI(),
+          paybackTokens: '1001'
+        },
+        relayData: { paymaster }
+
+      }, sharedRelayRequestData, chainId, forwarderInstance)
+
+      const res = await relayHubInstance.relayCall(10e6, r.req, r.sig, '0x', externalGasLimit, {
+        from: relayWorker,
+        gas: externalGasLimit,
+        gasPrice
+      })
+
+      const tknBalance = await tokenContract.balanceOf(paymaster)
+      assert.isTrue(new BN(0).eq(tknBalance))
+      expectEvent(res, 'TransactionRelayed', { status: RelayCallStatusCodes.RelayedTokenPaymentFailed })
     })
   })
 })
