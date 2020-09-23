@@ -403,7 +403,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       expectEvent(res, 'TransactionRelayed', { status: RelayCallStatusCodes.RejectedByRecipientRevert })
     })
 
-    it.only('paymaster should pay for token transfer revert', async () => {
+    it('paymaster should pay for token transfer revert', async () => {
       const r = await makeRequest(web3, {
         request: {
           // nonce: '4',
