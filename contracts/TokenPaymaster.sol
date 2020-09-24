@@ -57,6 +57,12 @@ contract TokenPaymaster is BasePaymaster {
         emit Received(msg.value);
     }
 
+// fijarse que tenga fondos
+// fijarse que no exista si es un deploy
+// si es deploy es porque req.to es un factory
+// realizar verificaciones en la llamada de un contracto
+// getAddress de factory
+// llamar a getAddress y obtener el address que va a tener el smartwallet
     function preRelayedCallInternal(
         GsnTypes.RelayRequest calldata relayRequest
     )
@@ -70,7 +76,7 @@ contract TokenPaymaster is BasePaymaster {
         uint256 tokenPrecharge = this.getTokenPrecharge(relayRequest);
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(payer, tokenPrecharge, token), false);
+        return (abi.encode(payer, tokenPrecharge, token), true);
     }
 
      function preRelayedCall(
