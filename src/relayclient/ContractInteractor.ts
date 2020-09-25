@@ -190,7 +190,7 @@ export default class ContractInteractor {
 
   async getSenderNonce (sender: Address, forwarderAddress: Address): Promise<IntString> {
     const forwarder = await this._createForwarder(forwarderAddress)
-    const nonce = await forwarder.getNonce(sender)
+    const nonce = await forwarder.getNonce()
     return nonce.toString()
   }
 

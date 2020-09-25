@@ -237,7 +237,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       await misbehavingPaymaster.deposit({ value: ether('0.1') })
       await misbehavingPaymaster.setOverspendAcceptGas(true)
 
-      const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+      const senderNonce = (await forwarderInstance.getNonce()).toString()
       const relayRequestMisbehaving = cloneRelayRequest(relayRequest)
       relayRequestMisbehaving.relayData.paymaster = misbehavingPaymaster.address
       relayRequestMisbehaving.request.nonce = senderNonce
@@ -321,7 +321,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       .forEach(([doRevert, len, b]) => {
         it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
           const beforeBalances = getBalances()
-          const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+          const senderNonce = (await forwarderInstance.getNonce()).toString()
           let encodedFunction
           if (len === 0) {
             encodedFunction = recipient.contract.methods.checkNoReturnValues(doRevert).encodeABI()
@@ -398,7 +398,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             it(`should compensate relay with requested fee of ${requestedFee.toString()}% with ${messageLength.toString()} calldata size`, async function () {
               const beforeBalances = await getBalances()
               const pctRelayFee = requestedFee.toString()
-              const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+              const senderNonce = (await forwarderInstance.getNonce()).toString()
               const encodedFunction = recipient.contract.methods.emitMessage('a'.repeat(messageLength)).encodeABI()
               const baseRelayFee = '0'
               const relayRequest: RelayRequest = {

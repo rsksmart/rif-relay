@@ -225,7 +225,7 @@ contract('Utils', function (accounts) {
       })
       it('should call target', async function () {
         relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
-        relayRequest.request.nonce = (await forwarderInstance.getNonce(relayRequest.request.from)).toString()
+        relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
 
         const sig = await getEip712Signature(
           web3, new TypedRequestData(
