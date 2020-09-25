@@ -1,0 +1,202 @@
+
+
+
+
+MI codigo:
+
+EL proxy tiene un approve(factory, maxint)
+ya que luego factory hara el transferFrom(payer, paymaster, amount)
+
+Leer CALLDATASIZE
+CALLDATASIZE > 4 then jump a J1
+funcionalidad fallback
+RETURN
+J1: 
+COMPARAR los primeros 4 bytes con la signature nuestra initialize()
+si es igual jump a J2
+REVERT "funcion desconocida"
+J2: //Logica de initialize
+Parametros:
+20 bytes payer
+20bytes token address
+32bytes amount
+20 bytes paymaster address
+hacer tokenAddress.transferFrom(payer, paymaster, amount)
+
+
+otra opcion:
+Cuando creo el proxy no hago ningun approve en el constructor, pero tiene una funcion
+initialize que solo se puede llamar una vez y solo puede llamarlo el factory.
+Esta funcion hace un trasfer (no transferFrom!!) del amount que pase el factory.
+
+
+
+----INICIO CONSTRUCTOR----
+0   60 80 PUSH1         S [128]          M[]
+2   60 40 PUSH1         S [64, 128]      M[]
+4   52 MSTORE           S []             M[64:64+32] = 128
+5   34 CALLVALUE        S [msg.value]
+6   80 DUP1             S [msg.value, msg.value]
+7   15 ISZERO           S [msg.value==0, msg.value]
+8   61 0010 PUSH2       S [0016, msg.value==0, msg.value]
+11  57 JUMPI            S [msg.value] (if msg.value !=0 then revert)
+12  60 00 PUSH1         S [0, mgs.value]
+14  80 DUP1             S [0, 0, mgs.value]
+15  FD REVERT           S []
+16  5B JUMPDEST         S [msg.value]
+17  50 POP              S []
+18  61 0108 PUSH2       S [264]
+19  80 DUP1             S [264, 264] 
+20  61 0020 PUSH1       S [32, 264, 264]  
+22  60 00 PUSH1         S [00, 32, 264, 264]
+24  39 CODECOPY         S [264]               M[0:264] = address(this).code[32:32+264]
+25  60 00 PUSH1 0x0     S [00, 264]
+27  F3 RETURN           S []
+28  FE INVALID          S []
+-----FIN CONSTRUCTOR -----
+
+
+0   60 80 PUSH1         S [128]          M[]
+2   60 40 PUSH1         S [64, 128]      M[]
+4   52 MSTORE           S []             M[64:64+32] = 128
+--- checkeo si el contrato no tiene funciones payable ---
+5   34 CALLVALUE        S [msg.value]
+6   80 DUP1             S [msg.value, msg.value]
+7   15 ISZERO           S [msg.value == 0, msg.value]
+8   60 0F PUSH1         S [15, msg.value == 0, msg.value]
+10  57 JUMPI            S [msg.value] (if msg.value != o then revert)
+11  60 00 PUSH1         S [0, msg.value]
+13  80 DUP1             S [0, 0, msg.value]
+14  FD REVERT           S [msg.value]
+15  5B JUMPDEST         S [msg.value]
+16  50 POP              S []
+----------------------
+
+17  60 04 PUSH1         S [4]
+19  36 CALLDATASIZE     S [msg.data.size, 4]
+20  10 LT               S [msg.data.size < 4]
+21  60 28 PUSH1         S [40, msg.data.size < 4]
+23  57 JUMPI            S []   (if msg.data.size < 4 then REVERT )
+24  60 00 PUSH1         S [0]
+26  35 CALLDATALOAD     S [msg.data[0:32]]
+27  60 E0 PUSH1         S [224, msg.data[0:32]]
+29  1C SHR              S [msg.data[0:32]>>224]  (me quedo con los primeros 4 bytes = FSig)
+30  80 DUP1             S [FSig, FSig]
+31  63 4395ab91 PUSH4   S [1133882257, FSig, FSig]
+36  14 EQ               S [1133882257 == FSig, Fsig]
+37  60 2D               S [45, 1133882257 == FSig, Fsig]
+39  57 JUMPI            S [Fsig]  (if FSig == 0x4395ab91 then JUMP to PC 45)
+40  5B JUMPDEST         S [Fsig]
+41  60 00 PUSH1         S [0, Fsig]
+43  80 DUP1             S [0, 0, Fsig]
+44  FD REVERT           S [Fsig]  revert(M[0:0])
+45  5B JUMPDEST         S [Fsig]
+46  60 CD PUSH1         S [205, Fsig]
+48  60 04 PUSH1         S [04, 205, Fsig]
+50  80 DUP1             S [04, 04, 205, Fsig]
+51  36 CALLDATASIZE     S [msg.data.size, 04, 04, 205, Fsig]
+52  03 SUB              S [msg.data.size - 04, 04, 205, Fsig]
+53  60 20 PUSH1         S [32, msg.data.size - 04, 04, 205, Fsig]
+55  81 DUP2             S [msg.data.size - 04, 32, msg.data.size - 04, 04, 205, Fsig]
+56  10 LT               S [msg.data.size - 04 < 32, msg.data.size - 04, 04, 205, Fsig]
+57  15 ISZERO           S [msg.data.size - 04 > 32, msg.data.size - 04, 04, 205, Fsig]
+58  60 41 PUSH1         S [65, msg.data.size - 04 > 32, msg.data.size - 04, 04, 205, Fsig]
+60  57 JUMPI            S [msg.data.size - 04, 04, 205, Fsig] if(msg.data.size -4 > 32 then JUMP to 65)
+61  60 00 PUSH1         S [0, msg.data.size - 04, 04, 205, Fsig] 
+63  80 DUP1             S [0, 0, msg.data.size - 04, 04, 205, Fsig]     
+64  FD REVERT           S [msg.data.size - 04, 04, 205, Fsig]  revert(M[0:0])
+65  5B JUMPDEST         S [msg.data.size - 04, 04, 205, Fsig]
+66  81 DUP2             S [04, msg.data.size - 04, 04, 205, Fsig]
+67  01 ADD              S [msg.data.size, 04, 205, Fsig]
+68  90 SWAP1            S [04, msg.data.size, 205, Fsig]
+69  60 20 PUSH1         S [32, 04, msg.data.size, 205, Fsig]
+71  81 DUP2             S [04, 32, 04, msg.data.size, 205, Fsig]
+72  01 ADD              S [36, 04, msg.data.size, 205, Fsig]
+73  81 DUP2             S [04, 36, 04, msg.data.size, 205, Fsig]
+74  35 CALLDATALOAD     S [msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+75  64 PUSH5 0100000000 S [4294967296, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+81  81 DUP2             S [msg.data[4:36], 4294967296, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+82  11 GT               S [msg.data[4:36] > 4294967296, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+83  15 ISZERO           S [msg.data[4:36] < 4294967296, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+84  60 4F PUSH1         S [79, msg.data[4:36] < 4294967296, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+86  57 JUMPI            S [msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+                            if(msg.data[4:36] < 4294967296 then JUMP to 79 )
+87  60 00 PUSH1         S [0, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+89  80 DUP1             S [0, 0, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+90  FD REVERT           S [msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+                            revert(M[0:0])
+91  5B JUMPDEST         S [msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+92  82 DUP3             S [04, msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+93  01 ADD              S [04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+94  83 DUP4             S [msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+95  60 20 PUSH1         S [32, msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+97  82 DUP3             S [04 + msg.data[4:36], 32, msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+98  01 ADD              S [36 + msg.data[4:36], msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+99  11 GT               S [36 + msg.data[4:36] > msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+100 15 ISZERO           S [36 + msg.data[4:36] < msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+101 60 60 PUSH1         S [96, 36 + msg.data[4:36] < msg.data.size, 04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+103 57 JUMPI            S [04 + msg.data[4:36], 36, 04, msg.data.size, 205, Fsig]
+                        if(36 + msg.data[4:36] < msg.data.size) then JUMP to 96
+
+
+57600080fd5b80359060200191846001830284011164010000000083111715608157600080fd5b91908080601f01602080910402602001604051908101604052809392919081815260200183838082843760009201919091525092955060c3945050505050565b005b5056fea264697066735822122035af60821c51f1b53ee3cf32d94c3c02441aa5f3c4e9bf74e68cfd2f67b9c41464736f6c63430007010033
+
+
+0   60 80 PUSH1 0x80    S [128]          M[]
+2   60 40 PUSH1 0x40    S [64, 128]      M[]
+4   52 MSTORE           S []             M[64:64+32] = 128
+5   34 CALLVALUE        S [msg.value]
+6   80 DUP1             S [msg.value, msg.value]
+7   15 ISZERO           S [msg.value==0, msg.value]
+8   60 0F PUSH1 0xF     S [15, msg.value==0, msg.value]
+10  57 JUMPI            S [msg.value] (if msg.value !=0 then revert)
+11  60 00 PUSH1 0x0     S [0, mgs.value]
+13  80 DUP1             S [0, 0, mgs.value]
+14  FD REVERT           S []
+15  5B JUMPDEST         S [msg.value]
+16  50 POP              S []
+17  60 3F PUSH1 0x3F    S [63]
+19  80 DUP1             S [63, 63]
+20  60 1D PUSH1 0x1D        S [29, 63, 63]
+22  60 00 PUSH1 0x0         S [00, 29, 63, 63]
+24  39 CODECOPY             S[63]               M[0:63] = address(this).code[29:92]
+25  60 00 PUSH1 0x0 
+27  F3 RETURN 
+28  FE INVALID 
+29  60 80 PUSH1 0x80 
+31  60 40 PUSH1 0x40 
+52 MSTORE 
+60 00 PUSH1 0x0 
+80 DUP1 
+FD REVERT 
+FE INVALID 
+A2 LOG2 
+64 6970667358 PUSH5 0x6970667358
+22 0x22 (Invalid?)
+12 SLT 
+20 KECCAK256 (SHA3)
+06 MOD 
+0xD2 (invalid?)
+16 AND 
+0xF9 
+45 GASLIMIT 
+9A SWAP11 
+9B SWAP12 
+7F 906063ae44be380b7819707db3ed78efcdd7bce8198c7b0664736f6c63430006 PUSH32 0x906063AE44BE380B7819707DB3ED78EFCDD7BCE8198C7B0664736F6C63430006 
+06 MOD 
+00 STOP 
+33 CALLER
+
+
+ function delegateTransfer(address recipient, uint256 amount, bytes memory initParams, uint256 bytecodeHash, bytes memory delegateSignature): bool
+
+
+
+function delegateTransfer(recipient:addr, amount:uint256, initParams:bytes, bytecodeHash:uint256, delegateSignature:memory bytes): bool
+
+
+
++ delegateTransfer(recipient:addr, amount:uint256, owner1:addr, initParams:bytes, bytecodeHash:uint256, delegateSignature:memory bytes): bool
+
+
+function delegateTransfer(recipient:addr, amount:uint256, initParams:bytes, bytecodeHash:uint256, delegateSignature:memory bytes): bool
