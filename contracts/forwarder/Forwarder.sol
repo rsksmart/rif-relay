@@ -14,13 +14,13 @@ contract Forwarder is IForwarder {
     string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas";
     mapping(bytes32 => bool) public typeHashes;
 
-    // Nonces of senders, used to prevent replay attacks
-    mapping(address => uint256) private nonces;
+    // Nonce of forwarder, used to prevent replay attacks
+    uint256 private nonce;
 
-    function getNonce(address from)
+    function getNonce()
     public view override
     returns (uint256) {
-        return nonces[from];
+        return nonce;
     }
 
     constructor() public {
@@ -55,7 +55,7 @@ contract Forwarder is IForwarder {
         _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-        _updateNonce(req);
+        _updateNonce();
 
         // solhint-disable-next-line avoid-low-level-calls
         (success,ret) = req.tokenContract.call{gas: req.tokenGas}(
@@ -66,7 +66,7 @@ contract Forwarder is IForwarder {
             return (success,ret, 0);
         }
         
-        _updateNonce(req);
+        _updateNonce();
 
 
 
@@ -115,11 +115,11 @@ contract Forwarder is IForwarder {
   }
 
     function _verifyNonce(ForwardRequest memory req) internal view {
-        require(nonces[req.from] == req.nonce, "nonce mismatch");
+        require(nonce == req.nonce, "nonce mismatch");
     }
 
-    function _updateNonce(ForwardRequest memory req) internal {
-        nonces[req.from]++;
+    function _updateNonce() internal {
+        nonce++;
     }
 
     function registerRequestType(string calldata typeName, string calldata typeSuffix) external override {

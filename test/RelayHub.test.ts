@@ -451,14 +451,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         })
 
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
-          const nonceBefore = await forwarderInstance.getNonce(senderAddress)
+          const nonceBefore = await forwarderInstance.getNonce()
 
           const { tx, logs } = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
             gas,
             gasPrice
           })
-          const nonceAfter = await forwarderInstance.getNonce(senderAddress)
+          const nonceAfter = await forwarderInstance.getNonce()
           // assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
           assert.equal(nonceBefore.addn(2).toNumber(), nonceAfter.toNumber()) //Each execution increment the nonce twice (tkn payment + call)
           

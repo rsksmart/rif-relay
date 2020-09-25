@@ -42,7 +42,7 @@ Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
   }
   // unless explicitly set, read nonce from network.
   if ((filledRequest.request.nonce ?? '0') === '0') {
-    filledRequest.request.nonce = (await forwarderInstance.getNonce(filledRequest.request.from)).toString()
+    filledRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
   }
 
   const sig = await getEip712Signature(

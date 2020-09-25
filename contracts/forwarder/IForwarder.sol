@@ -17,7 +17,7 @@ interface IForwarder {
         uint256 tokenGas;
     }
 
-    function getNonce(address from)
+    function getNonce()
     external view
     returns(uint256);
 

@@ -317,7 +317,7 @@ contract('Forwarder', ([from]) => {
         data: func,
         value: '0',
         from: senderAddress,
-        nonce: (await fwd.getNonce(senderAddress)).toString(),
+        nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
         ...tknPayment
       }
@@ -336,7 +336,7 @@ contract('Forwarder', ([from]) => {
 
     it('should call function', async () => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-      const initialNonce = await fwd.getNonce(senderAddress)
+      const initialNonce = await fwd.getNonce()
 
       const tknPayment = {
         tokenRecipient: recipient.address,
@@ -368,7 +368,7 @@ contract('Forwarder', ([from]) => {
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
       assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
-      assert.equal((await fwd.getNonce(senderAddress)).toString(), initialNonce.add(new BN(2)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal((await fwd.getNonce()).toString(), initialNonce.add(new BN(2)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
@@ -384,7 +384,7 @@ contract('Forwarder', ([from]) => {
         data: func,
         value: '0',
         from: senderAddress,
-        nonce: (await fwd.getNonce(senderAddress)).toString(),
+        nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
         ...tknPayment
       }
@@ -414,7 +414,7 @@ contract('Forwarder', ([from]) => {
         data: func,
         value: 0,
         from: senderAddress,
-        nonce: (await fwd.getNonce(senderAddress)).toString(),
+        nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
         ...tknPayment
       }
@@ -453,7 +453,7 @@ contract('Forwarder', ([from]) => {
           to: recipient.address,
           data: func,
           from: senderAddress,
-          nonce: (await fwd.getNonce(senderAddress)).toString(),
+          nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
           ...tknPayment
@@ -481,7 +481,7 @@ contract('Forwarder', ([from]) => {
           to: recipient.address,
           data: func,
           from: senderAddress,
-          nonce: (await fwd.getNonce(senderAddress)).toString(),
+          nonce: (await fwd.getNonce()).toString(),
           value: ether('2').toString(),
           gas: 1e6,
           ...tknPayment
@@ -510,7 +510,7 @@ contract('Forwarder', ([from]) => {
           to: recipient.address,
           data: func,
           from: senderAddress,
-          nonce: (await fwd.getNonce(senderAddress)).toString(),
+          nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
           ...tknPayment
@@ -545,7 +545,7 @@ contract('Forwarder', ([from]) => {
           to: recipient.address,
           data: func,
           from: senderAddress,
-          nonce: (await fwd.getNonce(senderAddress)).toString(),
+          nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
           ...tknPayment

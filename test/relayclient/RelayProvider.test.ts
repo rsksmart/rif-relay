@@ -44,7 +44,7 @@ const clientId = '1'
 export async function prepareTransaction (testRecipient: TestRecipientInstance, tokenContract: TestTokenInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3): Promise<{ relayRequest: RelayRequest, signature: string }> {
   const testRecipientForwarderAddress = await testRecipient.getTrustedForwarder()
   const testRecipientForwarder = await IForwarder.at(testRecipientForwarderAddress)
-  const senderNonce = (await testRecipientForwarder.getNonce(account)).toString()
+  const senderNonce = (await testRecipientForwarder.getNonce()).toString()
   const tokenPayment = {
     tokenRecipient: paymaster,
     tokenContract: tokenContract.address,
