@@ -2,10 +2,11 @@
 pragma solidity >=0.6.12 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
+import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
+//import "@nomiclabs/buidler/console.sol";
 
 contract Forwarder is IForwarder {
     using ECDSA for bytes32;
@@ -222,7 +223,7 @@ contract Forwarder is IForwarder {
         }
 
         if(swalletOwner == 0x0){ //we need to initialize the contract
-
+            //console.log("Forwarder: Paying for the deployment");
             if(tokenAddr!= address(0)){
                 (bool success, ) = tokenAddr.call(transferData);
                 require(success,"Unable to pay for deployment" );
@@ -232,6 +233,7 @@ contract Forwarder is IForwarder {
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
             if (address(0) != logic) {
+                //console.log("There is custom logic");
 
                 //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
                 bytes memory initP = abi.encodeWithSelector(hex"439fab91", initParams);
@@ -257,6 +259,9 @@ contract Forwarder is IForwarder {
                 sstore(0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
                 owner)
             } 
+            
+            //console.log("Forwarder: Initialization is complete");
+
  
         }
 
