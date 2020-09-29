@@ -82,4 +82,17 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     function withdrawRelayHubDepositTo(uint amount, address payable target) public onlyOwner {
         relayHub.withdraw(amount, target);
     }
+
+    /**
+     * Check if a contract has code in it
+     * Should NOT be used on contructor, it fails
+     * See: https://stackoverflow.com/a/54056854
+     */
+    function _isContract(address _addr) public view returns (bool isContract){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
+    }
 }

@@ -33,19 +33,6 @@ contract DeployPaymaster is BasePaymaster {
         gasUsedByPost = _gasUsedByPost;
     }
 
-    /**
-     * Check if a contract has code in it
-     * Should NOT be used on contructor, it fails
-     * See: https://stackoverflow.com/a/54056854
-     */
-    function _isContract(address _addr) private returns (bool isContract){
-        uint32 size;
-        assembly {
-            size := extcodesize(_addr)
-        }
-        return (size > 0);
-    }
-
     function _checkAddressDoesNotExist(GsnTypes.RelayRequest calldata relayRequest) public virtual view {
         address owner = relayRequest.request.from;
         address logic = address(GsnUtils.getParam(relayRequest.request.data, 2));
