@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity >=0.6.12 <0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
@@ -15,9 +15,6 @@ contract Forwarder is IForwarder {
 
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
-
-    // solhint-disable-next-line no-empty-blocks
-    receive() external payable {}
 
     function getNonce(address from)
     public view override
@@ -38,7 +35,7 @@ contract Forwarder is IForwarder {
         bytes calldata suffixData,
         bytes calldata sig)
     external override view {
-
+        _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
     }
@@ -54,6 +51,7 @@ contract Forwarder is IForwarder {
     override
     returns (bool success, bytes memory ret, uint256 lastTxSucc) {
         
+        _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         _updateNonce(req);
@@ -69,9 +67,27 @@ contract Forwarder is IForwarder {
         
         _updateNonce(req);
 
+
+
+        address logic;
+        assembly {
+            logic := sload(
+                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+            )
+        }
+
         // solhint-disable-next-line avoid-low-level-calls
-        (success,ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
+        // If there's no extra logic, then call the destination contract
+        if (logic == address(0)) {
+            (success, ret) = req.to.call{gas: req.gas, value: req.value}(
+                abi.encodePacked(req.data, req.from)
+            );
+        } 
+        else {//If there's extra logic, delegate the execution
+            (success, ret) = logic.delegatecall(msg.data);
+        }
         
+        //If any balance has been added then trasfer it to the owner EOA
         if ( address(this).balance>0 ) {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(req.from).transfer(address(this).balance);
@@ -84,6 +100,18 @@ contract Forwarder is IForwarder {
         return (success,ret, 2);
     }
 
+
+  function _verifyOwner(ForwardRequest memory req) internal view {
+        address swalletOwner;
+        assembly{
+            //First of all, verify the req.from is the owner of this smart wallet
+           swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+
+        require(swalletOwner == req.from, "Requestor is not the owner of the Smart Wallet");
+  }
 
     function _verifyNonce(ForwardRequest memory req) internal view {
         require(nonces[req.from] == req.nonce, "nonce mismatch");
@@ -160,4 +188,130 @@ contract Forwarder is IForwarder {
             suffixData
         );
     }
+
+
+
+    /**
+     * This Proxy will first charge for the deployment and then it will pass the
+     * initialization scope to the wallet logic.
+     * This function can only be called once, and it is called by the Factory during deployment
+     * @param owner - The EOA that will own the smart wallet
+     * @param logic - The address containing the custom logic where to delegate everything that is not payment-related
+     * @param tokenAddr - The Token used for payment of the deploy
+     * @param transferData - payment function and params to use when calling the Token.
+     * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
+     * @param initParams - Initialization data to pass to the custom logic's initialize(bytes) function
+     */
+    function initialize(
+        address owner,
+        address logic,
+        address tokenAddr,
+        uint256 logicInitGas,
+        bytes calldata initParams,
+        bytes calldata transferData  
+    ) external {
+
+        bytes32 swalletOwner;
+        assembly {
+            //This function can be called only if not initialized (i.e., owner not set)
+            //The slot used complies with EIP-1967-like, obtained as:
+            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+             swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+
+        if(swalletOwner == 0x0){ //we need to initialize the contract
+
+            if(tokenAddr!= address(0)){
+                (bool success, ) = tokenAddr.call(transferData);
+                require(success,"Unable to pay for deployment" );
+            }
+
+
+            //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
+            //the initialize function can only be called once)
+            if (address(0) != logic) {
+
+                //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
+                bytes memory initP = abi.encodeWithSelector(hex"439fab91", initParams);
+                (bool success, ) = logic.delegatecall{gas: logicInitGas}(initP);
+
+                require(success, "initialize(bytes) call in logic contract failed");
+
+                assembly {
+                    //The slot used complies with EIP-1967, obtained as:
+                    //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+                    sstore(
+                        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
+                        logic
+                    )
+                }
+            }
+
+            //If it didnt revert it means success was true, we can then set this instance as initialized, by
+            //storing the logic address
+            //Set the owner of this Smart Wallet
+            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            assembly {
+                sstore(0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                owner)
+            } 
+ 
+        }
+
+    }
+
+   /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback () payable external {
+        _fallback();
+    }
+
+    function _fallback() internal {//Proxy code to the logic (if any)
+
+        assembly {
+            let ptr := mload(0x40)
+            let walletImpl := sload(
+                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+            )
+
+            // (1) copy incoming call data
+            calldatacopy(ptr, 0, calldatasize())
+
+            // (2) forward call to logic contract
+            let result := delegatecall(
+                gas(),
+                walletImpl,
+                ptr,
+                calldatasize(),
+                0,
+                0
+            )
+            let size := returndatasize()
+
+            // (3) retrieve return data
+            returndatacopy(ptr, 0, size)
+
+            // (4) forward return data back to caller
+            switch result
+                case 0 {
+                    revert(ptr, size)
+                }
+                default {
+                    return(ptr, size)
+                }
+        }
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
+     * is empty.
+     */
+    receive () payable external {
+        _fallback();
+    }
+
 }
