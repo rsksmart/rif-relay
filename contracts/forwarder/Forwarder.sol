@@ -2,8 +2,8 @@
 pragma solidity >=0.6.12 <0.8.0;
 pragma experimental ABIEncoderV2;
 
-import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
-import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
 //import "@nomiclabs/buidler/console.sol";
