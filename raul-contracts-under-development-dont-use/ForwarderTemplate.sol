@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.4.16 <0.8.0;
+pragma solidity >=0.6.12 <0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "./IForwarder.sol";
 import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 import "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
+import "@nomiclabs/buidler/console.sol";
 
 
 /**
@@ -27,8 +28,6 @@ contract ForwarderTemplate is IForwarder {
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
 
-    // solhint-disable-next-line no-empty-blocks
-    receive() external payable {}
 
     function getNonce(address from) external override view returns (uint256) {
         return nonces[from];
@@ -119,6 +118,7 @@ contract ForwarderTemplate is IForwarder {
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
     }
 
+
     /**
      * This Proxy will first charge for the deployment and then it will pass the
      * initialization scope to the wallet logic.
@@ -134,76 +134,87 @@ contract ForwarderTemplate is IForwarder {
         address owner,
         address logic,
         address tokenAddr,
-        bytes memory transferData,
-        bytes memory initParams
+        uint256 logicInitGas,
+        bytes calldata initParams,
+        bytes calldata transferData  
     ) external {
+
+
+        console.log("ENTRO AL Initialize con owner: ", owner);
+        console.log("TOken:" ,tokenAddr);
+        console.log("transferData:");
+        console.logBytes(transferData);
+        console.log("initParams:");
+        console.logBytes(initParams);
+        console.log("Initgas:", logicInitGas);
+   
+
+        bytes32 swalletOwner;
         assembly {
             //This function can be called only if not initialized (i.e., owner not set)
             //The slot used complies with EIP-1967-like, obtained as:
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            let swalletOwner := sload(
+             swalletOwner := sload(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             )
+        }
 
-            switch swalletOwner
-                case 0 {
-                    //If swallet is zero then initialize hasn't successfully been called yet
+        console.log("Initialized state:");
+        console.logBytes32(swalletOwner);
 
-                    //Transfer the negotiated charge of the deploy
-                    let isSuccess := call(
-                        gas(),
-                        tokenAddr,
-                        0x0,
-                        transferData,
-                        0x38,
-                        0x0,
-                        0x0
+        if(swalletOwner == 0x0){ //we need to initialize the contract
+
+            
+            console.log("INITIALIZING FORWARDER");
+            if(tokenAddr!= address(0)){
+                (bool success, ) = tokenAddr.call(transferData);
+                require(success,"Unable to pay for deployment" );
+                console.log("Payment done");
+            }
+
+
+
+            //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
+            //the initialize function can only be called once)
+            if (address(0) != logic) {
+                console.log("There is custom logic");
+
+                //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
+                bytes memory initP = abi.encodeWithSelector(hex"439fab91", initParams);
+                (bool success, ) = logic.delegatecall{gas: logicInitGas}(initP);
+
+                require(success, "initialize(bytes) call in logic contract failed");
+
+                assembly {
+                    //The slot used complies with EIP-1967, obtained as:
+                    //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
+                    sstore(
+                        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
+                        logic
                     )
-
-                    //If the payment for the deployment is not successful, then revert
-                    if iszero(isSuccess) {
-                        revert(0, 0)
-                    }
                 }
-                default {
-                    //If swallet is not zero then initialize has already been successfully called.
-                    //This contract execution is stopped (the flow exits, the lines below are not executed)
-                    stop() //same as return(0,0)
-                }
-        }
-
-        //swallet was 0 so we need to initialize the contract
-        //Initialize function of wallet library must be initialize(bytes) = 439fab91
-
-        //Initialize the custom logic of the Smart Wallet (if any)
-
-        if (address(0) != logic) {
-            bytes memory initP = abi.encodePacked(hex"439fab91", initParams);
-            (bool success, ) = logic.delegatecall(initP);
-
-            if (!success) {
-                revert("initialize(bytes) call in logic contract failed");
             }
-            assembly {
-                //The slot used complies with EIP-1967, obtained as:
-                //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-                sstore(
-                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                    logic
-                )
-            }
-        }
 
         //If it didnt revert it means success was true, we can then set this instance as initialized, by
         //storing the logic address
         //Set the owner of this Smart Wallet
         //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-        assembly {
+       assembly {
             sstore(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
                 owner
             )
+            swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        } 
+
+        console.log("INITIALIZATION COMPLETE");
+        console.logBytes32(swalletOwner);
+        console.log("GAS LEFT", gasleft());
+ 
         }
+
     }
 
     function registerRequestType(
@@ -239,7 +250,7 @@ contract ForwarderTemplate is IForwarder {
     {
         
       
-      
+        console.log("IN EXECUTE");
 
         _verifyOwner(req);
         _verifyNonce(req);
@@ -301,7 +312,19 @@ contract ForwarderTemplate is IForwarder {
         nonces[req.from]++;
     }
 
-    fallback() external {
+
+   /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback () payable external {
+        _fallback();
+    }
+
+    function _fallback() internal {
+
+        console.log("ENDED UP IN FALLBACK");
+
         assembly {
             let ptr := mload(0x40)
             let walletImpl := sload(
@@ -334,5 +357,13 @@ contract ForwarderTemplate is IForwarder {
                     return(ptr, size)
                 }
         }
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
+     * is empty.
+     */
+    receive () payable external {
+        _fallback();
     }
 }
