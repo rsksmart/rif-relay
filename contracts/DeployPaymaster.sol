@@ -33,6 +33,31 @@ contract DeployPaymaster is BasePaymaster {
         gasUsedByPost = _gasUsedByPost;
     }
 
+    /**
+     * Check if a contract has code in it
+     * Should NOT be used on contructor, it fails
+     * See: https://stackoverflow.com/a/54056854
+     */
+    function _isContract(address _addr) private returns (bool isContract){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
+    }
+
+    function _checkAddressDoesNotExist(GsnTypes.RelayRequest calldata relayRequest) public virtual view {
+        address owner = relayRequest.request.from;
+        address logic = address(GsnUtils.getParam(relayRequest.request.data, 2));
+        bytes memory initParams = GsnUtils.getParam(relayRequest.request.data, 3);
+
+        address creationAddress = ProxyFactory.getAddress(owner, logic, initParams);
+        // Create2 address are in a very specific address space
+        // Not colliding with EOA
+        // So we should check if the address is already a contract
+        require(!_isContract(creationAddress), "Address already created!");
+    }
+
     // return the payer of this request.
     // for account-based target, this is the target account.
     function getPayer(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (address) {
@@ -55,7 +80,6 @@ contract DeployPaymaster is BasePaymaster {
         emit Received(msg.value);
     }
 
-// fijarse que tenga fondos
 // fijarse que no exista si es un deploy
 // realizar verificaciones en la llamada de un contracto
 // getAddress de factory
@@ -71,6 +95,8 @@ contract DeployPaymaster is BasePaymaster {
 
         _verifyForwarder(relayRequest);
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
+
+        _checkAddressDoesNotExist(relayRequest);
 
         //We dont do that here
         //token.transferFrom(payer, address(this), tokenPrecharge);
