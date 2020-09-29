@@ -10,13 +10,13 @@ import "./forwarder/IForwarder.sol";
 import "./BasePaymaster.sol";
 
 /**
- * A Token-based paymaster.
+ * A paymaster for relay transactions.
  * - each request is paid for by the caller.
  * - acceptRelayedCall - verify the caller can pay for the request in tokens.
  * - preRelayedCall - pre-pay the maximum possible price for the tx
  * - postRelayedCall - refund the caller for the unused gas
  */
-contract TokenPaymaster is BasePaymaster {
+contract RelayPaymaster is BasePaymaster {
     using SafeMath for uint256;
 
     function versionPaymaster() external override virtual view returns (string memory){
@@ -73,6 +73,8 @@ contract TokenPaymaster is BasePaymaster {
         uint256 tokenPrecharge = this.getTokenPrecharge(relayRequest);
 
         _verifyForwarder(relayRequest);
+
+        require(_isContract(creationAddress), "Addr MUST be a contract");
 
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         //We dont do that here
