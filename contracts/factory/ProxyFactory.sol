@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.6.12 <0.8.0;
 
+//import "@nomiclabs/buidler/console.sol";
+
 /**
 ====================================================================================================================================================
                                            Documentation of the Proxy Code being deployed 
@@ -106,10 +108,11 @@ contract ProxyFactory {
         bytes32 digest = keccak256(packed);
 
         address recovered = recoverSigner(digest, sig);
+        //console.log("Recovered address:", recovered);
         require(recovered == owner, string(packed));
 
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
-        
+
         bytes memory initData = abi.encodeWithSelector(
             hex"36c3d85a",
             owner,
@@ -165,6 +168,20 @@ contract ProxyFactory {
             initParams
         );
         
+        /*console.log("owner:", owner);
+        console.log("logic:", logic);
+        console.log("paymentToken:", paymentToken);
+        console.log("recipient:", recipient);
+        console.log("deployPrice:", deployPrice);
+        console.log("logicInitGas:", logicInitGas);
+        console.log("InitParams:");
+        console.logBytes(initParams);
+        console.log("Signature:");
+        console.logBytes(sig);
+
+
+        console.log("MESSAGE.DATA");
+        console.logBytes(msg.data);*/
 
         bytes32 digest = keccak256(packed);
 
@@ -179,7 +196,7 @@ contract ProxyFactory {
         //but it’s a bit more expensive each time (compared with a one time setting here).
 
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
-  
+
         //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
 
@@ -203,12 +220,14 @@ contract ProxyFactory {
      * @param logic - Custom logic to use in the smart wallet (address(0) if no extra logic needed)
      * @param initParams - If there's a custom logic, these are the params to call initialize(bytes) (function sig must not be included)
      */
-    function getAddress(
+    function getSmartWalletAddress(
         address owner,
         address logic,
         bytes memory initParams
     ) external view returns (address) {
+        
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
+        
         bytes32 result = keccak256(
             abi.encodePacked(
                 bytes1(0xff),
@@ -218,11 +237,7 @@ contract ProxyFactory {
             )
         );
 
-        assembly {
-            let ptr := mload(0x40) //Next free-memory uint8 slot
-            mstore(ptr, result)
-            return(add(ptr, 0xC), 0x14) // result[12:] => Mem[ptr:ptr+11] = discarded; Mem[ptr+12: ptr+31] = create2_address (20 bytes); 12=0xC, 20=0x14
-        }
+        return address(uint256(result));
     }
 
     function deploy(
@@ -230,8 +245,8 @@ contract ProxyFactory {
         bytes32 salt,
         bytes memory initdata
     ) internal returns (address addr) {
-        bytes memory pointerTo;
-        uint256 size;
+        //bytes memory pointerTo;
+        //uint256 size;
 
         //Deployment of the Smart Wallet
         assembly {
@@ -240,20 +255,28 @@ contract ProxyFactory {
                 revert(0, 0)
             }
 
-            size := extcodesize(addr)
+            /*size := extcodesize(addr)
             pointerTo := mload(0x40)
             mstore(
                 0x40,
                 add(pointerTo, and(add(add(size, 0x20), 0x1f), not(0x1f)))
             )
             mstore(pointerTo, size)
-            extcodecopy(addr, add(pointerTo, 0x20), 0, size)
+            extcodecopy(addr, add(pointerTo, 0x20), 0, size)*/
         }
+
+        //console.log("ProxyFactory: Deploying Smart Wallet address in: ", addr);
+
+        //console.log("Deployed Code is");
+        //console.logBytes(pointerTo);
+        //console.log("Size of code is", size);
+
 
         //Since the init code determines the address of the smwart wallet, any initialization
         //require is done via the runtime code, to avoid the parameters impacting on the resulting address
 
         (bool success, ) = addr.call(initdata);
+        //console.log("ProxyFactory: SWallet Deployment is OK?: ", success);
         require(success);
 
         //No info is returned, an event is emitted to inform the new deployment
