@@ -74,7 +74,7 @@ contract RelayPaymaster is BasePaymaster {
 
         _verifyForwarder(relayRequest);
 
-        require(_isContract(creationAddress), "Addr MUST be a contract");
+        require(_isContract(payer), "Addr MUST be a contract");
 
         require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
         //We dont do that here

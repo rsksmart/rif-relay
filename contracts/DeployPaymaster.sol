@@ -34,14 +34,11 @@ contract DeployPaymaster is BasePaymaster {
     }
 
     function _checkAddressDoesNotExist(GsnTypes.RelayRequest calldata relayRequest) public virtual view {
-        address owner = relayRequest.request.from;
-        address logic = address(GsnUtils.getParam(relayRequest.request.data, 2));
-        bytes memory initParams = GsnUtils.getParam(relayRequest.request.data, 3);
+        address owner = address(GsnUtils.getParam(relayRequest.request.data, 0));
+        address logic = address(GsnUtils.getParam(relayRequest.request.data, 1));
+        bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 7);
 
         address creationAddress = ProxyFactory.getAddress(owner, logic, initParams);
-        // Create2 address are in a very specific address space
-        // Not colliding with EOA
-        // So we should check if the address is already a contract
         require(!_isContract(creationAddress), "Address already created!");
     }
 
