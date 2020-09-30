@@ -199,10 +199,9 @@ import {
             const deployPrice = "0x01" // 1 token
      
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-            console.log(`Expected addres: ${expectedAddress}`)
                  
             token = await TestToken.new()
-            await token.mint(ether('200'),expectedAddress)
+            await token.mint('200',expectedAddress)
 
             const originalBalance = await token.balanceOf(expectedAddress)
 
@@ -241,8 +240,9 @@ import {
             })
 
             const newBalance = await token.balanceOf(expectedAddress)
+            const expectedBalance = originalBalance.sub(new BN(1))
 
-            chai.expect(originalBalance.sub(new BN(1))).to.be.bignumber.equal(newBalance)
+            chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
         
         })
 
@@ -253,7 +253,10 @@ import {
             const logicAddress = addr(0)
             const initParams = "0x00"
             const logicInitGas = "0x00"
-                        
+            const deployPrice = "0x01" // 1 token
+
+                 
+            //Use incomplete digest
             const toSign:string = "" + web3.utils.soliditySha3(
                 {t:"bytes2",v:'0x1910'}, 
                 {t:"address",v:ownerAddress}, 
@@ -262,16 +265,24 @@ import {
                 {t:"bytes",v:initParams}
             )
                  
+            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+            await token.mint('200',expectedAddress)
+            const originalBalance = await token.balanceOf(expectedAddress)
+
           
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
             const signingKey = new ethers.utils.SigningKey(ownerPrivateKey);
             const signature = signingKey.signDigest(toSignAsBinaryArray);
             let signatureCollapsed:string = ethers.utils.joinSignature(signature);
             
-            signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length-1).concat('0');
-
-            await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, logicAddress, logicInitGas,
+            await expectRevert.unspecified(factory.delegateUserSmartWalletCreation(ownerAddress,
+                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
                 initParams, signatureCollapsed))
+
+                const newBalance = await token.balanceOf(expectedAddress)
+
+                chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
+
         })
     })
  })
