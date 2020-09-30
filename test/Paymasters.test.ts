@@ -1,6 +1,7 @@
 import {
     TestRecipientInstance,
-    TokenPaymasterInstance,
+    DeployPaymasterInstance,
+    RelayPaymasterInstance,
     TestTokenInstance,
     ForwarderInstance,
     TestForwarderTargetInstance
@@ -13,13 +14,15 @@ import RelayRequest from '../src/common/EIP712/RelayRequest'
 import BN = require('bn.js')
   
 const Forwarder = artifacts.require('Forwarder')
-const TokenPaymaster = artifacts.require('TokenPaymaster')
+const DeployPaymaster = artifacts.require('DeployPaymaster')
+const RelayPaymaster = artifacts.require('RelayPaymaster')
 const TestToken = artifacts.require('TestToken')
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 
   
   contract('TokenPaymaster', function ([_, dest, relayManager, relayWorker, senderAddress, other, paymasterOwner, incorrectWorker]) {
-    let paymaster: TokenPaymasterInstance
+    let deployPaymaster: DeployPaymasterInstance
+    let relayPaymaster: RelayPaymasterInstance
     let token: TestTokenInstance
     let fwd: ForwarderInstance
     let recipient : TestForwarderTargetInstance
@@ -41,7 +44,7 @@ const TestForwarderTarget = artifacts.require('TestForwarderTarget')
       forwarder = fwd.address;
 
       recipient = await TestForwarderTarget.new(forwarder);
-      paymaster = await TokenPaymaster.new({from:paymasterOwner});
+      deploypaymaster = await TokenPaymaster.new({from:paymasterOwner});
       token = await TestToken.new()
 
       paymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
