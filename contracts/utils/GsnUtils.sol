@@ -34,7 +34,7 @@ library GsnUtils {
         uint256 lengthOffset = MinLibBytes.readUint256(msgData, myArgPos);
         uint256 length = MinLibBytes.readUint256(msgData, 4+lengthOffset);
         // Value is next to legth, we get the offset by adding 32
-        uint256 valueOffset = offset+32;
+        uint256 valueOffset = lengthOffset+32;
         bytes32 paramBytes32 = MinLibBytes.readBytes32(msgData, 4+valueOffset);
         bytes memory result = bytes32ToBytesWithLength(paramBytes32, length);
         return result;
@@ -48,6 +48,19 @@ library GsnUtils {
             ++i;
         }
         return result;
+    }
+
+    /**
+     * Check if a contract has code in it
+     * Should NOT be used on contructor, it fails
+     * See: https://stackoverflow.com/a/54056854
+     */
+    function _isContract(address _addr) public view returns (bool isContract){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
     }
 
     //re-throw revert with the same revert data.
