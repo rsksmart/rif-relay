@@ -38,8 +38,9 @@ contract DeployPaymaster is BasePaymaster {
         address logic = address(GsnUtils.getParam(relayRequest.request.data, 1));
         bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 7);
 
-        address creationAddress = ProxyFactory.getAddress(owner, logic, initParams);
-        require(!_isContract(creationAddress), "Address already created!");
+        //We comment it out until ProxyFactory is finished
+        //address creationAddress = ProxyFactory.getAddress(owner, logic, initParams);
+        //require(!GsnUtils._isContract(creationAddress), "Address already created!");
     }
 
     // return the payer of this request.
@@ -64,10 +65,6 @@ contract DeployPaymaster is BasePaymaster {
         emit Received(msg.value);
     }
 
-// fijarse que no exista si es un deploy
-// realizar verificaciones en la llamada de un contracto
-// getAddress de factory
-// llamar a getAddress y obtener el address que va a tener el smartwallet
     function preRelayedCallInternal(
         GsnTypes.RelayRequest calldata relayRequest
     )
