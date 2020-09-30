@@ -34,7 +34,9 @@ export class VersionRegistry {
 
   async isValid (): Promise<boolean> {
     // validate the contract exists, and has the registry API
-    if (await this.web3.eth.getCode(this.registryContract.options.address) === '0x') { return false }
+    //Check added for RSKJ: when the contract does not exist in RSKJ it replies to the getCode call with 0x00
+    const code = await this.web3.eth.getCode(this.registryContract.options.address)
+    if (code === '0x' || code === '0x00') { return false }
     // this check return 'true' only for owner
     // return this.registryContract.methods.addVersion('0x414243', '0x313233', '0x313233').estimateGas(this.sendOptions)
     //   .then(() => true)
@@ -58,6 +60,7 @@ export class VersionRegistry {
       await this.getAllVersions(id),
       await this.web3.eth.getBlock('latest').then(b => b.timestamp as number)
     ])
+
     const ver = versions
       .find(v => !v.canceled && (v.time + delayPeriod <= now || v.version === optInVersion))
     if (ver == null) {

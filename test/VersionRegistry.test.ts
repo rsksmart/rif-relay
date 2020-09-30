@@ -4,6 +4,8 @@ import {
 import { expectRevert } from '@openzeppelin/test-helpers'
 import { increaseTime } from './TestUtils'
 import { VersionRegistry, string32 } from '../src/common/VersionRegistry'
+import { getTestingEnvironment } from './TestUtils'
+import { isRsk, Environment } from '../src/common/Environments'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 
@@ -16,6 +18,7 @@ contract('VersionRegistry', ([account]) => {
   let now: number
   let registryContract: VersionRegistryInstance
   let jsRegistry: VersionRegistry
+  let env: Environment
 
   before('create registry', async () => {
     registryContract = await VersionRegistryContract.new()
@@ -56,9 +59,11 @@ contract('VersionRegistry', ([account]) => {
     before(async () => {
       await increaseTime(100)
       await jsRegistry.addVersion('id', 'ver2', 'value2')
-      await increaseTime(100)
+      // evm_increaseTime with Automine enabled RSKJ works a bit different in RSKJ
+      await increaseTime(isRsk(env) ? 200 : 100)
       await jsRegistry.addVersion('id', 'ver3', 'value3')
-      await increaseTime(100)
+      // evm_increaseTime with Automine enabled RSKJ works a bit different in RSKJ
+      await increaseTime(isRsk(env) ? 300 : 100)
 
       // at this point:
       // ver1 - 300 sec old
@@ -66,6 +71,8 @@ contract('VersionRegistry', ([account]) => {
       // ver3 - 100 sec old
 
       now = parseInt((await web3.eth.getBlock('latest')).timestamp.toString())
+
+      env = await getTestingEnvironment()
     })
     context('#getAllVersions', () => {
       it('should return all versions', async () => {
@@ -76,10 +83,14 @@ contract('VersionRegistry', ([account]) => {
         assert.deepInclude(versions[1], { version: 'ver2', value: 'value2', canceled: false })
         assert.deepInclude(versions[2], { version: 'ver', value: 'value', canceled: false })
 
-        assert.closeTo(now - versions[0].time, 100, 2)
-        assert.closeTo(now - versions[1].time, 200, 2)
-        assert.closeTo(now - versions[2].time, 300, 2)
+        assert.closeTo(now - versions[0].time, 100, isRsk(env) ? 4 : 2) 
+        assert.closeTo(now - versions[1].time, 200, isRsk(env) ? 4 : 2)
+        assert.closeTo(now - versions[2].time, 300, isRsk(env) ? 4 : 2)
       })
+
+      function delay(ms: number) {
+        return new Promise( resolve => setTimeout(resolve, ms) );
+      } 
 
       it('should ignore repeated added version (can\'t modify history: only adding to it)', async () => {
         // note that the javascript class reject such double-adding. we add directly through the contract API:
