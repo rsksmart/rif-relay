@@ -9,6 +9,8 @@ import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
+import { isRsk, Environment } from '../../src/common/Environments'
+import { getTestingEnvironment } from '../TestUtils'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
@@ -175,10 +177,13 @@ contract('Forwarder', ([from]) => {
       })
 
       it('should fail on wrong nonce', async () => {
+        const env: Environment = await getTestingEnvironment()
+        let message: string = isRsk(env) ? 'Returned error: VM execution error: nonce mismatch' : 'revert nonce mismatch'
+
         await expectRevert(fwd.verify({
           ...req,
           nonce: 123
-        }, domainSeparator, typeHash, '0x', '0x'), 'revert nonce mismatch')
+        }, domainSeparator, typeHash, '0x', '0x'), message)
       })
       it('should fail on invalid signature', async () => {
         await expectRevert(fwd.verify(req, domainSeparator, typeHash, '0x', '0x'), 'invalid signature length')
