@@ -196,6 +196,124 @@ import {
                 initParams, signatureCollapsed))
         })
     
+        it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () =>{
+            const logicAddress = addr(0)
+            const initParams = "0x00"
+            const logicInitGas = "0x00"
+     
+            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+        
+
+            const toSign:string = "" + web3.utils.soliditySha3(
+                {t:"bytes2",v:'0x1910'}, 
+                {t:"address",v:ownerAddress}, 
+                {t:"address",v:logicAddress}, 
+                {t:"uint256",v:logicInitGas},
+                {t:"bytes",v:initParams}
+            )
+
+            const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
+            const signingKey = new ethers.utils.SigningKey(ownerPrivateKey);
+            const signature = signingKey.signDigest(toSignAsBinaryArray);
+            const signatureCollapsed = ethers.utils.joinSignature(signature);
+
+            const { logs } = await factory.createUserSmartWallet(ownerAddress,
+                logicAddress, logicInitGas,
+                initParams, signatureCollapsed)
+            
+            const salt = ""+web3.utils.soliditySha3(
+                {t:"address",v:ownerAddress}, 
+                {t:"address", v:logicAddress},
+                {t:"bytes", v:initParams}
+            )
+
+            const expectedSalt = web3.utils.toBN(salt).toString();
+
+            //Check the emitted event
+            expectEvent.inLogs(logs, 'Deployed', {
+                addr: expectedAddress,
+                salt:expectedSalt 
+            })
+
+
+            const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
+                name: 'isInitialized',
+                type: 'function',
+                inputs: []
+            },[]);
+
+            const trx = await web3.eth.getTransaction(logs[0].transactionHash)
+
+            let newTrx = {
+                from: trx.from,
+                gas: trx.gas,
+                to: expectedAddress,
+                gasPrice: trx.gasPrice,
+                value: trx.value,
+                data: isInitializedFunc
+            }
+
+            //Call the initialize function
+            let result  = await web3.eth.call(newTrx)
+
+
+            let resultStr = result as string
+
+            //It should be initialized
+            chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+
+
+         
+           const initFunc = await web3.eth.abi.encodeFunctionCall({
+                name: 'initialize',
+                type: 'function',
+                inputs: [{
+                    type: 'address',
+                    name: 'owner'
+                },
+                {
+                    type: 'address',
+                    name: 'logic'
+                },
+                {
+                    type: 'address',
+                    name: 'tokenAddr'
+                },
+                {
+                    type: 'uint256',
+                    name: 'logicInitGas'
+                },
+                {
+                    type: 'bytes',
+                    name: 'initParams'
+                },
+                {
+                    type: 'bytes',
+                    name: 'transferData'
+                }
+            ]
+            }, [ownerAddress, logicAddress, addr(0), logicInitGas, initParams, '0x00']);
+
+
+             newTrx.data = initFunc
+            
+
+            //Trying to manually call the initialize function again (it was called during deploy)
+            result  = await web3.eth.call(newTrx)
+            resultStr = result as string
+
+            //It should return false since it was already initialized
+            chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+
+            newTrx.data = isInitializedFunc
+
+            result  = await web3.eth.call(newTrx)
+            resultStr = result as string
+
+            //The smart wallet should be still initialized
+            chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+
+        })
     
     })
 

@@ -114,7 +114,7 @@ contract ProxyFactory {
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
 
         bytes memory initData = abi.encodeWithSelector(
-            hex"36c3d85a",
+            hex"17eb58b8",
             owner,
             logic,
             address(0),
