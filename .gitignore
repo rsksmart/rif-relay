@@ -26,3 +26,6 @@ artifacts
 /jsrelay/gsndata/
 /jsrelay/dist/relayserver.js
 /json-input.json
+rsknode/db/
+rsknode/logs/
+rsknode/src/
