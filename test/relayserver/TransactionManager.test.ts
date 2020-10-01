@@ -3,10 +3,12 @@ import { toBN } from 'web3-utils'
 import Mutex from 'async-mutex/lib/Mutex'
 import * as ethUtils from 'ethereumjs-util'
 
-import { evmMineMany, revert, snapshot } from '../TestUtils'
+import { evmMineMany, revert, snapshot, getTestingEnvironment } from '../TestUtils'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { HttpProvider } from 'web3-core'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
+
+import { isRsk } from '../../src/common/Environments'
 
 contract('TransactionManager', function (accounts) {
   const pendingTransactionTimeoutBlocks = 5
@@ -17,7 +19,7 @@ contract('TransactionManager', function (accounts) {
 
   before(async function () {
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init()
+    await env.init(isRsk(await getTestingEnvironment()) ? {chainId: 33} : {})
     await env.newServerInstance({ pendingTransactionTimeoutBlocks })
     relayServer = env.relayServer
   })
