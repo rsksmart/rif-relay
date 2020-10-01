@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "./forwarder/IForwarder.sol";
+import "./factory/ProxyFactory.sol";
 import "./BasePaymaster.sol";
 
 /**
@@ -21,9 +22,8 @@ contract DeployPaymaster is BasePaymaster {
         return "2.0.0-beta.1+opengsn.token.ipaymaster";
     }
 
-    IERC20[] public tokens;
-
     uint public gasUsedByPost;
+    address public proxyFactory;
 
     /**
      * set gas used by postRelayedCall, for proper gas calculation.
@@ -38,9 +38,9 @@ contract DeployPaymaster is BasePaymaster {
         address logic = address(GsnUtils.getParam(relayRequest.request.data, 1));
         bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 7);
 
-        //We comment it out until ProxyFactory is finished
-        //address creationAddress = ProxyFactory.getAddress(owner, logic, initParams);
-        //require(!GsnUtils._isContract(creationAddress), "Address already created!");
+        address contractAddr = ProxyFactory(proxyFactory).getSmartWalletAddress(owner, logic, initParams);
+
+        require(!GsnUtils._isContract(contractAddr), "Address already created!");
     }
 
     // return the payer of this request.
@@ -59,6 +59,11 @@ contract DeployPaymaster is BasePaymaster {
         (this);
         return relayRequest.request.paybackTokens;
     }
+
+    function setProxyFactory(address f) public virtual {
+        proxyFactory = f;
+    }
+
 
     event Received(uint eth);
     receive() external override payable {
