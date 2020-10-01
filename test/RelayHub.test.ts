@@ -1,12 +1,12 @@
 import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
-import { expect } from 'chai'
+import chai from 'chai'
 
 import { decodeRevertReason, getEip712Signature, removeHexPrefix } from '../src/common/Utils'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment } from './TestUtils'
-import { isRsk, Environment } from '../src/common/Environments'
-import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import { isRsk, Environment, defaultEnvironment } from '../src/common/Environments'
+import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 
 import {
   RelayHubInstance,
@@ -18,6 +18,10 @@ import {
   TestPaymasterConfigurableMisbehaviorInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason } from './TestUtils'
+import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
+
+import chaiAsPromised from 'chai-as-promised'
+const { expect, assert } = chai.use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
 const Forwarder = artifacts.require('Forwarder')
@@ -56,7 +60,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     env = await getTestingEnvironment()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
-    relayHubInstance = await deployHub(stakeManager.address, penalizer.address, env)
+    relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
     paymasterContract = await TestPaymasterEverythingAccepted.new()
     forwarderInstance = await Forwarder.new()
     forwarder = forwarderInstance.address
@@ -65,10 +69,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     chainId = env.chainId
 
     // register hub's RelayRequest with forwarder, if not already done.
-    await forwarderInstance.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarderInstance)
 
     target = recipientContract.address
     paymaster = paymasterContract.address
@@ -655,6 +656,17 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           expectEvent.inLogs(logs, 'TransactionRejectedByPaymaster', {
             reason: encodeRevertReason('You asked me to revert, remember?')
           })
+        })
+
+        it('should fail a transaction if paymaster.getGasLimits is too expensive', async function () {
+          await misbehavingPaymaster.setExpensiveGasLimits(true)
+
+          await expectRevert.unspecified(relayHubInstance.relayCall(10e6, relayRequestMisbehavingPaymaster,
+            signatureWithMisbehavingPaymaster, '0x', gas, {
+              from: relayWorker,
+              gas,
+              gasPrice: gasPrice
+            }), 'revert')
         })
 
         it('should revert the \'relayedCall\' if \'postRelayedCall\' reverts', async function () {

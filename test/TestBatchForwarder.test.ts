@@ -2,7 +2,7 @@
 
 import { ether, expectEvent } from '@openzeppelin/test-helpers'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
-import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 
 import { getEip712Signature } from '../src/common/Utils'
 
@@ -14,6 +14,7 @@ import {
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
 import { getEnvironment } from '../src/common/Environments'
+import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
 const StakeManager = artifacts.require('StakeManager')
@@ -35,7 +36,7 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
 
     const stakeManager = await StakeManager.new()
     const penalizer = await Penalizer.new()
-    hub = await deployHub(stakeManager.address, penalizer.address, env)
+    hub = await deployHub(stakeManager.address, penalizer.address)
     const relayHub = hub
     await stakeManager.stakeForAddress(relayManager, 2000, {
       value: ether('2'),
@@ -51,10 +52,8 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
     await hub.depositFor(paymaster.address, { value: paymasterDeposit })
 
     forwarder = await BatchForwarder.new()
-    await forwarder.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarder)
+
     recipient = await TestRecipient.new(forwarder.address)
 
     await paymaster.setTrustedForwarder(forwarder.address)

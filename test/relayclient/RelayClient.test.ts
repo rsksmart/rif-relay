@@ -5,6 +5,8 @@ import sinon from 'sinon'
 import sinonChai from 'sinon-chai'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { HttpProvider } from 'web3-core'
+import express from 'express'
+import axios from 'axios'
 
 import {
   RelayHubInstance,
@@ -14,7 +16,7 @@ import {
 } from '../../types/truffle-contracts'
 
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
-import { RelayClient } from '../../src/relayclient/RelayClient'
+import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { configureGSN, getDependencies, GSNConfig } from '../../src/relayclient/GSNConfigurator'
@@ -27,8 +29,14 @@ import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionVali
 import { deployHub, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
-import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
-import { constants } from '@openzeppelin/test-helpers'
+import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
+import { GsnEvent } from '../../src/relayclient/GsnEvents'
+import { Web3Provider } from '../../src/relayclient/ContractInteractor'
+import bodyParser from 'body-parser'
+import { Server } from 'http'
+import HttpClient from '../../src/relayclient/HttpClient'
+import HttpWrapper from '../../src/relayclient/HttpWrapper'
+import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -40,6 +48,21 @@ chai.use(sinonChai)
 
 const localhostOne = 'http://localhost:8090'
 const underlyingProvider = web3.currentProvider as HttpProvider
+
+class MockHttpClient extends HttpClient {
+  constructor (readonly mockPort: number,
+    httpWrapper: HttpWrapper, config: Partial<GSNConfig>) {
+    super(httpWrapper, config)
+  }
+
+  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
+    return await super.relayTransaction(this.mapUrl(relayUrl), request)
+  }
+
+  private mapUrl (relayUrl: string): string {
+    return relayUrl.replace(':8090', `:${this.mockPort}`)
+  }
+}
 
 contract('RelayClient', function (accounts) {
   let web3: Web3
@@ -57,19 +80,17 @@ contract('RelayClient', function (accounts) {
   let to: Address
   let from: Address
   let data: PrefixedHexString
+  let gsnEvents: GsnEvent[] = []
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
-    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
+    relayHub = await deployHub(stakeManager.address)
     const forwarderInstance = await Forwarder.new()
     forwarderAddress = forwarderInstance.address
     testRecipient = await TestRecipient.new(forwarderAddress)
     // register hub's RelayRequest with forwarder, if not already done.
-    await forwarderInstance.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarderInstance)
     paymaster = await TestPaymasterEverythingAccepted.new()
     await paymaster.setTrustedForwarder(forwarderAddress)
     await paymaster.setRelayHub(relayHub.address)
@@ -77,14 +98,13 @@ contract('RelayClient', function (accounts) {
 
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       stake: 1e18,
-      url: 'asd',
       relayOwner: accounts[1],
       ethereumNodeUrl: underlyingProvider.host
     })
 
     gsnConfig = {
+      logLevel: 5,
       relayHubAddress: relayHub.address,
-      stakeManagerAddress: stakeManager.address,
       chainId: (await getTestingEnvironment()).chainId
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
@@ -126,6 +146,42 @@ contract('RelayClient', function (accounts) {
 
       const destination: string = validTransaction.to.toString('hex')
       assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+    })
+
+    it('should skip timed-out server', async function () {
+      let server: Server | undefined
+      try {
+        const pingResponse = await axios.get('http://localhost:8090/getaddr').then(res => res.data)
+        const mockServer = express()
+        mockServer.use(bodyParser.urlencoded({ extended: false }))
+        mockServer.use(bodyParser.json())
+
+        mockServer.get('/getaddr', async (req, res) => {
+          console.log('=== got GET ping', req.query)
+          res.send(pingResponse)
+        })
+        mockServer.post('/relay', () => {
+          console.log('== got relay.. ignoring')
+          // don't answer... keeping client in limbo
+        })
+
+        await new Promise((resolve) => {
+          server = mockServer.listen(0, resolve)
+        })
+        const mockServerPort = (server as any).address().port
+
+        // MockHttpClient alter the server port, so the client "thinks" it works with relayUrl, but actually
+        // it uses the mockServer's port
+        const relayClient = new RelayClient(underlyingProvider, gsnConfig, {
+          httpClient: new MockHttpClient(mockServerPort, new HttpWrapper({ timeout: 100 }), gsnConfig)
+        })
+
+        // async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
+        const relayingResult = await relayClient.relayTransaction(options)
+        assert.match(_dumpRelayingResult(relayingResult), /timeout.*exceeded/)
+      } finally {
+        server?.close()
+      }
     })
 
     it('should use forceGasPrice if provided', async function () {
@@ -196,12 +252,40 @@ contract('RelayClient', function (accounts) {
       assert.equal(relayingErrors.size, 1)
       assert.match(relayingErrors.values().next().value.message, /score-error/)
     })
+    describe('with events listener', () => {
+      function eventsHandler (e: GsnEvent): void {
+        gsnEvents.push(e)
+      }
+
+      before('registerEventsListener', () => {
+        relayClient = new RelayClient(underlyingProvider, gsnConfig)
+        relayClient.registerEventListener(eventsHandler)
+      })
+      it('should call events handler', async function () {
+        await relayClient.relayTransaction(options)
+        assert.equal(gsnEvents.length, 8)
+        assert.equal(gsnEvents[0].step, 1)
+        assert.equal(gsnEvents[0].total, 8)
+        assert.equal(gsnEvents[7].step, 8)
+      })
+      describe('removing events listener', () => {
+        before('registerEventsListener', () => {
+          gsnEvents = []
+          relayClient.unregisterEventListener(eventsHandler)
+        })
+        it('should call events handler', async function () {
+          await relayClient.relayTransaction(options)
+          assert.equal(gsnEvents.length, 0)
+        })
+      })
+    })
   })
 
   describe('#_calculateDefaultGasPrice()', function () {
     it('should use minimum gas price if calculated is to low', async function () {
       const minGasPrice = 1e18
-      const gsnConfig = {
+      const gsnConfig: Partial<GSNConfig> = {
+        logLevel: 5,
         relayHubAddress: relayHub.address,
         minGasPrice,
         chainId: 33 // Pablo: wired in, since this is not a async context :(
@@ -214,7 +298,7 @@ contract('RelayClient', function (accounts) {
 
   describe('#_attemptRelay()', function () {
     const relayUrl = localhostOne
-    const RelayServerAddress = accounts[1]
+    const relayWorkerAddress = accounts[1]
     const relayManager = accounts[2]
     const relayOwner = accounts[3]
     let pingResponse: PingResponse
@@ -227,17 +311,17 @@ contract('RelayClient', function (accounts) {
         value: (2e18).toString()
       })
       await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
-      await relayHub.addRelayWorkers([RelayServerAddress], { from: relayManager })
+      await relayHub.addRelayWorkers([relayWorkerAddress], { from: relayManager })
       await relayHub.registerRelayServer(2e16.toString(), '10', 'url', { from: relayManager })
       await relayHub.depositFor(paymaster.address, { value: (2e18).toString() })
       pingResponse = {
-        RelayServerAddress,
-        RelayManagerAddress: relayManager,
-        RelayHubAddress: relayManager,
-        MinGasPrice: '',
-        MaxAcceptanceBudget: 1e10.toString(),
-        Ready: true,
-        Version: ''
+        relayWorkerAddress: relayWorkerAddress,
+        relayManagerAddress: relayManager,
+        relayHubAddress: relayManager,
+        minGasPrice: '',
+        maxAcceptanceBudget: 1e10.toString(),
+        ready: true,
+        version: ''
       }
       relayInfo = {
         relayInfo: {
@@ -255,7 +339,7 @@ contract('RelayClient', function (accounts) {
     })
 
     it('should return error if view call to \'relayCall()\' fails', async function () {
-      const badContractInteractor = new BadContractInteractor(web3.currentProvider, configureGSN(gsnConfig), true)
+      const badContractInteractor = new BadContractInteractor(web3.currentProvider as Web3Provider, configureGSN(gsnConfig), true)
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, { contractInteractor: badContractInteractor })
       await relayClient._init()
@@ -324,9 +408,9 @@ contract('RelayClient', function (accounts) {
             asyncApprovalData,
             asyncPaymasterData
           })
-        const { httpRequest } = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas)
-        assert.equal(httpRequest.approvalData, '0x1234567890')
-        assert.equal(httpRequest.paymasterData, '0xabcd')
+        const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas)
+        assert.equal(httpRequest.metadata.approvalData, '0x1234567890')
+        assert.equal(httpRequest.relayRequest.relayData.paymasterData, '0xabcd')
       })
     })
   })
@@ -338,8 +422,8 @@ contract('RelayClient', function (accounts) {
       const transaction = new Transaction('0x')
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, { contractInteractor: badContractInteractor })
-      const { receipt, wrongNonce, broadcastError } = await relayClient._broadcastRawTx(transaction)
-      assert.isUndefined(receipt)
+      const { hasReceipt, wrongNonce, broadcastError } = await relayClient._broadcastRawTx(transaction)
+      assert.isFalse(hasReceipt)
       assert.isTrue(wrongNonce)
       assert.equal(broadcastError?.message, BadContractInteractor.wrongNonceMessage)
     })

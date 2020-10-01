@@ -57,6 +57,8 @@ contract('VersionRegistry', ([account]) => {
 
   context('with more versions', () => {
     before(async () => {
+      env = await getTestingEnvironment()
+
       await increaseTime(100)
       await jsRegistry.addVersion('id', 'ver2', 'value2')
       // evm_increaseTime with Automine enabled RSKJ works a bit different in RSKJ
@@ -71,8 +73,6 @@ contract('VersionRegistry', ([account]) => {
       // ver3 - 100 sec old
 
       now = parseInt((await web3.eth.getBlock('latest')).timestamp.toString())
-
-      env = await getTestingEnvironment()
     })
     context('#getAllVersions', () => {
       it('should return all versions', async () => {

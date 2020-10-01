@@ -12,7 +12,7 @@ export interface Environment {
 }
 
 const defaultRelayHubConfiguration: RelayHubConfiguration = {
-  gasOverhead: 35951,
+  gasOverhead: 35965,
   postOverhead: 13950,
   gasReserve: 100000,
   maxWorkerCount: 10,

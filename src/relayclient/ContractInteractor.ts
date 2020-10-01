@@ -1,7 +1,19 @@
+import Common from 'ethereumjs-common'
 import Web3 from 'web3'
-import { BlockNumber, provider, Transaction, TransactionReceipt } from 'web3-core'
+import log from 'loglevel'
+import { BlockTransactionString } from 'web3-eth'
 import { EventData, PastEventOptions } from 'web3-eth-contract'
 import { PrefixedHexString, TransactionOptions } from 'ethereumjs-tx'
+import { toBN } from 'web3-utils'
+import {
+  BlockNumber,
+  HttpProvider,
+  IpcProvider,
+  provider,
+  Transaction,
+  TransactionReceipt,
+  WebsocketProvider
+} from 'web3-core'
 
 import RelayRequest from '../common/EIP712/RelayRequest'
 import paymasterAbi from '../common/interfaces/IPaymaster.json'
@@ -28,28 +40,36 @@ import {
 import { Address, IntString } from './types/Aliases'
 import { GSNConfig } from './GSNConfigurator'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
-import { BlockTransactionString } from 'web3-eth'
-import Common from 'ethereumjs-common'
-import { toBN } from 'web3-utils'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
 import Contract = Truffle.Contract
 
+require('source-map-support').install({ errorFormatterForce: true })
+
 type EventName = string
 
 export const RelayServerRegistered: EventName = 'RelayServerRegistered'
 export const RelayWorkersAdded: EventName = 'RelayWorkersAdded'
+export const TransactionRelayed: EventName = 'TransactionRelayed'
 export const TransactionRejectedByPaymaster: EventName = 'TransactionRejectedByPaymaster'
+
+const ActiveManagerEvents = [RelayServerRegistered, RelayWorkersAdded, TransactionRelayed, TransactionRejectedByPaymaster]
 
 export const HubAuthorized: EventName = 'HubAuthorized'
 export const HubUnauthorized: EventName = 'HubUnauthorized'
 export const StakeAdded: EventName = 'StakeAdded'
 export const StakeUnlocked: EventName = 'StakeUnlocked'
+export const StakeWithdrawn: EventName = 'StakeWithdrawn'
 export const StakePenalized: EventName = 'StakePenalized'
 
+export type Web3Provider =
+  | HttpProvider
+  | IpcProvider
+  | WebsocketProvider
+
 export default class ContractInteractor {
-  private readonly VERSION = '2.0.0-beta.1'
+  private readonly VERSION = '2.0.0-beta.3'
 
   private readonly IPaymasterContract: Contract<IPaymasterInstance>
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
@@ -58,8 +78,15 @@ export default class ContractInteractor {
   private readonly IRelayRecipient: Contract<BaseRelayRecipientInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
 
-  private readonly web3: Web3
-  private readonly provider: provider
+  private paymasterInstance!: IPaymasterInstance
+  relayHubInstance!: IRelayHubInstance
+  private forwarderInstance!: IForwarderInstance
+  private stakeManagerInstance!: IStakeManagerInstance
+  private relayRecipientInstance?: BaseRelayRecipientInstance
+  private knowForwarderAddressInstance?: IKnowForwarderAddressInstance
+
+  readonly web3: Web3
+  private readonly provider: Web3Provider
   private readonly config: GSNConfig
   private readonly versionManager: VersionsManager
 
@@ -68,7 +95,7 @@ export default class ContractInteractor {
   private networkId?: number
   private networkType?: string
 
-  constructor (provider: provider, config: GSNConfig) {
+  constructor (provider: Web3Provider, config: GSNConfig) {
     this.versionManager = new VersionsManager(this.VERSION)
     this.web3 = new Web3(provider)
     this.config = config
@@ -113,30 +140,60 @@ export default class ContractInteractor {
 
   getProvider (): provider { return this.provider }
 
-  getWeb3 (): Web3 { return this.web3 }
-
   async init (): Promise<void> {
     if (this.rawTxOptions != null) {
       throw new Error('_init was already called')
     }
-    await this._validateCompatibility()
+    await this._initializeContracts()
+    await this._validateCompatibility().catch(err => console.log('WARNING: beta ignore version compatibility', err.message))
     const chain = await this.web3.eth.net.getNetworkType()
-    this.chainId = await this.web3.eth.getChainId()
+    this.chainId = await this.getAsyncChainId()
     this.networkId = await this.web3.eth.net.getId()
     this.networkType = await this.web3.eth.net.getNetworkType()
     // chain === 'private' means we're on ganache, and ethereumjs-tx.Transaction doesn't support that chain type
     this.rawTxOptions = getRawTxOptions(this.chainId, this.networkId, chain)
   }
 
+  async getAsyncChainId (): Promise<number> {
+    return await this.web3.eth.getChainId()
+  }
+
   async _validateCompatibility (): Promise<void> {
     if (this.config.relayHubAddress === constants.ZERO_ADDRESS) {
       return
     }
-    const hub = await this._createRelayHub(this.config.relayHubAddress)
+    const hub = this.relayHubInstance
     const version = await hub.versionHub()
+    this._validateVersion(version)
+  }
+
+  _validateVersion (version: string): void {
     const isNewer = this.versionManager.isMinorSameOrNewer(version)
     if (!isNewer) {
-      throw new Error(`Provided Hub version(${version}) is not supported by the current interactor(${this.VERSION})`)
+      throw new Error(`Provided Hub version(${version}) is not supported by the current interactor(${this.versionManager.componentVersion})`)
+    }
+  }
+
+  async _initializeContracts (): Promise<void> {
+    if (this.config.forwarderAddress !== constants.ZERO_ADDRESS) {
+      this.forwarderInstance = await this._createForwarder(this.config.forwarderAddress)
+    }
+    if (this.config.relayHubAddress !== constants.ZERO_ADDRESS) {
+      this.relayHubInstance = await this._createRelayHub(this.config.relayHubAddress)
+      let hubStakeManagerAddress: string | undefined
+      let getStakeManagerError: Error | undefined
+      try {
+        hubStakeManagerAddress = await this.relayHubInstance.stakeManager()
+      } catch (e) {
+        getStakeManagerError = e
+      }
+      if (hubStakeManagerAddress == null || hubStakeManagerAddress === constants.ZERO_ADDRESS) {
+        throw new Error(`StakeManager address not set in RelayHub (or threw error: ${getStakeManagerError?.message})`)
+      }
+      this.stakeManagerInstance = await this._createStakeManager(hubStakeManagerAddress)
+    }
+    if (this.config.paymasterAddress !== constants.ZERO_ADDRESS) {
+      this.paymasterInstance = await this._createPaymaster(this.config.paymasterAddress)
     }
   }
 
@@ -148,32 +205,34 @@ export default class ContractInteractor {
     return this.rawTxOptions
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createKnowsForwarder (address: Address): Promise<IKnowForwarderAddressInstance> {
-    return await this.IKnowForwarderAddress.at(address)
+    if (this.knowForwarderAddressInstance != null && this.knowForwarderAddressInstance.address.toLowerCase() === address.toLowerCase()) {
+      return this.knowForwarderAddressInstance
+    }
+    this.knowForwarderAddressInstance = await this.IKnowForwarderAddress.at(address)
+    return this.knowForwarderAddressInstance
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createRecipient (address: Address): Promise<IRelayRecipientInstance> {
-    return await this.IRelayRecipient.at(address)
+    if (this.relayRecipientInstance != null && this.relayRecipientInstance.address.toLowerCase() === address.toLowerCase()) {
+      return this.relayRecipientInstance
+    }
+    this.relayRecipientInstance = await this.IRelayRecipient.at(address)
+    return this.relayRecipientInstance
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createPaymaster (address: Address): Promise<IPaymasterInstance> {
     return await this.IPaymasterContract.at(address)
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {
     return await this.IRelayHubContract.at(address)
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createForwarder (address: Address): Promise<IForwarderInstance> {
     return await this.IForwarderContract.at(address)
   }
 
-  // eslint-disable-next-line @typescript-eslint/require-await
   async _createStakeManager (address: Address): Promise<IStakeManagerInstance> {
     return await this.IStakeManager.at(address)
   }
@@ -204,7 +263,7 @@ export default class ContractInteractor {
     relayRequest: RelayRequest,
     signature: PrefixedHexString,
     approvalData: PrefixedHexString): Promise<{ paymasterAccepted: boolean, returnValue: string, reverted: boolean }> {
-    const relayHub = await this._createRelayHub(this.config.relayHubAddress)
+    const relayHub = this.relayHubInstance
     try {
       const externalGasLimit = await this._getBlockGasLimit()
 
@@ -220,9 +279,7 @@ export default class ContractInteractor {
           gasPrice: relayRequest.relayData.gasPrice,
           gas: externalGasLimit
         })
-      if (this.config.verbose) {
-        console.log(res)
-      }
+      log.info(res)
       return {
         returnValue: res.returnValue,
         paymasterAccepted: res.paymasterAccepted,
@@ -233,7 +290,7 @@ export default class ContractInteractor {
       return {
         paymasterAccepted: false,
         reverted: true,
-        returnValue: `view call to 'relayCall' reverted in client (should not happen): ${message}`
+        returnValue: `view call to 'relayCall' reverted in client: ${message}`
       }
     }
   }
@@ -245,13 +302,12 @@ export default class ContractInteractor {
     return relayHub.contract.methods.relayCall(paymasterMaxAcceptanceBudget, relayRequest, sig, approvalData, externalGasLimit).encodeABI()
   }
 
-  async getPastEventsForHub (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
-    const relayHub = await this._createRelayHub(this.config.relayHubAddress)
-    return await this._getPastEvents(relayHub.contract, names, extraTopics, options)
+  async getPastEventsForHub (extraTopics: string[], options: PastEventOptions, names: EventName[] = ActiveManagerEvents): Promise<EventData[]> {
+    return await this._getPastEvents(this.relayHubInstance.contract, names, extraTopics, options)
   }
 
   async getPastEventsForStakeManager (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
-    const stakeManager = await this._createStakeManager(this.config.stakeManagerAddress)
+    const stakeManager = await this.stakeManagerInstance
     return await this._getPastEvents(stakeManager.contract, names, extraTopics, options)
   }
 
@@ -266,8 +322,8 @@ export default class ContractInteractor {
     return contract.getPastEvents('allEvents', Object.assign({}, options, { topics }))
   }
 
-  async getBalance (address: Address): Promise<string> {
-    return await this.web3.eth.getBalance(address)
+  async getBalance (address: Address, defaultBlock: BlockNumber = 'latest'): Promise<string> {
+    return await this.web3.eth.getBalance(address, defaultBlock)
   }
 
   async getBlockNumber (): Promise<number> {
@@ -341,20 +397,21 @@ export default class ContractInteractor {
     withdrawBlock: string
     owner: string
   }> {
-    const stakeManager = await this._createStakeManager(this.config.stakeManagerAddress)
+    const stakeManager = await this.stakeManagerInstance
     return await stakeManager.getStakeInfo(managerAddress)
   }
 
   async hubBalanceOf (managerAddress: Address): Promise<BN> {
-    const hub = await this._createRelayHub(this.config.relayHubAddress)
+    const hub = this.relayHubInstance
     return await hub.balanceOf(managerAddress)
   }
 
   async withdrawHubBalanceEstimateGas (amount: BN, destination: Address, managerAddress: Address, gasPrice: IntString): Promise<{
     gasCost: BN
+    gasLimit: number
     method: any
   }> {
-    const hub = await this._createRelayHub(this.config.relayHubAddress)
+    const hub = this.relayHubInstance
     const method = hub.contract.methods.withdraw(amount.toString(), destination)
     const withdrawTxGasLimit = await method.estimateGas(
       {
@@ -362,6 +419,7 @@ export default class ContractInteractor {
       })
     const gasCost = toBN(withdrawTxGasLimit).mul(toBN(gasPrice))
     return {
+      gasLimit: parseInt(withdrawTxGasLimit),
       gasCost,
       method
     }
@@ -369,13 +427,43 @@ export default class ContractInteractor {
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction
   async getRegisterRelayMethod (baseRelayFee: IntString, pctRelayFee: number, url: string): Promise<any> {
-    const hub = await this._createRelayHub(this.config.relayHubAddress)
+    const hub = this.relayHubInstance
     return hub.contract.methods.registerRelayServer(baseRelayFee, pctRelayFee, url)
   }
 
   async getAddRelayWorkersMethod (workers: Address[]): Promise<any> {
-    const hub = await this._createRelayHub(this.config.relayHubAddress)
+    const hub = this.relayHubInstance
     return hub.contract.methods.addRelayWorkers(workers)
+  }
+
+  /**
+   * Web3.js as of 1.2.6 (see web3-core-method::_confirmTransaction) does not allow
+   * broadcasting of a transaction without waiting for it to be mined.
+   * This method sends the RPC call directly
+   * @param signedTransaction - the raw signed transaction to broadcast
+   */
+  async broadcastTransaction (signedTransaction: PrefixedHexString): Promise<PrefixedHexString> {
+    return await new Promise((resolve, reject) => {
+      if (this.provider == null) {
+        throw new Error('provider is not set')
+      }
+      this.provider.send({
+        jsonrpc: '2.0',
+        method: 'eth_sendRawTransaction',
+        params: [
+          signedTransaction
+        ],
+        id: Date.now()
+      }, (e: Error | null, r: any) => {
+        if (e != null) {
+          reject(e)
+        } else if (r.error != null) {
+          reject(r.error)
+        } else {
+          resolve(r.result)
+        }
+      })
+    })
   }
 }
 

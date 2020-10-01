@@ -2,7 +2,7 @@ import BN from 'bn.js'
 import { ether, expectEvent } from '@openzeppelin/test-helpers'
 
 import { calculateTransactionMaxPossibleGas, getEip712Signature } from '../src/common/Utils'
-import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 import { defaultEnvironment, isRsk, Environment } from '../src/common/Environments'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
 
@@ -15,6 +15,7 @@ import {
   PenalizerInstance
 } from '../types/truffle-contracts'
 import { deployHub, getTestingEnvironment } from './TestUtils'
+import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
@@ -71,14 +72,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     paymaster = await TestPaymasterVariableGasLimits.new()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
-    relayHub = await deployHub(stakeManager.address, penalizer.address, env)
+    relayHub = await deployHub(stakeManager.address, penalizer.address)
     await paymaster.setTrustedForwarder(forwarder)
     await paymaster.setRelayHub(relayHub.address)
     // register hub's RelayRequest with forwarder, if not already done.
-    await forwarderInstance.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarderInstance)
 
     await relayHub.depositFor(paymaster.address, {
       value: ether('1'),
@@ -359,9 +357,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           }
           const gasUsed = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
-          const rskDiff = isRsk(env)? 3027 : 0
+          const rskDiff = isRsk(env)? 3000 : 0
 
-          assert.equal(diff.paymasters, gasUsed + rskDiff)
+          assert.equal(diff.paymasters.toNumber(), gasUsed + rskDiff)
         })
       })
   })

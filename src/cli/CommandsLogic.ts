@@ -21,10 +21,10 @@ import ContractInteractor from '../relayclient/ContractInteractor'
 import { GSNConfig } from '../relayclient/GSNConfigurator'
 import HttpClient from '../relayclient/HttpClient'
 import HttpWrapper from '../relayclient/HttpWrapper'
-import { GsnRequestType } from '../common/EIP712/TypedRequestData'
 import { constants } from '../common/Constants'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
+import { registerForwarderForGsn } from '../common/EIP712/ForwarderUtil'
 
 interface RegisterOptions {
   from: Address
@@ -101,7 +101,7 @@ export default class CommandsLogic {
 
   async isRelayReady (relayUrl: string): Promise<boolean> {
     const response = await this.httpClient.getPingResponse(relayUrl)
-    return response.Ready
+    return response.ready
   }
 
   async waitForRelay (relayUrl: string): Promise<void> {
@@ -176,8 +176,8 @@ export default class CommandsLogic {
       console.error(`Funding GSN relay at ${options.relayUrl}`)
 
       const response = await this.httpClient.getPingResponse(options.relayUrl)
-      const relayAddress = response.RelayManagerAddress
-      const relayHubAddress = this.config.relayHubAddress ?? response.RelayHubAddress
+      const relayAddress = response.relayManagerAddress
+      const relayHubAddress = this.config.relayHubAddress ?? response.relayHubAddress
 
       const relayHub = await this.contractInteractor._createRelayHub(relayHubAddress)
       const stakeManagerAddress = await relayHub.stakeManager()
@@ -267,13 +267,9 @@ export default class CommandsLogic {
       // Overriding saved configuration with newly deployed instances
       this.config.paymasterAddress = paymasterAddress
     }
-    this.config.stakeManagerAddress = sInstance.options.address
     this.config.relayHubAddress = rInstance.options.address
 
-    await fInstance.methods.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    ).send(options)
+    await registerForwarderForGsn(fInstance, options)
 
     return {
       relayHubAddress: rInstance.options.address,

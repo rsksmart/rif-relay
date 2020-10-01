@@ -9,7 +9,7 @@ import "./interfaces/IStakeManager.sol";
 contract StakeManager is IStakeManager {
     using SafeMath for uint256;
 
-    string public override versionSM = "2.0.0-beta.1+opengsn.stakemanager.istakemanager";
+    string public override versionSM = "2.0.0-beta.3+opengsn.stakemanager.istakemanager";
 
     /// maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
@@ -96,7 +96,7 @@ contract StakeManager is IStakeManager {
         emit HubUnauthorized(relayManager, relayHub, removalBlock);
     }
 
-    function isRelayManagerStaked(address relayManager, uint256 minAmount, uint256 minUnstakeDelay)
+    function isRelayManagerStaked(address relayManager, address relayHub, uint256 minAmount, uint256 minUnstakeDelay)
     external
     override
     view
@@ -105,7 +105,7 @@ contract StakeManager is IStakeManager {
         bool isAmountSufficient = info.stake >= minAmount;
         bool isDelaySufficient = info.unstakeDelay >= minUnstakeDelay;
         bool isStakeLocked = info.withdrawBlock == 0;
-        bool isHubAuthorized = authorizedHubs[relayManager][msg.sender].removalBlock == uint(-1);
+        bool isHubAuthorized = authorizedHubs[relayManager][relayHub].removalBlock == uint(-1);
         return
         isAmountSufficient &&
         isDelaySufficient &&

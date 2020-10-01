@@ -5,7 +5,7 @@ import "../../BaseRelayRecipient.sol";
 
 contract TestForwarderTarget is BaseRelayRecipient {
 
-    string public override versionRecipient = "2.0.0-beta.1+opengsn.test.recipient";
+    string public override versionRecipient = "2.0.0-beta.3+opengsn.test.recipient";
 
     constructor(address forwarder) public {
         trustedForwarder = forwarder;
@@ -20,6 +20,14 @@ contract TestForwarderTarget is BaseRelayRecipient {
 
         // solhint-disable-next-line avoid-tx-origin
         emit TestForwarderMessage(message, _msgSender(), msg.sender, tx.origin);
+    }
+
+    function publicMsgSender() public view returns (address) {
+        return _msgSender();
+    }
+
+    function publicMsgData() public view returns (bytes memory) {
+        return _msgData();
     }
 
     function mustReceiveEth(uint value) public payable {

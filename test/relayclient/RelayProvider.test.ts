@@ -23,7 +23,8 @@ import BadRelayClient from '../dummies/BadRelayClient'
 
 import { getEip712Signature } from '../../src/common/Utils'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
-import TypedRequestData, { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
+import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -94,13 +95,10 @@ contract('RelayProvider', function (accounts) {
     web3 = new Web3(underlyingProvider)
     gasLess = await web3.eth.personal.newAccount('password')
     stakeManager = await StakeManager.new()
-    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, await getTestingEnvironment())
+    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
     const forwarderInstance = await Forwarder.new()
     forwarderAddress = forwarderInstance.address
-    await forwarderInstance.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarderInstance)
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
     paymaster = paymasterInstance.address
@@ -127,8 +125,8 @@ contract('RelayProvider', function (accounts) {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
       const gsnConfig = configureGSN({
+        logLevel: 5,
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address,
         chainId: env.chainId
       })
 
@@ -237,7 +235,7 @@ contract('RelayProvider', function (accounts) {
       testRecipient = await TestRecipient.new(forwarderAddress)
 
       const env = await getTestingEnvironment()
-      gsnConfig = configureGSN({ relayHubAddress: relayHub.address, chainId: env.chainId })
+      gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
       // call to emitMessage('hello world')
       jsonRpcPayload = {
         jsonrpc: '2.0',
@@ -264,7 +262,7 @@ contract('RelayProvider', function (accounts) {
       const promisified = new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null): void => {
         reject(error)
       }))
-      await expect(promisified).to.be.eventually.rejectedWith(`Rejected relayTransaction call - should not happen. Reason: ${BadRelayClient.message}`)
+      await expect(promisified).to.be.eventually.rejectedWith(`Rejected relayTransaction call - Reason: ${BadRelayClient.message}`)
     })
 
     it('should call callback with error containing relaying results dump if relayTransaction does not return a transaction object', async function () {
@@ -279,8 +277,8 @@ contract('RelayProvider', function (accounts) {
     it('should convert a returned transaction to a compatible rpc transaction hash response', async function () {
       const env = await getTestingEnvironment()
       const gsnConfig = configureGSN({
+        logLevel: 5,
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address,
         chainId: env.chainId
       })
       const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
@@ -312,9 +310,8 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
-
-      const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, chainId: env.chainId })
+const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
         // @ts-ignore
@@ -405,7 +402,7 @@ contract('RelayProvider', function (accounts) {
 
   describe('_getAccounts', function () {
     it('should append ephemeral accounts to the ones from the underlying provider', async function () {
-      const relayProvider = new RelayProvider(underlyingProvider, {})
+      const relayProvider = new RelayProvider(underlyingProvider, { logLevel: 5 })
       const web3 = new Web3(relayProvider)
       const accountsBefore = await web3.eth.getAccounts()
       const newAccount = relayProvider.newAccount()
@@ -427,8 +424,8 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       TestRecipient = artifacts.require('TestRecipient')
       const gsnConfig = configureGSN({
+        logLevel: 5,
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address,
         chainId: (await getTestingEnvironment()).chainId
       })
 

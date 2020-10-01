@@ -11,7 +11,7 @@ import "./interfaces/IPenalizer.sol";
 
 contract Penalizer is IPenalizer{
 
-    string public override versionPenalizer = "2.0.0-beta.1+opengsn.penalizer.ipenalizer";
+    string public override versionPenalizer = "2.0.0-beta.3+opengsn.penalizer.ipenalizer";
 
     using ECDSA for bytes32;
 
@@ -26,6 +26,11 @@ contract Penalizer is IPenalizer{
 
     }
 
+    modifier relayManagerOnly(IRelayHub hub) {
+        require(hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
+        _;
+    }
+
     function penalizeRepeatedNonce(
         bytes memory unsignedTx1,
         bytes memory signature1,
@@ -35,8 +40,9 @@ contract Penalizer is IPenalizer{
     )
     public
     override
+    relayManagerOnly(hub)
     {
-        // Can be called by anyone.
+        // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
         // (so only one is accepted), anyone can grab both transactions from the blockchain and submit them here.
         // Check whether unsignedTx1 != unsignedTx2, that both are signed by the same address,
@@ -79,6 +85,7 @@ contract Penalizer is IPenalizer{
     )
     public
     override
+    relayManagerOnly(hub)
     {
         Transaction memory decodedTx = decodeTransaction(unsignedTx);
         if (decodedTx.to == address(hub)) {

@@ -1,3 +1,4 @@
+import log from 'loglevel'
 import { IKnownRelaysManager } from './KnownRelaysManager'
 import HttpClient from './HttpClient'
 import { isInfoFromEvent, RelayInfoUrl } from './types/RelayRegisteredEventInfo'
@@ -36,9 +37,9 @@ export default class RelaySelectionManager {
    * Ping those relays that were not pinged yet, and remove both the returned relay or relays re from {@link remainingRelays}
    * @returns the first relay to respond to a ping message. Note: will never return the same relay twice.
    */
-  async selectNextRelay (txDetails: GsnTransactionDetails): Promise<RelayInfo | undefined> {
+  async selectNextRelay (): Promise<RelayInfo | undefined> {
     while (true) {
-      const slice = await this._getNextSlice(txDetails)
+      const slice = this._getNextSlice()
       let relayInfo: RelayInfo | undefined
       if (slice.length > 0) {
         relayInfo = await this._nextRelayInternal(slice)
@@ -51,22 +52,16 @@ export default class RelaySelectionManager {
   }
 
   async _nextRelayInternal (relays: RelayInfoUrl[]): Promise<RelayInfo | undefined> {
-    if (this.config.verbose) {
-      console.log('nextRelay: find fastest relay from: ' + JSON.stringify(relays))
-    }
+    log.info('nextRelay: find fastest relay from: ' + JSON.stringify(relays))
     const raceResult = await this._raceToSuccess(relays)
-    if (this.config.verbose) {
-      console.log(`race finished with a result: ${JSON.stringify(raceResult, replaceErrors)}`)
-    }
+    log.info(`race finished with a result: ${JSON.stringify(raceResult, replaceErrors)}`)
     this._handleRaceResults(raceResult)
     if (raceResult.winner != null) {
       if (isInfoFromEvent(raceResult.winner.relayInfo)) {
         return (raceResult.winner as RelayInfo)
       } else {
-        const managerAddress = raceResult.winner.pingResponse.RelayManagerAddress
-        if (this.config.verbose) {
-          console.log(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayInfo)}`)
-        }
+        const managerAddress = raceResult.winner.pingResponse.relayManagerAddress
+        log.info(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayInfo)}`)
         const events = await this.knownRelaysManager.getRelayInfoForManagers(new Set([managerAddress]))
         if (events.length === 1) {
           return {
@@ -74,29 +69,33 @@ export default class RelaySelectionManager {
             relayInfo: events[0]
           }
         } else {
-          // TODO: do not throw! The preffered relay may be removed since.
+          // TODO: do not throw! The preferred relay may be removed since.
           throw new Error('Could not find register event for the winning preferred relay')
         }
       }
     }
   }
 
-  async _getNextSlice (txDetails: GsnTransactionDetails): Promise<RelayInfoUrl[]> {
-    if (!this.isInitialized) {
-      this.remainingRelays = await this.knownRelaysManager.getRelaysSortedForTransaction(txDetails)
-      this.isInitialized = true
-    }
+  async init (): Promise<this> {
+    this.remainingRelays = await this.knownRelaysManager.getRelaysSortedForTransaction(this.gsnTransactionDetails)
+    this.isInitialized = true
+    return this
+  }
+
+  // relays left to try
+  // (note that some edge-cases (like duplicate urls) are not filtered out)
+  relaysLeft (): RelayInfoUrl[] {
+    return this.remainingRelays.flatMap(list => list)
+  }
+
+  _getNextSlice (): RelayInfoUrl[] {
+    if (!this.isInitialized) { throw new Error('init() not called') }
     for (const relays of this.remainingRelays) {
       const bulkSize = Math.min(this.config.sliceSize, relays.length)
       const slice = relays.slice(0, bulkSize)
       if (slice.length === 0) {
         continue
       }
-      // we must verify uniqueness of URLs as they are used as keys in maps
-      // https://stackoverflow.com/a/45125209
-      slice.filter((e1, i) =>
-        slice.findIndex((e2) => e1.relayUrl === e2.relayUrl) === i
-      )
       return slice
     }
     return []
@@ -106,12 +105,10 @@ export default class RelaySelectionManager {
    * @returns JSON response from the relay server, but adds the requested URL to it :'-(
    */
   async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
-    if (this.config.verbose) {
-      console.log(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    }
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl)
+    log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
+    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.paymaster)
 
-    if (!pingResponse.Ready) {
+    if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)
     }
     this.pingFilter(pingResponse, this.gsnTransactionDetails)
@@ -148,6 +145,7 @@ export default class RelaySelectionManager {
   }
 
   _handleRaceResults (raceResult: RaceResult): void {
+    if (!this.isInitialized) { throw new Error('init() not called') }
     this.errors = new Map([...this.errors, ...raceResult.errors])
     this.remainingRelays = this.remainingRelays.map(relays =>
       relays

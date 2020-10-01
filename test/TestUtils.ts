@@ -12,6 +12,7 @@ import { configureGSN } from '../src/relayclient/GSNConfigurator'
 import { Environment, defaultEnvironment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { sleep } from '../src/common/Utils'
+import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -35,14 +36,16 @@ export async function startRelay (
   fs.rmdirSync(serverWorkDir, { recursive: true })
   args.push('--workdir', serverWorkDir)
   args.push('--devMode')
+  args.push('--checkInterval', 10)
+  args.push('--logLevel', 5)
   args.push('--relayHubAddress', relayHubAddress)
   const configFile = path.resolve(__dirname, './server-config.json')
   args.push('--config', configFile)
   if (options.ethereumNodeUrl) {
     args.push('--ethereumNodeUrl', options.ethereumNodeUrl)
   }
-  if (options.gasPricePercent) {
-    args.push('--gasPricePercent', options.gasPricePercent)
+  if (options.gasPriceFactor) {
+    args.push('--gasPriceFactor', options.gasPriceFactor)
   }
   if (options.pctRelayFee) {
     args.push('--pctRelayFee', options.pctRelayFee)
@@ -99,8 +102,8 @@ export async function startRelay (
   }
   assert.ok(res, 'can\'t ping server')
   // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-  assert.ok(res.RelayServerAddress, `server returned unknown response ${res.toString()}`)
-  const relayManagerAddress = res.RelayManagerAddress
+  assert.ok(res.relayWorkerAddress, `server returned unknown response ${res.toString()}`)
+  const relayManagerAddress = res.relayManagerAddress
   console.log('Relay Server Address', relayManagerAddress)
   // @ts-ignore
   await web3.eth.sendTransaction({
@@ -123,10 +126,10 @@ export async function startRelay (
   let count = 25
   while (count-- > 0) {
     res = await http.getPingResponse(localhostOne)
-    if (res?.Ready) break
+    if (res?.ready) break
     await sleep(500)
   }
-  assert.ok(res.Ready, 'Timed out waiting for relay to get staked and registered')
+  assert.ok(res.ready, 'Timed out waiting for relay to get staked and registered')
 
   // TODO: this is temporary hack to make helper test work!!!
   // @ts-ignore
@@ -226,15 +229,24 @@ export async function getTestingEnvironment () {
 export async function deployHub (
   stakeManager: string = constants.ZERO_ADDRESS,
   penalizer: string = constants.ZERO_ADDRESS,
-  environment: Environment = defaultEnvironment): Promise<RelayHubInstance> {
+  configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHubInstance> {
+  const relayHubConfiguration: RelayHubConfiguration = {
+    ...defaultEnvironment.relayHubConfiguration,
+    ...configOverride
+  }
   return await RelayHub.new(
     stakeManager,
     penalizer,
-    environment.relayHubConfiguration.maxWorkerCount,
-    environment.relayHubConfiguration.gasReserve,
-    environment.relayHubConfiguration.postOverhead,
-    environment.relayHubConfiguration.gasOverhead,
-    environment.relayHubConfiguration.maximumRecipientDeposit,
-    environment.relayHubConfiguration.minimumUnstakeDelay,
-    environment.relayHubConfiguration.minimumStake)
+    relayHubConfiguration.maxWorkerCount,
+    relayHubConfiguration.gasReserve,
+    relayHubConfiguration.postOverhead,
+    relayHubConfiguration.gasOverhead,
+    relayHubConfiguration.maximumRecipientDeposit,
+    relayHubConfiguration.minimumUnstakeDelay,
+    relayHubConfiguration.minimumStake)
 }
+
+/**
+ * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
+ */
+export const INCORRECT_ECDSA_SIGNATURE = '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c'

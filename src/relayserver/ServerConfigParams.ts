@@ -7,6 +7,7 @@ import { constants } from '../common/Constants'
 import { Address } from '../relayclient/types/Aliases'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager } from './TxStoreManager'
+import { LogLevelNumbers } from 'loglevel'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -20,9 +21,9 @@ export interface ServerConfigParams {
   versionRegistryDelayPeriod?: number
   relayHubId?: string
   relayHubAddress: string
-  gasPricePercent: number
   ethereumNodeUrl: string
   workdir: string
+  checkInterval: number
   devMode: boolean
   registrationBlockRate: number
   maxAcceptanceBudget: number
@@ -31,7 +32,7 @@ export interface ServerConfigParams {
   maxAlertedDelayMS: number
   trustedPaymasters: Address[]
   gasPriceFactor: number
-  logLevel: number
+  logLevel: LogLevelNumbers
 
   workerMinBalance: number
   workerTargetBalance: number
@@ -39,6 +40,12 @@ export interface ServerConfigParams {
   managerMinStake: string
   managerTargetBalance: number
   minHubWithdrawalBalance: number
+  refreshStateTimeoutBlocks: number
+  pendingTransactionTimeoutBlocks: number
+  confirmationsNeeded: number
+  retryGasPriceFactor: number
+  maxGasPrice: string
+  defaultGasLimit: number
 }
 
 export interface ServerDependencies {
@@ -64,16 +71,22 @@ const serverDefaultConfiguration: ServerConfigParams = {
   managerMinStake: '1', // 1 wei
   managerTargetBalance: 0.3e18,
   minHubWithdrawalBalance: 0.1e18,
+  checkInterval: 10000,
   devMode: false,
   logLevel: 1,
   baseRelayFee: '0',
   pctRelayFee: 0,
   url: 'http://localhost:8090',
   ethereumNodeUrl: '',
-  gasPricePercent: 0,
   port: 0,
   versionRegistryAddress: constants.ZERO_ADDRESS,
-  workdir: ''
+  workdir: '',
+  refreshStateTimeoutBlocks: 5,
+  pendingTransactionTimeoutBlocks: 30, // around 5 minutes with 10 seconds block times
+  confirmationsNeeded: 12,
+  retryGasPriceFactor: 1.2,
+  defaultGasLimit: 500000,
+  maxGasPrice: 100e9.toString()
 }
 
 const ConfigParamsTypes = {
@@ -86,11 +99,12 @@ const ConfigParamsTypes = {
   versionRegistryDelayPeriod: 'number',
   relayHubId: 'string',
   relayHubAddress: 'string',
-  gasPricePercent: 'number',
+  gasPriceFactor: 'number',
   ethereumNodeUrl: 'string',
   workdir: 'string',
+  checkInterval: 'number',
   devMode: 'boolean',
-  debug: 'boolean',
+  logLevel: 'number',
   registrationBlockRate: 'number',
   maxAcceptanceBudget: 'number',
   alertedBlockDelay: 'number',
@@ -100,6 +114,7 @@ const ConfigParamsTypes = {
   managerMinBalance: 'number',
   managerTargetBalance: 'number',
   minHubWithdrawalBalance: 'number',
+  defaultGasLimit: 'number',
 
   trustedPaymasters: 'list'
 

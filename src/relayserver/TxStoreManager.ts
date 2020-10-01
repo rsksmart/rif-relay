@@ -1,66 +1,12 @@
-import * as ethUtils from 'ethereumjs-util'
-import ow from 'ow'
-import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 import AsyncNedb from 'nedb-async'
+import log from 'loglevel'
+import ow from 'ow'
+import { PrefixedHexString } from 'ethereumjs-tx'
 
-interface StoredParams {
-  from: Buffer
-  to: Buffer
-  gas: Buffer
-  gasPrice: Buffer
-  data: Buffer
-  nonce: Buffer
-  txId: string
-  attempts: number
-}
+import { Address } from '../relayclient/types/Aliases'
+import { isSameAddress } from '../common/Utils'
 
-export class StoredTx {
-  readonly from: PrefixedHexString
-  readonly to: PrefixedHexString
-  readonly gas: number
-  readonly gasPrice: number
-  readonly data: PrefixedHexString
-  readonly nonce: number
-  readonly txId: PrefixedHexString
-  readonly attempts: number
-
-  constructor (params: StoredParams) {
-    // Object.keys(tx).forEach(key => {
-    //   this[key] = ethUtils.bufferToHex(tx[key])
-    // })
-    this.from = ethUtils.bufferToHex(params.from)
-    this.to = ethUtils.bufferToHex(params.to)
-    this.gas = ethUtils.bufferToInt(params.gas)
-    this.gasPrice = ethUtils.bufferToInt(params.gasPrice)
-    this.data = ethUtils.bufferToHex(params.data)
-    this.nonce = ethUtils.bufferToInt(params.nonce)
-    this.txId = params.txId
-    this.attempts = params.attempts
-  }
-}
-
-export function transactionToStoredTx (tx: Transaction, from: PrefixedHexString, attempts: number): StoredTx {
-  return {
-    from,
-    to: ethUtils.bufferToHex(tx.to),
-    gas: ethUtils.bufferToInt(tx.gasLimit),
-    gasPrice: ethUtils.bufferToInt(tx.gasPrice),
-    data: ethUtils.bufferToHex(tx.data),
-    nonce: ethUtils.bufferToInt(tx.nonce),
-    txId: ethUtils.bufferToHex(tx.hash()),
-    attempts: attempts
-  }
-}
-
-export function storedTxToTransaction (stx: StoredTx): Transaction {
-  return new Transaction({
-    to: stx.to,
-    gasLimit: stx.gas,
-    gasPrice: stx.gasPrice,
-    nonce: stx.nonce,
-    data: stx.data
-  })
-}
+import { ServerAction, StoredTransaction } from './StoredTransaction'
 
 export const TXSTORE_FILENAME = 'txstore.db'
 
@@ -76,10 +22,10 @@ export class TxStoreManager {
     this.txstore.ensureIndex({ fieldName: 'txId', unique: true })
     this.txstore.ensureIndex({ fieldName: 'nonceSigner', unique: true })
 
-    console.log('txstore created in ', inMemory ? 'memory' : `${workdir}/${TXSTORE_FILENAME}`)
+    log.info('Server database location:', inMemory ? 'memory' : `${workdir}/${TXSTORE_FILENAME}`)
   }
 
-  async putTx (tx: StoredTx, updateExisting: boolean = false): Promise<void> {
+  async putTx (tx: StoredTransaction, updateExisting: boolean = false): Promise<void> {
     // eslint-disable-next-line
     if (!tx || !tx.txId || !tx.attempts || tx.nonce === undefined) {
       throw new Error('Invalid tx:' + JSON.stringify(tx))
@@ -145,15 +91,20 @@ export class TxStoreManager {
     await this.txstore.asyncRemove({}, { multi: true })
   }
 
-  async getAllBySigner (signer: PrefixedHexString): Promise<any[]> {
+  async getAllBySigner (signer: PrefixedHexString): Promise<StoredTransaction[]> {
     return (await this.txstore.asyncFind({ 'nonceSigner.signer': signer.toLowerCase() })).sort(function (tx1, tx2) {
       return tx1.nonce - tx2.nonce
     })
   }
 
-  async getAll (): Promise<any[]> {
+  async getAll (): Promise<StoredTransaction[]> {
     return (await this.txstore.asyncFind({})).sort(function (tx1, tx2) {
       return tx1.nonce - tx2.nonce
     })
+  }
+
+  async isActionPending (serverAction: ServerAction, destination: Address | undefined = undefined): Promise<boolean> {
+    const allTransactions = await this.getAll()
+    return allTransactions.find(it => it.minedBlockNumber == null && it.serverAction === serverAction && (destination == null || isSameAddress(it.to, destination))) != null
   }
 }

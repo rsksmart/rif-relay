@@ -33,7 +33,7 @@ class GsnTestEnvironmentClass {
    * @param debug
    * @return
    */
-  async startGsn (host?: string, environment = defaultEnvironment, deployPaymaster: boolean = true, debug = false): Promise<TestEnvironment> {
+  async startGsn (host?: string, environment = defaultEnvironment, deployPaymaster: boolean = true): Promise<TestEnvironment> {
     await this.stopGsn()
     const _host: string = getNetworkUrl(host)
     console.log('_host=', _host)
@@ -62,7 +62,7 @@ class GsnTestEnvironmentClass {
 
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
-    this._runServer(_host, deploymentResult, from, relayUrl, port, debug, environment)
+    this._runServer(_host, deploymentResult, from, relayUrl, port)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -86,7 +86,6 @@ class GsnTestEnvironmentClass {
 
     const config = configureGSN({
       relayHubAddress: deploymentResult.relayHubAddress,
-      stakeManagerAddress: deploymentResult.stakeManagerAddress,
       paymasterAddress: deploymentResult.naivePaymasterAddress,
       preferredRelays: [relayUrl],
       chainId: environment.chainId
@@ -136,7 +135,6 @@ class GsnTestEnvironmentClass {
     from: Address,
     relayUrl: string,
     port: number,
-    debug = true,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
     if (this.httpServer !== undefined) {
@@ -149,7 +147,6 @@ class GsnTestEnvironmentClass {
     const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host),
       configureGSN({
         relayHubAddress: deploymentResult.relayHubAddress,
-        stakeManagerAddress: deploymentResult.stakeManagerAddress,
         chainId: environment.chainId
       }))
     await contractInteractor.init()

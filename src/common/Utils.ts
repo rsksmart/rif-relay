@@ -1,12 +1,16 @@
-import { JsonRpcResponse } from 'web3-core-helpers'
+import BN from 'bn.js'
+import abi from 'web3-eth-abi'
 import ethUtils from 'ethereumjs-util'
 import web3Utils, { toWei } from 'web3-utils'
-import abi from 'web3-eth-abi'
+import { EventData } from 'web3-eth-contract'
+import { JsonRpcResponse } from 'web3-core-helpers'
+import { PrefixedHexString } from 'ethereumjs-tx'
+
+import { Address } from '../relayclient/types/Aliases'
+import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 import TypedRequestData from './EIP712/TypedRequestData'
-import { PrefixedHexString } from 'ethereumjs-tx'
-import { Address } from '../relayclient/types/Aliases'
-import BN from 'bn.js'
+import chalk from 'chalk'
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -46,14 +50,16 @@ export function address2topic (address: string): string {
 }
 
 // extract revert reason from a revert bytes array.
-export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError = false): string {
+export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError = false): string | null {
+  if (revertBytes == null) { return null }
   if (!revertBytes.startsWith('0x08c379a0')) {
     if (throwOnError) {
       throw new Error('invalid revert bytes: ' + revertBytes)
     }
     return revertBytes
   }
-  return web3.eth.abi.decodeParameter('string', '0x' + revertBytes.slice(10)) as any
+  // @ts-ignore
+  return abi.decodeParameter('string', '0x' + revertBytes.slice(10)) as any
 }
 
 export async function getEip712Signature (
@@ -84,9 +90,12 @@ export async function getEip712Signature (
       params: [senderAddress, dataToSign],
       from: senderAddress,
       id: Date.now()
-    }, (error: Error | null, result?: JsonRpcResponse) => {
+    }, (error: Error | string | null, result?: JsonRpcResponse) => {
+      if (result?.error != null) {
+        error = result.error
+      }
       if (error != null || result == null) {
-        reject(error)
+        reject((error as any).message ?? error)
       } else {
         resolve(result.result)
       }
@@ -132,7 +141,7 @@ export function getEcRecoverMeta (message: PrefixedHexString, signature: string 
 }
 
 export function parseHexString (str: string): number[] {
-  var result = []
+  const result = []
   while (str.length >= 2) {
     result.push(parseInt(str.substring(0, 2), 16))
 
@@ -158,6 +167,35 @@ export function randomInRange (min: number, max: number): number {
   return Math.floor(Math.random() * (max - min) + min)
 }
 
+export function isSecondEventLater (a: EventData, b: EventData): boolean {
+  if (a.blockNumber === b.blockNumber) {
+    return b.transactionIndex > a.transactionIndex
+  }
+  return b.blockNumber > a.blockNumber
+}
+
+export function getLatestEventData (events: EventData[]): EventData | undefined {
+  if (events.length === 0) {
+    return
+  }
+  const eventDataSorted = events.sort(
+    (a: EventData, b: EventData) => {
+      if (a.blockNumber === b.blockNumber) {
+        return b.transactionIndex - a.transactionIndex
+      }
+      return b.blockNumber - a.blockNumber
+    })
+  return eventDataSorted[0]
+}
+
+export function isRegistrationValid (registerEvent: EventData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
+  return registerEvent != null &&
+    isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
+    registerEvent.returnValues.baseRelayFee.toString() === config.baseRelayFee.toString() &&
+    registerEvent.returnValues.pctRelayFee.toString() === config.pctRelayFee.toString() &&
+    registerEvent.returnValues.relayUrl.toString() === config.url.toString()
+}
+
 /**
  * @param gasLimits
  * @param hubOverhead
@@ -171,7 +209,7 @@ interface TransactionGasComponents {
   relayCallGasLimit: string
 }
 
-interface PaymasterGasLimits {
+export interface PaymasterGasLimits {
   acceptanceBudget: string
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string
@@ -181,4 +219,8 @@ interface Signature {
   v: number[]
   r: number[]
   s: number[]
+}
+
+export function boolString (bool: boolean): string {
+  return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
 }

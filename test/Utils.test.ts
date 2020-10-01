@@ -7,7 +7,10 @@ import { HttpProvider } from 'web3-core'
 
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getEip712Signature } from '../src/common/Utils'
-import TypedRequestData, { getDomainSeparatorHash, GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, {
+  getDomainSeparatorHash,
+  GsnDomainSeparatorType, GsnRequestType
+} from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { ForwarderInstance, TestRecipientInstance, TestUtilInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -16,6 +19,8 @@ import { encodeRevertReason } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment } from '../src/common/Environments'
+import { Web3Provider } from '../src/relayclient/ContractInteractor'
+require('source-map-support').install({ errorFormatterForce: true })
 
 // import web3Utils from 'web3-utils'
 
@@ -67,6 +72,13 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
+
+      const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
+      console.log(res1.logs[0])
+      const { domainSeparator } = res1.logs[0].args
+
+      // sanity check: our locally-calculated domain-separator is the same as on-chain registered domain-separator
+      assert.equal(domainSeparator, getDomainSeparatorHash(forwarder, chainId))
 
       const res = await forwarderInstance.registerRequestType(
         GsnRequestType.typeName,
@@ -150,6 +162,11 @@ contract('Utils', function (accounts) {
     it('library constants should match RelayHub eip712 constants', async function () {
       assert.equal(GsnRequestType.typeName, await testUtil.libRelayRequestName())
       assert.equal(GsnRequestType.typeSuffix, await testUtil.libRelayRequestSuffix())
+
+      const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
+      console.log(res1.logs[0])
+      const { domainSeparator } = res1.logs[0].args
+      assert.equal(domainSeparator, await testUtil.libDomainSeparator(forwarder))
 
       const res = await forwarderInstance.registerRequestType(
         GsnRequestType.typeName,
@@ -239,9 +256,8 @@ contract('Utils', function (accounts) {
         paymasterAddress: deploymentResult.naivePaymasterAddress,
         minGasPrice
       }
-      const resolvedPartialConfig = await resolveConfigurationGSN(web3.currentProvider, partialConfig)
+      const resolvedPartialConfig = await resolveConfigurationGSN(web3.currentProvider as Web3Provider, partialConfig)
       assert.equal(resolvedPartialConfig.paymasterAddress, deploymentResult.naivePaymasterAddress)
-      assert.equal(resolvedPartialConfig.stakeManagerAddress, deploymentResult.stakeManagerAddress)
       assert.equal(resolvedPartialConfig.relayHubAddress, deploymentResult.relayHubAddress)
       assert.equal(resolvedPartialConfig.minGasPrice, minGasPrice, 'Input value lost')
       assert.equal(resolvedPartialConfig.sliceSize, defaultConfiguration.sliceSize, 'Unexpected value appeared')
@@ -249,7 +265,7 @@ contract('Utils', function (accounts) {
 
     it('should throw if no paymaster at address', async function () {
       await expect(resolveConfigurationGSN(
-        web3.currentProvider, {})
+        web3.currentProvider as Web3Provider, {})
       ).to.be.eventually.rejectedWith('Cannot resolve GSN deployment without paymaster address')
     })
   })

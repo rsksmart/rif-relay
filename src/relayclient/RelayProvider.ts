@@ -1,15 +1,16 @@
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
+import log from 'loglevel'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
 import { HttpProvider } from 'web3-core'
 
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
-import { RelayClient, RelayingResult } from './RelayClient'
+import { _dumpRelayingResult, RelayClient } from './RelayClient'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
-import { JsonRpc, JsonRpcParsed } from 'jsonrpc-lite'
+import { GsnEvent } from './GsnEvents'
 
 abiDecoder.addABI(relayHubAbi)
 
@@ -55,6 +56,14 @@ export class RelayProvider implements HttpProvider {
     this._delegateEventsApi(origProvider)
   }
 
+  registerEventListener (handler: (event: GsnEvent) => void): void {
+    this.relayClient.registerEventListener(handler)
+  }
+
+  unregisterEventListener (handler: (event: GsnEvent) => void): void {
+    this.relayClient.unregisterEventListener(handler)
+  }
+
   _delegateEventsApi (origProvider: HttpProvider): void {
     // If the subprovider is a ws or ipc provider, then register all its methods on this provider
     // and delegate calls to the subprovider. This allows subscriptions to work.
@@ -91,9 +100,7 @@ export class RelayProvider implements HttpProvider {
   }
 
   _ethGetTransactionReceipt (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
-    if (this.config.verbose) {
-      console.log('calling sendAsync' + JSON.stringify(payload))
-    }
+    log.info('calling sendAsync' + JSON.stringify(payload))
     this.origProviderSend(payload, (error: Error | null, rpcResponse?: JsonRpcResponse): void => {
       // Sometimes, ganache seems to return 'false' for 'no error' (breaking TypeScript declarations)
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -114,9 +121,7 @@ export class RelayProvider implements HttpProvider {
   }
 
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
-    if (this.config.verbose) {
-      console.log('calling sendAsync' + JSON.stringify(payload))
-    }
+    log.info('calling sendAsync' + JSON.stringify(payload))
     const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
     this.relayClient.relayTransaction(gsnTransactionDetails)
       .then((relayingResult) => {
@@ -124,15 +129,14 @@ export class RelayProvider implements HttpProvider {
           const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(relayingResult.transaction, payload)
           callback(null, jsonRpcSendResult)
         } else {
-          const message = `Failed to relay call. Results:\n${this._dumpRelayingResult(relayingResult)}`
-          if (this.config.verbose) {
-            console.error(message)
-          }
+          const message = `Failed to relay call. Results:\n${_dumpRelayingResult(relayingResult)}`
+          log.error(message)
           callback(new Error(message))
         }
       }, (reason: any) => {
         const reasonStr = reason instanceof Error ? reason.message : JSON.stringify(reason)
-        callback(new Error(`Rejected relayTransaction call - should not happen. Reason: ${reasonStr}`))
+        log.info('Rejected relayTransaction call', reason)
+        callback(new Error(`Rejected relayTransaction call - Reason: ${reasonStr}`))
       })
   }
 
@@ -158,9 +162,7 @@ export class RelayProvider implements HttpProvider {
     if (paymasterRejectedEvents !== null && paymasterRejectedEvents !== undefined) {
       const paymasterRejectionReason: { value: string } = paymasterRejectedEvents.events.find((e: any) => e.name === 'reason')
       if (paymasterRejectionReason !== undefined) {
-        if (this.config.verbose) {
-          console.log(`Paymaster rejected on-chain: ${paymasterRejectionReason.value}. changing status to zero`)
-        }
+        log.info(`Paymaster rejected on-chain: ${paymasterRejectionReason.value}. changing status to zero`)
         fixedTransactionReceipt.status = '0'
       }
       return fixedTransactionReceipt
@@ -173,9 +175,7 @@ export class RelayProvider implements HttpProvider {
         const status: string = transactionRelayedStatus.value.toString()
         // 0 signifies success
         if (status !== '0') {
-          if (this.config.verbose) {
-            console.log(`reverted relayed transaction, status code ${status}. changing status to zero`)
-          }
+          log.info(`reverted relayed transaction, status code ${status}. changing status to zero`)
           fixedTransactionReceipt.status = '0'
         }
       }
@@ -192,20 +192,6 @@ export class RelayProvider implements HttpProvider {
     }
     const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
     return gsnTransactionDetails?.useGSN ?? true
-  }
-
-  private _dumpRelayingResult (relayingResult: RelayingResult): string {
-    let str = `Ping errors (${relayingResult.pingErrors.size}):`
-    Array.from(relayingResult.pingErrors.keys()).forEach(e => {
-      const error = relayingResult.pingErrors.get(e)?.toString() ?? ''
-      str += `\n${e} => ${error}\n`
-    })
-    str += `Relaying errors (${relayingResult.relayingErrors.size}):\n`
-    Array.from(relayingResult.relayingErrors.keys()).forEach(e => {
-      const error = relayingResult.relayingErrors.get(e)?.toString() ?? ''
-      str += `${e} => ${error}`
-    })
-    return str
   }
 
   /* wrapping HttpProvider interface */

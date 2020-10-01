@@ -2,7 +2,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import PingResponse from '../../src/common/PingResponse'
-import RelayTransactionRequest from '../../src/relayclient/types/RelayTransactionRequest'
+import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
 
 export default class BadHttpClient extends HttpClient {
@@ -23,14 +23,14 @@ export default class BadHttpClient extends HttpClient {
     this.stubPing = stubPing
   }
 
-  async getPingResponse (relayUrl: string): Promise<PingResponse> {
+  async getPingResponse (relayUrl: string, paymaster?: string): Promise<PingResponse> {
     if (this.failPing) {
       throw new Error(BadHttpClient.message)
     }
     if (this.stubPing != null) {
       return this.stubPing
     }
-    return await super.getPingResponse(relayUrl)
+    return await super.getPingResponse(relayUrl, paymaster)
   }
 
   async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {

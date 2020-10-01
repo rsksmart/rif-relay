@@ -14,7 +14,7 @@ import {
 import { deployHub, startRelay, stopRelay, getTestingEnvironment } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
-import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -47,7 +47,7 @@ options.forEach(params => {
     let relayClientConfig: Partial<GSNConfig>
 
     before(async () => {
-      const gasPricePercent = 20
+      const gasPriceFactor = 1.2
       const env = await getTestingEnvironment()
 
       gasless = await web3.eth.personal.newAccount('password')
@@ -55,7 +55,7 @@ options.forEach(params => {
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
-      rhub = await deployHub(sm.address, p.address, env)
+      rhub = await deployHub(sm.address, p.address)
       if (params.relay) {
         relayproc = await startRelay(rhub.address, sm, {
           stake: 1e18,
@@ -65,8 +65,8 @@ options.forEach(params => {
           relayOwner: accounts[0],
           // @ts-ignore
           ethereumNodeUrl: web3.currentProvider.host,
-          gasPricePercent: gasPricePercent,
-          relaylog: true // process.env.relaylog
+          gasPriceFactor,
+          relaylog: process.env.relaylog
         })
         console.log('relay started')
         from = gasless
@@ -77,10 +77,7 @@ options.forEach(params => {
       const forwarder = await Forwarder.new()
       sr = await TestRecipient.new(forwarder.address)
 
-      await forwarder.registerRequestType(
-        GsnRequestType.typeName,
-        GsnRequestType.typeSuffix
-      )
+      await registerForwarderForGsn(forwarder)
 
       paymaster = await TestPaymasterEverythingAccepted.new()
       await paymaster.setTrustedForwarder(forwarder.address)
@@ -98,10 +95,9 @@ options.forEach(params => {
         const env = await getTestingEnvironment()
         
         relayClientConfig = {
+          logLevel: 5,
           relayHubAddress: rhub.address,
-          stakeManagerAddress: sm.address,
           paymasterAddress: paymaster.address,
-          verbose: false,
           chainId: env.chainId
         }
 
@@ -208,7 +204,7 @@ options.forEach(params => {
               from: gasless,
               paymaster: approvalPaymaster.address
             })
-          }, 'Error: approval-exception')
+          }, 'approval-exception')
         })
 
         it(params.title + 'fail on no approval data', async () => {

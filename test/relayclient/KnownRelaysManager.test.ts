@@ -15,7 +15,7 @@ import { prepareTransaction } from './RelayProvider.test'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
-import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 import { Environment } from '../../src/common/Environments'
 
 const StakeManager = artifacts.require('StakeManager')
@@ -70,21 +70,19 @@ contract('KnownRelaysManager', function (
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
       stakeManager = await StakeManager.new()
-      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, env)
+      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
       config = configureGSN({
         relayHubAddress: relayHub.address,
         relayLookupWindowBlocks,
         chainId: env.chainId
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
+      await contractInteractor.init()
 
       const forwarderInstance = await Forwarder.new()
       const forwarderAddress = forwarderInstance.address
       testRecipient = await TestRecipient.new(forwarderAddress)
-      await forwarderInstance.registerRequestType(
-        GsnRequestType.typeName,
-        GsnRequestType.typeSuffix
-      )
+      await registerForwarderForGsn(forwarderInstance)
 
       paymaster = await TestPaymasterConfigurableMisbehavior.new()
       await paymaster.setTrustedForwarder(forwarderAddress)
@@ -148,8 +146,7 @@ contract('KnownRelaysManager', function (
 })
 
 contract('KnownRelaysManager 2', function (accounts) {
-  const contractInteractor = new ContractInteractor(
-    web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
+  let contractInteractor: ContractInteractor
   const transactionDetails = {
     gas: '0x10000',
     gasPrice: '0x300000',
@@ -159,6 +156,11 @@ contract('KnownRelaysManager 2', function (accounts) {
     forwarder: '',
     paymaster: ''
   }
+
+  before(async function () {
+    contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
+    await contractInteractor.init()
+  })
 
   describe('#refresh()', function () {
     let relayProcess: ChildProcessWithoutNullStreams
@@ -172,11 +174,10 @@ contract('KnownRelaysManager 2', function (accounts) {
     before(async function () {
       env = await getTestingEnvironment()
       stakeManager = await StakeManager.new()
-      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS, env)
+      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
       config = configureGSN({
         preferredRelays: ['http://localhost:8090'],
         relayHubAddress: relayHub.address,
-        stakeManagerAddress: stakeManager.address,
         chainId: env.chainId
       })
       relayProcess = await startRelay(relayHub.address, stakeManager, {
@@ -186,6 +187,7 @@ contract('KnownRelaysManager 2', function (accounts) {
         ethereumNodeUrl: (web3.currentProvider as HttpProvider).host
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
+      await contractInteractor.init()
       knownRelaysManager = new KnownRelaysManager(contractInteractor, config)
       await stake(stakeManager, relayHub, accounts[1], accounts[0])
       await stake(stakeManager, relayHub, accounts[2], accounts[0])

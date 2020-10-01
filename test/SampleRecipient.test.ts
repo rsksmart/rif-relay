@@ -5,8 +5,8 @@ import {
 } from '../types/truffle-contracts'
 import BN from 'bn.js'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
 import { deployHub, getTestingEnvironment } from './TestUtils'
+import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -45,13 +45,10 @@ contract('SampleRecipient', function (accounts) {
     const deposit = new BN('100000000000000000')
     const stakeManager = await StakeManager.new()
     const penalizer = await Penalizer.new()
-    const rhub = await deployHub(stakeManager.address, penalizer.address, await getTestingEnvironment())
+    const rhub = await deployHub(stakeManager.address, penalizer.address)
     await paymaster.setTrustedForwarder(forwarder)
     await paymaster.setRelayHub(rhub.address)
-    await forwarderInstance.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
+    await registerForwarderForGsn(forwarderInstance)
 
     // transfer eth into paymaster (using the normal "transfer" helper, which internally
     // uses hub.depositFor)

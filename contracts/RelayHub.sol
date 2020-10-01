@@ -21,7 +21,7 @@ import "./interfaces/IStakeManager.sol";
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
-    string public override versionHub = "2.0.0-beta.1+opengsn.hub.irelayhub";
+    string public override versionHub = "2.0.0-beta.3+opengsn.hub.irelayhub";
 
     uint256 public override minimumStake;
     uint256 public override minimumUnstakeDelay;
@@ -66,7 +66,7 @@ contract RelayHub is IRelayHub {
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
         address relayManager = msg.sender;
         require(
-            stakeManager.isRelayManagerStaked(relayManager, minimumStake, minimumUnstakeDelay),
+            isRelayManagerStaked(relayManager),
             "relay manager not staked"
         );
         require(workerCount[relayManager] > 0, "no relay workers");
@@ -79,7 +79,7 @@ contract RelayHub is IRelayHub {
         require(workerCount[relayManager] <= maxWorkerCount, "too many workers");
 
         require(
-            stakeManager.isRelayManagerStaked(relayManager, minimumStake, minimumUnstakeDelay),
+            isRelayManagerStaked(relayManager),
             "relay manager not staked"
         );
 
@@ -123,7 +123,7 @@ contract RelayHub is IRelayHub {
     view
     returns (IPaymaster.GasLimits memory gasLimits, uint256 maxPossibleGas) {
         gasLimits =
-            IPaymaster(relayRequest.relayData.paymaster).getGasLimits();
+            IPaymaster(relayRequest.relayData.paymaster).getGasLimits{gas:50000}();
 
         require(paymasterMaxAcceptanceBudget >= gasLimits.acceptanceBudget, "unexpected high acceptanceBudget");
 
@@ -181,7 +181,7 @@ contract RelayHub is IRelayHub {
         require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
         require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
         require(
-            stakeManager.isRelayManagerStaked(workerToManager[msg.sender], minimumStake, minimumUnstakeDelay),
+            isRelayManagerStaked(workerToManager[msg.sender]),
             "relay manager not staked"
         );
         require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
@@ -369,6 +369,10 @@ contract RelayHub is IRelayHub {
         return relayData.baseRelayFee.add((gasUsed.mul(relayData.gasPrice).mul(relayData.pctRelayFee.add(100))).div(100));
     }
 
+    function isRelayManagerStaked(address relayManager) public override view returns (bool) {
+        return stakeManager.isRelayManagerStaked(relayManager, address(this), minimumStake, minimumUnstakeDelay);
+    }
+
     modifier penalizerOnly () {
         require(msg.sender == penalizer, "Not penalizer");
         _;
@@ -379,7 +383,7 @@ contract RelayHub is IRelayHub {
         // The worker must be controlled by a manager with a locked stake
         require(relayManager != address(0), "Unknown relay worker");
         require(
-            stakeManager.isRelayManagerStaked(relayManager, minimumStake, minimumUnstakeDelay),
+            isRelayManagerStaked(relayManager),
             "relay manager not staked"
         );
         IStakeManager.StakeInfo memory stakeInfo = stakeManager.getStakeInfo(relayManager);
