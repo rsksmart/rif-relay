@@ -191,6 +191,23 @@ contract Forwarder is IForwarder {
     }
 
 
+    function isInitialized() external view returns (bool){
+        bytes32 swalletOwner;
+        assembly {
+            //This function can be called only if not initialized (i.e., owner not set)
+            //The slot used complies with EIP-1967-like, obtained as:
+            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+        if(swalletOwner == 0x0){
+            return false;
+        }
+        else {
+            return true;
+        }
+    }
 
     /**
      * This Proxy will first charge for the deployment and then it will pass the
@@ -210,7 +227,7 @@ contract Forwarder is IForwarder {
         uint256 logicInitGas,
         bytes calldata initParams,
         bytes calldata transferData  
-    ) external {
+    ) external returns (bool) {
 
         bytes32 swalletOwner;
         assembly {
@@ -260,11 +277,11 @@ contract Forwarder is IForwarder {
                 owner)
             } 
             
-            //console.log("Forwarder: Initialization is complete");
+            return true;
 
  
         }
-
+        return false;
     }
 
    /**
