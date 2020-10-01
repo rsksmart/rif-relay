@@ -167,26 +167,10 @@ contract ProxyFactory {
             logicInitGas,
             initParams
         );
-        
-        /*console.log("owner:", owner);
-        console.log("logic:", logic);
-        console.log("paymentToken:", paymentToken);
-        console.log("recipient:", recipient);
-        console.log("deployPrice:", deployPrice);
-        console.log("logicInitGas:", logicInitGas);
-        console.log("InitParams:");
-        console.logBytes(initParams);
-        console.log("Signature:");
-        console.logBytes(sig);
 
-
-        console.log("MESSAGE.DATA");
-        console.logBytes(msg.data);*/
 
         bytes32 digest = keccak256(packed);
 
-        //uint256 salt = uint256(addr);
-        // digest.recover(sig) does not work, maybe it needs some library
         address recovered = recoverSigner(digest, sig);
 
         require(recovered == owner, string(packed));
@@ -265,18 +249,10 @@ contract ProxyFactory {
             extcodecopy(addr, add(pointerTo, 0x20), 0, size)*/
         }
 
-        //console.log("ProxyFactory: Deploying Smart Wallet address in: ", addr);
-
-        //console.log("Deployed Code is");
-        //console.logBytes(pointerTo);
-        //console.log("Size of code is", size);
-
-
-        //Since the init code determines the address of the smwart wallet, any initialization
+        //Since the init code determines the address of the smart wallet, any initialization
         //require is done via the runtime code, to avoid the parameters impacting on the resulting address
 
         (bool success, ) = addr.call(initdata);
-        //console.log("ProxyFactory: SWallet Deployment is OK?: ", success);
         require(success);
 
         //No info is returned, an event is emitted to inform the new deployment
@@ -287,15 +263,7 @@ contract ProxyFactory {
     function getCreationBytecode() public view returns (bytes memory) {
         //constructorCode = hex"602D3D8160093D39F3";
         //runtimeCodeBeforeAddress = hex"363D3D373D3D3D3D363D73";
-        //runtimeCodeAfterAddress = hex"5AF43D923D90803E602D57FD5BF3";
-
-        //Working proxy done in solidity
-        //bytes memory newByteCode = hex"608060405234801561001057600080fd5b506102c2806100206000396000f3fe608060405234801561001057600080fd5b506100456040518060400160405280601381526020017244656c65676174696e672063616c6c204f4e4560681b8152506100f1565b6040516000906060737c2c195cd6d34b8f845992d380aadb2730bb9c6f368484376000803685845af49350503d9050806000833e61009b6040518060600160405280602581526020016102686025913984610137565b6100d96040518060400160405280601a81526020017f5468652073697a65206f662074686520726573756c74207761730000000000008152506100f1565b6100e281610180565b8280156100ed578183f35b8183fd5b61013481604051602401610105919061022b565b60408051601f198184030181529190526020810180516001600160e01b031663104c13eb60e21b1790526101bf565b50565b61017c828260405160240161014d929190610245565b60408051601f198184030181529190526020810180516001600160e01b03166309710a9d60e41b1790526101bf565b5050565b61013481604051602401610194919061022b565b60408051601f198184030181529190526020810180516001600160e01b03166305f3bfab60e11b1790525b80516a636f6e736f6c652e6c6f67602083016000808483855afa5050505050565b60008151808452815b81811015610205576020818501810151868301820152016101e9565b818111156102165782602083870101525b50601f01601f19169290920160200192915050565b60006020825261023e60208301846101e0565b9392505050565b60006040825261025860408301856101e0565b9050826020830152939250505056fe54486520726573756c74206f6620746865206465656c6761746563616c6c4f4e4520776173a2646970667358221220cc21c8134f2bfa78de93972e313750b8285a930950d26c97b3963af1d9b1253564736f6c634300060c0033";
-        //return abi.encodePacked(newByteCode);
-
-        //bytes memory payloadStart = hex"602F3D8160093D39F336600080376000808080368173";
-        //bytes memory payloadEnd = hex"5AF43D923D90803E602E57FD5BF3";
-
+        //runtimeCodeAfterAddress = hex"5AF43D923D90803E602B57FD5BF3";
 
             bytes memory payloadStart
          = hex"602D3D8160093D39F3363D3D373D3D3D3D363D73";
