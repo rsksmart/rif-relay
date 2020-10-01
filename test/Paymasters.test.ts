@@ -4,7 +4,8 @@ import {
     RelayPaymasterInstance,
     TestTokenInstance,
     ForwarderInstance,
-    TestForwarderTargetInstance
+    TestForwarderTargetInstance,
+    RelayHubInstance
   } from '../types/truffle-contracts'
 //  import BN from 'bn.js'
 //  import { PrefixedHexString } from 'ethereumjs-tx'
@@ -12,17 +13,17 @@ import {
 //  import { deployHub, getTestingEnvironment } from './TestUtils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import BN = require('bn.js')
+import { deployHub, getTestingEnvironment } from './TestUtils'
+import { Environment } from '../src/common/Environments'
   
 const Forwarder = artifacts.require('Forwarder')
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
 const TestToken = artifacts.require('TestToken')
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
-
   
-  contract('TokenPaymaster', function ([_, dest, relayManager, relayWorker, senderAddress, other, paymasterOwner, incorrectWorker]) {
+  contract('DeployPaymaster', function ([_, dest, relayManager, relayWorker, senderAddress, other, paymasterOwner, relayHub]) {
     let deployPaymaster: DeployPaymasterInstance
-    let relayPaymaster: RelayPaymasterInstance
     let token: TestTokenInstance
     let fwd: ForwarderInstance
     let recipient : TestForwarderTargetInstance
@@ -44,10 +45,11 @@ const TestForwarderTarget = artifacts.require('TestForwarderTarget')
       forwarder = fwd.address;
 
       recipient = await TestForwarderTarget.new(forwarder);
-      deploypaymaster = await TokenPaymaster.new({from:paymasterOwner});
-      token = await TestToken.new()
+      deployPaymaster = await DeployPaymaster.new({from:paymasterOwner});
+      token = await TestToken.new();
 
-      paymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
+      await deployPaymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
+      await deployPaymaster.setRelayHub(relayHub, {from:paymasterOwner});
 
       relayRequestData = {
         request: {
@@ -68,7 +70,7 @@ const TestForwarderTarget = artifacts.require('TestForwarderTarget')
           gasPrice,
           relayWorker,
           forwarder,
-          paymaster: paymaster.address,
+          paymaster: deployPaymaster.address,
           paymasterData,
           clientId
         }
@@ -76,19 +78,8 @@ const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 
     })
   
-    it('should succeed on transfer tokens to paymaster contract', async function () {
-      let paymasterAddress = paymaster.address;
-
-      let expectedTokens = new BN(tokensPaid);
-      
-      //we mint tokens to the sender, and aprrove the allowance
-      await token.mint(tokensPaid+4,senderAddress);
-      await token.approve(paymasterAddress, tokensPaid+4, {from:senderAddress});
-
-      //run method
-      await paymaster.preRelayedCallInternal(relayRequestData);
-
-      assert.equal((await token.balanceOf(paymasterAddress)).toNumber(), expectedTokens.toNumber());
+    it('Should not fail on checks of preRelayCall', async function () {     
+      await deployPaymaster.preRelayedCallInternal(relayRequestData, {from : relayHub});
     })
   })
   
