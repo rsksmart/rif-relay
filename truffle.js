@@ -2,7 +2,7 @@ require('ts-node/register/transpile-only')
 
 var HDWalletProvider = require('truffle-hdwallet-provider')
 var mnemonic = 'digital unknown jealous mother legal hedgehog save glory december universe spread figure custom found six'
-
+var mnemonicRSKTestnet = ''
 const secretMnemonicFile = './secret_mnemonic'
 const fs = require('fs')
 let secretMnemonic
@@ -65,7 +65,16 @@ module.exports = {
       network_id: '*',
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
-    }
+    },
+    rsktestnet: {
+      provider: () =>
+        new HDWalletProvider(mnemonicRSKTestnet, "https://public-node.testnet.rsk.co"),
+      network_id: 31,
+      gas: 6300000,
+      gasPrice: 60000000, // 0.06 gwei
+      skipDryRun: true,
+      from: '0xffc4aa9608fDd2643ca28Ebb31f6f9c2811EBA2f'
+    },
   },
   mocha: {
     slow: 1000,

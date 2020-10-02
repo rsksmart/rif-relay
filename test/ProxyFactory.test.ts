@@ -616,7 +616,6 @@ import {
 
             //Call the initialize function
             let contractCode  = await web3.eth.getCode(expectedAddress, 'latest');
-            console.log(contractCode);
             chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(contractCode))
         })
         
