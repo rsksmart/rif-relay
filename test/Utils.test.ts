@@ -278,10 +278,10 @@ contract('TestGSNUtils', function (accounts) {
       assert.equal(resultInitParams, initParams, 'Param incorectly decoded')
 
       let resultOwner = await testGSNUtils.getParam(data, 0);
-      assert(new BN(owner).eq(resultOwner), 'Param incorectly decoded')
+      assert(web3.utils.toBN(owner).eq(resultOwner), 'Param incorectly decoded')
 
       let resultLogic = await testGSNUtils.getParam(data, 1);
-      assert(new BN(logic).eq(resultLogic), 'Param incorectly decoded')
+      assert(web3.utils.toBN(logic).eq(resultLogic), 'Param incorectly decoded')
     })
   })
 })
