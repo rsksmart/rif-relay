@@ -25,6 +25,11 @@ contract DeployPaymaster is BasePaymaster {
     uint public gasUsedByPost;
     address public proxyFactory;
 
+
+    constructor(address proxyFactoryAddress) public {
+        proxyFactory = proxyFactoryAddress;
+    }
+
     /**
      * set gas used by postRelayedCall, for proper gas calculation.
      * You can use TokenGasCalculator to calculate these values (they depend on actual code of postRelayedCall)
@@ -59,11 +64,6 @@ contract DeployPaymaster is BasePaymaster {
         (this);
         return relayRequest.request.paybackTokens;
     }
-
-    function setProxyFactory(address f) public virtual {
-        proxyFactory = f;
-    }
-
 
     event Received(uint eth);
     receive() external override payable {

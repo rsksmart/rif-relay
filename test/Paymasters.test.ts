@@ -47,13 +47,13 @@ const tokensPaid = 1
       forwarder = fwd.address;
 
       recipient = await TestForwarderTarget.new(forwarder);
-      deployPaymaster = await DeployPaymaster.new({from:paymasterOwner});
-      token = await TestToken.new();
       proxy = await ProxyFactory.new(fwd.address);
+      deployPaymaster = await DeployPaymaster.new(proxy.address, {from:paymasterOwner});
+      token = await TestToken.new();
+      
 
       await deployPaymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
       await deployPaymaster.setRelayHub(relayHub, {from:paymasterOwner});
-      await deployPaymaster.setProxyFactory(relayHub, {from:paymasterOwner});
 
       let data;
 
@@ -83,11 +83,12 @@ const tokensPaid = 1
           clientId
         }
       }
-
+      //we mint tokens to the sender,
+      await token.mint(tokensPaid+4,senderAddress);
     })
   
     it('Should not fail on checks of preRelayCall', async function () {     
-      //await deployPaymaster.preRelayedCallInternal(relayRequestData);
+      await deployPaymaster.preRelayedCallInternal(relayRequestData);
     })
   });
 
@@ -107,7 +108,6 @@ const tokensPaid = 1
       recipient = await TestForwarderTarget.new(forwarder);
       relayPaymaster = await RelayPaymaster.new({from:paymasterOwner});
       token = await TestToken.new();
-      proxy = await ProxyFactory.new(fwd.address);
 
       await relayPaymaster.setTrustedForwarder(forwarder, {from:paymasterOwner});
       await relayPaymaster.setRelayHub(relayHub, {from:paymasterOwner});
@@ -137,9 +137,13 @@ const tokensPaid = 1
           clientId
         }
       }
+      //we mint tokens to the sender,
+      await token.mint(tokensPaid+4,fwd.address);
     })
 
-    it('Should not fail on checks of preRelayCall', async function () {     
+    it('Should not fail on checks of preRelayCall', async function () {   
+      //run method
       await relayPaymaster.preRelayedCallInternal(relayRequestData);
+      // All checks should pass
     })
   })
