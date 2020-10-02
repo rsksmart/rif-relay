@@ -28,6 +28,7 @@ library GsnUtils {
      * see: https://solidity.readthedocs.io/en/develop/abi-spec.html#formal-specification-of-the-encoding
      * param msgData: abi encoded data
      * param index: index of the encoded parameter
+     * LIMITS RESULTS TO 32 BYTES
      */
     function getBytesParam(bytes memory msgData, uint index) internal pure returns (bytes memory) {
         uint256 myArgPos = 4 + index * 32;
@@ -55,7 +56,7 @@ library GsnUtils {
      * Should NOT be used on contructor, it fails
      * See: https://stackoverflow.com/a/54056854
      */
-    function _isContract(address _addr) public view returns (bool isContract){
+    function _isContract(address _addr) internal view returns (bool){
         uint32 size;
         assembly {
             size := extcodesize(_addr)
