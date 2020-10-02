@@ -2,8 +2,8 @@
 
 DOCKNAME=rsknode
 
-#silence the output of build if image already exists (and no VERBOSE=1)
-# (since long build is usually the first-build)
+# Silence the output of build if image already exists (and no VERBOSE=1)
+# since long build is usually the first one
 if [ -z "$VERBOSE" ]; then docker images|grep -q $DOCKNAME && BQUIET=-q; fi
 
 DOCK=`dirname $0`

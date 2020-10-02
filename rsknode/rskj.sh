@@ -4,15 +4,16 @@ ROOTDIR=`dirname $0`
 ROOTDIR=`readlink -f $ROOTDIR`
 REPO="https://github.com/rsksmart/rskj.git"
 SRCDIR="`pwd`/src"
-#TAG="WASABI-1.0.2"
 TAG="PAPYRUS-2.0.1"
+#Using a branch from Papyrus with eth_signTypedData and rpc revert reason for testing
+BRANCH="rpc-revert-reason"
 
 cd $ROOTDIR
 
 if [ ! -d "$SRCDIR" ]; then
 	git clone $REPO $SRCDIR
 	cd $SRCDIR
-	git checkout $TAG
+	git checkout $BRANCH
 	./configure.sh
 	mkdir -p ~/.gradle
 	export GRADLE_USER_HOME=`readlink -f ~/.gradle`
@@ -37,3 +38,9 @@ java -Drsk.conf.file=./node.conf -Dlogback.configurationFile=./log.conf.xml \
 	-Drpc.providers.web.http.hosts.0=localhost \
 	-Drpc.providers.web.http.hosts.1=$LOCALIP \
 	-jar $JARPATH/$JAR co.rsk.Start --regtest
+
+#java -Drsk.conf.file=./node.conf \
+#	-Ddatabase.dir=./db \
+#	-Drpc.providers.web.http.hosts.0=localhost \
+#	-Drpc.providers.web.http.hosts.1=$LOCALIP \
+#	-jar $JARPATH/$JAR co.rsk.Start --regtest

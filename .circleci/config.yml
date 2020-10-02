@@ -3,64 +3,46 @@ jobs: # a collection of steps
   build: # runs not using Workflows must have a `build` job as entry point
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
-      - image: tabookey/eth-tools:1.0
+      - image: circleci/node:13.11.0
 
     steps: # a collection of executable commands
       - checkout # special step to check out source code to working directory
 
       - restore_cache: # special step to restore the dependency cache
-          key: dependency-cache-{{ checksum "package.json" }}-yarn1
+          key: dependency-cache-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
           command: yarn
 
       - save_cache: # special step to save the dependency cache
-          key: dependency-cache-{{ checksum "package.json" }}-yarn1
+          key: dependency-cache-{{ checksum "package.json" }}-yarn2
           paths:
             - ./node_modules
 
-      - restore_cache: # special step to restore the dependency cache
-          key: dependency-cache-go-get1
-      - run:
-          name: preload go-sources
-          command: make -C server go-get
-      - save_cache: # special step to save the dependency cache
-          key: dependency-cache-go-get1
-          paths:
-            - ./server/src/github.com/ethereum
-            - ./server/src/code.cloudfoundry.org
-
-      - run:
-          name: compile
-          command: make
-
-      - run:
-          name: lint
-          command: npm run lint
-
       - run: # run tests
           name: test
-          command: npm test | tee /tmp/test-results.log
+          command: yarn test | tee /tmp/test-results.log
 
-      - restore_cache: # special cache for coverage test
-          key: last-coverage
-          paths:
-            - ./coverage
+#coverage is broken (doesn't cover all contracts). disabled for now..
+#      - restore_cache: # special cache for coverage test
+#          key: last-coverage
+#          paths:
+#            - ./coverage
 
-      - run: # run coverage. update "coverage/covsig.txt" if successful run. 
-             # use last coverage report if no test/contract was changed.
-          name: coverage
-          command: npm run coverage-if-changed 
+#      - run: # run coverage. update "coverage/covsig.txt" if successful run.
+#          # use last coverage report if no test/contract was changed.
+#          name: coverage
+#          command: yarn run coverage-if-changed
 
-      - save_cache: # special cache for coverage test
-          key: last-coverage
-          paths:
-            - ./coverage
+#      - save_cache: # special cache for coverage test
+#          key: last-coverage
+#          paths:
+#            - ./coverage
 
-      - store_artifacts: # special step to save test results as as artifact
-          path: ./coverage
-      - store_artifacts: 
-          path: ./coverage.html
+#      - store_artifacts: # special step to save test results as as artifact
+#          path: ./coverage
+#      - store_artifacts:
+#          path: ./coverage.html
 
       - store_test_results: # special step to upload test results for display in Test Summary
           path: /tmp/test-results.log
