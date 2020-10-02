@@ -36,7 +36,7 @@ contract DeployPaymaster is BasePaymaster {
     function _checkAddressDoesNotExist(GsnTypes.RelayRequest calldata relayRequest) public virtual view {
         address owner = address(GsnUtils.getParam(relayRequest.request.data, 0));
         address logic = address(GsnUtils.getParam(relayRequest.request.data, 1));
-        bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 7);
+        bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 6);
 
         address contractAddr = ProxyFactory(proxyFactory).getSmartWalletAddress(owner, logic, initParams);
 
