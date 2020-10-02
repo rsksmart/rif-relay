@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.6.12 <0.8.0;
+pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 //import "@nomiclabs/buidler/console.sol";
 
 /**
@@ -71,11 +73,26 @@ PC | OPCODE|   Mnemonic     |   Stack [top, bottom]                       | Comm
 /**Factory of Proxies to the SmartWallet (Forwarder)
 The Forwarder itself is a Template with portions delegated to a custom logic (it is also a proxy) */
 contract ProxyFactory {
+
+    using ECDSA for bytes32;
+
+    struct WalletCreate {
+        address owner;
+        address logic;
+        address paymentToken;
+        address recipient;
+        uint256 deployPrice;
+        uint256 logicInitGas;
+        bytes initParams;
+    }
+
     //change to internal after debug
     address public masterCopy; // this is the ForwarderProxy contract that will be proxied
+    mapping(bytes32 => bool) public typeHashes;
 
     event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
-    event DebugInfo(string reason, bytes content);
+    string public constant CREATE_PARAMS = "address owner,address logic,uint256 logicInitGas,bytes initParams";
+    string public constant DELEGATE_PARAMS = "address owner,address logic,address paymentToken,address recipient,uint256 deployPrice,uint256 logicInitGas,bytes initParams";
 
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
@@ -85,6 +102,8 @@ contract ProxyFactory {
      */
     constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
+        string memory requestType = string(abi.encodePacked("WalletCreate(", DELEGATE_PARAMS, ")"));
+        registerRequestTypeInternal(requestType);
     }
 
 
@@ -126,6 +145,41 @@ contract ProxyFactory {
         deploy(getCreationBytecode(), salt, initData);
     }
 
+
+
+ function relayedUserSmartWalletCreation(
+        WalletCreate memory req, 
+        bytes32 domainSeparator,
+        bytes32 requestTypeHash,
+        bytes calldata suffixData,
+        bytes calldata sig
+    ) external {
+
+        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+
+
+        // The initialization (first call) will set addr as an external owner of this account.
+        //The same could be performed with dynamic CREATE2 derivation in the target contract,
+        //but it’s a bit more expensive each time (compared with a one time setting here).
+
+        bytes32 salt = keccak256(abi.encodePacked(req.owner, req.logic, req.initParams));
+
+        //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
+        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
+
+        //initParams must not contain the function signature
+        bytes memory initData = abi.encodeWithSelector(
+            hex"17eb58b8",
+            req.owner,
+            req.logic,
+            req.paymentToken,
+            req.logicInitGas,
+            req.initParams,
+            abi.encodeWithSelector(hex"a9059cbb", req.recipient, req.deployPrice)  
+        );
+
+        deploy(getCreationBytecode(), salt, initData);
+    }
 
     /**
      * It deploys a SmartWallet for a User (EOA)
@@ -306,4 +360,61 @@ contract ProxyFactory {
 
         return ecrecover(message, v, r, s);
     }
+
+    function _getEncoded(
+        WalletCreate memory req,
+        bytes32 requestTypeHash,
+        bytes memory suffixData
+    )
+    public
+    pure
+    returns (
+        bytes memory
+    ) {
+
+        return abi.encodePacked(
+            requestTypeHash,
+            abi.encode(
+                req.owner,
+                req.logic,
+                req.paymentToken,
+                req.recipient,
+                req.deployPrice,
+                req.logicInitGas,
+                keccak256(req.initParams)
+            ),
+            suffixData
+        );
+    }
+
+    function _verifySig(
+        WalletCreate memory req,
+        bytes32 domainSeparator,
+        bytes32 requestTypeHash,
+        bytes memory suffixData,
+        bytes memory sig)
+    internal
+    view
+    {
+
+        require(typeHashes[requestTypeHash], "invalid request typehash");
+
+        bytes32 digest = keccak256(abi.encodePacked(
+                "\x19\x01", domainSeparator,
+                keccak256(_getEncoded(req, requestTypeHash, suffixData))
+            ));
+
+
+        require(digest.recover(sig) == req.owner, "signature mismatch");
+    }
+
+    function registerRequestTypeInternal(string memory requestType) internal {
+
+        bytes32 requestTypehash = keccak256(bytes(requestType));
+        typeHashes[requestTypehash] = true;
+        emit RequestTypeRegistered(requestTypehash, string(requestType));
+    }
+
+
+    event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
 }
