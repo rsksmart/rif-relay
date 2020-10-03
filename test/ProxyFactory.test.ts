@@ -40,14 +40,14 @@ import {
   const WalletCreateType = [
     { name: 'owner', type: 'address' },
     { name: 'logic', type: 'address' },
-    { name: 'paymentToken', type: 'address' },
-    { name: 'recipient', type: 'address' },
-    { name: 'deployPrice', type: 'uint256' },
     { name: 'logicInitGas', type: 'uint256' },
+    { name: 'tokenGas', type: 'uint256' },
+    { name: 'tokenContract', type: 'address' },
+    { name: 'tokenRecipient', type: 'address' },
+    { name: 'amountTokens', type: 'uint256' },
     { name: 'initParams', type: 'bytes' }
   ]
-
-
+ 
  contract('ProxyFactory', ([from]) => {
   
     let fwd: ForwarderInstance
@@ -60,7 +60,8 @@ import {
 
     const recipientPrivateKey = toBuffer(bytes32(1))
     const recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)))
-    
+    const DELEGATE_PARAMS = "address owner,address logic,uint256 logicInitGas,uint256 tokenGas,address tokenContract,address tokenRecipient,uint256 amountTokens,bytes initParams";
+
     before(async () => {
 
       fwd = await Forwarder.new()
@@ -302,6 +303,10 @@ import {
                     name: 'logicInitGas'
                 },
                 {
+                    type: 'uint256',
+                    name: 'tokenGas'
+                },
+                {
                     type: 'bytes',
                     name: 'initParams'
                 },
@@ -310,7 +315,7 @@ import {
                     name: 'transferData'
                 }
             ]
-            }, [ownerAddress, logicAddress, addr(0), logicInitGas, initParams, '0x00']);
+            }, [ownerAddress, logicAddress, addr(0), logicInitGas,'200000', initParams, '0x00']);
 
 
              newTrx.data = initFunc
@@ -344,7 +349,7 @@ import {
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
-     
+
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
             
             token = await TestToken.new()
@@ -352,15 +357,30 @@ import {
             
             const originalBalance = await token.balanceOf(expectedAddress)
 
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
+
+            let req = {
+                owner: ownerAddress,
+                logic: logicAddress,
+                logicInitGas: logicInitGas,
+                initParams: initParams,
+                ...tknPayment
+            }
+
             const toSign:string = "" + web3.utils.soliditySha3(
                 {t:"bytes2",v:'0x1910'}, 
                 {t:"address",v:ownerAddress}, 
                 {t:"address",v:logicAddress}, 
+                {t:"uint256",v:logicInitGas},
+                {t:"bytes",v:initParams},
                 {t:"address",v:token.address}, 
                 {t:"address",v:recipientAddress},
-                {t:"uint256",v:deployPrice},
-                {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
+                {t:"uint256",v:deployPrice}   
             )
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -368,9 +388,7 @@ import {
             const signature = signingKey.signDigest(toSignAsBinaryArray);
             const signatureCollapsed = ethers.utils.joinSignature(signature);
 
-            const { logs } = await factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed)
+            const { logs } = await factory.delegateUserSmartWalletCreation(req, signatureCollapsed)
             
             const salt = ""+web3.utils.soliditySha3(
                 {t:"address",v:ownerAddress}, 
@@ -389,7 +407,7 @@ import {
             //The Smart Wallet should have been charged for the deploy
             const newBalance = await token.balanceOf(expectedAddress)
             const expectedBalance = originalBalance.sub(web3.utils.toBN(deployPrice))
-            chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
+            chai.expect(newBalance).to.be.bignumber.equal(expectedBalance)
         
         })
 
@@ -398,6 +416,7 @@ import {
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
+            const tokenGas = '0xF4240'
      
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
             
@@ -406,15 +425,30 @@ import {
             
             const originalBalance = await token.balanceOf(expectedAddress)
 
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
+
+            let req = {
+                owner: ownerAddress,
+                logic: logicAddress,
+                logicInitGas: logicInitGas,
+                initParams: initParams,
+                ...tknPayment
+            }
+
             const toSign:string = "" + web3.utils.soliditySha3(
                 {t:"bytes2",v:'0x1910'}, 
                 {t:"address",v:ownerAddress}, 
                 {t:"address",v:logicAddress}, 
+                {t:"uint256",v:logicInitGas},
+                {t:"bytes",v:initParams},
                 {t:"address",v:token.address}, 
                 {t:"address",v:recipientAddress},
-                {t:"uint256",v:deployPrice},
-                {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
+                {t:"uint256",v:deployPrice}   
             )
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -426,9 +460,7 @@ import {
             let expectedCode = await factory.getCreationBytecode();
             expectedCode = '0x'+ expectedCode.slice(20, expectedCode.length);
    
-            const { logs } = await factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed)
+            const { logs } = await factory.delegateUserSmartWalletCreation(req, signatureCollapsed)
              
             const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
 
@@ -444,15 +476,33 @@ import {
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
+            const tokenGas = '0xF4240'
 
                  
+            
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
+
+            let req = {
+                owner: ownerAddress,
+                logic: logicAddress,
+                logicInitGas: logicInitGas,
+                initParams: initParams,
+                ...tknPayment
+            }
             //Use incomplete digest
             const toSign:string = "" + web3.utils.soliditySha3(
                 {t:"bytes2",v:'0x1910'}, 
                 {t:"address",v:ownerAddress}, 
                 {t:"address",v:logicAddress}, 
                 {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
+                {t:"address",v:token.address}, 
+                {t:"address",v:recipientAddress},
+                {t:"uint256",v:deployPrice}   
             )
                  
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
@@ -465,9 +515,7 @@ import {
             const signature = signingKey.signDigest(toSignAsBinaryArray);
             let signatureCollapsed:string = ethers.utils.joinSignature(signature);
             
-            await expectRevert.unspecified(factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed))
+            await expectRevert.unspecified(factory.delegateUserSmartWalletCreation(req, signatureCollapsed))
 
                 const newBalance = await token.balanceOf(expectedAddress)
 
@@ -480,7 +528,9 @@ import {
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
-     
+            const tokenGas = '0xF4240'
+
+
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
             
             token = await TestToken.new()
@@ -489,15 +539,30 @@ import {
             const originalBalance = await token.balanceOf(expectedAddress)
 
 
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
+
+            let req = {
+                owner: ownerAddress,
+                logic: logicAddress,
+                logicInitGas: logicInitGas,
+                initParams: initParams,
+                ...tknPayment
+            }
+
             const toSign:string = "" + web3.utils.soliditySha3(
                 {t:"bytes2",v:'0x1910'}, 
                 {t:"address",v:ownerAddress}, 
                 {t:"address",v:logicAddress}, 
+                {t:"uint256",v:logicInitGas},
+                {t:"bytes",v:initParams},
                 {t:"address",v:token.address}, 
                 {t:"address",v:recipientAddress},
-                {t:"uint256",v:deployPrice},
-                {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
+                {t:"uint256",v:deployPrice}   
             )
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -505,9 +570,7 @@ import {
             const signature = signingKey.signDigest(toSignAsBinaryArray);
             const signatureCollapsed = ethers.utils.joinSignature(signature);
 
-            const { logs } = await factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed)
+            const { logs } = await factory.delegateUserSmartWalletCreation(req, signatureCollapsed)
             
             const salt = ""+web3.utils.soliditySha3(
                 {t:"address",v:ownerAddress}, 
@@ -593,6 +656,10 @@ import {
                     name: 'logicInitGas'
                 },
                 {
+                    type: 'uint256',
+                    name: 'tokenGas'
+                },
+                {
                     type: 'bytes',
                     name: 'initParams'
                 },
@@ -601,7 +668,7 @@ import {
                     name: 'transferData'
                 }
             ]
-            }, [ownerAddress, logicAddress, token.address, logicInitGas, initParams, transferFunc]);
+            }, [ownerAddress, logicAddress, token.address, logicInitGas,'200000', initParams, transferFunc]);
 
 
              newTrx.data = initFunc
@@ -642,9 +709,10 @@ import {
 
     describe('#relayedUserSmartWalletCreation', ()=>{
 
+
         it('should create the Smart Wallet in the expected address', async () =>{
             const logicAddress = addr(0)
-            const initParams = "0x0400000000000000"
+            const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
      
@@ -652,7 +720,6 @@ import {
             
             token = await TestToken.new()
             await token.mint('200',expectedAddress)
-            const DELEGATE_PARAMS = "address owner,address logic,address paymentToken,address recipient,uint256 deployPrice,uint256 logicInitGas,bytes initParams";
 
             const originalBalance = await token.balanceOf(expectedAddress)
             const typeName = `WalletCreate(${DELEGATE_PARAMS})`
@@ -661,12 +728,14 @@ import {
             let req = {
                 owner: ownerAddress,
                 logic: logicAddress,
-                paymentToken: token.address,
-                recipient: recipientAddress,
-                deployPrice: deployPrice,
                 logicInitGas: logicInitGas,
+                tokenGas: 1e6,
+                tokenContract: token.address,
+                tokenRecipient: recipientAddress,
+                amountTokens: deployPrice, 
                 initParams: initParams
-              }
+            }
+
 
             let data: EIP712TypedData = {
                 domain: {
@@ -688,7 +757,6 @@ import {
             const domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types));
 
             const { logs } = await factory.relayedUserSmartWalletCreation(req,domainSeparator,typeHash,'0x',sig);
-
             
             const salt = ""+web3.utils.soliditySha3(
                 {t:"address",v:ownerAddress}, 
@@ -711,71 +779,34 @@ import {
         
         })
 
-        it('should create the Smart Wallet with the expected proxy code', async () =>{
-            const logicAddress = addr(0)
-            const initParams = "0x00"
-            const logicInitGas = "0x00"
-            const deployPrice = "0x01" // 1 token
-     
-            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-            
-            token = await TestToken.new()
-            await token.mint('200',expectedAddress)
-            
-            const originalBalance = await token.balanceOf(expectedAddress)
-
-            const toSign:string = "" + web3.utils.soliditySha3(
-                {t:"bytes2",v:'0x1910'}, 
-                {t:"address",v:ownerAddress}, 
-                {t:"address",v:logicAddress}, 
-                {t:"address",v:token.address}, 
-                {t:"address",v:recipientAddress},
-                {t:"uint256",v:deployPrice},
-                {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
-            )
-
-            const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
-            const signingKey = new ethers.utils.SigningKey(ownerPrivateKey);
-            const signature = signingKey.signDigest(toSignAsBinaryArray);
-            const signatureCollapsed = ethers.utils.joinSignature(signature);
-
-            //expectedCode = runtime code only
-            let expectedCode = await factory.getCreationBytecode();
-            expectedCode = '0x'+ expectedCode.slice(20, expectedCode.length);
-   
-            const { logs } = await factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed)
-             
-            const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
-
-            chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
-
-        })
-
         it('should revert for an invalid signature', async () =>{
-
-            //TODO MODIFY TO USE DELEGATE
             
             const logicAddress = addr(0)
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
-            const DELEGATE_PARAMS = "address owner,address logic,address paymentToken,address recipient,uint256 deployPrice,uint256 logicInitGas,bytes initParams";
+
+            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+            await token.mint('200',expectedAddress)
+            const originalBalance = await token.balanceOf(expectedAddress)
 
             const typeName = `WalletCreate(${DELEGATE_PARAMS})`
             const typeHash = keccak256(typeName)
 
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
+
             let req = {
                 owner: addr(0),
                 logic: logicAddress,
-                paymentToken: token.address,
-                recipient: recipientAddress,
-                deployPrice: deployPrice,
                 logicInitGas: logicInitGas,
-                initParams: initParams
-              }
+                initParams: initParams,
+                ...tknPayment
+            }
 
             let data: EIP712TypedData = {
                 domain: {
@@ -796,11 +827,6 @@ import {
             let sig = signTypedData_v4(ownerPrivateKey, { data })
             let domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types));
 
-            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-            await token.mint('200',expectedAddress)
-            const originalBalance = await token.balanceOf(expectedAddress)
-            
-
             await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req,domainSeparator,typeHash,'0x',sig))
 
 
@@ -820,7 +846,7 @@ import {
             const initParams = "0x00"
             const logicInitGas = "0x00"
             const deployPrice = "0x01" // 1 token
-     
+
             const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
             
             token = await TestToken.new()
@@ -829,25 +855,45 @@ import {
             const originalBalance = await token.balanceOf(expectedAddress)
 
 
-            const toSign:string = "" + web3.utils.soliditySha3(
-                {t:"bytes2",v:'0x1910'}, 
-                {t:"address",v:ownerAddress}, 
-                {t:"address",v:logicAddress}, 
-                {t:"address",v:token.address}, 
-                {t:"address",v:recipientAddress},
-                {t:"uint256",v:deployPrice},
-                {t:"uint256",v:logicInitGas},
-                {t:"bytes",v:initParams}
-            )
+            const typeName = `WalletCreate(${DELEGATE_PARAMS})`
+            const typeHash = keccak256(typeName)
 
-            const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
-            const signingKey = new ethers.utils.SigningKey(ownerPrivateKey);
-            const signature = signingKey.signDigest(toSignAsBinaryArray);
-            const signatureCollapsed = ethers.utils.joinSignature(signature);
+            let tknPayment = {
+                tokenRecipient: recipientAddress,
+                tokenContract: token.address,
+                amountTokens: deployPrice, 
+                tokenGas: 200000
+              }
 
-            const { logs } = await factory.delegateUserSmartWalletCreation(ownerAddress,
-                logicAddress, token.address, recipientAddress, deployPrice, logicInitGas,
-                initParams, signatureCollapsed)
+            let req = {
+                owner: ownerAddress,
+                logic: logicAddress,
+                logicInitGas: logicInitGas,
+                initParams: initParams,
+                ...tknPayment
+            }
+
+            let data: EIP712TypedData = {
+                domain: {
+                  name: 'Test Domain',
+                  version: '1',
+                  chainId: 1234,
+                  verifyingContract: factory.address
+                },
+                primaryType: 'WalletCreate',
+                types: {
+                  EIP712Domain: EIP712DomainType,
+                  WalletCreate: WalletCreateType
+                },
+                message: req
+              }
+
+
+            let sig = signTypedData_v4(ownerPrivateKey, { data })
+            let domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types));
+
+
+            const { logs } = await factory.relayedUserSmartWalletCreation(req,domainSeparator,typeHash,'0x',sig)
             
             const salt = ""+web3.utils.soliditySha3(
                 {t:"address",v:ownerAddress}, 
@@ -933,6 +979,10 @@ import {
                     name: 'logicInitGas'
                 },
                 {
+                    type: 'uint256',
+                    name: 'tokenGas'
+                },
+                {
                     type: 'bytes',
                     name: 'initParams'
                 },
@@ -941,7 +991,7 @@ import {
                     name: 'transferData'
                 }
             ]
-            }, [ownerAddress, logicAddress, token.address, logicInitGas, initParams, transferFunc]);
+            }, [ownerAddress, logicAddress, token.address, logicInitGas,'200000', initParams, transferFunc]);
 
 
              newTrx.data = initFunc
@@ -950,7 +1000,7 @@ import {
  
 
             //Trying to manually call the initialize function again (it was called during deploy)
-            result  = await web3.eth.call(newTrx)
+           /* result  = await web3.eth.call(newTrx)
             resultStr = result as string
 
             //It should return false since it was already initialized
@@ -962,19 +1012,8 @@ import {
             resultStr = result as string
 
             //The smart wallet should be still initialized
-            chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+            chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))*/
 
-        })
-
-        it('getting the smart wallet address should not create the contract', async () =>{
-            const logicAddress = addr(0)
-            const initParams = "0x00"
-     
-            const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-
-            //Call the initialize function
-            let contractCode  = await web3.eth.getCode(expectedAddress, 'latest');
-            chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(contractCode))
         })
         
     })

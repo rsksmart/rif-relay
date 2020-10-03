@@ -79,11 +79,12 @@ contract ProxyFactory {
     struct WalletCreate {
         address owner;
         address logic;
-        address paymentToken;
-        address recipient;
-        uint256 deployPrice;
         uint256 logicInitGas;
-        bytes initParams;
+        uint256 tokenGas;
+        address tokenContract;
+        address tokenRecipient;
+        uint256 amountTokens;
+        bytes  initParams;
     }
 
     //change to internal after debug
@@ -91,8 +92,10 @@ contract ProxyFactory {
     mapping(bytes32 => bool) public typeHashes;
 
     event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
-    string public constant CREATE_PARAMS = "address owner,address logic,uint256 logicInitGas,bytes initParams";
-    string public constant DELEGATE_PARAMS = "address owner,address logic,address paymentToken,address recipient,uint256 deployPrice,uint256 logicInitGas,bytes initParams";
+    event DebugInfo(string comment);
+
+    string public constant DELEGATE_PARAMS = "address owner,address logic,uint256 logicInitGas,uint256 tokenGas,address tokenContract,address tokenRecipient,uint256 amountTokens,bytes initParams";
+
 
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
@@ -133,11 +136,12 @@ contract ProxyFactory {
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
 
         bytes memory initData = abi.encodeWithSelector(
-            hex"17eb58b8",
+            hex"1e42ebbb",
             owner,
             logic,
             address(0),
             logicInitGas,
+            0,
             initParams,
             hex"00"
         );
@@ -155,8 +159,56 @@ contract ProxyFactory {
         bytes calldata sig
     ) external {
 
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+       _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
 
+        // The initialization (first call) will set addr as an external owner of this account.
+        //The same could be performed with dynamic CREATE2 derivation in the target contract,
+        //but it’s a bit more expensive each time (compared with a one time setting here).
+
+        bytes32 salt = keccak256(abi.encodePacked(req.owner, req.logic, req.initParams));
+
+        //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
+        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
+
+ 
+
+        //initParams must not contain the function signature
+        bytes memory initData = abi.encodeWithSelector(
+            hex"1e42ebbb",
+            req.owner,
+            req.logic,
+            req.tokenContract,
+            req.logicInitGas,
+            req.tokenGas,
+            req.initParams,
+            abi.encodeWithSelector(hex"a9059cbb", req.tokenRecipient, req.amountTokens)  
+        );
+
+        deploy(getCreationBytecode(), salt, initData);
+    }
+
+    function delegateUserSmartWalletCreation(
+        WalletCreate memory req, 
+        bytes memory sig
+    ) external {
+
+
+        // recover the address by proving ownership EIP-191-like
+        //EIP-191: 0x19 + version, in this case 0x10 for version.
+        bytes memory packed = abi.encodePacked(
+            "\x19\x10",
+            req.owner,
+            req.logic,
+            req.logicInitGas,
+            req.initParams,
+            req.tokenContract,
+            req.tokenRecipient,
+            req.amountTokens
+        );
+
+        bytes32 digest = keccak256(packed);
+        address recovered = recoverSigner(digest, sig);
+        require(recovered == req.owner, string(packed));
 
         // The initialization (first call) will set addr as an external owner of this account.
         //The same could be performed with dynamic CREATE2 derivation in the target contract,
@@ -168,85 +220,15 @@ contract ProxyFactory {
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
 
         //initParams must not contain the function signature
-        bytes memory initData = abi.encodeWithSelector(
-            hex"17eb58b8",
+            bytes memory initData = abi.encodeWithSelector(
+            hex"1e42ebbb",
             req.owner,
             req.logic,
-            req.paymentToken,
+            req.tokenContract,
             req.logicInitGas,
+            req.tokenGas,
             req.initParams,
-            abi.encodeWithSelector(hex"a9059cbb", req.recipient, req.deployPrice)  
-        );
-
-        deploy(getCreationBytecode(), salt, initData);
-    }
-
-    /**
-     * It deploys a SmartWallet for a User (EOA)
-     *
-     * @param owner - The EOA that will own the Smart Wallet
-     *
-     * @param logic - The code that will be used to inject custom functionality to the Smart Wallet
-     *
-     * @param paymentToken - The token that will be used to pay for the deployment of the Smart Wallet
-     *
-     * @param recipient - The beneficiary of the payment
-     *
-     * @param deployPrice - The amount of tokens to pay for the deployment
-     *
-     * @param initParams - Any parameters needed for the logic to initialize.
-     * They must NOT include the function signature, which is predefined as : initialize(bytes) = 439fab91
-     *
-     * @param sig - Signature of the parameters above, made by the owner
-     */
-    function delegateUserSmartWalletCreation(
-        address owner,
-        address logic,
-        address paymentToken,
-        address recipient,
-        uint256 deployPrice,
-        uint256 logicInitGas,
-        bytes memory initParams,
-        bytes memory sig
-    ) external {
-        // recover the address by proving ownership EIP-191-like
-        //EIP-191: 0x19 + version, in this case 0x10 for version.
-        bytes memory packed = abi.encodePacked(
-            "\x19\x10",
-            owner,
-            logic,
-            paymentToken,
-            recipient,
-            deployPrice,
-            logicInitGas,
-            initParams
-        );
-
-
-        bytes32 digest = keccak256(packed);
-
-        address recovered = recoverSigner(digest, sig);
-
-        require(recovered == owner, string(packed));
-
-        // The initialization (first call) will set addr as an external owner of this account.
-        //The same could be performed with dynamic CREATE2 derivation in the target contract,
-        //but it’s a bit more expensive each time (compared with a one time setting here).
-
-        bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
-
-        //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
-        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
-
-        //initParams must not contain the function signature
-        bytes memory initData = abi.encodeWithSelector(
-            hex"17eb58b8",
-            owner,
-            logic,
-            paymentToken,
-            logicInitGas,
-            initParams,
-            abi.encodeWithSelector(hex"a9059cbb", recipient, deployPrice)  
+            abi.encodeWithSelector(hex"a9059cbb", req.tokenRecipient, req.amountTokens)  
         );
 
         deploy(getCreationBytecode(), salt, initData);
@@ -372,16 +354,18 @@ contract ProxyFactory {
         bytes memory
     ) {
 
+
         return abi.encodePacked(
             requestTypeHash,
             abi.encode(
                 req.owner,
                 req.logic,
-                req.paymentToken,
-                req.recipient,
-                req.deployPrice,
                 req.logicInitGas,
-                keccak256(req.initParams)
+                req.tokenGas,
+                req.tokenContract,
+                req.tokenRecipient,
+                req.amountTokens,
+                keccak256(req.initParams)     
             ),
             suffixData
         );

@@ -220,13 +220,15 @@ contract Forwarder is IForwarder {
      * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
      * @param initParams - Initialization data to pass to the custom logic's initialize(bytes) function
      */
+
     function initialize(
         address owner,
         address logic,
         address tokenAddr,
         uint256 logicInitGas,
-        bytes calldata initParams,
-        bytes calldata transferData  
+        uint256 tokenGas,
+        bytes memory initParams,
+        bytes memory transferData  
     ) external returns (bool) {
 
         bytes32 swalletOwner;
@@ -242,7 +244,7 @@ contract Forwarder is IForwarder {
         if(swalletOwner == 0x0){ //we need to initialize the contract
             //console.log("Forwarder: Paying for the deployment");
             if(tokenAddr!= address(0)){
-                (bool success, ) = tokenAddr.call(transferData);
+                (bool success, ) = tokenAddr.call{gas: tokenGas}(transferData);
                 require(success,"Unable to pay for deployment" );
             }
 
