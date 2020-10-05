@@ -157,6 +157,7 @@ class GsnTestEnvironmentClass {
       workersKeyManager
     }
     const relayServerParams: Partial<ServerConfigParams> = {
+      devMode: true,
       url: relayUrl,
       relayHubAddress: deploymentResult.relayHubAddress,
       gasPriceFactor: 1,

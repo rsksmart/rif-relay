@@ -100,7 +100,7 @@ data         | 0x${transaction.data.toString('hex')}
       const estimateGas = await method.estimateGas({ from })
       return parseInt(estimateGas)
     } catch (e) {
-      log.error(`Failed to estimate gas for method ${methodName}\n. Using default ${this.config.defaultGasLimit}`, e)
+      log.error(`Failed to estimate gas for method ${methodName}\n. Using default ${this.config.defaultGasLimit}`, e.message)
     }
     return this.config.defaultGasLimit
   }
@@ -226,13 +226,14 @@ data         | 0x${transaction.data.toString('hex')}
       if (shouldRecheck) {
         const receipt = await this.contractInteractor.getTransaction(transaction.txId)
         if (receipt == null) {
-          log.warn(`failed to fetch receipt for tx ${transaction.txId}`)
+          log.warn(`warning: failed to fetch receipt for tx ${transaction.txId}`)
           continue
         }
         if (receipt.blockNumber == null) {
           // Avoid throwing an error when blockNumber is null, for RSK this means that the block wasn't mined yet
           // eslint-disable-next-line @typescript-eslint/no-base-to-string
           //throw new Error(`invalid block number in receipt ${receipt.toString()}`)
+          log.warn(`warning: null block number in receipt for ${transaction.txId}`)
           continue
         }
         const confirmations = blockNumber - receipt.blockNumber
