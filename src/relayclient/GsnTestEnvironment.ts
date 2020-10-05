@@ -41,7 +41,7 @@ class GsnTestEnvironmentClass {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new Error(`startGsn: expected network (${supportedNetworks().join('|')}) or url`)
     }
-    const commandsLogic = new CommandsLogic(_host, configureGSN({chainId: environment.chainId}))
+    const commandsLogic = new CommandsLogic(_host, configureGSN({ chainId: environment.chainId }))
     const from = await commandsLogic.findWealthyAccount()
     /* TODO review and remove
     if (from == null) {
@@ -62,7 +62,7 @@ class GsnTestEnvironmentClass {
 
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
-    this._runServer(_host, deploymentResult, from, relayUrl, port)
+    await this._runServer(_host, deploymentResult, from, relayUrl, port)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }

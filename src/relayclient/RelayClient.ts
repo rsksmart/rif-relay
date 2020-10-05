@@ -297,8 +297,8 @@ export class RelayClient {
         gas: gasLimit
       },
       relayData: {
-        pctRelayFee: relayInfo.relayInfo.pctRelayFee ? relayInfo.relayInfo.pctRelayFee : "0",
-        baseRelayFee: relayInfo.relayInfo.baseRelayFee ? relayInfo.relayInfo.baseRelayFee : "0",
+        pctRelayFee: relayInfo.relayInfo.pctRelayFee === '' ? relayInfo.relayInfo.pctRelayFee : '0',
+        baseRelayFee: relayInfo.relayInfo.baseRelayFee === '' ? relayInfo.relayInfo.baseRelayFee : '0',
         gasPrice,
         paymaster,
         paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
@@ -358,11 +358,11 @@ export class RelayClient {
     return forwarderAddress
   }
 
-  getEstimateGasParams(gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {
+  getEstimateGasParams (gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {
     var params: EstimateGasParams
     params = {
-      from: gsnTransactionDetails.from, 
-      to: gsnTransactionDetails.to, 
+      from: gsnTransactionDetails.from,
+      to: gsnTransactionDetails.to,
       gasPrice: gsnTransactionDetails.gasPrice,
       data: gsnTransactionDetails.data
     }

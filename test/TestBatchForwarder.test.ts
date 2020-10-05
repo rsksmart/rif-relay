@@ -13,7 +13,6 @@ import {
   BatchForwarderInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
-import { getEnvironment } from '../src/common/Environments'
 import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted.sol')
@@ -30,8 +29,6 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
   let sharedRelayRequestData: RelayRequest
 
   before(async () => {
-    const env = await getTestingEnvironment()
-    const chainId = env.chainId
     const paymasterDeposit = 1e18.toString()
 
     const stakeManager = await StakeManager.new()
@@ -48,7 +45,8 @@ contract('BatchForwarder', ([from, relayManager, relayWorker, relayOwner]) => {
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
     await relayHub.registerRelayServer(baseRelayFee, pctRelayFee, 'url', { from: relayManager })
 
-    paymaster = await TestPaymasterEverythingAccepted.new({ gas: 9e6/*1e7*/ })
+    // gas: 1e7
+    paymaster = await TestPaymasterEverythingAccepted.new({ gas: 9e6 })
     await hub.depositFor(paymaster.address, { value: paymasterDeposit })
 
     forwarder = await BatchForwarder.new()

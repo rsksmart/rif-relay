@@ -4,8 +4,7 @@ import chai from 'chai'
 
 import { decodeRevertReason, getEip712Signature, removeHexPrefix } from '../src/common/Utils'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
-import { getTestingEnvironment } from './TestUtils'
-import { isRsk, Environment, defaultEnvironment } from '../src/common/Environments'
+import { isRsk, Environment } from '../src/common/Environments'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 
 import {
@@ -17,7 +16,7 @@ import {
   TestPaymasterEverythingAcceptedInstance,
   TestPaymasterConfigurableMisbehaviorInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
 import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 import chaiAsPromised from 'chai-as-promised'
@@ -92,7 +91,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       const { logs } = await relayHubInstance.depositFor(paymaster, {
         from: sender,
         value: amount,
-        gasPrice: 1 //0
+        gasPrice: 1
       })
       expectEvent.inLogs(logs, 'Deposited', {
         paymaster,
@@ -107,7 +106,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       } else {
         expect(await senderBalanceTracker.delta()).to.be.bignumber.equal(amount.neg())
       }
-      
+
       expect(await relayHubBalanceTracker.delta()).to.be.bignumber.equal(amount)
     }
 
@@ -125,7 +124,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         relayHubInstance.depositFor(target, {
           from: other,
           value: ether('3'),
-          gasPrice: 1 //0
+          gasPrice: 1
         }),
         'deposit too big'
       )
@@ -136,17 +135,17 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       await relayHubInstance.depositFor(target, {
         from: other,
         value: ether('1'),
-        gasPrice: 1 //0
+        gasPrice: 1
       })
       await relayHubInstance.depositFor(target, {
         from: other,
         value: ether('1'),
-        gasPrice: 1 //0
+        gasPrice: 1
       })
       await relayHubInstance.depositFor(target, {
         from: other,
         value: ether('1'),
-        gasPrice: 1 //0
+        gasPrice: 1
       })
 
       expect(await relayHubInstance.balanceOf(target)).to.be.bignumber.equals(ether('3'))
@@ -229,7 +228,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         await relayHubInstance.depositFor(paymaster, {
           from: other,
           value: ether('1'),
-          gasPrice: 1 //0
+          gasPrice: 1
         })
       })
 
@@ -356,7 +355,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           assert.equal(relayCallView.paymasterAccepted, true)
         })
 
-        //TODO re-enable
+        // TODO re-enable
         it.skip('should get Paymaster\'s reject reason from view call result of \'relayCall\' for a transaction with a wrong signature', async function () {
           await misbehavingPaymaster.setReturnInvalidErrorCode(true)
           const relayCallView =

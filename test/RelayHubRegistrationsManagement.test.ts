@@ -7,7 +7,7 @@ import {
   StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { deployHub, getTestingEnvironment } from './TestUtils'
+import { deployHub } from './TestUtils'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')

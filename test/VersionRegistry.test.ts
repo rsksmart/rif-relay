@@ -2,9 +2,8 @@ import {
   VersionRegistryInstance
 } from '../types/truffle-contracts'
 import { expectRevert } from '@openzeppelin/test-helpers'
-import { increaseTime } from './TestUtils'
+import { increaseTime, getTestingEnvironment } from './TestUtils'
 import { VersionRegistry, string32 } from '../src/common/VersionRegistry'
-import { getTestingEnvironment } from './TestUtils'
 import { isRsk, Environment } from '../src/common/Environments'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
@@ -83,14 +82,10 @@ contract('VersionRegistry', ([account]) => {
         assert.deepInclude(versions[1], { version: 'ver2', value: 'value2', canceled: false })
         assert.deepInclude(versions[2], { version: 'ver', value: 'value', canceled: false })
 
-        assert.closeTo(now - versions[0].time, 100, isRsk(env) ? 4 : 2) 
+        assert.closeTo(now - versions[0].time, 100, isRsk(env) ? 4 : 2)
         assert.closeTo(now - versions[1].time, 200, isRsk(env) ? 4 : 2)
         assert.closeTo(now - versions[2].time, 300, isRsk(env) ? 4 : 2)
       })
-
-      function delay(ms: number) {
-        return new Promise( resolve => setTimeout(resolve, ms) );
-      } 
 
       it('should ignore repeated added version (can\'t modify history: only adding to it)', async () => {
         // note that the javascript class reject such double-adding. we add directly through the contract API:

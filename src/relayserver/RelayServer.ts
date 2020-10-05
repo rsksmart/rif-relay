@@ -387,8 +387,8 @@ returnValue        | ${viewRelayCallRet.returnValue}
 
     this.chainId = await this.contractInteractor.getChainId()
     this.networkId = await this.contractInteractor.getNetworkId()
-    
-    /* TODO CHECK against RSK ChainId 
+
+    /* TODO CHECK against RSK ChainId
     if (this.config.devMode && (this.chainId < 1000 || this.networkId < 1000)) {
       log.error('Don\'t use real network\'s chainId & networkId while in devMode.')
       process.exit(-1)

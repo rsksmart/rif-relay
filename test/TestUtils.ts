@@ -9,7 +9,7 @@ import { RelayHubInstance, StakeManagerInstance } from '../types/truffle-contrac
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
-import { Environment, defaultEnvironment, environments } from '../src/common/Environments'
+import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { sleep } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
@@ -221,7 +221,7 @@ export function encodeRevertReason (reason: string): PrefixedHexString {
   // return '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', reason))
 }
 
-export async function getTestingEnvironment () {
+export async function getTestingEnvironment (): Promise<Environment> {
   const networkId = await web3.eth.net.getId()
   return networkId === 33 ? environments.rsk : defaultEnvironment
 }

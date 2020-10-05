@@ -187,7 +187,6 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const gasUsed = res.receipt.gasUsed
       const paid = paymasterBalance.sub(await relayHubInstance.balanceOf(paymaster)).toNumber()
       // console.log('actual paid=', paid, 'gasUsed=', gasUsed, 'diff=', paid - gasUsed)
-      
       if (isRsk(await getTestingEnvironment())) {
         // TODO: are the bigger cost differences expected?
         assert.closeTo(paid, gasUsed, 7000)

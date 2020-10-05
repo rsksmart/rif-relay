@@ -178,7 +178,7 @@ contract('Forwarder', ([from]) => {
 
       it('should fail on wrong nonce', async () => {
         const env: Environment = await getTestingEnvironment()
-        let message: string = isRsk(env) ? 'Returned error: VM execution error: nonce mismatch' : 'revert nonce mismatch'
+        const message: string = isRsk(env) ? 'Returned error: VM execution error: nonce mismatch' : 'revert nonce mismatch'
 
         await expectRevert(fwd.verify({
           ...req,
