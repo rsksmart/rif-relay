@@ -119,7 +119,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         nonce: '0',
         value: '0',
         gas: gasLimit.toString(),
-        ...tokenPayment
+        ...tokenPayment,
+        isDeploy: false
         },
       relayData: {
         gasPrice: gasPrice.toString(),
@@ -415,7 +416,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
               nonce: senderNonce.toString(),
               value: '0',
               gas: gasLimit.toString(),
-              ...tokenPayment
+              ...tokenPayment,
+              isDeploy: false
             },
             relayData: {
               gasPrice: gasPrice.toString(),
@@ -538,7 +540,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             nonce: encodedCallArgs.nonce.toString(),
             value: '0',
             gas: encodedCallArgs.gasLimit.toString(),
-            ...tokenPayment
+            ...tokenPayment,
+            isDeploy: false
                     },
           relayData: {
             baseRelayFee: encodedCallArgs.baseFee.toString(),

@@ -10,7 +10,7 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  TestPaymasterEverythingAcceptedInstance, TestTokenInstance
+  TestPaymasterEverythingAcceptedInstance, TestTokenInstance,ProxyFactoryInstance,ForwarderInstance
 } from '../../types/truffle-contracts'
 
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
@@ -27,15 +27,22 @@ import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionVali
 import { deployHub, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
-import { GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { GsnRequestType,getDomainSeparatorHash } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '@openzeppelin/test-helpers'
 import { BN } from 'ethereumjs-util'
+import { getEip712Signature } from '../../src/common/Utils'
+// @ts-ignore
+import {TypedDataUtils} from 'eth-sig-util'
+import { bufferToHex} from 'ethereumjs-util'
+
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const Forwarder = artifacts.require('Forwarder')
 const TestToken = artifacts.require('TestToken')
+const ProxyFactory = artifacts.require('ProxyFactory')
+
 
 const expect = chai.expect
 chai.use(sinonChai)
@@ -53,6 +60,8 @@ contract('RelayClient', function (accounts) {
   let relayProcess: ChildProcessWithoutNullStreams
   let forwarderAddress: Address
   let tokenContract: TestTokenInstance
+  let factory : ProxyFactoryInstance //Creator of Smart Wallets
+
 
   let relayClient: RelayClient
   let gsnConfig: Partial<GSNConfig>
@@ -75,9 +84,74 @@ contract('RelayClient', function (accounts) {
   })
 
   beforeEach(async function () {
-    const forwarderInstance = await Forwarder.new()
+    let forwarderInstance:ForwarderInstance = await Forwarder.new()
     tokenContract = await TestToken.new()
     forwarderAddress = forwarderInstance.address
+//
+    gasLess = await web3.eth.personal.newAccount('password')
+    const chainId = (await getTestingEnvironment()).chainId
+    factory = await ProxyFactory.new(forwarderInstance.address)
+
+    await factory.registerRequestType(
+      GsnRequestType.typeName,
+      GsnRequestType.typeSuffix
+   )
+
+    const logicAddress = '0x0000000000000000000000000000000000000000';
+    const initParams = '0x';
+    const reqParamCount = 11;
+    const rReq={
+      request:{
+        to: '0x0000000000000000000000000000000000000000',
+        data: '0x',
+        from: gasLess,
+        nonce: '0',
+        value: '0',
+        gas: '400000',
+        tokenRecipient: '0x0000000000000000000000000000000000000000',
+        tokenContract: '0x0000000000000000000000000000000000000000',
+        paybackTokens: '0',
+        tokenGas: '400000',
+        isDeploy: true
+      },
+      relayData:{
+        gasPrice:'10',
+        pctRelayFee:'10',
+        baseRelayFee:'10000',
+        relayWorker: '0x0000000000000000000000000000000000000000',
+        paymaster:'0x0000000000000000000000000000000000000000',
+        forwarder: forwarderInstance.address,
+        paymasterData:'0x',
+        clientId:'1'
+      }
+    }
+
+    const createdataToSign = new TypedRequestData(
+      chainId,
+      factory.address,
+      rReq
+    )
+
+    const deploySignature = await getEip712Signature(
+      web3,
+      createdataToSign
+    )
+
+    const FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
+    const typeName = `${GsnRequestType.typeName}(${FORWARDER_PARAMS},${GsnRequestType.typeSuffix}`
+    const typeHash = web3.utils.keccak256(typeName)
+
+    const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types);
+    let suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
+
+    let a = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address,chainId), typeHash,suffixData,deploySignature);
+    const fwdAddress = await factory.getSmartWalletAddress(gasLess, logicAddress, initParams)
+    
+    const fwd:ForwarderInstance = await Forwarder.at(fwdAddress);
+ 
+    forwarderInstance = fwd;
+    forwarderAddress = fwdAddress;
+    //
     await tokenContract.mint('1000', forwarderAddress)
     testRecipient = await TestRecipient.new(forwarderAddress)
     tokensPaid = '1'
@@ -99,7 +173,7 @@ contract('RelayClient', function (accounts) {
       tokenContract: tokenContract.address
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
-    gasLess = await web3.eth.personal.newAccount('password')
+    
     from = gasLess
     to = testRecipient.address
     data = testRecipient.contract.methods.emitMessage('hello world').encodeABI()

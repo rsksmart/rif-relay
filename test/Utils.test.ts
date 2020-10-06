@@ -97,7 +97,8 @@ contract('Utils', function (accounts) {
         nonce: senderNonce,
         value: '0',
         gas: gasLimit,
-        ...tokenPayment
+        ...tokenPayment,
+        isDeploy: false
       };
 
       anotherForwardRequest = {
@@ -130,7 +131,8 @@ contract('Utils', function (accounts) {
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          ...tokenPayment
+          ...tokenPayment,
+          isDeploy: false
         },
         relayData: {
           gasPrice,

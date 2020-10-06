@@ -2,19 +2,24 @@ import {
   ForwarderInstance,
   TestForwarderInstance,
   TestForwarderTargetInstance,
-  TestTokenInstance
+  TestTokenInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
 // @ts-ignore
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from 'eth-sig-util'
 import { bufferToHex, privateToAddress, toBuffer, BN } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
+import ForwardRequest from '../src/common/EIP712/ForwardRequest'
+import { ethers } from 'ethers'
 
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 
 const Forwarder = artifacts.require('Forwarder')
 const TestToken = artifacts.require('TestToken')
 const TestForwarder = artifacts.require('TestForwarder')
+const ProxyFactory = artifacts.require('ProxyFactory')
+
 
 const keccak256 = web3.utils.keccak256
 
@@ -49,33 +54,64 @@ const ForwardRequestType = [
   { name: 'gas', type: 'uint256' },
   { name: 'nonce', type: 'uint256' },
   { name: 'data', type: 'bytes' },
-  ...TokenPaymentType
+  ...TokenPaymentType,
+  { name: 'isDeploy', type: 'bool' },
+
 ]
 
 contract('Forwarder', ([from]) => {
-  const GENERIC_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas'
+  const GENERIC_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy'
   // our generic params has 6 bytes32 values
   const countParams = ForwardRequestType.length
 
-  let fwd: ForwarderInstance
+  let fwdTemplate: ForwarderInstance //Template code used by the Smart Wallet
   let token: TestTokenInstance
+  let factory : ProxyFactoryInstance //Creator of Smart Wallets
+  let fwd: ForwarderInstance //RSK forwarder != GSN2 Forwarder. In RSK, this is the smart wallet, which has one owner
+  let fwdTypeRegistrationBlock: number //Block at which the Smart Wallet was created (ergo, initialized)
+
   const senderPrivateKey = toBuffer(bytes32(1))
   const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
+  const logicAddress = addr(0)
+  const initParams = "0x00"
+  const logicInitGas = "0x00"
 
   before(async () => {
     token = await TestToken.new()
-    fwd = await Forwarder.new()
-    assert.equal(await fwd.GENERIC_PARAMS(), GENERIC_PARAMS)
+    fwdTemplate = await Forwarder.new()
+    assert.equal(await fwdTemplate.GENERIC_PARAMS(), GENERIC_PARAMS)
+
+    factory = await ProxyFactory.new(fwdTemplate.address)
+
+    const toSign:string = "" + web3.utils.soliditySha3(
+    {t:"bytes2",v:'0x1910'}, 
+    {t:"address",v:senderAddress}, 
+    {t:"address",v:logicAddress}, 
+    {t:"uint256",v:logicInitGas},
+    {t:"bytes",v:initParams}
+    )
+    const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
+    const signingKey = new ethers.utils.SigningKey(senderPrivateKey);
+    const signature = signingKey.signDigest(toSignAsBinaryArray);
+    const signatureCollapsed = ethers.utils.joinSignature(signature);
+    await factory.createUserSmartWallet(senderAddress, logicAddress, logicInitGas, initParams, signatureCollapsed)
+    const fwdAddress = await factory.getSmartWalletAddress(senderAddress, logicAddress, initParams)
+    fwd = await Forwarder.at(fwdAddress);
+    const txResult = await fwd.registerRequestType(`ForwardRequest`, '');
+    fwdTypeRegistrationBlock = txResult.logs[0].blockNumber;
   })
 
   describe('#registerRequestType', () => {
     it('should fail to register with invalid name', async () => {
       // this is an example of a typename that attempt to add a new field at the beginning.
-      await expectRevert.unspecified(fwd.registerRequestType('asd(uint a,Request asd)Request(', ')'), 'invalid typename')
+      await expectRevert.unspecified(fwd.registerRequestType('asd(uint a,Request asd)Request(', ''), 'invalid typename')
     })
 
     it('should have a registered default type with no extra params', async () => {
-      const logs = await fwd.contract.getPastEvents('RequestTypeRegistered', { fromBlock: 1 })
+      let logs = await fwdTemplate.contract.getPastEvents('RequestTypeRegistered', { fromBlock: 1 })
+      assert.equal(logs[0].returnValues.typeStr, `ForwardRequest(${GENERIC_PARAMS})`)
+
+      logs = await fwd.contract.getPastEvents('RequestTypeRegistered', { fromBlock: fwdTypeRegistrationBlock })
       assert.equal(logs[0].returnValues.typeStr, `ForwardRequest(${GENERIC_PARAMS})`)
     })
 
@@ -132,7 +168,8 @@ contract('Forwarder', ([from]) => {
           value: '0',
           nonce: 0,
           gas: 123,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
       })
 
@@ -169,7 +206,8 @@ contract('Forwarder', ([from]) => {
           from: senderAddress,
           nonce: 0,
           gas: 123,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
 
         data = {
@@ -224,6 +262,7 @@ contract('Forwarder', ([from]) => {
           nonce: 0,
           gas: 123,
           ...tknPayment,
+          isDeploy: false,
           extra: {
             extraAddr: addr(5)
           }
@@ -319,7 +358,8 @@ contract('Forwarder', ([from]) => {
         from: senderAddress,
         nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
-        ...tknPayment
+        ...tknPayment,
+        isDeploy: false
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -352,7 +392,8 @@ contract('Forwarder', ([from]) => {
         from: senderAddress,
         nonce: initialNonce.toString(),
         gas: 1e6,
-        ...tknPayment
+        ...tknPayment,
+        isDeploy: false
       }
       console.log(initialNonce.toString())
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
@@ -368,7 +409,7 @@ contract('Forwarder', ([from]) => {
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
       assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
-      assert.equal((await fwd.getNonce()).toString(), initialNonce.add(new BN(2)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal((await fwd.getNonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
@@ -386,7 +427,8 @@ contract('Forwarder', ([from]) => {
         from: senderAddress,
         nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
-        ...tknPayment
+        ...tknPayment,
+        isDeploy: false
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -416,7 +458,8 @@ contract('Forwarder', ([from]) => {
         from: senderAddress,
         nonce: (await fwd.getNonce()).toString(),
         gas: 1e6,
-        ...tknPayment
+        ...tknPayment,
+        isDeploy: false
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -436,6 +479,8 @@ contract('Forwarder', ([from]) => {
         recipient = await TestForwarderTarget.new(fwd.address)
         await token.mint('1000', fwd.address)
       })
+
+
       afterEach('should not leave funds in the forwarder', async () => {
         assert.equal(await web3.eth.getBalance(fwd.address), '0')
       })
@@ -456,7 +501,8 @@ contract('Forwarder', ([from]) => {
           nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -484,7 +530,8 @@ contract('Forwarder', ([from]) => {
           nonce: (await fwd.getNonce()).toString(),
           value: ether('2').toString(),
           gas: 1e6,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -513,13 +560,14 @@ contract('Forwarder', ([from]) => {
           nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig, { value })
 
-        assert. equal(ret.logs[0].args.error, '')
+        assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
         assert.equal(ret.logs[0].args.lastTxSucc, 2)
 
@@ -529,12 +577,15 @@ contract('Forwarder', ([from]) => {
         assert.equal(await web3.eth.getBalance(recipient.address), value.toString())
       })
 
-      it('should forward all funds left in forwarder to "from" address', async () => {
-        const senderPrivateKey = toBuffer(bytes32(2))
-        const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
+      it('should forward all funds left in forwarder to the owner EOA address', async () => {
 
+        //Modified to comform RSK Forwarder
+        
+        //The owner of the SmartWallet might have a balance != 0
+        const ownerOriginalBalance = await web3.eth.getBalance(senderAddress);
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
+
         const tknPayment = {
           tokenRecipient: recipient.address,
           tokenContract: token.address,
@@ -544,26 +595,39 @@ contract('Forwarder', ([from]) => {
         const req1 = {
           to: recipient.address,
           data: func,
-          from: senderAddress,
+          from: senderAddress, //the owner of the smart wallet
           nonce: (await fwd.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
-          ...tknPayment
+          ...tknPayment,
+          isDeploy: false
         }
 
         const extraFunds = ether('4')
 
+        //Put in the smart wallet 4 ethers
         await web3.eth.sendTransaction({ from, to: fwd.address, value: extraFunds })
 
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-        // note: not transfering value in TX.
+
+        //This request moves 1 ether to the end contract (recipient)
         const ret = await testfwd.callExecute(fwd.address, req1, domainSeparator, typeHash, '0x', sig)
         assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
         assert.equal(ret.logs[0].args.lastTxSucc, 2)
+
+        //Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
+        //Ideally it should pay the relayWorker or paymaster
         const tknBalance = await token.balanceOf(recipient.address)
         assert.isTrue(new BN(tokensPaid).eq(tknBalance))
-        assert.equal(await web3.eth.getBalance(senderAddress), extraFunds.sub(value).toString())
+
+        //The value=1 ether of value transfered should now be in the balance of the called contract (recipient)
+        const valBalance = await web3.eth.getBalance(recipient.address)
+        assert.isTrue(new BN(value).eq(new BN(valBalance)))
+
+        //The rest of value (4-1 = 3 ether), in possession of the smart wallet, must return to the owner EOA once the execute()
+        //is called
+        assert.equal(await web3.eth.getBalance(senderAddress), new BN(ownerOriginalBalance).add(extraFunds.sub(value)).toString())
       })
     })
   })

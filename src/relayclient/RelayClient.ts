@@ -244,7 +244,8 @@ export class RelayClient {
         tokenRecipient: paymaster,
         tokenContract: token,
         paybackTokens: tokensValue,
-        tokenGas: tokenGas
+        tokenGas: tokenGas,
+        isDeploy: false
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee ? relayInfo.relayInfo.pctRelayFee : "0",

@@ -45,7 +45,8 @@ export default class RelayedTransactionValidator {
         tokenRecipient: transactionJsonRequest.tokenRecipient,
         tokenContract: transactionJsonRequest.tokenContract,
         paybackTokens: transactionJsonRequest.paybackTokens,
-        tokenGas: transactionJsonRequest.tokenGas
+        tokenGas: transactionJsonRequest.tokenGas,
+        isDeploy: false
       },
       relayData: {
         gasPrice: transactionJsonRequest.gasPrice,

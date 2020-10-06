@@ -59,7 +59,8 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       nonce: senderNonce,
       value: '0',
       gas: '10000',
-      ...tokenPayment
+      ...tokenPayment,
+      isDeploy: false
     },
     relayData: {
       pctRelayFee: '1',

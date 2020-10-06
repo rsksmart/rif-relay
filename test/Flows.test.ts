@@ -9,12 +9,17 @@ import { Address, AsyncDataCallback } from '../src/relayclient/types/Aliases'
 import {
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
-  TestRecipientInstance
+  TestRecipientInstance,ProxyFactoryInstance, ForwarderInstance
 } from '../types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
-import { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData,{ GsnRequestType, getDomainSeparatorHash} from '../src/common/EIP712/TypedRequestData'
+// @ts-ignore
+import {TypedDataUtils} from 'eth-sig-util'
+import { bufferToHex} from 'ethereumjs-util'
+import {getEip712Signature} from '../src/common/Utils'
+
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -23,6 +28,8 @@ const TestPaymasterPreconfiguredApproval = artifacts.require('tests/TestPaymaste
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const Forwarder = artifacts.require('Forwarder')
+const ProxyFactory = artifacts.require('ProxyFactory')
+
 
 const options = [
   {
@@ -45,6 +52,8 @@ options.forEach(params => {
     let gasless: Address
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<GSNConfig>
+    let factory : ProxyFactoryInstance //Creator of Smart Wallets
+
 
     before(async () => {
       const gasPricePercent = 20
@@ -74,13 +83,78 @@ options.forEach(params => {
         from = accounts[0]
       }
 
-      const forwarder = await Forwarder.new()
-      sr = await TestRecipient.new(forwarder.address)
+      let forwarder:ForwarderInstance = await Forwarder.new()
 
       await forwarder.registerRequestType(
         GsnRequestType.typeName,
         GsnRequestType.typeSuffix
       )
+
+      ////
+      factory = await ProxyFactory.new(forwarder.address)
+
+      await factory.registerRequestType(
+        GsnRequestType.typeName,
+        GsnRequestType.typeSuffix
+     )
+  
+      const logicAddress = '0x0000000000000000000000000000000000000000';
+      const initParams = '0x';
+      const reqParamCount = 11;
+      const rReq={
+        request:{
+          to: '0x0000000000000000000000000000000000000000',
+          data: '0x',
+          from: gasless,
+          nonce: '0',
+          value: '0',
+          gas: '400000',
+          tokenRecipient: '0x0000000000000000000000000000000000000000',
+          tokenContract: '0x0000000000000000000000000000000000000000',
+          paybackTokens: '0',
+          tokenGas: '400000',
+          isDeploy: true
+        },
+        relayData:{
+          gasPrice:'10',
+          pctRelayFee:'10',
+          baseRelayFee:'10000',
+          relayWorker: '0x0000000000000000000000000000000000000000',
+          paymaster:'0x0000000000000000000000000000000000000000',
+          forwarder: '0x0000000000000000000000000000000000000000',
+          paymasterData:'0x',
+          clientId:'1'
+        }
+      }
+  
+      const createdataToSign = new TypedRequestData(
+        env.chainId,
+        factory.address,
+        rReq
+      )
+  
+      const deploySignature = await getEip712Signature(
+        web3,
+        createdataToSign
+      )
+  
+      const FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
+      const typeName = `${GsnRequestType.typeName}(${FORWARDER_PARAMS},${GsnRequestType.typeSuffix}`
+      const typeHash = web3.utils.keccak256(typeName)
+  
+      const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types);
+      let suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
+  
+      let a = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address,env.chainId), typeHash,suffixData,deploySignature);
+      const fwdAddress = await factory.getSmartWalletAddress(gasless, logicAddress, initParams)      
+      const fwd:ForwarderInstance = await Forwarder.at(fwdAddress);
+      await fwd.registerRequestType(
+        GsnRequestType.typeName,
+        GsnRequestType.typeSuffix
+     )
+      forwarder= fwd;
+      ////
+      sr = await TestRecipient.new(forwarder.address)
 
       paymaster = await TestPaymasterEverythingAccepted.new()
       await paymaster.setTrustedForwarder(forwarder.address)

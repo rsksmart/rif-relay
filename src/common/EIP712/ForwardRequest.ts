@@ -12,4 +12,5 @@ export default interface ForwardRequest {
   tokenContract: Address
   paybackTokens: IntString
   tokenGas: IntString
+  isDeploy: boolean
 }

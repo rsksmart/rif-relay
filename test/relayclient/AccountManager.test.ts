@@ -75,7 +75,8 @@ contract('AccountManager', function (accounts) {
         nonce: '1',
         value: '0',
         gas: '1',
-        ...tokenRequest
+        ...tokenRequest,
+        isDeploy: false
       },
       relayData: {
         pctRelayFee: '1',

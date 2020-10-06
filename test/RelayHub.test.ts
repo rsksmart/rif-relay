@@ -6,7 +6,10 @@ import { decodeRevertReason, getEip712Signature, removeHexPrefix } from '../src/
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment } from './TestUtils'
 import { isRsk, Environment } from '../src/common/Environments'
-import TypedRequestData, { GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { GsnRequestType, getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+// @ts-ignore
+import {TypedDataUtils} from 'eth-sig-util'
+import { bufferToHex} from 'ethereumjs-util'
 
 import {
   RelayHubInstance,
@@ -16,9 +19,11 @@ import {
   ForwarderInstance,
   TestPaymasterEverythingAcceptedInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
-  TestTokenInstance
+  TestTokenInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason } from './TestUtils'
+import { chain } from 'lodash'
 
 const StakeManager = artifacts.require('StakeManager')
 const Forwarder = artifacts.require('Forwarder')
@@ -28,6 +33,8 @@ const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterStoreContext = artifacts.require('TestPaymasterStoreContext')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 const TestToken = artifacts.require('TestToken')
+const ProxyFactory = artifacts.require('ProxyFactory')
+
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, senderAddress, other, dest, incorrectWorker]) { // eslint-disable-line no-unused-vars
   const RelayCallStatusCodes = {
@@ -50,12 +57,15 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let paymasterContract: TestPaymasterEverythingAcceptedInstance
   let forwarderInstance: ForwarderInstance
   let tokenContract: TestTokenInstance
+  let factory : ProxyFactoryInstance //Creator of Smart Wallets
   let target: string
   let paymaster: string
   let forwarder: string
   let tokenAddress: string
 
   let env: Environment
+
+ 
 
   beforeEach(async function () {
     env = await getTestingEnvironment()
@@ -64,11 +74,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address, env)
     paymasterContract = await TestPaymasterEverythingAccepted.new()
     forwarderInstance = await Forwarder.new()
-    forwarder = forwarderInstance.address
-    recipientContract = await TestRecipient.new(forwarder)
-    tokenContract = await TestToken.new()
-    await tokenContract.mint('1000', forwarder)
     chainId = env.chainId
+    tokenContract = await TestToken.new()
+    forwarder = forwarderInstance.address
 
     // register hub's RelayRequest with forwarder, if not already done.
     await forwarderInstance.registerRequestType(
@@ -76,10 +84,78 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       GsnRequestType.typeSuffix
     )
 
+    /////
+    factory = await ProxyFactory.new(forwarderInstance.address)
+
+    await factory.registerRequestType(
+      GsnRequestType.typeName,
+      GsnRequestType.typeSuffix
+   )
+
+    const logicAddress = '0x0000000000000000000000000000000000000000';
+    const initParams = '0x';
+    const reqParamCount = 11;
+    const rReq={
+      request:{
+        to: '0x0000000000000000000000000000000000000000',
+        data: '0x',
+        from: senderAddress,
+        nonce: '0',
+        value: '0',
+        gas: '400000',
+        tokenRecipient: '0x0000000000000000000000000000000000000000',
+        tokenContract: '0x0000000000000000000000000000000000000000',
+        paybackTokens: '0',
+        tokenGas: '400000',
+        isDeploy: true
+      },
+      relayData:{
+        gasPrice:'10',
+        pctRelayFee:'10',
+        baseRelayFee:'10000',
+        relayWorker: relayWorker,
+        paymaster:paymasterContract.address,
+        forwarder: forwarderInstance.address,
+        paymasterData:'0x',
+        clientId:'1'
+      }
+    }
+
+    const createdataToSign = new TypedRequestData(
+      chainId,
+      factory.address,
+      rReq
+    )
+
+    const deploySignature = await getEip712Signature(
+      web3,
+      createdataToSign
+    )
+
+    const FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
+    const typeName = `${GsnRequestType.typeName}(${FORWARDER_PARAMS},${GsnRequestType.typeSuffix}`
+    const typeHash = web3.utils.keccak256(typeName)
+
+    const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types);
+    let suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
+
+    let a = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address,chainId), typeHash,suffixData,deploySignature);
+    const fwdAddress = await factory.getSmartWalletAddress(senderAddress, logicAddress, initParams)
+    forwarder = fwdAddress
+    
+    recipientContract = await TestRecipient.new(forwarder)
+    await tokenContract.mint('1000', forwarder)
+    const fwd:ForwarderInstance = await Forwarder.at(fwdAddress);
+    await fwd.registerRequestType(
+      GsnRequestType.typeName,
+      GsnRequestType.typeSuffix
+   )
+    forwarderInstance = fwd;
     target = recipientContract.address
     paymaster = paymasterContract.address
     relayHub = relayHubInstance.address
     tokenAddress = tokenContract.address
+    
 
 
     await paymasterContract.setTrustedForwarder(forwarder)
@@ -215,6 +291,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           tokenContract: tokenAddress,
           paybackTokens: tokensPaid.toString(),
           tokenGas: gasLimit,
+          isDeploy: false
         },
         relayData: {
           pctRelayFee,
@@ -309,6 +386,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           web3,
           dataToSign
         )
+        console.log(`SIGNATURE IS: ${signatureWithPermissivePaymaster}`);
 
         await relayHubInstance.depositFor(paymaster, {
           value: ether('1'),
@@ -458,9 +536,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gas,
             gasPrice
           })
+
           const nonceAfter = await forwarderInstance.getNonce()
           // assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
-          assert.equal(nonceBefore.addn(2).toNumber(), nonceAfter.toNumber()) //Each execution increment the nonce twice (tkn payment + call)
+          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber()) //Each execution increment the nonce twice (tkn payment + call)
           
           const tknBalance = await tokenContract.balanceOf(target)
           assert.isTrue(new BN(tokensPaid).eq(tknBalance))

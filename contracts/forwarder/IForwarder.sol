@@ -15,6 +15,7 @@ interface IForwarder {
         address tokenContract;
         uint256 paybackTokens;
         uint256 tokenGas;
+        bool isDeploy;
     }
 
     function getNonce()

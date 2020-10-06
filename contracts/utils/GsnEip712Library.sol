@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "../interfaces/GsnTypes.sol";
 import "../interfaces/IRelayRecipient.sol";
 import "../forwarder/IForwarder.sol";
-
+import "../factory/IProxyFactory.sol";
 import "./GsnUtils.sol";
 
 /**
@@ -16,7 +16,7 @@ library GsnEip712Library {
     uint256 private constant MAX_RETURN_SIZE = 1024;
 
     //copied from Forwarder (can't reference string constants even from another library)
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas";
+    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
 
     bytes public constant RELAYDATA_TYPE = "RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
 
@@ -59,7 +59,8 @@ library GsnEip712Library {
             req.request.tokenRecipient,
             req.request.tokenContract,
             req.request.paybackTokens,
-            req.request.tokenGas
+            req.request.tokenGas,
+            req.request.isDeploy
         );
         suffixData = abi.encode(
             hashRelayData(req.relayData));
@@ -93,11 +94,22 @@ library GsnEip712Library {
     function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, bytes memory ret, uint256 lastSuccTx) {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
         bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
-            abi.encodeWithSelector(IForwarder.execute.selector,
-            forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
-        ));
+
+        if(relayRequest.request.isDeploy){
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
+                abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
+        }
+        else{
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
+                abi.encodeWithSelector(IForwarder.execute.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
+        }
+
         if ( forwarderSuccess ) {
 
           //decode return value of execute:

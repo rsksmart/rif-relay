@@ -141,7 +141,8 @@ export class RelayServer extends EventEmitter {
         tokenRecipient: req.tokenRecipient,
         tokenContract: req.tokenContract,
         paybackTokens: req.paybackTokens,
-        tokenGas: req.tokenGas
+        tokenGas: req.tokenGas,
+        isDeploy: false
       },
       relayData: {
         baseRelayFee: req.baseRelayFee,

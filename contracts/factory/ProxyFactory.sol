@@ -3,6 +3,8 @@ pragma solidity >=0.6.12 <0.8.0;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
+import "./IProxyFactory.sol";
+
 //import "@nomiclabs/buidler/console.sol";
 
 /**
@@ -72,30 +74,20 @@ PC | OPCODE|   Mnemonic     |   Stack [top, bottom]                       | Comm
  */
 /**Factory of Proxies to the SmartWallet (Forwarder)
 The Forwarder itself is a Template with portions delegated to a custom logic (it is also a proxy) */
-contract ProxyFactory {
-
+contract ProxyFactory is IProxyFactory {
     using ECDSA for bytes32;
-
-    struct WalletCreate {
-        address owner;
-        address logic;
-        uint256 logicInitGas;
-        uint256 tokenGas;
-        address tokenContract;
-        address tokenRecipient;
-        uint256 amountTokens;
-        bytes  initParams;
-    }
 
     //change to internal after debug
     address public masterCopy; // this is the ForwarderProxy contract that will be proxied
     mapping(bytes32 => bool) public typeHashes;
 
+    // Nonces of senders, used to prevent replay attacks
+    mapping(address => uint256) private nonces;
+
     event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
     event DebugInfo(string comment);
 
-    string public constant DELEGATE_PARAMS = "address owner,address logic,uint256 logicInitGas,uint256 tokenGas,address tokenContract,address tokenRecipient,uint256 amountTokens,bytes initParams";
-
+    string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
 
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
@@ -105,11 +97,15 @@ contract ProxyFactory {
      */
     constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
-        string memory requestType = string(abi.encodePacked("WalletCreate(", DELEGATE_PARAMS, ")"));
+       
+        string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
         registerRequestTypeInternal(requestType);
+
     }
 
-
+    function getNonce(address from) public override view returns (uint256) {
+        return nonces[from];
+    }
 
     function createUserSmartWallet(
         address owner,
@@ -117,9 +113,8 @@ contract ProxyFactory {
         uint256 logicInitGas,
         bytes calldata initParams,
         bytes calldata sig
-    ) external {
-        
-         bytes memory packed = abi.encodePacked(
+    ) external override {
+        bytes memory packed = abi.encodePacked(
             "\x19\x10",
             owner,
             logic,
@@ -128,10 +123,7 @@ contract ProxyFactory {
         );
 
         bytes32 digest = keccak256(packed);
-
-        address recovered = recoverSigner(digest, sig);
-        //console.log("Recovered address:", recovered);
-        require(recovered == owner, string(packed));
+        require(digest.recover(sig) == owner, string(packed));
 
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
 
@@ -149,86 +141,40 @@ contract ProxyFactory {
         deploy(getCreationBytecode(), salt, initData);
     }
 
-
-
- function relayedUserSmartWalletCreation(
-        WalletCreate memory req, 
+    function relayedUserSmartWalletCreation(
+        IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes calldata suffixData,
         bytes calldata sig
-    ) external {
+    ) external override {
 
-       _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
 
-        // The initialization (first call) will set addr as an external owner of this account.
-        //The same could be performed with dynamic CREATE2 derivation in the target contract,
-        //but it’s a bit more expensive each time (compared with a one time setting here).
+        _verifyNonce(req);
+        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _updateNonce(req);
 
-        bytes32 salt = keccak256(abi.encodePacked(req.owner, req.logic, req.initParams));
+        bytes32 salt = keccak256(
+            abi.encodePacked(req.from, req.to, req.data)
+        );
 
-        //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
+        //1e42ebbb  =>  initialize(address owner,address logic,address tokenAddr,uint256 logicInitGas,uint256 tokenGas,bytes initParams,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
 
- 
-
-        //initParams must not contain the function signature
+        //initParams (req.data) must not contain the function selector for the logic initialization function
         bytes memory initData = abi.encodeWithSelector(
             hex"1e42ebbb",
-            req.owner,
-            req.logic,
+            req.from,
+            req.to,
             req.tokenContract,
-            req.logicInitGas,
+            req.gas,
             req.tokenGas,
-            req.initParams,
-            abi.encodeWithSelector(hex"a9059cbb", req.tokenRecipient, req.amountTokens)  
-        );
-
-        deploy(getCreationBytecode(), salt, initData);
-    }
-
-    function delegateUserSmartWalletCreation(
-        WalletCreate memory req, 
-        bytes memory sig
-    ) external {
-
-
-        // recover the address by proving ownership EIP-191-like
-        //EIP-191: 0x19 + version, in this case 0x10 for version.
-        bytes memory packed = abi.encodePacked(
-            "\x19\x10",
-            req.owner,
-            req.logic,
-            req.logicInitGas,
-            req.initParams,
-            req.tokenContract,
-            req.tokenRecipient,
-            req.amountTokens
-        );
-
-        bytes32 digest = keccak256(packed);
-        address recovered = recoverSigner(digest, sig);
-        require(recovered == req.owner, string(packed));
-
-        // The initialization (first call) will set addr as an external owner of this account.
-        //The same could be performed with dynamic CREATE2 derivation in the target contract,
-        //but it’s a bit more expensive each time (compared with a one time setting here).
-
-        bytes32 salt = keccak256(abi.encodePacked(req.owner, req.logic, req.initParams));
-
-        //17eb58b8 = initialize(address owner, address logic, address tokenAddr, uint256 logicInitGas, bytes memory initParams, bytes memory transferData (funcSig + recipient + price)) external {}
-        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
-
-        //initParams must not contain the function signature
-            bytes memory initData = abi.encodeWithSelector(
-            hex"1e42ebbb",
-            req.owner,
-            req.logic,
-            req.tokenContract,
-            req.logicInitGas,
-            req.tokenGas,
-            req.initParams,
-            abi.encodeWithSelector(hex"a9059cbb", req.tokenRecipient, req.amountTokens)  
+            req.data,
+            abi.encodeWithSelector(
+                hex"a9059cbb",
+                req.tokenRecipient,
+                req.paybackTokens
+            )
         );
 
         deploy(getCreationBytecode(), salt, initData);
@@ -244,10 +190,9 @@ contract ProxyFactory {
         address owner,
         address logic,
         bytes memory initParams
-    ) external view returns (address) {
-        
+    ) external override view returns (address) {
         bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
-        
+
         bytes32 result = keccak256(
             abi.encodePacked(
                 bytes1(0xff),
@@ -297,9 +242,6 @@ contract ProxyFactory {
 
     // Returns the proxy code to that is deployed on every Smart Wallet creation
     function getCreationBytecode() public view returns (bytes memory) {
-        //constructorCode = hex"602D3D8160093D39F3";
-        //runtimeCodeBeforeAddress = hex"363D3D373D3D3D3D363D73";
-        //runtimeCodeAfterAddress = hex"5AF43D923D90803E602B57FD5BF3";
 
             bytes memory payloadStart
          = hex"602D3D8160093D39F3363D3D373D3D3D3D363D73";
@@ -309,96 +251,86 @@ contract ProxyFactory {
         return abi.encodePacked(payloadStart, masterCopy, payloadEnd);
     }
 
-    /// signature methods.
-    function splitSignature(bytes memory sig)
-        internal
-        pure
-        returns (
-            uint8 v,
-            bytes32 r,
-            bytes32 s
-        )
-    {
-        require(sig.length == 65);
-
-        assembly {
-            // first 32 bytes, after the length prefix.
-            r := mload(add(sig, 32))
-            // second 32 bytes.
-            s := mload(add(sig, 64))
-            // final byte (first byte of the next 32 bytes).
-            v := byte(0, mload(add(sig, 96)))
-        }
-
-        return (v, r, s);
-    }
-
-    function recoverSigner(bytes32 message, bytes memory sig)
-        internal
-        pure
-        returns (address)
-    {
-        (uint8 v, bytes32 r, bytes32 s) = splitSignature(sig);
-
-        return ecrecover(message, v, r, s);
-    }
-
     function _getEncoded(
-        WalletCreate memory req,
+        IForwarder.ForwardRequest memory req,
         bytes32 requestTypeHash,
         bytes memory suffixData
-    )
-    public
-    pure
-    returns (
-        bytes memory
-    ) {
-
-
+    ) public pure returns (bytes memory) {
         return abi.encodePacked(
             requestTypeHash,
             abi.encode(
-                req.owner,
-                req.logic,
-                req.logicInitGas,
-                req.tokenGas,
-                req.tokenContract,
+                req.from,
+                req.to,
+                req.value,
+                req.gas,
+                req.nonce,
+                keccak256(req.data),
                 req.tokenRecipient,
-                req.amountTokens,
-                keccak256(req.initParams)     
+                req.tokenContract,
+                req.paybackTokens,
+                req.tokenGas,
+                req.isDeploy
             ),
             suffixData
         );
     }
 
     function _verifySig(
-        WalletCreate memory req,
+        IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes memory suffixData,
-        bytes memory sig)
-    internal
-    view
-    {
-
-        require(typeHashes[requestTypeHash], "invalid request typehash");
-
-        bytes32 digest = keccak256(abi.encodePacked(
-                "\x19\x01", domainSeparator,
+        bytes memory sig
+    ) internal view {
+        //require(domains[domainSeparator], "unregistered domain separator");
+        require(typeHashes[requestTypeHash], "unregistered request typehash");
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
                 keccak256(_getEncoded(req, requestTypeHash, suffixData))
-            ));
+            )
+        );
+        require(digest.recover(sig) == req.from, "signature mismatch");
+    }
 
+    function _verifyNonce(IForwarder.ForwardRequest memory req) internal view {
+        require(nonces[req.from] == req.nonce, "nonce mismatch");
+    }
 
-        require(digest.recover(sig) == req.owner, "signature mismatch");
+    function _updateNonce(IForwarder.ForwardRequest memory req) internal {
+        nonces[req.from]++;
     }
 
     function registerRequestTypeInternal(string memory requestType) internal {
-
         bytes32 requestTypehash = keccak256(bytes(requestType));
         typeHashes[requestTypehash] = true;
         emit RequestTypeRegistered(requestTypehash, string(requestType));
     }
 
+    function registerRequestType(
+        string calldata typeName,
+        string calldata typeSuffix
+    ) external  {
+        for (uint256 i = 0; i < bytes(typeName).length; i++) {
+            bytes1 c = bytes(typeName)[i];
+            require(c != "(" && c != ")", "invalid typename");
+        }
+
+        bytes memory suffixBytes = bytes(typeSuffix);
+
+        if (suffixBytes.length == 0) {
+            string memory requestType = string(
+                abi.encodePacked(typeName, "(", FORWARDER_PARAMS, ")")
+            );
+            registerRequestTypeInternal(requestType);
+        } else {
+            string memory requestType = string(
+                abi.encodePacked(typeName, "(", FORWARDER_PARAMS, ",", typeSuffix)
+            );
+            registerRequestTypeInternal(requestType);
+        }
+    }
 
     event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
 }

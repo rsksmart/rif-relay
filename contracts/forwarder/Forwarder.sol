@@ -6,26 +6,27 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
+
 //import "@nomiclabs/buidler/console.sol";
 
 contract Forwarder is IForwarder {
     using ECDSA for bytes32;
 
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas";
+    string
+        public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
     mapping(bytes32 => bool) public typeHashes;
 
     // Nonce of forwarder, used to prevent replay attacks
     uint256 private nonce;
 
-    function getNonce()
-    public view override
-    returns (uint256) {
+    function getNonce() public override view returns (uint256) {
         return nonce;
     }
 
     constructor() public {
-
-        string memory requestType = string(abi.encodePacked("ForwardRequest(", GENERIC_PARAMS, ")"));
+        string memory requestType = string(
+            abi.encodePacked("ForwardRequest(", GENERIC_PARAMS, ")")
+        );
         registerRequestTypeInternal(requestType);
     }
 
@@ -34,8 +35,8 @@ contract Forwarder is IForwarder {
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes calldata suffixData,
-        bytes calldata sig)
-    external override view {
+        bytes calldata sig
+    ) external override view {
         _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
@@ -48,27 +49,32 @@ contract Forwarder is IForwarder {
         bytes calldata suffixData,
         bytes calldata sig
     )
-    external payable
-    override
-    returns (bool success, bytes memory ret, uint256 lastTxSucc) {
-        
+        external
+        override
+        payable
+        returns (
+            bool success,
+            bytes memory ret,
+            uint256 lastTxSucc
+        )
+    {
         _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         _updateNonce();
 
         // solhint-disable-next-line avoid-low-level-calls
-        (success,ret) = req.tokenContract.call{gas: req.tokenGas}(
-            abi.encodeWithSelector(IERC20.transfer.selector, req.tokenRecipient, req.paybackTokens)
+        (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
+            abi.encodeWithSelector(
+                IERC20.transfer.selector,
+                req.tokenRecipient,
+                req.paybackTokens
+            )
         );
-        
-        if (!success){
-            return (success,ret, 0);
+
+        if (!success) {
+            return (success, ret, 0);
         }
-        
-        _updateNonce();
-
-
 
         address logic;
         assembly {
@@ -83,13 +89,13 @@ contract Forwarder is IForwarder {
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(
                 abi.encodePacked(req.data, req.from)
             );
-        } 
-        else {//If there's extra logic, delegate the execution
+        } else {
+            //If there's extra logic, delegate the execution
             (success, ret) = logic.delegatecall(msg.data);
         }
-        
+
         //If any balance has been added then trasfer it to the owner EOA
-        if ( address(this).balance>0 ) {
+        if (address(this).balance > 0) {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(req.from).transfer(address(this).balance);
         }
@@ -98,21 +104,23 @@ contract Forwarder is IForwarder {
             return (success, ret, 1);
         }
 
-        return (success,ret, 2);
+        return (success, ret, 2);
     }
 
-
-  function _verifyOwner(ForwardRequest memory req) internal view {
+    function _verifyOwner(ForwardRequest memory req) internal view {
         address swalletOwner;
-        assembly{
+        assembly {
             //First of all, verify the req.from is the owner of this smart wallet
-           swalletOwner := sload(
+            swalletOwner := sload(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             )
         }
 
-        require(swalletOwner == req.from, "Requestor is not the owner of the Smart Wallet");
-  }
+        require(
+            swalletOwner == req.from,
+            "Requestor is not the owner of the Smart Wallet"
+        );
+    }
 
     function _verifyNonce(ForwardRequest memory req) internal view {
         require(nonce == req.nonce, "nonce mismatch");
@@ -122,43 +130,53 @@ contract Forwarder is IForwarder {
         nonce++;
     }
 
-    function registerRequestType(string calldata typeName, string calldata typeSuffix) external override {
-
-        for (uint i = 0; i < bytes(typeName).length; i++) {
+    function registerRequestType(
+        string calldata typeName,
+        string calldata typeSuffix
+    ) external override {
+        for (uint256 i = 0; i < bytes(typeName).length; i++) {
             bytes1 c = bytes(typeName)[i];
             require(c != "(" && c != ")", "invalid typename");
         }
 
-        string memory requestType = string(abi.encodePacked(typeName, "(", GENERIC_PARAMS, ",", typeSuffix));
-        registerRequestTypeInternal(requestType);
+        bytes memory suffixBytes = bytes(typeSuffix);
+
+        if (suffixBytes.length == 0) {
+            string memory requestType = string(
+                abi.encodePacked(typeName, "(", GENERIC_PARAMS, ")")
+            );
+            registerRequestTypeInternal(requestType);
+        } else {
+            string memory requestType = string(
+                abi.encodePacked(typeName, "(", GENERIC_PARAMS, ",", typeSuffix)
+            );
+            registerRequestTypeInternal(requestType);
+        }
     }
 
     function registerRequestTypeInternal(string memory requestType) internal {
-
         bytes32 requestTypehash = keccak256(bytes(requestType));
         typeHashes[requestTypehash] = true;
         emit RequestTypeRegistered(requestTypehash, string(requestType));
     }
 
-
     event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
-
 
     function _verifySig(
         ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes memory suffixData,
-        bytes memory sig)
-    internal
-    view
-    {
-
+        bytes memory sig
+    ) internal view {
         require(typeHashes[requestTypeHash], "invalid request typehash");
-        bytes32 digest = keccak256(abi.encodePacked(
-                "\x19\x01", domainSeparator,
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                domainSeparator,
                 keccak256(_getEncoded(req, requestTypeHash, suffixData))
-            ));
+            )
+        );
         require(digest.recover(sig) == req.from, "signature mismatch");
     }
 
@@ -166,48 +184,41 @@ contract Forwarder is IForwarder {
         ForwardRequest memory req,
         bytes32 requestTypeHash,
         bytes memory suffixData
-    )
-    public
-    pure
-    returns (
-        bytes memory
-    ) {
-        return abi.encodePacked(
-            requestTypeHash,
-            abi.encode(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                keccak256(req.data),
-                req.tokenRecipient,
-                req.tokenContract,
-                req.paybackTokens,
-                req.tokenGas
-            ),
-            suffixData
-        );
+    ) public pure returns (bytes memory) {
+        return
+            abi.encodePacked(
+                requestTypeHash,
+                abi.encode(
+                    req.from,
+                    req.to,
+                    req.value,
+                    req.gas,
+                    req.nonce,
+                    keccak256(req.data),
+                    req.tokenRecipient,
+                    req.tokenContract,
+                    req.paybackTokens,
+                    req.tokenGas,
+                    req.isDeploy
+                ),
+                suffixData
+            );
     }
 
-
-    function isInitialized() external view returns (bool){
+    function isInitialized() external view returns (bool) {
         bytes32 swalletOwner;
         assembly {
-            //This function can be called only if not initialized (i.e., owner not set)
-            //The slot used complies with EIP-1967-like, obtained as:
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             swalletOwner := sload(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             )
         }
-        if(swalletOwner == 0x0){
+        if (swalletOwner == 0x0) {
             return false;
-        }
-        else {
+        } else {
             return true;
         }
     }
+
 
     /**
      * This Proxy will first charge for the deployment and then it will pass the
@@ -228,26 +239,24 @@ contract Forwarder is IForwarder {
         uint256 logicInitGas,
         uint256 tokenGas,
         bytes memory initParams,
-        bytes memory transferData  
+        bytes memory transferData
     ) external returns (bool) {
-
         bytes32 swalletOwner;
         assembly {
             //This function can be called only if not initialized (i.e., owner not set)
             //The slot used complies with EIP-1967-like, obtained as:
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-             swalletOwner := sload(
+            swalletOwner := sload(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             )
         }
 
-        if(swalletOwner == 0x0){ //we need to initialize the contract
-            //console.log("Forwarder: Paying for the deployment");
-            if(tokenAddr!= address(0)){
+        if (swalletOwner == 0x0) {
+            //we need to initialize the contract
+            if (tokenAddr != address(0)) {
                 (bool success, ) = tokenAddr.call{gas: tokenGas}(transferData);
-                require(success,"Unable to pay for deployment" );
+                require(success, "Unable to pay for deployment");
             }
-
 
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
@@ -255,10 +264,16 @@ contract Forwarder is IForwarder {
                 //console.log("There is custom logic");
 
                 //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
-                bytes memory initP = abi.encodeWithSelector(hex"439fab91", initParams);
+                bytes memory initP = abi.encodeWithSelector(
+                    hex"439fab91",
+                    initParams
+                );
                 (bool success, ) = logic.delegatecall{gas: logicInitGas}(initP);
 
-                require(success, "initialize(bytes) call in logic contract failed");
+                require(
+                    success,
+                    "initialize(bytes) call in logic contract failed"
+                );
 
                 assembly {
                     //The slot used complies with EIP-1967, obtained as:
@@ -275,58 +290,70 @@ contract Forwarder is IForwarder {
             //Set the owner of this Smart Wallet
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             assembly {
-                sstore(0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                owner)
-            } 
-            
-            return true;
+                sstore(
+                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                    owner
+                )
+            }
 
- 
+            return true;
         }
         return false;
     }
 
-   /**
+    /**
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
      * function in the contract matches the call data.
      */
-    fallback () payable external {
+    fallback() external payable {
         _fallback();
     }
 
-    function _fallback() internal {//Proxy code to the logic (if any)
+    function _fallback() internal {
+        //Proxy code to the logic (if any)
+
+        bytes32 logicStrg;
 
         assembly {
-            let ptr := mload(0x40)
-            let walletImpl := sload(
+            logicStrg := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
             )
+        }
 
-            // (1) copy incoming call data
-            calldatacopy(ptr, 0, calldatasize())
+        if (bytes32(0) != logicStrg) {
+            //If the storage cell is not empty
+            
+            address logic = address(uint160(uint256(logicStrg)));
 
-            // (2) forward call to logic contract
-            let result := delegatecall(
-                gas(),
-                walletImpl,
-                ptr,
-                calldatasize(),
-                0,
-                0
-            )
-            let size := returndatasize()
+            assembly {
+                let ptr := mload(0x40)
 
-            // (3) retrieve return data
-            returndatacopy(ptr, 0, size)
+                // (1) copy incoming call data
+                calldatacopy(ptr, 0, calldatasize())
 
-            // (4) forward return data back to caller
-            switch result
-                case 0 {
-                    revert(ptr, size)
-                }
-                default {
-                    return(ptr, size)
-                }
+                // (2) forward call to logic contract
+                let result := delegatecall(
+                    gas(),
+                    logic,
+                    ptr,
+                    calldatasize(),
+                    0,
+                    0
+                )
+                let size := returndatasize()
+
+                // (3) retrieve return data
+                returndatacopy(ptr, 0, size)
+
+                // (4) forward return data back to caller
+                switch result
+                    case 0 {
+                        revert(ptr, size)
+                    }
+                    default {
+                        return(ptr, size)
+                    }
+            }
         }
     }
 
@@ -334,8 +361,7 @@ contract Forwarder is IForwarder {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
      * is empty.
      */
-    receive () payable external {
+    receive() external payable {
         _fallback();
     }
-
 }

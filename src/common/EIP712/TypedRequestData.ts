@@ -4,8 +4,7 @@ import { EIP712Domain, EIP712TypedData, EIP712TypeProperty, EIP712Types, TypedDa
 
 import { bufferToHex } from 'ethereumjs-util'
 import { PrefixedHexString } from 'ethereumjs-tx'
-
-const EIP712DomainType = [
+ const EIP712DomainType = [
   { name: 'name', type: 'string' },
   { name: 'version', type: 'string' },
   { name: 'chainId', type: 'uint256' },
@@ -30,14 +29,15 @@ const TokenPaymentType = [
   { name: 'tokenGas', type: 'uint256' }
 ]
 
-const ForwardRequestType = [
+ const ForwardRequestType = [
   { name: 'from', type: 'address' },
   { name: 'to', type: 'address' },
   { name: 'value', type: 'uint256' },
   { name: 'gas', type: 'uint256' },
   { name: 'nonce', type: 'uint256' },
   { name: 'data', type: 'bytes' },
-  ...TokenPaymentType
+  ...TokenPaymentType,
+  { name: 'isDeploy', type: 'bool' }
 ]
 
 const RelayRequestType = [
