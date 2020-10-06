@@ -297,8 +297,8 @@ export class RelayClient {
         gas: gasLimit
       },
       relayData: {
-        pctRelayFee: relayInfo.relayInfo.pctRelayFee === '' ? relayInfo.relayInfo.pctRelayFee : '0',
-        baseRelayFee: relayInfo.relayInfo.baseRelayFee === '' ? relayInfo.relayInfo.baseRelayFee : '0',
+        pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',
+        baseRelayFee: relayInfo.relayInfo.baseRelayFee !== '' ? relayInfo.relayInfo.baseRelayFee : '0',
         gasPrice,
         paymaster,
         paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
