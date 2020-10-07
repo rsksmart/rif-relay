@@ -54,7 +54,7 @@ contract Forwarder is IForwarder {
     )
     external payable
     override
-    returns (bool success, bytes memory ret) {
+    returns (bool success, bytes memory ret, uint256 lastSuccTx) {
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         _updateNonce(req);
@@ -65,7 +65,10 @@ contract Forwarder is IForwarder {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(req.from).transfer(address(this).balance);
         }
-        return (success,ret);
+        
+        lastSuccTx = success? 2 : 0;
+
+        return (success,ret,lastSuccTx);
     }
 
 
