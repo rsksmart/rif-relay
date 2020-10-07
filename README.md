@@ -10,7 +10,7 @@ GSN core architecture is defined by the following components:
 
 For a full techincal description, see [Tabookey's EIP draft](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1613.md) and [Open GSN documentation](https://docs.opengsn.org/learn/index.html).
 
-This projects expands GSN capabilities and security model while reducing gas costs by:
+This project expands GSN capabilities and security model while reducing gas costs by:
 - Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need of relying in _msgSender() and _msgData() functions.
 - Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
 
