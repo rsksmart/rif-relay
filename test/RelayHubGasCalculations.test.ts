@@ -62,7 +62,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   let env: Environment
 
   beforeEach(async function prepareForHub () {
-
     env = await getTestingEnvironment()
     chainId = env.chainId
 
@@ -149,7 +148,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   describe('#relayCall()', function () {
     it('should set correct gas limits and pass correct \'maxPossibleGas\' to the \'preRelayedCall\'',
       async function () {
-        const magicCosts = isRsk(env)? magicNumbers.rsk : magicNumbers.istanbul
+        const magicCosts = isRsk(env) ? magicNumbers.rsk : magicNumbers.istanbul
         const transactionGasLimit = gasLimit.mul(new BN(3))
         const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', transactionGasLimit, {
           from: relayWorker,
@@ -174,7 +173,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
 
         await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPostCallWithValues', {
           gasleft: (parseInt(gasLimits.postRelayedCallGasLimit) - magicCosts.post).toString()
-        })  
+        })
       })
 
     // note: since adding the revert reason to the emit, post overhead is dynamic
@@ -209,7 +208,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
 
       console.log(`Gas used = ${usedGas}`)
 
-      const diff = isRsk(env)? 10_000 : 100
+      const diff = isRsk(env) ? 10_000 : 100
       assert.closeTo(gasUseWithoutPost, usedGas - estimatePostGas, diff,
         `postOverhead: increase by ${usedGas - estimatePostGas - gasUseWithoutPost}\
         \n\tpostOverhead: ${defaultEnvironment.relayHubConfiguration.postOverhead + usedGas - estimatePostGas - gasUseWithoutPost},\n`
@@ -355,9 +354,10 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           } else {
             assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
-          const gasUsed = res.receipt.gasUsed
+
+          const rskDiff: number = isRsk(env) ? 3000 : 0
+          const gasUsed: number = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
-          const rskDiff = isRsk(env)? 3000 : 0
 
           assert.equal(diff.paymasters.toNumber(), gasUsed + rskDiff)
         })

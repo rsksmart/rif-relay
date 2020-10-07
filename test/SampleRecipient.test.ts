@@ -5,7 +5,7 @@ import {
 } from '../types/truffle-contracts'
 import BN from 'bn.js'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { deployHub, getTestingEnvironment } from './TestUtils'
+import { deployHub } from './TestUtils'
 import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const StakeManager = artifacts.require('StakeManager')

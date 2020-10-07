@@ -17,7 +17,7 @@ import {
   TestRecipientInstance
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
-import { defaultEnvironment, isRsk } from '../../src/common/Environments'
+import { isRsk } from '../../src/common/Environments'
 import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
@@ -65,7 +65,7 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
     }
   }
   const dataToSign = new TypedRequestData(
-    //domain.defaultEnvironment.chainId,
+    // domain.defaultEnvironment.chainId,
     (await getTestingEnvironment()).chainId,
     testRecipientForwarderAddress,
     relayRequest
@@ -310,7 +310,7 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new(forwarderAddress)
-const env = await getTestingEnvironment()
+      const env = await getTestingEnvironment()
       const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {

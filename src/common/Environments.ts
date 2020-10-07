@@ -49,5 +49,5 @@ export function getEnvironment (networkName: string): Environment {
 }
 
 export function isRsk (environment: Environment): boolean {
-  return environment.chainId == 33
+  return environment.chainId === 33
 }

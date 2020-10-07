@@ -232,7 +232,7 @@ data         | 0x${transaction.data.toString('hex')}
         if (receipt.blockNumber == null) {
           // Avoid throwing an error when blockNumber is null, for RSK this means that the block wasn't mined yet
           // eslint-disable-next-line @typescript-eslint/no-base-to-string
-          //throw new Error(`invalid block number in receipt ${receipt.toString()}`)
+          // throw new Error(`invalid block number in receipt ${receipt.toString()}`)
           log.warn(`warning: null block number in receipt for ${transaction.txId}`)
           continue
         }

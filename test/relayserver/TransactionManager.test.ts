@@ -19,7 +19,7 @@ contract('TransactionManager', function (accounts) {
 
   before(async function () {
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init(isRsk(await getTestingEnvironment()) ? {chainId: 33} : {})
+    await env.init(isRsk(await getTestingEnvironment()) ? { chainId: 33 } : {})
     await env.newServerInstance({ pendingTransactionTimeoutBlocks })
     relayServer = env.relayServer
   })

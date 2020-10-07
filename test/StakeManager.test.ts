@@ -1,9 +1,8 @@
 import { balance, ether, expectEvent, expectRevert, constants } from '@openzeppelin/test-helpers'
 import { expect } from 'chai'
-import { evmMineMany } from './TestUtils'
 import BN from 'bn.js'
-import { Environment, isRsk } from '../src/common/Environments'
-import { getTestingEnvironment } from './TestUtils'
+import { evmMineMany, getTestingEnvironment } from './TestUtils'
+import { isRsk } from '../src/common/Environments'
 
 import { StakeManagerInstance } from '../types/truffle-contracts'
 
@@ -382,10 +381,10 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
       const relayOwnerGain = await relayOwnerBalanceTracker.delta()
       const stakeManagerLoss = await stakeManagerBalanceTracker.delta()
 
-      const rskDifference: number = isRsk(env)? 30000 : 0
+      const rskDifference: number = isRsk(env) ? 30000 : 0
       const difference = relayOwnerGain.sub(initialStake)
 
-      //expect(relayOwnerGain).to.be.bignumber.equal(initialStake)
+      // expect(relayOwnerGain).to.be.bignumber.equal(initialStake)
       expect(difference).to.be.bignumber.at.most(new BN(rskDifference))
       expect(stakeManagerLoss).to.be.bignumber.equal(initialStake.neg())
     })

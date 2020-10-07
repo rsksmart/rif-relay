@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/require-await */
 // This rule seems to be flickering and buggy - does not understand async arrow functions correctly
-import { balance, ether, expectEvent, expectRevert, send } from '@openzeppelin/test-helpers'
+import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
 
 import { Transaction } from 'ethereumjs-tx'
@@ -11,7 +11,7 @@ import { expect } from 'chai'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getEip712Signature } from '../src/common/Utils'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
-import { defaultEnvironment, isRsk, Environment } from '../src/common/Environments'
+import { isRsk, Environment } from '../src/common/Environments'
 import {
   PenalizerInstance,
   RelayHubInstance, StakeManagerInstance,
@@ -22,8 +22,9 @@ import {
 import { deployHub, getTestingEnvironment } from './TestUtils'
 import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
-import TransactionResponse = Truffle.TransactionResponse
 import Common from 'ethereumjs-common'
+
+import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
 const StakeManager = artifacts.require('StakeManager')
@@ -36,7 +37,7 @@ const paymasterData = '0x'
 const clientId = '0'
 
 contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
-  //const chainId = defaultEnvironment.chainId
+  // const chainId = defaultEnvironment.chainId
 
   let stakeManager: StakeManagerInstance
   let relayHub: RelayHubInstance
@@ -87,11 +88,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     gasLimit: BN
     relayRequest: RelayRequest
     signature: string
-  }> {
-
-    
+  } > {
     const env: Environment = await getTestingEnvironment()
-    const chainId : number = env.chainId
+    const chainId: number = env.chainId
 
     const gasPrice = new BN('1')
     const gasLimit = new BN('5000000')
@@ -146,7 +145,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
     // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
     // emitted event and penalization reward transfer. Returns the transaction receipt.
-    async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference:number = 0): Promise<TransactionResponse> {
+    async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
       const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
       const stakeManagerBalanceTracker = await balance.tracker(stakeManager.address)
       const stakeInfo = await stakeManager.stakes(relayManager)
@@ -172,7 +171,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const difference = halfStake.sub(delta)
 
       // The reporter gets half of the stake
-      //expect(delta).to.be.bignumber.aproximately(halfStake)
+      // expect(delta).to.be.bignumber.aproximately(halfStake)
 
       // Since RSKJ doesn't support a transaction gas price below 0.06 gwei we need to change the assert
       expect(difference).to.be.bignumber.at.most(new BN(rskDifference))
@@ -186,7 +185,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     describe('penalization access control (relay manager only)', function () {
       before(async function () {
         const env: Environment = await getTestingEnvironment()
-        const receipt: any = await web3.eth.sendTransaction({from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1'});
+        const receipt: any = await web3.eth.sendTransaction({ from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1' })
         const transactionHash = receipt.transactionHash;
 
         ({
@@ -237,7 +236,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         // private key is not what's defined in relayCallArgs.privateKey
         // in the RSK case.
         // @ts-ignore
-        expect( '0x' + privateToAddress('0x' + relayCallArgs.privateKey).toString('hex')).to.equal(relayWorker.toLowerCase())
+        expect('0x' + privateToAddress('0x' + relayCallArgs.privateKey).toString('hex')).to.equal(relayWorker.toLowerCase())
         // TODO: I don't want to refactor everything here, but this value is not available before 'before' is run :-(
         encodedCallArgs.paymaster = paymaster.address
       })
@@ -254,13 +253,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       describe('repeated relay nonce', function () {
         it('penalizes transactions with same nonce and different data', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
+          const chainId: number = env.chainId
 
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(Object.assign({}, encodedCallArgs, { data: '0xabcd' }), relayCallArgs, chainId, env), chainId)
 
-          //160457
-          const rskDifference: number = isRsk(env)? 200000: 0
+          // 160457
+          const rskDifference: number = isRsk(env) ? 200000 : 0
 
           await expectPenalization(async (opts) =>
             await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
@@ -269,13 +268,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         it('penalizes transactions with same nonce and different gas limit', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
+          const chainId: number = env.chainId
 
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, Object.assign({}, relayCallArgs, { gasLimit: 100 }), chainId, env), chainId)
 
-          //135162
-          const rskDifference: number = isRsk(env)? 150000: 0
+          // 135162
+          const rskDifference: number = isRsk(env) ? 150000 : 0
 
           await expectPenalization(async (opts) =>
             await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
@@ -284,13 +283,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         it('penalizes transactions with same nonce and different value', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
+          const chainId: number = env.chainId
 
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, Object.assign({}, relayCallArgs, { value: 100 }), chainId, env), chainId)
 
-          //135334
-          const rskDifference: number = isRsk(env)? 150000: 0
+          // 135334
+          const rskDifference: number = isRsk(env) ? 150000 : 0
 
           await expectPenalization(async (opts) =>
             await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
@@ -299,13 +298,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         it('does not penalize transactions with same nonce and data, value, gasLimit, destination', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
+          const chainId: number = env.chainId
 
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(
-            encodedCallArgs,
-            Object.assign({}, relayCallArgs, { gasPrice: 70 }) // only gasPrice may be different
-          , chainId, env), chainId)
+            encodedCallArgs, Object.assign({}, relayCallArgs, { gasPrice: 70 }), chainId, env), chainId) // only gasPrice may be different
 
           await expectRevert.unspecified(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
@@ -315,13 +312,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         it('does not penalize transactions with different nonces', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
+          const chainId: number = env.chainId
 
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(
-            encodedCallArgs,
-            Object.assign({}, relayCallArgs, { nonce: 1 })
-          , chainId, env), chainId)
+            encodedCallArgs, Object.assign({}, relayCallArgs, { nonce: 1 }), chainId, env), chainId)
 
           await expectRevert.unspecified(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
@@ -331,13 +326,12 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         it('does not penalize transactions with same nonce from different relays', async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
-          
+          const chainId: number = env.chainId
+
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(
             encodedCallArgs,
-            Object.assign({}, relayCallArgs, { privateKey: '0123456789012345678901234567890123456789012345678901234567890123' })
-          , chainId, env), chainId)
+            Object.assign({}, relayCallArgs, { privateKey: '0123456789012345678901234567890123456789012345678901234567890123' }), chainId, env), chainId)
 
           await expectRevert.unspecified(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
@@ -353,13 +347,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const env: Environment = await getTestingEnvironment()
 
           // Relay sending ether to another account
-          //const { transactionHash } = await send.ether(relayWorker, other, ether('0.5'))
-          const receipt: any = await web3.eth.sendTransaction({from: relayWorker, to: other, value: ether('0.5'), gasPrice: '1'});
-          const transactionHash = receipt.transactionHash;
+          // const { transactionHash } = await send.ether(relayWorker, other, ether('0.5'))
+          const receipt: any = await web3.eth.sendTransaction({ from: relayWorker, to: other, value: ether('0.5'), gasPrice: '1' })
+          const transactionHash = receipt.transactionHash
           const { data, signature } = await getDataAndSignatureFromHash(transactionHash, env)
 
-          //72543
-          const rskDifference: number = isRsk(env)? 100000: 0
+          // 72543
+          const rskDifference: number = isRsk(env) ? 100000 : 0
 
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts), rskDifference)
         })
@@ -375,9 +369,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           })
           const { data, signature } = await getDataAndSignatureFromHash(tx, env)
 
-          //75364
-          const rskDifference: number = isRsk(env)? 100000: 0
-          
+          // 75364
+          const rskDifference: number = isRsk(env) ? 100000 : 0
+
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts), rskDifference)
         })
 
@@ -399,7 +393,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
 
           // 95397
-          const rskDifference: number = isRsk(env)? 100000 : 0
+          const rskDifference: number = isRsk(env) ? 100000 : 0
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
@@ -473,11 +467,10 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
         beforeEach(async function () {
           const env: Environment = await getTestingEnvironment()
-          const chainId : number = env.chainId
 
           // Relays are not allowed to transfer Ether
-          //const { transactionHash } = await send.ether(thirdRelayWorker, other, ether('0.5'));
-          const receipt: any = await web3.eth.sendTransaction({from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1'});
+          // const { transactionHash } = await send.ether(thirdRelayWorker, other, ether('0.5'));
+          const receipt: any = await web3.eth.sendTransaction({ from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1' })
           const transactionHash = receipt.transactionHash;
 
           ({
@@ -518,10 +511,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
           it('relay cannot be penalized twice', async function () {
             const env: Environment = await getTestingEnvironment()
-            const chainId : number = env.chainId
 
-            //72524
-            const rskDifference: number = isRsk(env)? 100000 : 0
+            // 72524
+            const rskDifference: number = isRsk(env) ? 100000 : 0
 
             await penalize(rskDifference)
             await expectRevert.unspecified(penalize(), 'relay manager not staked')
@@ -531,7 +523,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     })
 
     function encodeRelayCallEIP155 (encodedCallArgs: any, relayCallArgs: any, chainId: number, env: Environment): Transaction {
-      
       const privateKey = Buffer.from(relayCallArgs.privateKey, 'hex')
       const relayWorker = privateToAddress(privateKey).toString('hex')
       // TODO: 'encodedCallArgs' is no longer needed. just keep the RelayRequest in test
@@ -557,22 +548,22 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           }
         }
       const encodedCall = relayHub.contract.methods.relayCall(10e6, relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
-      
-      //TODO: fix this, for now we are passing istanbul as an RSK hardwfork.
+
+      // TODO: fix this, for now we are passing istanbul as an RSK hardwfork.
       let common
       if (isRsk(env)) {
         common = new Common({
-          networkId: '7771', 
+          networkId: '7771',
           chainId,
-          genesis: {}, 
+          genesis: {},
           hardforks: [
             {
-              name: "istanbul",
+              name: 'istanbul',
               block: 1,
-              consensus: "pow",
+              consensus: 'pow',
               finality: null
             }
-          ], 
+          ],
           bootstrapNodes: []
         }, 'istanbul')
       }
@@ -586,7 +577,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         // @ts-ignore
         chainId,
         data: encodedCall
-      }, isRsk(env)? { common } : undefined)
+      }, isRsk(env) ? { common } : undefined)
 
       transaction.sign(Buffer.from(relayCallArgs.privateKey, 'hex'))
       return transaction

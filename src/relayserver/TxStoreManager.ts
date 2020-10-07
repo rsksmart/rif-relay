@@ -12,7 +12,7 @@ export const TXSTORE_FILENAME = 'txstore.db'
 
 export class TxStoreManager {
   private readonly txstore: AsyncNedb<any>
-  
+
   constructor ({ workdir = '/tmp/test/', inMemory = false }) {
     this.txstore = new AsyncNedb({
       filename: inMemory ? undefined : `${workdir}/${TXSTORE_FILENAME}`,

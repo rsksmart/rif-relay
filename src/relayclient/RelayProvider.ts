@@ -111,7 +111,7 @@ export class RelayProvider implements HttpProvider {
       if (rpcResponse == null || rpcResponse.result == null) {
         // Commenting out this line: RSKJ replies immediatly with a null response if the transaction
         // is still pending to be mined
-        //(console.error('Empty JsonRpcResponse with no error message')
+        // (console.error('Empty JsonRpcResponse with no error message')
         callback(error, rpcResponse)
         return
       }
@@ -225,14 +225,14 @@ export class RelayProvider implements HttpProvider {
     })
   }
 
-  //The RSKJ node doesn't support additional parameters in RPC calls. 
-  //When using the original provider with the RSKJ node it is necessary to remove the additional useGSN property.
+  // The RSKJ node doesn't support additional parameters in RPC calls.
+  // When using the original provider with the RSKJ node it is necessary to remove the additional useGSN property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
     let p = payload
-    
-    if (payload.params[0] !== undefined && payload.params[0].hasOwnProperty('useGSN')) {
+    // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+    if (payload.params[0]?.hasOwnProperty('useGSN')) {
       // Deep copy the payload to safely remove the useGSN property
-      p = JSON.parse(JSON.stringify(payload));
+      p = JSON.parse(JSON.stringify(payload))
       delete p.params[0].useGSN
     }
 

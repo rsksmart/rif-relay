@@ -20,6 +20,7 @@ import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment } from '../src/common/Environments'
 import { Web3Provider } from '../src/relayclient/ContractInteractor'
+import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 require('source-map-support').install({ errorFormatterForce: true })
 
 // import web3Utils from 'web3-utils'
@@ -30,8 +31,6 @@ const TestUtil = artifacts.require('TestUtil')
 const Forwarder = artifacts.require('Forwarder')
 const TestRecipient = artifacts.require('TestRecipient')
 
-import ForwardRequest from '../src/common/EIP712/ForwardRequest'
-import RelayData from '../src/common/EIP712/RelayData'
 interface SplittedRelayRequest {
   request: ForwardRequest
   encodedRelayData: string
@@ -46,11 +45,6 @@ contract('Utils', function (accounts) {
     const senderAddress = accounts[0]
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
-
-    let forwardRequest: ForwardRequest
-    let anotherForwardRequest: ForwardRequest
-    let relayData: RelayData
-    let anotherRelayData: RelayData
 
     let forwarderInstance: ForwarderInstance
     before(async () => {
@@ -86,37 +80,6 @@ contract('Utils', function (accounts) {
       )
 
       const typeName = res.logs[0].args.typeStr
-
-      forwardRequest = {
-        to: target,
-        data: encodedFunction,
-        from: senderAddress,
-        nonce: senderNonce,
-        value: '0',
-        gas: gasLimit
-      };
-
-      anotherForwardRequest = {
-        ...forwardRequest,
-        data: '0xcafebabe',
-        nonce: '1'
-      }
-
-      relayData = {
-        gasPrice,
-        pctRelayFee,
-        baseRelayFee,
-        relayWorker,
-        forwarder,
-        paymaster,
-        paymasterData,
-        clientId
-      };
-
-      anotherRelayData = {
-        ...relayData,
-        clientId: '1'
-      }
 
       relayRequest = {
         request: {

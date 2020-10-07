@@ -165,7 +165,7 @@ contract('RelaySelectionManager', function (accounts) {
       stubGetRelaysSorted.returns(Promise.resolve([[winner.relayInfo, winner.relayInfo, winner.relayInfo, winner.relayInfo, winner.relayInfo]]))
       for (let i = 1; i < 5; i++) {
         const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
-          sliceSize: i, 
+          sliceSize: i,
           chainId: (await getTestingEnvironment()).chainId
         })).init()
         const returned = await rsm._getNextSlice()

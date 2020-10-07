@@ -48,7 +48,6 @@ options.forEach(params => {
 
     before(async () => {
       const gasPriceFactor = 1.2
-      const env = await getTestingEnvironment()
 
       gasless = await web3.eth.personal.newAccount('password')
       await web3.eth.personal.unlockAccount(gasless, 'password')
@@ -93,7 +92,7 @@ options.forEach(params => {
         await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
 
         const env = await getTestingEnvironment()
-        
+
         relayClientConfig = {
           logLevel: 5,
           relayHubAddress: rhub.address,
@@ -144,7 +143,7 @@ options.forEach(params => {
       } else {
         // In RSK if the account doesn't have funds the error message received is 'the sender account doesn't exist'
         // eslint-disable-next-line @typescript-eslint/no-base-to-string,@typescript-eslint/restrict-template-expressions
-        assert.ok(ex!.toString().indexOf('the sender account doesn\'t exist') > 0, `Expected Error with 'the sender account doesn\'t exist'. got: ${ex?.toString()}`)
+        assert.ok(ex!.toString().indexOf('the sender account doesn\'t exist') > 0, `Expected Error with 'the sender account doesn't exist'. got: ${ex?.toString()}`)
       }
     })
     it(params.title + 'running testRevert (should always fail)', async () => {
@@ -177,7 +176,7 @@ options.forEach(params => {
           try {
             await approvalPaymaster.setExpectedApprovalData('0x414243', {
               from: accounts[0]
-              //,useGSN: false
+              // ,useGSN: false
             })
 
             setRecipientProvider(async () => await Promise.resolve('0x414243'))
@@ -192,7 +191,7 @@ options.forEach(params => {
           } finally {
             await approvalPaymaster.setExpectedApprovalData('0x', {
               from: accounts[0]
-              //,useGSN: false
+              // ,useGSN: false
             })
           }
         })
@@ -212,7 +211,7 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
               from: accounts[0]
-              //,useGSN: false
+              // ,useGSN: false
             })
             await asyncShouldThrow(async () => {
               setRecipientProvider(async () => await Promise.resolve('0x'))
@@ -229,7 +228,7 @@ options.forEach(params => {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
               from: accounts[0]
-              //,useGSN: false
+              // ,useGSN: false
             })
           }
         })
