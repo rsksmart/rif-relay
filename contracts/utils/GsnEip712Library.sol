@@ -5,6 +5,8 @@ pragma experimental ABIEncoderV2;
 import "../interfaces/GsnTypes.sol";
 import "../interfaces/IRelayRecipient.sol";
 import "../forwarder/IForwarder.sol";
+import "../smartwallet/ISmartWallet.sol";
+import "../factory/IProxyFactory.sol";
 
 import "./GsnUtils.sol";
 
@@ -61,6 +63,32 @@ library GsnEip712Library {
             hashRelayData(req.relayData));
     }
 
+
+    function splitEnvelopingRequest(
+        GsnTypes.EnvelopingRequest calldata req
+    )
+    internal
+    pure
+    returns (
+        ISmartWallet.ForwardRequest memory forwardRequest,
+        bytes memory suffixData
+    ) {
+        forwardRequest = ISmartWallet.ForwardRequest(
+            req.request.from,
+            req.request.to,
+            req.request.value,
+            req.request.gas,
+            req.request.nonce,
+            req.request.data,
+            req.request.tokenRecipient,
+            req.request.tokenContract,
+            req.request.tokenAmount,
+            req.request.factory
+        );
+        suffixData = abi.encode(
+            hashRelayData(req.relayData));
+    }
+
     //verify that the recipient trusts the given forwarder
     // MUST be called by paymaster
     function verifyForwarderTrusted(GsnTypes.RelayRequest calldata relayRequest) internal view {
@@ -100,6 +128,33 @@ library GsnEip712Library {
           (callSuccess, ret) = abi.decode(ret, (bool, bytes));
         }
         truncateInPlace(ret);
+    }
+
+        function executeEnveloping(GsnTypes.EnvelopingRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, uint256 lastSuccTx, bytes memory ret) {
+        (ISmartWallet.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitEnvelopingRequest(relayRequest);
+        bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
+
+        if(address(0)!= forwardRequest.factory){//Deploy of smart wallet
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess,) = forwardRequest.factory.call(
+                abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
+        }
+        else{
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
+                abi.encodeWithSelector(ISmartWallet.execute.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
+            
+            if ( forwarderSuccess ) {
+                //decode return value of execute:
+                //ret includes
+                (callSuccess, lastSuccTx, ret) = abi.decode(ret, (bool, uint256, bytes));
+            }
+            truncateInPlace(ret);
+        }
     }
 
     //truncate the given parameter (in-place) if its length is above the given maximum length

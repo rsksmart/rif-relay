@@ -57,8 +57,8 @@ contract SmartWallet is ISmartWallet {
         payable
         returns (
             bool success,
-            bytes memory ret,
-            uint256 lastTxSucc
+            uint256 lastTxSucc,
+            bytes memory ret  
         )
     {
         _verifyOwner(req);
@@ -76,7 +76,7 @@ contract SmartWallet is ISmartWallet {
         );
 
         if (!success) {
-            return (success, ret, 0);
+            return (success, 0, ret);
         }
 
         address logic;
@@ -104,10 +104,10 @@ contract SmartWallet is ISmartWallet {
         }
 
         if (!success) {
-            return (success, ret, 1);
+            return (success, 1, ret);
         }
 
-        return (success, ret, 2);
+        return (success, 2, ret);
     }
 
     function _verifyOwner(ForwardRequest memory req) internal view {

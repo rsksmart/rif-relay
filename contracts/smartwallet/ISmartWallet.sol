@@ -55,7 +55,7 @@ interface ISmartWallet {
         bytes calldata signature
     )
     external payable
-    returns (bool success, bytes memory ret, uint256 lastSuccTx);
+    returns (bool success, uint256 lastSuccTx, bytes memory ret);
 
     /**
      * Register a new Request typehash.
