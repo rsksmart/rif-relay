@@ -5,7 +5,7 @@ import path from 'path'
 
 import { constants, ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, IForwarderInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, ISmartWalletInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
@@ -13,8 +13,8 @@ import { defaultEnvironment, Environment, environments } from '../src/common/Env
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { sleep, getEip712Signature } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
-import TypedRequestData, { GsnRequestType, getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
-
+import { GsnRequestType, getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+import EnvelopingTypedRequestData, { ENVELOPING_PARAMS } from '../src/common/EIP712/EnvelopingTypedRequestData'
 // @ts-ignore
 import { TypedDataUtils } from 'eth-sig-util'
 import { bufferToHex } from 'ethereumjs-util'
@@ -253,7 +253,7 @@ export async function deployHub (
     relayHubConfiguration.minimumStake)
 }
 
-export async function createProxyFactory (template: IForwarderInstance): Promise<ProxyFactoryInstance> {
+export async function createProxyFactory (template: ISmartWalletInstance): Promise<ProxyFactoryInstance> {
   const ProxyFactory = artifacts.require('ProxyFactory')
   const factory: ProxyFactoryInstance = await ProxyFactory.new(template.address)
 
@@ -266,22 +266,20 @@ export async function createProxyFactory (template: IForwarderInstance): Promise
 
 export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, chainId: number = 33, logicAddr: string = zeroAddr,
   initParams: string = '0x', tokenContract: string = zeroAddr, tokenRecipient: string = zeroAddr, tokenAmount: string = '0',
-  gas: string = '400000'): Promise<IForwarderInstance> {
+  gas: string = '400000'): Promise<ISmartWalletInstance> {
   const reqParamCount = 11
 
-  // A ForwardRequest with the minimim request data needed for the smart wallet creation (relay data is not important)
   const rReq = {
     request: {
-      to: logicAddr,
-      data: initParams,
       from: ownerEOA,
-      nonce: '0',
+      to: logicAddr,
       value: '0',
       gas: gas,
+      nonce: '0',
+      data: initParams,
       tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
-      tokenGas: '400000',
       factory: factory.address
     },
     relayData: {
@@ -296,7 +294,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     }
   }
 
-  const createdataToSign = new TypedRequestData(
+  const createdataToSign = new EnvelopingTypedRequestData(
     chainId,
     factory.address,
     rReq
@@ -307,23 +305,22 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     createdataToSign
   )
 
-  const FORWARDER_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy'
-  const typeName = `${GsnRequestType.typeName}(${FORWARDER_PARAMS},${GsnRequestType.typeSuffix}`
+  const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
 
   const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
   const suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
 
   await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
-  const fwdAddress = await factory.getSmartWalletAddress(ownerEOA, logicAddr, initParams)
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, logicAddr, initParams)
 
-  const Forwarder = artifacts.require('IForwarder')
-  const fwd: IForwarderInstance = await Forwarder.at(fwdAddress)
-  await fwd.registerRequestType(
+  const SmartWallet = artifacts.require('SmartWallet')
+  const sw: ISmartWalletInstance = await SmartWallet.at(swAddress)
+  await sw.registerRequestType(
     GsnRequestType.typeName,
     GsnRequestType.typeSuffix
   )
-  return fwd
+  return sw
 }
 
 /**

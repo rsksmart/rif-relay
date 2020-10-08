@@ -12,5 +12,4 @@ export default interface SmartWalletForwardRequest {
   tokenContract: Address
   tokenAmount: IntString
   factory: Address
-
 }

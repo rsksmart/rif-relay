@@ -12,6 +12,7 @@ import { ethers } from 'ethers'
 import chai from 'chai'
 import { getTestingEnvironment } from './TestUtils'
 import { Environment } from '../src/common/Environments'
+import { EIP712DomainType, EnvelopingRequestType } from '../src/common/EIP712/EnvelopingTypedRequestData'
 
 const keccak256 = web3.utils.keccak256
 
@@ -30,26 +31,6 @@ function bytes32 (n: number): string {
 function stripHex (s: string): string {
   return s.slice(2, s.length)
 }
-
-const EIP712DomainType = [
-  { name: 'name', type: 'string' },
-  { name: 'version', type: 'string' },
-  { name: 'chainId', type: 'uint256' },
-  { name: 'verifyingContract', type: 'address' }
-]
-
-const ForwardRequestType = [
-  { name: 'from', type: 'address' },
-  { name: 'to', type: 'address' },
-  { name: 'value', type: 'uint256' },
-  { name: 'gas', type: 'uint256' },
-  { name: 'nonce', type: 'uint256' },
-  { name: 'data', type: 'bytes' },
-  { name: 'tokenRecipient', type: 'address' },
-  { name: 'tokenContract', type: 'address' },
-  { name: 'tokenAmount', type: 'uint256' },
-  { name: 'factory', type: 'address' }
-]
 
 contract('ProxyFactory', ([from]) => {
   let fwd: SmartWalletInstance
@@ -397,7 +378,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
+          ForwardRequest: EnvelopingRequestType
         },
         message: req
       }
@@ -469,7 +450,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
+          ForwardRequest: EnvelopingRequestType
         },
         message: req
       }
@@ -523,7 +504,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
+          ForwardRequest: EnvelopingRequestType
         },
         message: req
       }
@@ -576,7 +557,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
+          ForwardRequest: EnvelopingRequestType
         },
         message: req
       }
