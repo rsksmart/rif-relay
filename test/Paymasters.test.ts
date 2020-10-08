@@ -7,7 +7,7 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
 
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import EnvelopingRequest from '../src/common/EIP712/RelayRequest'
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress } from 'ethereumjs-util'
@@ -25,7 +25,7 @@ const pctRelayFee = '10'
 const gasPrice = '10'
 const gasLimit = '1000000'
 const senderNonce = '0'
-let relayRequestData: RelayRequest
+let relayRequestData: EnvelopingRequest
 const paymasterData = '0x'
 const clientId = '1'
 const tokensPaid = 1
@@ -108,13 +108,18 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
       'uint256', 'uint256', 'bytes', 'bytes'], [ownerAddress, logicAddress, paymentToken, recipient, deployPrice, logicInitGas, initParams, sig])
     testData = testData.replace('0x', '')
     testData = '0x' + testData
-    const toSign: string = '' + web3.utils.soliditySha3(
+    let toSign: string = ''
+    const toSignReal = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
       { t: 'address', v: logicAddress },
       { t: 'uint256', v: logicInitGas },
       { t: 'bytes', v: initParams }
     )
+
+    if (toSignReal != null) {
+      toSign += toSignReal
+    }
 
     const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
     const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -126,10 +131,15 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
     const { logs } = await proxy.createUserSmartWallet(ownerAddress, logicAddress, logicInitGas,
       initParams, signatureCollapsed)
     const expectedAddress = await proxy.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-    const salt = '' + web3.utils.soliditySha3(
+    let salt = ''
+    const saltReal = web3.utils.soliditySha3(
       { t: 'address', v: ownerAddress },
       { t: 'address', v: logicAddress },
       { t: 'bytes', v: initParams })
+
+    if (saltReal != null) {
+      salt += saltReal
+    }
 
     const expectedSalt = web3.utils.toBN(salt).toString()
 
