@@ -22,7 +22,6 @@ import { defaultEnvironment } from '../src/common/Environments'
 import { Web3Provider } from '../src/relayclient/ContractInteractor'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 
-import RelayData from '../src/common/EIP712/RelayData'
 require('source-map-support').install({ errorFormatterForce: true })
 
 // import web3Utils from 'web3-utils'
