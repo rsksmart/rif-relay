@@ -11,15 +11,15 @@ import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { sleep } from '../src/common/Utils'
+import { sleep, getEip712Signature } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 import TypedRequestData, { GsnRequestType, getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
-import { getEip712Signature } from '../src/common/Utils'
+
 // @ts-ignore
 import { TypedDataUtils } from 'eth-sig-util'
 import { bufferToHex } from 'ethereumjs-util'
 
-const zeroAddr = '0x0000000000000000000000000000000000000000';
+const zeroAddr = '0x0000000000000000000000000000000000000000'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -253,24 +253,23 @@ export async function deployHub (
     relayHubConfiguration.minimumStake)
 }
 
-export async function createProxyFactory(template: IForwarderInstance): Promise<ProxyFactoryInstance> {
+export async function createProxyFactory (template: IForwarderInstance): Promise<ProxyFactoryInstance> {
   const ProxyFactory = artifacts.require('ProxyFactory')
-  let factory: ProxyFactoryInstance = await ProxyFactory.new(template.address);
+  const factory: ProxyFactoryInstance = await ProxyFactory.new(template.address)
 
   await factory.registerRequestType(
     GsnRequestType.typeName,
     GsnRequestType.typeSuffix
   )
-  return factory;
+  return factory
 }
 
-export async function createSmartWallet(ownerEOA: string, factory: ProxyFactoryInstance, chainId:number=33, logicAddr: string = zeroAddr,
+export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, chainId: number = 33, logicAddr: string = zeroAddr,
   initParams: string = '0x', tokenContract: string = zeroAddr, tokenRecipient: string = zeroAddr, tokenAmount: string = '0',
-  gas: string = "400000"): Promise<IForwarderInstance> {
+  gas: string = '400000'): Promise<IForwarderInstance> {
+  const reqParamCount = 11
 
-  const reqParamCount = 11;
-
-  //A ForwardRequest with the minimim request data needed for the smart wallet creation (relay data is not important) 
+  // A ForwardRequest with the minimim request data needed for the smart wallet creation (relay data is not important)
   const rReq = {
     request: {
       to: logicAddr,
@@ -307,25 +306,24 @@ export async function createSmartWallet(ownerEOA: string, factory: ProxyFactoryI
     web3,
     createdataToSign
   )
-  
-  const FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy";
+
+  const FORWARDER_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 paybackTokens,uint256 tokenGas,bool isDeploy'
   const typeName = `${GsnRequestType.typeName}(${FORWARDER_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
 
-  const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types);
-  let suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
+  const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
+  const suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
 
-  await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature);
+  await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
   const fwdAddress = await factory.getSmartWalletAddress(ownerEOA, logicAddr, initParams)
 
   const Forwarder = artifacts.require('IForwarder')
-  const fwd: IForwarderInstance = await Forwarder.at(fwdAddress);
+  const fwd: IForwarderInstance = await Forwarder.at(fwdAddress)
   await fwd.registerRequestType(
     GsnRequestType.typeName,
     GsnRequestType.typeSuffix
   )
-  return fwd;
-
+  return fwd
 }
 
 /**
