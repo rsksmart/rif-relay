@@ -2,7 +2,7 @@
 pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
-import "../BasePaymaster.sol";
+import "../paymaster/BasePaymaster.sol";
 
 contract TestPaymasterEverythingAccepted is BasePaymaster {
 
