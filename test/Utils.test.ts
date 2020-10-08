@@ -33,8 +33,6 @@ const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
 const TestGSNUtils = artifacts.require('TestGSNUtils')
-
-import RelayData from '../src/common/EIP712/RelayData'
 interface SplittedRelayRequest {
   request: ForwardRequest
   encodedRelayData: string
@@ -260,27 +258,27 @@ contract('TestGSNUtils', function (accounts) {
     })
 
     it.only('should correctly return wanted bytes param', async function () {
-      let owner = accounts[0];
-      let logic = accounts[1];
-      let paymentToken = accounts[2];
-      let recipient = accounts[3];
-      let deployPrice = 46;
-      let logicInitGas = 100000;
-      let initParams = "0x43532420"
-      let sig = "0x1fdf77b663cd5082669f97b136f87f8322a23e6c494cb0c5929f4581b6aaa0161b20485f69455eeb2e59e321e8b9751855955e38fe5b9cc1e45d5d82ca92b6b81b"
+      const owner = accounts[0]
+      const logic = accounts[1]
+      const paymentToken = accounts[2]
+      const recipient = accounts[3]
+      const deployPrice = 46
+      const logicInitGas = 100000
+      const initParams = '0x43532420'
+      const sig = '0x1fdf77b663cd5082669f97b136f87f8322a23e6c494cb0c5929f4581b6aaa0161b20485f69455eeb2e59e321e8b9751855955e38fe5b9cc1e45d5d82ca92b6b81b'
 
-      let data = "FFFFFFFF"+web3.eth.abi.encodeParameters(['address', 'address', "address", "address",
-                "uint256", "uint256", "bytes", "bytes"], [owner, logic, paymentToken,recipient,deployPrice,logicInitGas,initParams,sig]);
-      data = data.replace("0x","")
-      data = "0x"+data
+      let data = 'FFFFFFFF' + web3.eth.abi.encodeParameters(['address', 'address', 'address', 'address',
+        'uint256', 'uint256', 'bytes', 'bytes'], [owner, logic, paymentToken, recipient, deployPrice, logicInitGas, initParams, sig])
+      data = data.replace('0x', '')
+      data = '0x' + data
 
-      let resultInitParams = await testGSNUtils.getBytesParam(data, 6);
+      const resultInitParams = await testGSNUtils.getBytesParam(data, 6)
       assert.equal(resultInitParams, initParams, 'Param incorectly decoded')
 
-      let resultOwner = await testGSNUtils.getParam(data, 0);
+      const resultOwner = await testGSNUtils.getParam(data, 0)
       assert(web3.utils.toBN(owner).eq(resultOwner), 'Param incorectly decoded')
 
-      let resultLogic = await testGSNUtils.getParam(data, 1);
+      const resultLogic = await testGSNUtils.getParam(data, 1)
       assert(web3.utils.toBN(logic).eq(resultLogic), 'Param incorectly decoded')
     })
   })

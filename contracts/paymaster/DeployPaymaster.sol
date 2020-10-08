@@ -6,16 +6,16 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import "./forwarder/IForwarder.sol";
-import "./factory/ProxyFactory.sol";
-import "./BasePaymaster.sol";
+import "../forwarder/IForwarder.sol";
+import "../factory/ProxyFactory.sol";
+import "./EnvelopingBasePaymaster.sol";
 
 /**
  * A paymaster to be used on deploys.
  * - We maintain the interface but not the functions, mainly to be
  * - GSN compatible
  */
-contract DeployPaymaster is BasePaymaster {
+contract DeployPaymaster is EnvelopingBasePaymaster {
     using SafeMath for uint256;
 
     function versionPaymaster() external override virtual view returns (string memory){
@@ -38,10 +38,10 @@ contract DeployPaymaster is BasePaymaster {
         gasUsedByPost = _gasUsedByPost;
     }
 
-    function _checkAddressDoesNotExist(GsnTypes.RelayRequest calldata relayRequest) public virtual view {
-        address owner = address(GsnUtils.getParam(relayRequest.request.data, 0));
-        address logic = address(GsnUtils.getParam(relayRequest.request.data, 1));
-        bytes memory initParams = GsnUtils.getBytesParam(relayRequest.request.data, 6);
+    function _checkAddressDoesNotExist(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual view {
+        address owner = address(GsnUtils.getParam(envelopingRequest.request.data, 0));
+        address logic = address(GsnUtils.getParam(envelopingRequest.request.data, 1));
+        bytes memory initParams = GsnUtils.getBytesParam(envelopingRequest.request.data, 6);
 
         address contractAddr = ProxyFactory(proxyFactory).getSmartWalletAddress(owner, logic, initParams);
 
@@ -50,19 +50,19 @@ contract DeployPaymaster is BasePaymaster {
 
     // return the payer of this request.
     // for account-based target, this is the target account.
-    function getPayer(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (address) {
+    function getPayer(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual view returns (address) {
         (this);
-        return relayRequest.request.from;
+        return envelopingRequest.request.from;
     }
 
-    function getToken(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (IERC20) {
+    function getToken(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual view returns (IERC20) {
         (this);
-        return IERC20(relayRequest.request.tokenContract);
+        return IERC20(envelopingRequest.request.tokenContract);
     }
 
-    function getTokenPrecharge(GsnTypes.RelayRequest calldata relayRequest) public virtual view returns (uint256) {
+    function getTokenAmount(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual view returns (uint256) {
         (this);
-        return relayRequest.request.paybackTokens;
+        return envelopingRequest.request.tokenAmount;
     }
 
     event Received(uint eth);
@@ -71,26 +71,26 @@ contract DeployPaymaster is BasePaymaster {
     }
 
     function preRelayedCallInternal(
-        GsnTypes.RelayRequest calldata relayRequest
+        GsnTypes.EnvelopingRequest calldata envelopingRequest
     )
     public
     returns (bytes memory context, bool revertOnRecipientRevert) {
-        address payer = this.getPayer(relayRequest);
-        IERC20 token = this.getToken(relayRequest);
-        uint256 tokenPrecharge = this.getTokenPrecharge(relayRequest);
+        address payer = this.getPayer(envelopingRequest);
+        IERC20 token = this.getToken(envelopingRequest);
+        uint256 tokenAmount = this.getTokenAmount(envelopingRequest);
 
-        _verifyForwarder(relayRequest);
-        require(tokenPrecharge <= token.balanceOf(payer), "balance too low");
+        _verifyForwarder(envelopingRequest);
+        require(tokenAmount <= token.balanceOf(payer), "balance too low");
 
-        _checkAddressDoesNotExist(relayRequest);
+        _checkAddressDoesNotExist(envelopingRequest);
 
         //We dont do that here
         //token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(payer, tokenPrecharge, token), true);
+        return (abi.encode(payer, tokenAmount, token), true);
     }
 
      function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        GsnTypes.EnvelopingRequest calldata envelopingRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -100,14 +100,14 @@ contract DeployPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
-        return preRelayedCallInternal(relayRequest);
+        return preRelayedCallInternal(envelopingRequest);
     }
 
     function postRelayedCall(
         bytes calldata context,
         bool success,
         uint256 gasUseWithoutPost,
-        GsnTypes.RelayData calldata relayData
+        GsnTypes.EnvelopingRequest calldata envelopingRequest
     )
     external
     override

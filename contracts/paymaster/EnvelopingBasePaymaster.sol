@@ -4,10 +4,11 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/GsnTypes.sol";
-import "./interfaces/IPaymaster.sol";
-import "./interfaces/IRelayHub.sol";
-import "./utils/GsnEip712Library.sol";
+import "../interfaces/GsnTypes.sol";
+import "../interfaces/IEnvelopingPaymaster.sol";
+import "../interfaces/IRelayHub.sol";
+import "../utils/GsnEip712Library.sol";
+import "../forwarder/Forwarder.sol";
 
 /**
  * Abstract base class to be inherited by a concrete Paymaster
@@ -15,9 +16,10 @@ import "./utils/GsnEip712Library.sol";
  *  - preRelayedCall
  *  - postRelayedCall
  */
-abstract contract BasePaymaster is IPaymaster, Ownable {
+abstract contract EnvelopingBasePaymaster is IEnvelopingPaymaster, Ownable {
 
     IRelayHub internal relayHub;
+    IForwarder public override trustedForwarder;
 
     function getHubAddr() public override view returns (address) {
         return address(relayHub);
@@ -31,21 +33,15 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     uint256 constant public POST_RELAYED_CALL_GAS_LIMIT = 110000;
     uint256 constant public PAYMASTER_ACCEPTANCE_BUDGET = PRE_RELAYED_CALL_GAS_LIMIT + FORWARDER_HUB_OVERHEAD;
 
-    function getGasLimits()
+    // this method must be called from preRelayedCall to validate that the forwarder
+    // is approved by the paymaster as well as by the recipient contract.
+    function _verifyForwarder(GsnTypes.EnvelopingRequest calldata envelopingRequest)
     public
-    override
-    virtual
     view
-    returns (
-        IPaymaster.GasLimits memory limits
-    ) {
-        return IPaymaster.GasLimits(
-            PAYMASTER_ACCEPTANCE_BUDGET,
-            PRE_RELAYED_CALL_GAS_LIMIT,
-            POST_RELAYED_CALL_GAS_LIMIT
-        );
+    {
+        require(address(trustedForwarder) == envelopingRequest.relayData.forwarder, "Forwarder is not trusted");
+        //GsnEip712Library.verifyForwarderTrusted(envelopingRequest);
     }
-
 
     /*
      * modifier to be used by recipients as access control protection for preRelayedCall & postRelayedCall
@@ -59,6 +55,9 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         relayHub = hub;
     }
 
+    function setTrustedForwarder(IForwarder forwarder) public onlyOwner {
+        trustedForwarder = forwarder;
+    }
 
     /// check current deposit on relay hub.
     // (wanted to name it "getRelayHubDeposit()", but we use the name from IRelayRecipient...
