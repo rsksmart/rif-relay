@@ -22,35 +22,6 @@ library GsnUtils {
         return MinLibBytes.readUint256(msgData, 4 + index * 32);
     }
 
-
-    /**
-     * extract BYTES parameter with length from encoded-function block.
-     * see: https://solidity.readthedocs.io/en/develop/abi-spec.html#formal-specification-of-the-encoding
-     * param msgData: abi encoded data
-     * param index: index of the encoded parameter
-     * LIMITS RESULTS TO 32 BYTES
-     */
-    function getBytesParam(bytes memory msgData, uint index) internal pure returns (bytes memory) {
-        uint256 myArgPos = 4 + index * 32;
-        uint256 lengthOffset = MinLibBytes.readUint256(msgData, myArgPos);
-        uint256 length = MinLibBytes.readUint256(msgData, 4+lengthOffset);
-        // Value is next to legth, we get the offset by adding 32
-        uint256 valueOffset = lengthOffset+32;
-        bytes32 paramBytes32 = MinLibBytes.readBytes32(msgData, 4+valueOffset);
-        bytes memory result = bytes32ToBytesWithLength(paramBytes32, length);
-        return result;
-    }
-
-    function bytes32ToBytesWithLength(bytes32 data, uint256 length) internal pure returns (bytes memory) {
-        bytes memory result = new bytes(length);
-        uint256 i = 0;
-        while (i < 32 && data[i] != 0) {
-            result[i] = data[i];
-            ++i;
-        }
-        return result;
-    }
-
     /**
      * Check if a contract has code in it
      * Should NOT be used on contructor, it fails

@@ -4,9 +4,11 @@ import {
   TestTokenInstance,
   ForwarderInstance,
   TestForwarderTargetInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  SmartWalletInstance
 } from '../types/truffle-contracts'
 
+import chai from 'chai'
 import EnvelopingRequest from '../src/common/EIP712/EnvelopingRequest'
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
@@ -19,16 +21,17 @@ const RelayPaymaster = artifacts.require('RelayPaymaster')
 const TestToken = artifacts.require('TestToken')
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 const ProxyFactory = artifacts.require('ProxyFactory')
+const SmartWallet = artifacts.require('SmartWallet')
 
 const baseRelayFee = '10000'
 const pctRelayFee = '10'
 const gasPrice = '10'
 const gasLimit = '1000000'
 const senderNonce = '0'
-let envelopingRequestData: EnvelopingRequest
 const paymasterData = '0x'
 const clientId = '1'
 const tokensPaid = 1
+let envelopingRequestData: EnvelopingRequest
 
 function addr (n: number): string {
   return '0x' + n.toString().repeat(40)
@@ -41,24 +44,23 @@ function bytes32 (n: number): string {
 contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, senderAddress, other2, paymasterOwner, other3]) {
   let deployPaymaster: DeployPaymasterInstance
   let token: TestTokenInstance
-  let fwd: ForwarderInstance
+  let fwd: SmartWalletInstance
   let recipient: TestForwarderTargetInstance
-  let proxy: ProxyFactoryInstance
-  let forwarder: string
+  let factory: ProxyFactoryInstance
 
-  before(async function () {
-    fwd = await Forwarder.new()
-    forwarder = fwd.address
+  beforeEach(async function () {
+    fwd = await SmartWallet.new()
+    await fwd.registerDomainSeparator('Test Domain', '1')
 
-    recipient = await TestForwarderTarget.new(forwarder)
-    proxy = await ProxyFactory.new(fwd.address)
-    deployPaymaster = await DeployPaymaster.new(proxy.address, { from: paymasterOwner })
+    recipient = await TestForwarderTarget.new(fwd.address)
+    factory = await ProxyFactory.new(fwd.address)
+    deployPaymaster = await DeployPaymaster.new({ from: paymasterOwner })
     token = await TestToken.new()
 
-    await deployPaymaster.setTrustedForwarder(forwarder, { from: paymasterOwner })
+    await deployPaymaster.setTrustedForwarder(fwd.address, { from: paymasterOwner })
     await deployPaymaster.setRelayHub(other1, { from: paymasterOwner })
 
-    const data = '0xef06ad14000000000000000000000000c783df8a850f42e7f7e57013759c285caa701eb600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000078371bdede8aac7debfff451b74c5edb385af7000000000000000000000000ead9c93b79ae7c1591b1fb5323bd777e86e150d4000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000186a0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000002a59800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000411fdf77b663cd5082669f97b136f87f8322a23e6c494cb0c5929f4581b6aaa0161b20485f69455eeb2e59e321e8b9751855955e38fe5b9cc1e45d5d82ca92b6b81b00000000000000000000000000000000000000000000000000000000000000'
+    const data = '0x00'
 
     envelopingRequestData = {
       request: {
@@ -71,21 +73,21 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
         tokenRecipient: dest,
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
-        factory: proxy.address
+        factory: factory.address
       },
       relayData: {
         pctRelayFee,
         baseRelayFee,
         gasPrice,
         relayWorker,
-        forwarder,
+        forwarder:fwd.address,
         paymaster: deployPaymaster.address,
         paymasterData,
         clientId
       }
     }
     // we mint tokens to the sender,
-    await token.mint(tokensPaid + 4, senderAddress)
+    await token.mint(tokensPaid + 1000, senderAddress)
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
@@ -93,32 +95,26 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
-    const logicAddress = addr(0)
-    const initParams = '0x00'
-    const logicInitGas = '0x00'
     const ownerPrivateKey = toBuffer(bytes32(1))
     const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
+    const logicAddress = addr(0)
+    const initParams = '0x00'
+    
+    await token.mint(tokensPaid + 4, ownerAddress)
 
-    const paymentToken = other2
-    const recipient = other3
-    const deployPrice = 46
-    const sig = '0x1fdf77b663cd5082669f97b136f87f8322a23e6c494cb0c5929f4581b6aaa0161b20485f69455eeb2e59e321e8b9751855955e38fe5b9cc1e45d5d82ca92b6b81b'
+    const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
 
-    let testData = 'FFFFFFFF' + web3.eth.abi.encodeParameters(['address', 'address', 'address', 'address',
-      'uint256', 'uint256', 'bytes', 'bytes'], [ownerAddress, logicAddress, paymentToken, recipient, deployPrice, logicInitGas, initParams, sig])
-    testData = testData.replace('0x', '')
-    testData = '0x' + testData
     let toSign: string = ''
-    const toSignReal = web3.utils.soliditySha3(
+
+    const signSha = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
       { t: 'address', v: logicAddress },
-      { t: 'uint256', v: logicInitGas },
       { t: 'bytes', v: initParams }
     )
 
-    if (toSignReal != null) {
-      toSign += toSignReal
+    if (signSha != null) {
+      toSign = signSha
     }
 
     const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
@@ -126,23 +122,35 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
     const signature = signingKey.signDigest(toSignAsBinaryArray)
     const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-    envelopingRequestData.request.data = testData
+    // expectedCode = runtime code only
+    let expectedCode = await factory.getCreationBytecode()
+    expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-    const { logs } = await proxy.createUserSmartWallet(ownerAddress, logicAddress, logicInitGas,
-      initParams, signatureCollapsed)
-    const expectedAddress = await proxy.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+    const { logs } = await factory.createUserSmartWallet(ownerAddress,
+      logicAddress, initParams, signatureCollapsed)
+
+    const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
+
+    chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+
+    envelopingRequestData.request.from = ownerAddress
+    envelopingRequestData.request.to = logicAddress
+    envelopingRequestData.request.data = initParams
+
     let salt = ''
-    const saltReal = web3.utils.soliditySha3(
+    const saltSha = web3.utils.soliditySha3(
       { t: 'address', v: ownerAddress },
       { t: 'address', v: logicAddress },
-      { t: 'bytes', v: initParams })
+      { t: 'bytes', v: initParams }
+    )
 
-    if (saltReal != null) {
-      salt += saltReal
+    if (saltSha != null) {
+      salt = saltSha
     }
 
     const expectedSalt = web3.utils.toBN(salt).toString()
 
+    // Check the emitted event
     expectEvent.inLogs(logs, 'Deployed', {
       addr: expectedAddress,
       salt: expectedSalt
