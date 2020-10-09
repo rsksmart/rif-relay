@@ -7,7 +7,7 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
 
-import EnvelopingRequest from '../src/common/EIP712/RelayRequest'
+import EnvelopingRequest from '../src/common/EIP712/EnvelopingRequest'
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress } from 'ethereumjs-util'
@@ -25,7 +25,7 @@ const pctRelayFee = '10'
 const gasPrice = '10'
 const gasLimit = '1000000'
 const senderNonce = '0'
-let relayRequestData: EnvelopingRequest
+let envelopingRequestData: EnvelopingRequest
 const paymasterData = '0x'
 const clientId = '1'
 const tokensPaid = 1
@@ -60,7 +60,7 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
 
     const data = '0xef06ad14000000000000000000000000c783df8a850f42e7f7e57013759c285caa701eb600000000000000000000000000000000000000000000000000000000000000000000000000000000000000000078371bdede8aac7debfff451b74c5edb385af7000000000000000000000000ead9c93b79ae7c1591b1fb5323bd777e86e150d4000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000186a0000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000001400000000000000000000000000000000000000000000000000000000000000002a59800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000411fdf77b663cd5082669f97b136f87f8322a23e6c494cb0c5929f4581b6aaa0161b20485f69455eeb2e59e321e8b9751855955e38fe5b9cc1e45d5d82ca92b6b81b00000000000000000000000000000000000000000000000000000000000000'
 
-    relayRequestData = {
+    envelopingRequestData = {
       request: {
         to: recipient.address,
         data,
@@ -70,8 +70,8 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
         gas: gasLimit,
         tokenRecipient: dest,
         tokenContract: token.address,
-        paybackTokens: tokensPaid.toString(),
-        tokenGas: gasLimit
+        tokenAmount: tokensPaid.toString(),
+        factory: proxy.address
       },
       relayData: {
         pctRelayFee,
@@ -89,7 +89,7 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
-    await deployPaymaster.preRelayedCallInternal(relayRequestData)
+    await deployPaymaster.preRelayedCallInternal(envelopingRequestData)
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
@@ -126,7 +126,7 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
     const signature = signingKey.signDigest(toSignAsBinaryArray)
     const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-    relayRequestData.request.data = testData
+    envelopingRequestData.request.data = testData
 
     const { logs } = await proxy.createUserSmartWallet(ownerAddress, logicAddress, logicInitGas,
       initParams, signatureCollapsed)
@@ -149,16 +149,16 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
     })
 
     await expectRevert.unspecified(
-      deployPaymaster.preRelayedCallInternal(relayRequestData),
+      deployPaymaster.preRelayedCallInternal(envelopingRequestData),
       'Address already created!')
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
     // Address should be contract, we use this one
-    relayRequestData.request.from = token.address
+    envelopingRequestData.request.from = token.address
     // run method
     await expectRevert.unspecified(
-      deployPaymaster.preRelayedCallInternal(relayRequestData),
+      deployPaymaster.preRelayedCallInternal(envelopingRequestData),
       'balance too low'
     )
   })
@@ -170,7 +170,8 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, sender
   let fwd: ForwarderInstance
   let recipient: TestForwarderTargetInstance
   let forwarder: string
-  let relayRequestData: RelayRequest
+  let envelopingRequestData: EnvelopingRequest
+  let proxy: ProxyFactoryInstance
 
   before(async function () {
     fwd = await Forwarder.new()
@@ -179,11 +180,12 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, sender
     recipient = await TestForwarderTarget.new(forwarder)
     relayPaymaster = await RelayPaymaster.new({ from: paymasterOwner })
     token = await TestToken.new()
+    proxy = await ProxyFactory.new(fwd.address)
 
     await relayPaymaster.setTrustedForwarder(forwarder, { from: paymasterOwner })
     await relayPaymaster.setRelayHub(relayHub, { from: paymasterOwner })
 
-    relayRequestData = {
+    envelopingRequestData = {
       request: {
         to: recipient.address,
         data: '0x00',
@@ -193,8 +195,8 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, sender
         gas: gasLimit,
         tokenRecipient: dest,
         tokenContract: token.address,
-        paybackTokens: tokensPaid.toString(),
-        tokenGas: gasLimit
+        tokenAmount: tokensPaid.toString(),
+        factory: proxy.address
       },
       relayData: {
         pctRelayFee,
@@ -213,26 +215,26 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, sender
 
   it('Should not fail on checks of preRelayCall', async function () {
     // run method
-    await relayPaymaster.preRelayedCallInternal(relayRequestData)
+    await relayPaymaster.preRelayedCallInternal(envelopingRequestData)
     // All checks should pass
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
     // Address should be contract, we use this one
-    relayRequestData.request.from = token.address
+    envelopingRequestData.request.from = token.address
     // run method
     await expectRevert.unspecified(
-      relayPaymaster.preRelayedCallInternal(relayRequestData),
+      relayPaymaster.preRelayedCallInternal(envelopingRequestData),
       'balance too low'
     )
   })
 
   it('SHOULD fail on address not contract of preRelayCall', async function () {
     // Address should be contract, we use this one
-    relayRequestData.request.from = other
+    envelopingRequestData.request.from = other
     // run method
     await expectRevert.unspecified(
-      relayPaymaster.preRelayedCallInternal(relayRequestData),
+      relayPaymaster.preRelayedCallInternal(envelopingRequestData),
       'Addr MUST be a contract'
     )
   })
