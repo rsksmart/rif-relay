@@ -80,7 +80,7 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
         baseRelayFee,
         gasPrice,
         relayWorker,
-        forwarder:fwd.address,
+        forwarder: fwd.address,
         paymaster: deployPaymaster.address,
         paymasterData,
         clientId
@@ -99,7 +99,7 @@ contract('DeployPaymaster', function ([other0, dest, other1, relayWorker, sender
     const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
     const logicAddress = addr(0)
     const initParams = '0x00'
-    
+
     await token.mint(tokensPaid + 4, ownerAddress)
 
     const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
