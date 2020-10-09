@@ -357,6 +357,12 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     GsnRequestType.typeName,
     GsnRequestType.typeSuffix
   )
+  await sw.registerRequestType(
+    'ForwardRequest',
+    ''
+  )
+  await sw.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
+
   return sw
 }
 

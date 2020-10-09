@@ -2,21 +2,23 @@ import {
   SmartWalletInstance,
   TestSmartWalletInstance,
   TestForwarderTargetInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 
 // @ts-ignore
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils, signTypedData } from 'eth-sig-util'
-import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
+import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
-import { EIP712DomainType, EnvelopingRequestType, ENVELOPING_PARAMS, GsnRequestType } from '../../src/common/EIP712/EnvelopingTypedRequestData'
+import { EIP712DomainType, EnvelopingRequestType, ENVELOPING_PARAMS } from '../../src/common/EIP712/EnvelopingTypedRequestData'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
+const TestToken = artifacts.require('TestToken')
 
 const SmartWallet = artifacts.require('SmartWallet')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
@@ -40,6 +42,7 @@ contract('SmartWallet', ([from]) => {
   let chainId: number
 
   let factory: ProxyFactoryInstance
+  let token: TestTokenInstance
 
   let sw: SmartWalletInstance
 
@@ -48,18 +51,14 @@ contract('SmartWallet', ([from]) => {
   const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
 
   before(async () => {
+    token = await TestToken.new()
+
     template = await SmartWallet.new()
     factory = await createProxyFactory(template)
 
     chainId = (await getTestingEnvironment()).chainId
 
     sw = await createSmartWallet(senderAddress, factory, chainId, senderPrivKeyStr)
-    console.log(`CHAINID: ${chainId}`)
-
-    await sw.registerRequestType(
-      GsnRequestType.typeName,
-      GsnRequestType.typeSuffix
-    )
   })
 
   describe('#registerRequestType', () => {
@@ -132,7 +131,6 @@ contract('SmartWallet', ([from]) => {
     const typeName = `ForwardRequest(${ENVELOPING_PARAMS})`
     const typeHash = keccak256(typeName)
     let domainInfo: any
-
     let domainSeparator: string
 
     before('register domain separator', async () => {
@@ -409,7 +407,11 @@ contract('SmartWallet', ([from]) => {
 
     describe('value transfer', () => {
       let recipient: TestForwarderTargetInstance
+      const tokensPaid = 1
 
+      before(async () => {
+        await token.mint('1000', sw.address)
+      })
       beforeEach(async () => {
         recipient = await TestForwarderTarget.new(sw.address)
       })
@@ -488,28 +490,33 @@ contract('SmartWallet', ([from]) => {
       })
 
       it('should forward all funds left in forwarder to "from" address', async () => {
-        const senderPrivateKey = toBuffer(bytes32(2))
-        const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
+        // The owner of the SmartWallet might have a balance != 0
+        const ownerOriginalBalance = await web3.eth.getBalance(senderAddress)
+        const recipientOriginalBalance = await web3.eth.getBalance(recipient.address)
 
         const value = ether('1')
         const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 
         // value = ether('0');
+        const tknPayment = {
+          tokenRecipient: recipient.address,
+          tokenContract: token.address,
+          tokenAmount: tokensPaid.toString(),
+          tokenGas: 1e6
+        }
         const req1 = {
           to: recipient.address,
           data: func,
-          from: senderAddress,
+          from: senderAddress, // the owner of the smart wallet
           nonce: (await sw.getNonce()).toString(),
           value: value.toString(),
           gas: 1e6,
-          tokenRecipient: addr(2),
-          tokenContract: addr(3),
-          tokenAmount: 1,
-          factory: addr(4)
+          ...tknPayment,
+          factory: addr(0)
         }
 
         const extraFunds = ether('4')
-
+        // Put in the smart wallet 4 ethers
         await web3.eth.sendTransaction({ from, to: sw.address, value: extraFunds })
 
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
@@ -518,8 +525,21 @@ contract('SmartWallet', ([from]) => {
         const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig)
         assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
+        assert.equal(ret.logs[0].args.lastSuccTx, 2)
 
-        assert.equal(await web3.eth.getBalance(senderAddress), extraFunds.sub(value).toString())
+        // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
+        // Ideally it should pay the relayWorker or paymaster
+        const tknBalance = await token.balanceOf(recipient.address)
+        assert.isTrue(new BN(tokensPaid).eq(tknBalance))
+
+        // The value=1 ether of value transfered should now be in the balance of the called contract (recipient)
+        const valBalance = await web3.eth.getBalance(recipient.address)
+
+        assert.isTrue(new BN(value).eq(new BN(valBalance).sub(new BN(recipientOriginalBalance))))
+
+        // The rest of value (4-1 = 3 ether), in possession of the smart wallet, must return to the owner EOA once the execute()
+        // is called
+        assert.equal(await web3.eth.getBalance(senderAddress), new BN(ownerOriginalBalance).add(extraFunds.sub(value)).toString())
       })
     })
   })
