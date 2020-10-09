@@ -5,7 +5,7 @@ import path from 'path'
 
 import { constants, ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, ISmartWalletInstance, SmartWalletInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, ISmartWalletInstance, SmartWalletInstance, EnvelopingHubInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
@@ -24,6 +24,8 @@ const zeroAddr = '0x0000000000000000000000000000000000000000'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const RelayHub = artifacts.require('RelayHub')
+const EnvelopingHub = artifacts.require('EnvelopingHub')
+
 
 const localhostOne = 'http://localhost:8090'
 
@@ -241,16 +243,36 @@ export async function deployHub (
     ...defaultEnvironment.relayHubConfiguration,
     ...configOverride
   }
-  return await RelayHub.new(
-    stakeManager,
-    penalizer,
-    relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasReserve,
-    relayHubConfiguration.postOverhead,
-    relayHubConfiguration.gasOverhead,
-    relayHubConfiguration.maximumRecipientDeposit,
-    relayHubConfiguration.minimumUnstakeDelay,
-    relayHubConfiguration.minimumStake)
+    return await RelayHub.new(
+      stakeManager,
+      penalizer,
+      relayHubConfiguration.maxWorkerCount,
+      relayHubConfiguration.gasReserve,
+      relayHubConfiguration.postOverhead,
+      relayHubConfiguration.gasOverhead,
+      relayHubConfiguration.maximumRecipientDeposit,
+      relayHubConfiguration.minimumUnstakeDelay,
+      relayHubConfiguration.minimumStake)
+}
+
+export async function deployEnvelopingHub (
+  stakeManager: string = constants.ZERO_ADDRESS,
+  penalizer: string = constants.ZERO_ADDRESS,
+  configOverride: Partial<RelayHubConfiguration> = {}): Promise<EnvelopingHubInstance> {
+  const relayHubConfiguration: RelayHubConfiguration = {
+    ...defaultEnvironment.relayHubConfiguration,
+    ...configOverride
+  }
+    return await EnvelopingHub.new(
+      stakeManager,
+      penalizer,
+      relayHubConfiguration.maxWorkerCount,
+      relayHubConfiguration.gasReserve,
+      relayHubConfiguration.postOverhead,
+      relayHubConfiguration.gasOverhead,
+      relayHubConfiguration.maximumRecipientDeposit,
+      relayHubConfiguration.minimumUnstakeDelay,
+      relayHubConfiguration.minimumStake)
 }
 
 export async function createProxyFactory (template: ISmartWalletInstance): Promise<ProxyFactoryInstance> {
@@ -268,7 +290,7 @@ export async function createProxyFactory (template: ISmartWalletInstance): Promi
 export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, chainId: number = 33, privKey: string = '', logicAddr: string = zeroAddr,
   initParams: string = '0x', tokenContract: string = zeroAddr, tokenRecipient: string = zeroAddr, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
-  const reqParamCount = 11
+  const reqParamCount = 10
 
   let deploySignature
   let encoded
@@ -309,6 +331,8 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
       web3,
       createdataToSign
     )
+
+    console.log(`sognature ${deploySignature}`)
     encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
     const suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
     await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
