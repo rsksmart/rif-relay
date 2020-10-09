@@ -23,12 +23,6 @@ contract DeployPaymaster is EnvelopingBasePaymaster {
     }
 
     uint public gasUsedByPost;
-    address public proxyFactory;
-
-
-    constructor(address proxyFactoryAddress) public {
-        proxyFactory = proxyFactoryAddress;
-    }
 
     /**
      * set gas used by postRelayedCall, for proper gas calculation.
@@ -38,13 +32,12 @@ contract DeployPaymaster is EnvelopingBasePaymaster {
         gasUsedByPost = _gasUsedByPost;
     }
 
-    function _checkAddressDoesNotExist(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual view {
-        address owner = address(GsnUtils.getParam(envelopingRequest.request.data, 0));
-        address logic = address(GsnUtils.getParam(envelopingRequest.request.data, 1));
-        bytes memory initParams = GsnUtils.getBytesParam(envelopingRequest.request.data, 6);
+    function _checkAddressDoesNotExist(GsnTypes.EnvelopingRequest calldata envelopingRequest) public virtual {
+        address ownerAddress = envelopingRequest.request.from;
+        address logicAddress = envelopingRequest.request.to;
+        bytes memory initParams = envelopingRequest.request.data;
 
-        address contractAddr = ProxyFactory(proxyFactory).getSmartWalletAddress(owner, logic, initParams);
-
+        address contractAddr = ProxyFactory(envelopingRequest.request.factory).getSmartWalletAddress(ownerAddress, logicAddress, initParams);
         require(!GsnUtils._isContract(contractAddr), "Address already created!");
     }
 
@@ -81,7 +74,7 @@ contract DeployPaymaster is EnvelopingBasePaymaster {
 
         _verifyForwarder(envelopingRequest);
         require(tokenAmount <= token.balanceOf(payer), "balance too low");
-
+        require(address(envelopingRequest.relayData.forwarder) != address(0), "forwarder should be defined");
         _checkAddressDoesNotExist(envelopingRequest);
 
         //We dont do that here
