@@ -32,7 +32,6 @@ const TestUtil = artifacts.require('TestUtil')
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
-const TestGSNUtils = artifacts.require('TestGSNUtils')
 interface SplittedRelayRequest {
   request: ForwardRequest
   encodedRelayData: string
