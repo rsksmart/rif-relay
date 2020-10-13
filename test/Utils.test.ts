@@ -12,7 +12,7 @@ import TypedRequestData, {
   GsnDomainSeparatorType, GsnRequestType
 } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance } from '../types/truffle-contracts'
+import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason, createProxyFactory, createSmartWallet } from './TestUtils'
