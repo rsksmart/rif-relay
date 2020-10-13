@@ -4,12 +4,11 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./ISmartWallet.sol";
+import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
 
-//import "@nomiclabs/buidler/console.sol";
 
-contract SmartWallet is ISmartWallet {
+contract SmartWallet is IForwarder {
     using ECDSA for bytes32;
        
     string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory";

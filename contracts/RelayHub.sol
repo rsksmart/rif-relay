@@ -21,7 +21,7 @@ import "./interfaces/IStakeManager.sol";
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
-    string public override versionHub = "2.0.0+opengsn.hub.irelayhub";
+    string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
 
     uint256 public override minimumStake;
     uint256 public override minimumUnstakeDelay;
@@ -313,7 +313,8 @@ contract RelayHub is IRelayHub {
 
         {
             bool forwarderSuccess;
-            (forwarderSuccess, vars.relayedCallSuccess, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);
+            uint256 lastSuccTrx;
+            (forwarderSuccess, vars.relayedCallSuccess,lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);
             if ( !forwarderSuccess ) {
                 revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
             }

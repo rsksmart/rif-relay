@@ -11,7 +11,6 @@ import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
-import EnvelopingTypedRequestData from './EIP712/EnvelopingTypedRequestData'
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -65,7 +64,7 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 
 export async function getEip712Signature (
   web3: Web3,
-  typedRequestData: TypedRequestData | EnvelopingTypedRequestData,
+  typedRequestData: TypedRequestData,
   methodSuffix = '',
   jsonStringifyRequest = false
 ): Promise<PrefixedHexString> {

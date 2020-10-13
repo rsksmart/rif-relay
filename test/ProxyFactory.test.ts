@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import chai from 'chai'
 import { getTestingEnvironment } from './TestUtils'
 import { Environment } from '../src/common/Environments'
-import { EIP712DomainType, EnvelopingRequestType } from '../src/common/EIP712/EnvelopingTypedRequestData'
+import { EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
 
 const keccak256 = web3.utils.keccak256
 
@@ -378,7 +378,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: EnvelopingRequestType
+          ForwardRequest: ForwardRequestType
         },
         message: req
       }
@@ -450,7 +450,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: EnvelopingRequestType
+          ForwardRequest: ForwardRequestType
         },
         message: req
       }
@@ -504,7 +504,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: EnvelopingRequestType
+          ForwardRequest: ForwardRequestType
         },
         message: req
       }
@@ -557,7 +557,7 @@ contract('ProxyFactory', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: EnvelopingRequestType
+          ForwardRequest: ForwardRequestType
         },
         message: req
       }

@@ -2,8 +2,8 @@ import { GsnDomainSeparatorType, GsnRequestType } from './TypedRequestData'
 import { IForwarderInstance } from '../../../types/truffle-contracts'
 import { Contract } from 'web3-eth-contract'
 
-// register a forwarder for use with GSN: the request-type and domain separator we're using.
-export async function registerForwarderForGsn (forwarderTruffleOrWeb3: IForwarderInstance|Contract, sendOptions: any = undefined): Promise<void> {
+// register a contract for use with GSN: the request-type and domain separator we're using.
+export async function registerContractForGsn (forwarderTruffleOrWeb3: IForwarderInstance|Contract, sendOptions: any = undefined): Promise<void> {
   let forwarder: Contract
   if ((forwarderTruffleOrWeb3 as any).contract != null) {
     forwarder = (forwarderTruffleOrWeb3 as any).contract

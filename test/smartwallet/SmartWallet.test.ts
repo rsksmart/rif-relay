@@ -13,7 +13,7 @@ import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
-import { EIP712DomainType, EnvelopingRequestType, ENVELOPING_PARAMS } from '../../src/common/EIP712/EnvelopingTypedRequestData'
+import { EIP712DomainType, ForwardRequestType, ENVELOPING_PARAMS } from '../../src/common/EIP712/TypedRequestData'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -35,7 +35,7 @@ function bytes32 (n: number): string {
 
 contract('SmartWallet', ([from]) => {
   // our generic params has 6 bytes32 values
-  const countParams = EnvelopingRequestType.length
+  const countParams = ForwardRequestType.length
 
   let template: SmartWalletInstance
 
@@ -210,7 +210,7 @@ contract('SmartWallet', ([from]) => {
           primaryType: 'ForwardRequest',
           types: {
             EIP712Domain: EIP712DomainType,
-            ForwardRequest: EnvelopingRequestType
+            ForwardRequest: ForwardRequestType
           },
           message: req
         }
@@ -230,7 +230,7 @@ contract('SmartWallet', ([from]) => {
 
       it('should verify valid signature of extended type', async () => {
         const ExtendedMessageType = [
-          ...EnvelopingRequestType,
+          ...ForwardRequestType,
           { name: 'extra', type: 'ExtraData' } // <--extension param. uses a typed structure - though could be plain field
         ]
         const ExtraDataType = [
@@ -308,7 +308,7 @@ contract('SmartWallet', ([from]) => {
         primaryType: 'ForwardRequest',
         types: {
           EIP712Domain: EIP712DomainType,
-          ForwardRequest: EnvelopingRequestType
+          ForwardRequest: ForwardRequestType
         },
         message: {}
       }
@@ -318,7 +318,7 @@ contract('SmartWallet', ([from]) => {
       const calcTypeHash = bufferToHex(TypedDataUtils.hashType('ForwardRequest', data.types))
       assert.equal(calcTypeHash, typeHash)
 
-      recipient = await TestForwarderTarget.new(sw.address)
+      recipient = await TestForwarderTarget.new()
       testfwd = await TestSmartWallet.new()
 
       const ret = await sw.registerDomainSeparator(data.domain.name!, data.domain.version!)
@@ -330,40 +330,35 @@ contract('SmartWallet', ([from]) => {
       assert.equal(domainSeparator, ret.logs[0].args.domainSeparator)
     })
 
-
     it('should return revert message of token payment revert', async () => {
+      const func = recipient.contract.methods.testRevert().encodeABI()
+      const tknPayment = {
+        tokenRecipient: recipient.address,
+        tokenContract: token.address,
+        tokenAmount: '1001000'
+      }
+      const req1 = {
+        to: recipient.address,
+        data: func,
+        value: '0',
+        from: senderAddress,
+        nonce: (await sw.getNonce()).toString(),
+        gas: 1e6,
+        ...tknPayment,
+        factory: addr(0)
+      }
+      const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
-        const initialBalance = await token.balanceOf(sw.address);
-        const func = recipient.contract.methods.testRevert().encodeABI()
-        const tknPayment = {
-          tokenRecipient: recipient.address,
-          tokenContract: token.address,
-          tokenAmount: '1001000'        }
-        const req1 = {
-          to: recipient.address,
-          data: func,
-          value: '0',
-          from: senderAddress,
-          nonce: (await sw.getNonce()).toString(),
-          gas: 1e6,
-          ...tknPayment,
-          factory: addr(0)
-        }
-        const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
-  
-        // the helper simply emits the method return values
-        const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig)
-  
-        const endBalance = await token.balanceOf(sw.address);
-        console.log(`end sw amount: ${endBalance}`)
+      // the helper simply emits the method return values
+      const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig)
 
-        const tknBalance = await token.balanceOf(recipient.address)
-        assert.isTrue(new BN(0).eq(tknBalance))
-  
-        assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastSuccTx, 0)
-        assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
-      })
+      const tknBalance = await token.balanceOf(recipient.address)
+      assert.isTrue(new BN(0).eq(tknBalance))
+
+      assert.equal(ret.logs[0].args.success, false)
+      assert.equal(ret.logs[0].args.lastSuccTx, 0)
+      assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
+    })
 
     it('should call function', async () => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
@@ -395,8 +390,10 @@ contract('SmartWallet', ([from]) => {
       // @ts-ignore
       const logs = await recipient.getPastEvents('TestForwarderMessage')
       assert.equal(logs.length, 1, 'TestRecipient should emit')
-      assert.equal(logs[0].args.realSender, senderAddress, 'TestRecipient should "see" real sender of meta-tx')
-      assert.equal((await sw.getNonce()).toString(),initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal(logs[0].args.origin, from, 'test "from" account is the tx.origin')
+      assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
+
+      assert.equal((await sw.getNonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
@@ -422,7 +419,7 @@ contract('SmartWallet', ([from]) => {
       assert.equal(ret.logs[0].args.error, 'always fail')
       assert.equal(ret.logs[0].args.lastSuccTx, 1)
 
-      //Payment must have happened regardless of the revert
+      // Payment must have happened regardless of the revert
       const tknBalance = await token.balanceOf(recipient.address)
       assert.equal(tknBalance.toString(), initialRecipientBalance.add(new BN(1)).toString())
     })
@@ -456,7 +453,7 @@ contract('SmartWallet', ([from]) => {
 
       await expectRevert.unspecified(testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig), 'nonce mismatch')
 
-       const tknBalance2 = await token.balanceOf(recipient.address)
+      const tknBalance2 = await token.balanceOf(recipient.address)
       assert.equal(tknBalance.toString(), tknBalance2.toString())
     })
 
@@ -468,7 +465,7 @@ contract('SmartWallet', ([from]) => {
         await token.mint('1000', sw.address)
       })
       beforeEach(async () => {
-        recipient = await TestForwarderTarget.new(sw.address)
+        recipient = await TestForwarderTarget.new()
       })
       afterEach('should not leave funds in the forwarder', async () => {
         assert.equal(await web3.eth.getBalance(sw.address), '0')
@@ -493,13 +490,12 @@ contract('SmartWallet', ([from]) => {
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
-        const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig,{value:'0'})
+        const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig, { value: '0' })
         assert.equal(ret.logs[0].args.success, false)
         assert.equal(ret.logs[0].args.lastSuccTx, 1)
-        //Token transfer happens first
+        // Token transfer happens first
         const tknBalance = await token.balanceOf(recipient.address)
         assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
-        
       })
 
       it('should fail to forward request if value specified but not enough not provided', async () => {
@@ -524,7 +520,7 @@ contract('SmartWallet', ([from]) => {
         const ret = await testfwd.callExecute(sw.address, req1, domainSeparator, typeHash, '0x', sig, { value })
         assert.equal(ret.logs[0].args.success, false)
         assert.equal(ret.logs[0].args.lastSuccTx, 1)
-        //Token transfer happens first
+        // Token transfer happens first
         const tknBalance = await token.balanceOf(recipient.address)
         assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
       })

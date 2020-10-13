@@ -28,12 +28,11 @@ import { constants } from '../common/Constants'
 import replaceErrors from '../common/ErrorReplacerJSON'
 import VersionsManager from '../common/VersionsManager'
 import {
-  BaseRelayRecipientInstance,
   IForwarderInstance,
   IKnowForwarderAddressInstance,
   IPaymasterInstance,
   IRelayHubInstance,
-  IRelayRecipientInstance,
+  BaseRelayRecipientInstance,
   IStakeManagerInstance
 } from '../../types/truffle-contracts'
 
@@ -80,7 +79,6 @@ export default class ContractInteractor {
 
   private paymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
-  private forwarderInstance!: IForwarderInstance
   private stakeManagerInstance!: IStakeManagerInstance
   private relayRecipientInstance?: BaseRelayRecipientInstance
   private knowForwarderAddressInstance?: IKnowForwarderAddressInstance
@@ -122,7 +120,7 @@ export default class ContractInteractor {
     })
     // @ts-ignore
     this.IRelayRecipient = TruffleContract({
-      contractName: 'IRelayRecipient',
+      contractName: 'BaseRelayRecipient',
       abi: gsnRecipientAbi
     })
     // @ts-ignore
@@ -175,9 +173,6 @@ export default class ContractInteractor {
   }
 
   async _initializeContracts (): Promise<void> {
-    if (this.config.forwarderAddress !== constants.ZERO_ADDRESS) {
-      this.forwarderInstance = await this._createForwarder(this.config.forwarderAddress)
-    }
     if (this.config.relayHubAddress !== constants.ZERO_ADDRESS) {
       this.relayHubInstance = await this._createRelayHub(this.config.relayHubAddress)
       let hubStakeManagerAddress: string | undefined
@@ -213,7 +208,7 @@ export default class ContractInteractor {
     return this.knowForwarderAddressInstance
   }
 
-  async _createRecipient (address: Address): Promise<IRelayRecipientInstance> {
+  async _createRecipient (address: Address): Promise<BaseRelayRecipientInstance> {
     if (this.relayRecipientInstance != null && this.relayRecipientInstance.address.toLowerCase() === address.toLowerCase()) {
       return this.relayRecipientInstance
     }
@@ -237,19 +232,9 @@ export default class ContractInteractor {
     return await this.IStakeManager.at(address)
   }
 
-  async getForwarder (recipientAddress: Address): Promise<Address> {
-    const recipient = await this._createKnowsForwarder(recipientAddress)
-    return await recipient.getTrustedForwarder()
-  }
-
-  async isTrustedForwarder (recipientAddress: Address, forwarder: Address): Promise<boolean> {
-    const recipient = await this._createRecipient(recipientAddress)
-    return await recipient.isTrustedForwarder(forwarder)
-  }
-
-  async getSenderNonce (sender: Address, forwarderAddress: Address): Promise<IntString> {
-    const forwarder = await this._createForwarder(forwarderAddress)
-    const nonce = await forwarder.getNonce(sender)
+  async getSenderNonce (sWallet: Address): Promise<IntString> {
+    const forwarder = await this._createForwarder(sWallet)
+    const nonce = await forwarder.getNonce()
     return nonce.toString()
   }
 

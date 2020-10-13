@@ -136,7 +136,7 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function relayedUserSmartWalletCreation(
-        ISmartWallet.ForwardRequest memory req,
+        IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes calldata suffixData,
@@ -244,7 +244,7 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _getEncoded(
-        ISmartWallet.ForwardRequest memory req,
+        IForwarder.ForwardRequest memory req,
         bytes32 requestTypeHash,
         bytes memory suffixData
     ) public pure returns (bytes memory) {
@@ -267,7 +267,7 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _verifySig(
-        ISmartWallet.ForwardRequest memory req,
+        IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes memory suffixData,
@@ -285,11 +285,11 @@ contract ProxyFactory is IProxyFactory {
         require(digest.recover(sig) == req.from, "signature mismatch");
     }
 
-    function _verifyNonce(ISmartWallet.ForwardRequest memory req) internal view {
+    function _verifyNonce(IForwarder.ForwardRequest memory req) internal view {
         require(nonces[req.from] == req.nonce, "nonce mismatch");
     }
 
-    function _updateNonce(ISmartWallet.ForwardRequest memory req) internal {
+    function _updateNonce(IForwarder.ForwardRequest memory req) internal {
         nonces[req.from]++;
     }
 

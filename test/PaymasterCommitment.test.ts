@@ -10,22 +10,21 @@ import {
   PenalizerInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  ForwarderInstance,
-  TestPaymasterConfigurableMisbehaviorInstance
+  IForwarderInstance,
+  TestPaymasterConfigurableMisbehaviorInstance, SmartWalletInstance, ProxyFactoryInstance
 } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import RelayData from '../src/common/EIP712/RelayData'
-import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
-import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const StakeManager = artifacts.require('StakeManager')
-const Forwarder = artifacts.require('Forwarder')
 const Penalizer = artifacts.require('Penalizer')
 const TestUtil = artifacts.require('TestUtil')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const SmartWallet = artifacts.require('SmartWallet')
 
 interface PartialRelayRequest {
   request?: Partial<ForwardRequest>
@@ -34,7 +33,7 @@ interface PartialRelayRequest {
 
 // given partial request, fill it in from defaults, and return request and signature to send.
 // if nonce is not explicitly specified, read it from forwarder
-async function makeRequest (web3: Web3, req: PartialRelayRequest, defaultRequest: RelayRequest, chainId: number, forwarderInstance: ForwarderInstance):
+async function makeRequest (web3: Web3, req: PartialRelayRequest, defaultRequest: RelayRequest, chainId: number, forwarderInstance: IForwarderInstance):
 Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
   const filledRequest = {
     request: { ...defaultRequest.request, ...req.request },
@@ -42,7 +41,7 @@ Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
   }
   // unless explicitly set, read nonce from network.
   if ((filledRequest.request.nonce ?? '0') === '0') {
-    filledRequest.request.nonce = (await forwarderInstance.getNonce(filledRequest.request.from)).toString()
+    filledRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
   }
 
   const sig = await getEip712Signature(
@@ -84,7 +83,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
   let paymasterContract: TestPaymasterConfigurableMisbehaviorInstance
-  let forwarderInstance: ForwarderInstance
+  let forwarderInstance: IForwarderInstance
   let target: string
   let paymaster: string
   let forwarder: string
@@ -97,14 +96,13 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     penalizer = await Penalizer.new()
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
 
-    forwarderInstance = await Forwarder.new()
-    forwarder = forwarderInstance.address
-    recipientContract = await TestRecipient.new(forwarder)
-
     const testUtil = await TestUtil.new()
     chainId = (await testUtil.libGetChainID()).toNumber()
-
-    await registerForwarderForGsn(forwarderInstance)
+    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
+    forwarder = forwarderInstance.address
+    recipientContract = await TestRecipient.new()
 
     target = recipientContract.address
     relayHub = relayHubInstance.address
@@ -132,12 +130,13 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       // brand new paymaster for each test...
       paymasterContract = await TestPaymasterConfigurableMisbehavior.new()
       paymaster = paymasterContract.address
-      await paymasterContract.setTrustedForwarder(forwarder)
+      // await paymasterContract.setTrustedForwarder(forwarder)
       await paymasterContract.setRelayHub(relayHub)
       await relayHubInstance.depositFor(paymaster, {
         value: ether('1'),
         from: other
       })
+      const addrZero = '0x0000000000000000000000000000000000000000'
 
       sharedRelayRequestData = {
         request: {
@@ -146,7 +145,11 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
-          gas: gasLimit
+          gas: gasLimit,
+          tokenRecipient: addrZero,
+          tokenContract: addrZero,
+          tokenAmount: '0',
+          factory: addrZero // only set if this is a deploy request
         },
         relayData: {
           pctRelayFee,

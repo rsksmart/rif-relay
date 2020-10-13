@@ -2,7 +2,6 @@
 pragma solidity ^0.6.2;
 
 import "../forwarder/IForwarder.sol";
-import "../smartwallet/ISmartWallet.sol";
 interface GsnTypes {
     struct RelayData {
         uint256 gasPrice;
@@ -20,9 +19,4 @@ interface GsnTypes {
         IForwarder.ForwardRequest request;
         RelayData relayData;
     }
-    struct EnvelopingRequest {
-        ISmartWallet.ForwardRequest request;
-        RelayData relayData;
-    }
-
 }

@@ -8,8 +8,8 @@ import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IForwarderInstance,
-  IRelayHubInstance, IRelayRecipientInstance,
-  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance
+  IRelayHubInstance,
+  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance
 } from '../../types/truffle-contracts'
 import {
   assertRelayAdded,
@@ -29,19 +29,18 @@ import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { constants } from '../../src/common/Constants'
-import { deployHub } from '../TestUtils'
+import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
 import { ether, removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
-import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 
-const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
+const SmartWallet = artifacts.require('SmartWallet')
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(StakeManagerABI)
@@ -65,7 +64,7 @@ export class ServerTestEnvironment {
   relayHub!: IRelayHubInstance
   forwarder!: IForwarderInstance
   paymaster!: TestPaymasterEverythingAcceptedInstance
-  recipient!: IRelayRecipientInstance
+  recipient!: TestRecipientInstance
 
   relayOwner!: Address
   gasLess!: Address
@@ -101,17 +100,23 @@ export class ServerTestEnvironment {
   async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
     this.stakeManager = await StakeManager.new()
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
-    this.forwarder = await Forwarder.new()
-    this.recipient = await TestRecipient.new(this.forwarder.address)
+    this.recipient = await TestRecipient.new()
     this.paymaster = await TestPaymasterEverythingAccepted.new()
-    await registerForwarderForGsn(this.forwarder)
 
-    await this.paymaster.setTrustedForwarder(this.forwarder.address)
+    // await this.paymaster.setTrustedForwarder(this.forwarder.address)
     await this.paymaster.setRelayHub(this.relayHub.address)
     await this.paymaster.deposit({ value: this.web3.utils.toWei('1', 'ether') })
 
     this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
     this.gasLess = await this.web3.eth.personal.newAccount('password')
+
+    const sWalletTemplate = await SmartWallet.new()
+    const factory = await createProxyFactory(sWalletTemplate)
+    const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
+
+    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, chainId)
+    this.forwarder = smartWallet
+
     const shared: Partial<GSNConfig> = {
       logLevel: 5,
       relayHubAddress: this.relayHub.address
@@ -198,6 +203,8 @@ export class ServerTestEnvironment {
       pingResponse: pingResponse as PingResponse,
       relayInfo: eventInfo
     }
+
+    const zeroAddr = '0x0000000000000000000000000000000000000000'
     const gsnTransactionDetails: GsnTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
@@ -205,7 +212,11 @@ export class ServerTestEnvironment {
       paymaster: this.paymaster.address,
       forwarder: this.forwarder.address,
       gas: toHex(1000000),
-      gasPrice: toHex(20000000000)
+      gasPrice: toHex(20000000000),
+      tokenRecipient: zeroAddr,
+      tokenAmount: toHex(0),
+      tokenContract: zeroAddr,
+      factory: zeroAddr
     }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))

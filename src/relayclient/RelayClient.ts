@@ -271,7 +271,7 @@ export class RelayClient {
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
     const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
 
-    const senderNonce = await this.contractInteractor.getSenderNonce(gsnTransactionDetails.from, forwarderAddress)
+    const senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
     const relayWorker = relayInfo.pingResponse.relayWorkerAddress
     const gasPriceHex = gsnTransactionDetails.gasPrice
     const gasLimitHex = gsnTransactionDetails.gas
@@ -287,6 +287,8 @@ export class RelayClient {
     const gasLimit = parseInt(gasLimitHex, 16).toString()
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = gsnTransactionDetails.value ?? '0'
+    const zeroAddr = '0x0000000000000000000000000000000000000000'
+
     const relayRequest: RelayRequest = {
       request: {
         to: gsnTransactionDetails.to,
@@ -294,7 +296,11 @@ export class RelayClient {
         from: gsnTransactionDetails.from,
         value: value,
         nonce: senderNonce,
-        gas: gasLimit
+        gas: gasLimit,
+        tokenRecipient: zeroAddr,
+        tokenAmount: '0x00',
+        tokenContract: zeroAddr,
+        factory: zeroAddr
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',
@@ -333,26 +339,9 @@ export class RelayClient {
   }
 
   async resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Promise<Address> {
-    let forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
-    if (forwarderAddress !== constants.ZERO_ADDRESS) {
-      const isRecipientDeployed = await this.contractInteractor.isContractDeployed(gsnTransactionDetails.to)
-      if (!isRecipientDeployed) {
-        console.warn(`No IRelayRecipient code at ${gsnTransactionDetails.to}, proceeding without validating 'isTrustedForwarder'!
-        Unless you are using some counterfactual contract deployment technique the transaction will fail!`)
-      } else {
-        const isTrusted = await this.contractInteractor.isTrustedForwarder(gsnTransactionDetails.to, forwarderAddress)
-        if (!isTrusted) {
-          throw new Error('The Forwarder address configured but is not trusted by the Recipient contract')
-        }
-      }
-    } else {
-      try {
-        log.info(`will attempt to get trusted forwarder from: ${gsnTransactionDetails.to}`)
-        forwarderAddress = await this.contractInteractor.getForwarder(gsnTransactionDetails.to)
-        log.info(`on-chain forwarder for: ${gsnTransactionDetails.to} is ${forwarderAddress}`)
-      } catch (e) {
-        throw new Error('No forwarder address configured and no getTrustedForwarder in target contract (fetching from Recipient failed)')
-      }
+    const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
+    if (forwarderAddress === constants.ZERO_ADDRESS) {
+      throw new Error('No forwarder address configured and no getTrustedForwarder in target contract (fetching from Recipient failed)')
     }
 
     return forwarderAddress

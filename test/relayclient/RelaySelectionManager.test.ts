@@ -47,7 +47,11 @@ contract('RelaySelectionManager', function (accounts) {
     data: '',
     to: '',
     forwarder: '',
-    paymaster: ''
+    paymaster: '',
+    tokenRecipient: '',
+    tokenAmount: '',
+    tokenContract: '',
+    factory: ''
   }
 
   let stubPingResponse: SinonStub

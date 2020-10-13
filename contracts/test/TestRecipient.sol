@@ -3,25 +3,13 @@
 pragma solidity ^0.6.2;
 
 import "../utils/GsnUtils.sol";
-import "../BaseRelayRecipient.sol";
 import "./TestPaymasterConfigurableMisbehavior.sol";
-import "../interfaces/IKnowForwarderAddress.sol";
 
-contract TestRecipient is BaseRelayRecipient, IKnowForwarderAddress {
 
-    string public override versionRecipient = "2.0.0+opengsn.test.irelayrecipient";
+contract TestRecipient {
 
-    constructor(address forwarder) public {
-        setTrustedForwarder(forwarder);
-    }
+    string public  versionRecipient = "2.0.0+opengsn.test.irelayrecipient";
 
-    function getTrustedForwarder() public override view returns(address) {
-        return trustedForwarder;
-    }
-
-    function setTrustedForwarder(address forwarder) internal {
-        trustedForwarder = forwarder;
-    }
 
     event Reverting(string message);
 
@@ -39,14 +27,14 @@ contract TestRecipient is BaseRelayRecipient, IKnowForwarderAddress {
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
-    event SampleRecipientEmitted(string message, address realSender, address msgSender, address origin, uint256 msgValue, uint256 balance);
+    event SampleRecipientEmitted(string message, address msgSender, address origin, uint256 msgValue, uint256 balance);
 
     function emitMessage(string memory message) public payable returns (string memory) {
         if (paymaster != address(0)) {
             withdrawAllBalance();
         }
 
-        emit SampleRecipientEmitted(message, _msgSender(), msg.sender, tx.origin, msg.value, address(this).balance);
+        emit SampleRecipientEmitted(message, msg.sender, tx.origin, msg.value, address(this).balance);
         return "emitMessage return value";
     }
 
@@ -58,7 +46,7 @@ contract TestRecipient is BaseRelayRecipient, IKnowForwarderAddress {
     function dontEmitMessage(string memory message) public {}
 
     function emitMessageNoParams() public {
-        emit SampleRecipientEmitted("Method with no parameters", _msgSender(), msg.sender, tx.origin, 0, address(this).balance);
+        emit SampleRecipientEmitted("Method with no parameters", msg.sender, tx.origin, 0, address(this).balance);
     }
 
     //return (or revert) with a string in the given length

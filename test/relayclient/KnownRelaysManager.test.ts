@@ -8,20 +8,20 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
-  TestRecipientInstance
+  TestRecipientInstance,
+  SmartWalletInstance, ProxyFactoryInstance
 } from '../../types/truffle-contracts'
-import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
+import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
 import { prepareTransaction } from './RelayProvider.test'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
-import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 import { Environment } from '../../src/common/Environments'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
-const Forwarder = artifacts.require('Forwarder')
+const TestRecipient = artifacts.require('TestRecipient')
+const SmartWallet = artifacts.require('SmartWallet')
 
 export async function stake (stakeManager: StakeManagerInstance, relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
   await stakeManager.stakeForAddress(manager, 1000, {
@@ -61,6 +61,9 @@ contract('KnownRelaysManager', function (
     let workerRelayServerRegistered
     let workerNotActive
     const gas = 4e6
+    let factory: ProxyFactoryInstance
+    let sWalletTemplate: SmartWalletInstance
+    let smartWallet: SmartWalletInstance
 
     let env: Environment
 
@@ -79,13 +82,15 @@ contract('KnownRelaysManager', function (
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       await contractInteractor.init()
 
-      const forwarderInstance = await Forwarder.new()
-      const forwarderAddress = forwarderInstance.address
-      testRecipient = await TestRecipient.new(forwarderAddress)
-      await registerForwarderForGsn(forwarderInstance)
+      testRecipient = await TestRecipient.new()
+      sWalletTemplate = await SmartWallet.new()
+      const senderAddress: string = (await web3.eth.getAccounts())[0]
+      factory = await createProxyFactory(sWalletTemplate)
+      smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
+      // register hub's RelayRequest with forwarder, if not already done.
 
       paymaster = await TestPaymasterConfigurableMisbehavior.new()
-      await paymaster.setTrustedForwarder(forwarderAddress)
+      // await paymaster.setTrustedForwarder(smartWallet.address)//TODO REMOVE
       await paymaster.setRelayHub(relayHub.address)
       await paymaster.deposit({ value: ether('1') })
       await stake(stakeManager, relayHub, activeRelayWorkersAdded, owner)
@@ -93,8 +98,9 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, activePaymasterRejected, owner)
       await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
       await stake(stakeManager, relayHub, notActiveRelay, owner)
-      const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3)
-      const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3)
+      const nextNonce = (await smartWallet.getNonce()).toString()
+      const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
+      const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {
@@ -154,7 +160,11 @@ contract('KnownRelaysManager 2', function (accounts) {
     data: '',
     to: '',
     forwarder: '',
-    paymaster: ''
+    paymaster: '',
+    tokenRecipient: '',
+    tokenAmount: '',
+    tokenContract: '',
+    factory: ''
   }
 
   before(async function () {
