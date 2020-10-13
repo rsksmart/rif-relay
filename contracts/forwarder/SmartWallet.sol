@@ -7,6 +7,8 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
 
+/* solhint-disable no-inline-assembly */
+/* solhint-disable avoid-low-level-calls */
 
 contract SmartWallet is IForwarder {
     using ECDSA for bytes32;

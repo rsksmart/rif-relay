@@ -7,7 +7,6 @@ const ProxyFactory = artifacts.require('ProxyFactory')
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
 
-
 module.exports = async function (deployer) {
   await deployer.deploy(StakeManager)
   await deployer.deploy(Penalizer)

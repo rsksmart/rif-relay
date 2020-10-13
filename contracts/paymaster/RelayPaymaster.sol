@@ -77,10 +77,7 @@ contract RelayPaymaster is EnvelopingBasePaymaster {
     }
 
      function preRelayedCall(
-        GsnTypes.EnvelopingRequest calldata envelopingRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint256 maxPossibleGas
+        GsnTypes.EnvelopingRequest calldata envelopingRequest
     )
     external
     override
@@ -90,6 +87,7 @@ contract RelayPaymaster is EnvelopingBasePaymaster {
         return preRelayedCallInternal(envelopingRequest);
     }
 
+    /* solhint-disable no-empty-blocks */
     function postRelayedCall(
         bytes calldata context,
         bool success,
@@ -103,6 +101,7 @@ contract RelayPaymaster is EnvelopingBasePaymaster {
         // for now we dont produce any refund
         // so there is nothing to be done here
     }
+    /* solhint-enable no-empty-blocks */
 
     event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
 }
