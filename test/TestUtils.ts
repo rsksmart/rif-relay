@@ -26,7 +26,6 @@ require('source-map-support').install({ errorFormatterForce: true })
 const RelayHub = artifacts.require('RelayHub')
 const EnvelopingHub = artifacts.require('EnvelopingHub')
 
-
 const localhostOne = 'http://localhost:8090'
 
 // start a background relay process.
@@ -388,7 +387,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
   await sw.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
 
   return sw
-}
+  }
 
 /**
  * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
