@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IProxyFactory.sol";
 
 //import "@nomiclabs/buidler/console.sol";
+/* solhint-disable no-inline-assembly */
+/* solhint-disable avoid-low-level-calls */
 
 /**
 ====================================================================================================================================================

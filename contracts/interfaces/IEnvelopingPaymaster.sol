@@ -38,13 +38,6 @@ interface IEnvelopingPaymaster {
      *  otherwise the TX is paid by the Paymaster.
      *
      *  @param envelopingRequest - the full enveloping request structure
-     *  @param signature - user's EIP712-compatible signature of the {@link envelopingRequest}.
-     *              Note that in most cases the paymaster shouldn't try use it at all. It is always checked
-     *              by the forwarder immediately after preRelayedCall returns.
-     *  @param approvalData - extra dapp-specific data (e.g. signature from trusted party)
-     *  @param maxPossibleGas - based on values returned from {@link getGasLimits},
-     *         the RelayHub will calculate the maximum possible amount of gas the user may be charged for.
-     *         In order to convert this value to wei, the Paymaster has to call "relayHub.calculateCharge()"
      *  return:
      *      a context to be passed to postRelayedCall
      *      rejectOnRecipientRevert - TRUE if paymaster want to reject the TX if the recipient reverts.
@@ -52,10 +45,7 @@ interface IEnvelopingPaymaster {
      *          (note that in the latter case, the preRelayedCall and postRelayedCall are not reverted).
      */
     function preRelayedCall(
-        GsnTypes.EnvelopingRequest calldata envelopingRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint256 maxPossibleGas
+        GsnTypes.EnvelopingRequest calldata envelopingRequest
     )
     external
     returns (bytes memory context, bool rejectOnRecipientRevert);
