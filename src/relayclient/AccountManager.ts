@@ -56,11 +56,22 @@ export default class AccountManager {
     const forwarder = relayRequest.relayData.forwarder
 
     const cloneRequest = { ...relayRequest }
-    const signedData = new TypedRequestData(
-      this.chainId,
-      forwarder,
-      cloneRequest
-    )
+    let signedData
+
+    if (relayRequest.request.factory === '0x0000000000000000000000000000000000000000') {
+      signedData = new TypedRequestData(
+        this.chainId,
+        forwarder,
+        cloneRequest
+      )
+    } else {
+      signedData = new TypedRequestData(
+        this.chainId,
+        relayRequest.request.factory,
+        cloneRequest
+      )
+    }
+
     const keypair = this.accounts.find(account => isSameAddress(account.address, relayRequest.request.from))
     let rec: Address
 

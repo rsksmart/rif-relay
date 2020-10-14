@@ -184,8 +184,20 @@ export class RelayClient {
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
 
     if (gsnTransactionDetails.gas == null) {
-      const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
-      gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
+      if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
+        gsnTransactionDetails.factory === '0x0000000000000000000000000000000000000000') {
+        const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
+        gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
+      } else {
+        const relayingErrors = new Map<string, Error>()
+        relayingErrors.set('smartwallet.deploy.error', new Error('Please enter a gas estimation for the deploy'))
+
+        return {
+          transaction: undefined,
+          relayingErrors,
+          pingErrors: new Map<string, Error>()
+        }
+      }
     }
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
@@ -268,10 +280,20 @@ export class RelayClient {
     relayInfo: RelayInfo,
     gsnTransactionDetails: GsnTransactionDetails
   ): Promise<RelayTransactionRequest> {
+    let senderNonce: string
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
+
+    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+      // Common relay scenario
+      senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
+    } else {
+      if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null) {
+        throw new Error(`Invalid factory contract, must be addr(0) or a valid factory: ${gsnTransactionDetails.factory}`)
+      }
+      senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
+    }
     const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
 
-    const senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
     const relayWorker = relayInfo.pingResponse.relayWorkerAddress
     const gasPriceHex = gsnTransactionDetails.gasPrice
     const gasLimitHex = gsnTransactionDetails.gas
@@ -287,7 +309,6 @@ export class RelayClient {
     const gasLimit = parseInt(gasLimitHex, 16).toString()
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = gsnTransactionDetails.value ?? '0'
-    const zeroAddr = '0x0000000000000000000000000000000000000000'
 
     const relayRequest: RelayRequest = {
       request: {
@@ -297,10 +318,10 @@ export class RelayClient {
         value: value,
         nonce: senderNonce,
         gas: gasLimit,
-        tokenRecipient: zeroAddr,
-        tokenAmount: '0x00',
-        tokenContract: zeroAddr,
-        factory: zeroAddr
+        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
+        tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',
@@ -339,12 +360,18 @@ export class RelayClient {
   }
 
   async resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Promise<Address> {
-    const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
-    if (forwarderAddress === constants.ZERO_ADDRESS) {
-      throw new Error('No forwarder address configured and no getTrustedForwarder in target contract (fetching from Recipient failed)')
-    }
+    // The forwarder is the SmartWallet contract calling the final contract.
+    // In the case of a SmartWallet deploy, there's is no forwarder, the forwarder value is not read
+    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+      const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
+      if (forwarderAddress === constants.ZERO_ADDRESS) {
+        throw new Error('No forwarder address configured')
+      }
 
-    return forwarderAddress
+      return forwarderAddress
+    } else {
+      return gsnTransactionDetails.forwarder ?? constants.ZERO_ADDRESS
+    }
   }
 
   getEstimateGasParams (gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {

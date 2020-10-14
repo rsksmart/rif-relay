@@ -268,6 +268,71 @@ contract('RelayClient', function (accounts) {
       assert.match(relayingErrors.values().next().value.message, /score-error/)
     })
 
+    it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {
+      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('eoaPass')
+      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'eoaPass')
+
+      const deployOptions = {
+        from: eoaWithoutSmartWallet,
+        to: addr(0), // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        gas: '0x1E8480',
+        forwarder: addr(0), // There's no forwarder in a deploy, field not read
+        paymaster: paymaster.address,
+        paymasterData: '0x',
+        clientId: '1',
+        tokenRecipient: paymaster.address,
+        tokenContract: token.address,
+        tokenAmount: '1',
+        factory: factory.address // Indicate to the RelayHub this is a Smart Wallet deploy
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, deployOptions.to, deployOptions.data)
+      await token.mint('1000', swAddress)
+
+      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+
+      const relayingResult = await relayClient.relayTransaction(deployOptions)
+      const validTransaction = relayingResult.transaction
+
+      if (validTransaction == null) {
+        assert.fail(`validTransaction is null: ${JSON.stringify(relayingResult, replaceErrors)}`)
+        return
+      }
+      const validTransactionHash: string = validTransaction.hash(true).toString('hex')
+      const txHash = `0x${validTransactionHash}`
+      const res = await web3.eth.getTransactionReceipt(txHash)
+      // validate we've got the "Deployed" event
+
+      const topic: string = web3.utils.sha3('Deployed(address,uint256)') ?? ''
+      assert.notEqual(topic, '', 'error while calculating topic')
+
+      assert(res.logs.find(log => log.topics.includes(topic)))
+      const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
+      const loggedEvent = res.logs[eventIdx]
+      const saltSha = web3.utils.soliditySha3(
+        { t: 'address', v: eoaWithoutSmartWallet },
+        { t: 'address', v: deployOptions.to },
+        { t: 'bytes', v: deployOptions.data }
+      ) ?? ''
+      assert.notEqual(saltSha, '', 'error while calculating salt')
+
+      const expectedSalt = web3.utils.toBN(saltSha).toString()
+
+      const obtainedEvent = web3.eth.abi.decodeParameters([{ type: 'address', name: 'sWallet' },
+        { type: 'uint256', name: 'salt' }], loggedEvent.data)
+
+      assert.equal(obtainedEvent.salt, expectedSalt, 'salt from Deployed event is not the expected one')
+      assert.equal(obtainedEvent.sWallet, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
+
+      const destination: string = validTransaction.to.toString('hex')
+      assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+
+      let expectedCode = await factory.getCreationBytecode()
+      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)// only runtime code
+      assert.equal(await web3.eth.getCode(swAddress), expectedCode, 'The installed code is not the expected one')
+    })
+
     describe('with events listener', () => {
       function eventsHandler (e: GsnEvent): void {
         gsnEvents.push(e)

@@ -22,6 +22,7 @@ import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
 import gsnRecipientAbi from '../common/interfaces/IRelayRecipient.json'
 import knowForwarderAddressAbi from '../common/interfaces/IKnowForwarderAddress.json'
+import proxyFactoryAbi from '../common/interfaces/IProxyFactory.json'
 
 import { event2topic } from '../common/Utils'
 import { constants } from '../common/Constants'
@@ -33,7 +34,7 @@ import {
   IPaymasterInstance,
   IRelayHubInstance,
   BaseRelayRecipientInstance,
-  IStakeManagerInstance
+  IStakeManagerInstance, IProxyFactoryInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from './types/Aliases'
@@ -76,6 +77,7 @@ export default class ContractInteractor {
   private readonly IStakeManager: Contract<IStakeManagerInstance>
   private readonly IRelayRecipient: Contract<BaseRelayRecipientInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
+  private readonly IProxyFactoryContract: Contract<IProxyFactoryInstance>
 
   private paymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
@@ -128,12 +130,18 @@ export default class ContractInteractor {
       contractName: 'IKnowForwarderAddress',
       abi: knowForwarderAddressAbi
     })
+    // @ts-ignore
+    this.IProxyFactoryContract = TruffleContract({
+      contractName: 'IProxyFactory',
+      abi: proxyFactoryAbi
+    })
     this.IStakeManager.setProvider(this.provider, undefined)
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IPaymasterContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IRelayRecipient.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
+    this.IProxyFactoryContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -228,6 +236,10 @@ export default class ContractInteractor {
     return await this.IForwarderContract.at(address)
   }
 
+  async _createFactory (address: Address): Promise<IProxyFactoryInstance> {
+    return await this.IProxyFactoryContract.at(address)
+  }
+
   async _createStakeManager (address: Address): Promise<IStakeManagerInstance> {
     return await this.IStakeManager.at(address)
   }
@@ -235,6 +247,12 @@ export default class ContractInteractor {
   async getSenderNonce (sWallet: Address): Promise<IntString> {
     const forwarder = await this._createForwarder(sWallet)
     const nonce = await forwarder.getNonce()
+    return nonce.toString()
+  }
+
+  async getFactoryNonce (factoryAddr: Address, from: Address): Promise<IntString> {
+    const factory = await this._createFactory(factoryAddr)
+    const nonce = await factory.getNonce(from)
     return nonce.toString()
   }
 

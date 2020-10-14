@@ -85,9 +85,9 @@ library GsnEip712Library {
 
         function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, uint256 lastSuccTx, bytes memory ret) {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
-        bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
 
         if(address(0)!= forwardRequest.factory){//Deploy of smart wallet
+            bytes32 domainSeparator = domainSeparator(forwardRequest.factory);      
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess,) = forwardRequest.factory.call(
                 abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
@@ -95,6 +95,7 @@ library GsnEip712Library {
             ));
         }
         else{
+            bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
                 abi.encodeWithSelector(IForwarder.execute.selector,

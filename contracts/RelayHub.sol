@@ -176,7 +176,6 @@ contract RelayHub is IRelayHub {
     {
         (signature);
         RelayCallData memory vars;
-        vars.functionSelector = MinLibBytes.readBytes4(relayRequest.request.data, 0);
         require(msg.sender == tx.origin, "relay worker cannot be a smart contract");
         require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
         require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
@@ -187,6 +186,11 @@ contract RelayHub is IRelayHub {
         require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
         require(externalGasLimit <= block.gaslimit, "Impossible gas limit");
 
+        //In SmartWallet deploys (factory!=0) the data attribute is used for initialization params of extra logic contract, 
+        //this extra logic contract is defined in the "to" parameter
+        if(address(0) == relayRequest.request.factory){
+            vars.functionSelector = MinLibBytes.readBytes4(relayRequest.request.data, 0);
+        }
         (vars.gasLimits, vars.maxPossibleGas) =
              verifyGasLimits(paymasterMaxAcceptanceBudget, relayRequest, externalGasLimit);
 
@@ -314,7 +318,7 @@ contract RelayHub is IRelayHub {
         {
             bool forwarderSuccess;
             uint256 lastSuccTrx;
-            (forwarderSuccess, vars.relayedCallSuccess,lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);
+            (forwarderSuccess, vars.relayedCallSuccess,lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
             if ( !forwarderSuccess ) {
                 revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
             }
