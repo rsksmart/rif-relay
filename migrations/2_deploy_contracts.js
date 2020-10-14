@@ -3,6 +3,7 @@ const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const SampleRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
+const ProxyFactory = artifacts.require('ProxyFactory')
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
 
