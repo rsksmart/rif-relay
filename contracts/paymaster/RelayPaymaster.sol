@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import "../factory/ProxyFactory.sol";
 import "./BasePaymaster.sol";
 
 /**
@@ -19,10 +20,10 @@ contract RelayPaymaster is BasePaymaster {
     using SafeMath for uint256;
 
     function versionPaymaster() external override virtual view returns (string memory){
-        return "2.0.0-beta.1+opengsn.token.ipaymaster";
+        return "2.0.1+opengsn.token.ipaymaster";
     }
 
-    IERC20[] public tokens;
+    mapping (address => bool) public tokens;
 
     uint public gasUsedByPost;
 
@@ -50,11 +51,10 @@ contract RelayPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
-        address payer = relayRequest.request.from;
+        address payer = relayRequest.relayData.forwarder;
+        require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
         IERC20 token = IERC20(relayRequest.request.tokenContract);
         uint256 tokenAmount = relayRequest.request.tokenAmount;
-
-        require(GsnUtils._isContract(payer), "Addr MUST be a contract");
 
         require(tokenAmount <= token.balanceOf(payer), "balance too low");
         //We dont do that here
@@ -77,6 +77,10 @@ contract RelayPaymaster is BasePaymaster {
         // so there is nothing to be done here
     }
     /* solhint-enable no-empty-blocks */
+
+    function acceptToken(address token) external onlyOwner {
+        tokens[token] = true;
+    }
 
     event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
 }
