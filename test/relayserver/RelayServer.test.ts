@@ -12,7 +12,7 @@ import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TestPaymasterConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
-import { defaultEnvironment } from '../../src/common/Environments'
+import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
 import { evmMine, evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
@@ -107,7 +107,7 @@ contract('RelayServer', function (accounts) {
       })
 
       it('should fail to relay with unacceptable gasPrice', async function () {
-        const wrongGasPrice = '100'
+        const wrongGasPrice = isRsk(await getTestingEnvironment()) ? '0.5' : '100'
         const req = await env.createRelayHttpRequest()
         req.relayRequest.relayData.gasPrice = wrongGasPrice
         try {

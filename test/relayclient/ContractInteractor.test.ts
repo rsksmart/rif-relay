@@ -50,17 +50,21 @@ contract('ContractInteractor', function () {
       let pk: string = '46e6ef4a356fa3fa3929bf4b59e6b3eb9d0521ea660fd2879c67bd501002ac2b'
       let address: string = '0xb473D6BE09D0d6a23e1832046dBE258cF6E8635B'
       let gasPrice: number = 0
+      let txOpts = {}
 
       if (isRsk(env)) {
         pk = 'c85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'
         address = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
         gasPrice = 1
+        txOpts = { chainId: 33 }
       }
 
       provider = new ProfilingProvider(web3.currentProvider as HttpProvider)
       contractInteractor = new ContractInteractor(provider, configureGSN({}))
       const nonce = await web3.eth.getTransactionCount(address)
-      const transaction = new Transaction({ to: constants.ZERO_ADDRESS, gasLimit: '0x5208', gasPrice, nonce })
+
+      const transaction = new Transaction({ to: constants.ZERO_ADDRESS, gasLimit: '0x5208', gasPrice, nonce }, txOpts)
+
       transaction.sign(Buffer.from(pk, 'hex'))
       sampleTransactionData = '0x' + transaction.serialize().toString('hex')
       sampleTransactionHash = '0x' + transaction.hash(true).toString('hex')

@@ -404,7 +404,8 @@ export class RegistrationManager {
     if (managerHubBalance.gte(gasCost)) {
       log.info(`Sending manager hub balance ${managerHubBalance.toString()} to owner`)
       const details: SendTransactionDetails = {
-        gasLimit,
+        // FIX for RSK: gas estimation works a bit different, requiring to increase estimated gas limit in a factor of 1.5
+        gasLimit: Math.round(gasLimit * 1.5),
         signer: this.managerAddress,
         serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
         destination: this.hubAddress,

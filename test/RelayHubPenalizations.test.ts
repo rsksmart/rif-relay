@@ -22,8 +22,6 @@ import {
 import { deployHub, getTestingEnvironment } from './TestUtils'
 import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
-import Common from 'ethereumjs-common'
-
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
@@ -549,25 +547,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         }
       const encodedCall = relayHub.contract.methods.relayCall(10e6, relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
 
-      // TODO: fix this, for now we are passing istanbul as an RSK hardwfork.
-      let common
-      if (isRsk(env)) {
-        common = new Common({
-          networkId: '7771',
-          chainId,
-          genesis: {},
-          hardforks: [
-            {
-              name: 'istanbul',
-              block: 1,
-              consensus: 'pow',
-              finality: null
-            }
-          ],
-          bootstrapNodes: []
-        }, 'istanbul')
-      }
-
       const transaction = new Transaction({
         nonce: relayCallArgs.nonce,
         gasLimit: relayCallArgs.gasLimit,
@@ -577,7 +556,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         // @ts-ignore
         chainId,
         data: encodedCall
-      }, isRsk(env) ? { common } : undefined)
+      }, isRsk(env) ? { chainId: 33 } : undefined)
 
       transaction.sign(Buffer.from(relayCallArgs.privateKey, 'hex'))
       return transaction
