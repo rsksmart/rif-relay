@@ -3,7 +3,6 @@ pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import "../factory/ProxyFactory.sol";
@@ -15,21 +14,11 @@ import "./BasePaymaster.sol";
  * - GSN compatible
  */
 contract DeployPaymaster is BasePaymaster {
-    using SafeMath for uint256;
-
     function versionPaymaster() external override virtual view returns (string memory){
-        return "2.0.0-beta.1+opengsn.token.ipaymaster";
+        return "2.0.1+opengsn.token.ipaymaster";
     }
 
-    uint public gasUsedByPost;
-
-    /**
-     * set gas used by postRelayedCall, for proper gas calculation.
-     * You can use TokenGasCalculator to calculate these values (they depend on actual code of postRelayedCall)
-     */
-    function setPostGasUsage(uint _gasUsedByPost) external onlyOwner {
-        gasUsedByPost = _gasUsedByPost;
-    }
+    mapping (address => bool) public tokens;
 
     event Received(uint eth);
     receive() external override payable {
@@ -47,15 +36,12 @@ contract DeployPaymaster is BasePaymaster {
     virtual
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
+        require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
         IERC20 token = IERC20(relayRequest.request.tokenContract);
-        
+
         require(address(relayRequest.request.factory) != address(0), "factory should be defined");
         
-        address ownerAddress = relayRequest.request.from;
-        address logicAddress = relayRequest.request.to;
-        bytes memory initParams = relayRequest.request.data;
-
-        address contractAddr = ProxyFactory(relayRequest.request.factory).getSmartWalletAddress(ownerAddress, logicAddress, initParams);
+        address contractAddr = ProxyFactory(relayRequest.request.factory).getSmartWalletAddress(relayRequest.request.from, relayRequest.request.to, relayRequest.request.data);
 
         require(!GsnUtils._isContract(contractAddr), "Address already created!");
         require(relayRequest.request.tokenAmount <= token.balanceOf(contractAddr), "balance too low");
@@ -80,6 +66,10 @@ contract DeployPaymaster is BasePaymaster {
         // so there is nothing to be done here
     }
     /* solhint-enable no-empty-blocks */
+
+    function acceptToken(address token) external onlyOwner {
+        tokens[token] = true;
+    }
 
     event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
 }
