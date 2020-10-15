@@ -132,7 +132,7 @@ contract ProxyFactory is IProxyFactory {
             hex"00"
         );
 
-        deploy(getCreationBytecode(), salt, initData, gasleft());
+        deploy(getCreationBytecode(), salt, initData);
     }
 
     function relayedUserSmartWalletCreation(
@@ -168,7 +168,7 @@ contract ProxyFactory is IProxyFactory {
             )
         );
 
-        deploy(getCreationBytecode(), salt, initData, req.gas);
+        deploy(getCreationBytecode(), salt, initData);
     }
 
     /**
@@ -199,8 +199,7 @@ contract ProxyFactory is IProxyFactory {
     function deploy(
         bytes memory code,
         bytes32 salt,
-        bytes memory initdata,
-        uint256 gasToUse
+        bytes memory initdata
     ) internal returns (address addr) {
         //bytes memory pointerTo;
         //uint256 size;
@@ -224,8 +223,8 @@ contract ProxyFactory is IProxyFactory {
 
         //Since the init code determines the address of the smart wallet, any initialization
         //require is done via the runtime code, to avoid the parameters impacting on the resulting address
-
-        (bool success, ) = addr.call{gas:gasToUse}(initdata);
+        
+        (bool success, ) = addr.call(initdata);
         require(success);
 
         //No info is returned, an event is emitted to inform the new deployment

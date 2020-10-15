@@ -88,8 +88,12 @@ library GsnEip712Library {
 
         if(address(0)!= forwardRequest.factory){//Deploy of smart wallet
             bytes32 domainSeparator = domainSeparator(forwardRequest.factory);      
+
+            //The gas limit for the deploy creation is injected here, since the gasCalculation
+            //estimate is done against the whole relayedUserSmartWalletCreation function in
+            //the relayClient
             /* solhint-disable-next-line avoid-low-level-calls */
-            (forwarderSuccess,) = forwardRequest.factory.call(
+            (forwarderSuccess,) = forwardRequest.factory.call{gas: forwardRequest.gas}(
                 abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
                 forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
             ));

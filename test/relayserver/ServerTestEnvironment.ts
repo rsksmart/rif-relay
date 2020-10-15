@@ -204,7 +204,6 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
-    const zeroAddr = '0x0000000000000000000000000000000000000000'
     const gsnTransactionDetails: GsnTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
@@ -213,10 +212,10 @@ export class ServerTestEnvironment {
       forwarder: this.forwarder.address,
       gas: toHex(1000000),
       gasPrice: toHex(20000000000),
-      tokenRecipient: zeroAddr,
+      tokenRecipient: constants.ZERO_ADDRESS,
       tokenAmount: toHex(0),
-      tokenContract: zeroAddr,
-      factory: zeroAddr
+      tokenContract: constants.ZERO_ADDRESS,
+      factory: constants.ZERO_ADDRESS
     }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))

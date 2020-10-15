@@ -132,6 +132,26 @@ contract RelayHub is IRelayHub {
             gasLimits.preRelayedCallGasLimit).add(
             gasLimits.postRelayedCallGasLimit).add(
             relayRequest.request.gas);
+        /**
+        NOTE on gasOverhead, which is a hardcoded value
+        In forwarder.execute, the gas of lines 1,2,3, and 5:
+
+           1) _verifyNonce(req);
+           2) _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+           3) _updateNonce(req);
+            
+           4)(success,ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
+
+           5) if ( address(this).balance>0 ) {
+                payable(req.from).transfer(address(this).balance);
+            }
+
+        Should already be included in gasOverhead because relayRequest.request.gas is only for line 4
+        We need to check this, if that's the case, then for deploy calls (req.factory!=0) we need
+        to substract to the gasOverhead, the gas of lines 1,2,3,and 5 (we can calculate it and put it
+        as another constant), because the relayRequest.request.gas estimate for deploy calls includes the
+        estimation of calling the whole function
+         */
 
         // This transaction must have enough gas to forward the call to the recipient with the requested amount, and not
         // run out of gas later in this function.
@@ -241,6 +261,8 @@ contract RelayHub is IRelayHub {
             }
         }
         // We now perform the actual charge calculation, based on the measured gas used
+        //externalGasLimit is the maxPossibleGas set by the Relay Server
+        //in the case of dep
         uint256 gasUsed = (externalGasLimit - gasleft()) + gasOverhead;
         uint256 charge = calculateCharge(gasUsed, relayRequest.relayData);
 

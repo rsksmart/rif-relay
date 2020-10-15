@@ -98,7 +98,6 @@ contract('RelayClient', function (accounts) {
     const senderAddress = accounts[0]
     factory = await createProxyFactory(sWalletTemplate)
     smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
-    // register hub's RelayRequest with forwarder, if not already done.
     paymaster = await TestEnvelopingPaymaster.new()
     await paymaster.setRelayHub(relayHub.address)
     await paymaster.deposit({ value: web3.utils.toWei('1', 'ether') })
@@ -266,6 +265,38 @@ contract('RelayClient', function (accounts) {
       assert.equal(pingErrors.size, 0)
       assert.equal(relayingErrors.size, 1)
       assert.match(relayingErrors.values().next().value.message, /score-error/)
+    })
+
+    // TODOO test other things, for example, if the smart wallet to deploy has no funds, etc
+    // Do we want to restrict to certnain factories?
+
+    it('should calculate the estimatedGas for deploying a SmartWallet using the ProxyFactory', async function () {
+      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('pas2')
+      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'pas2')
+
+      const details: GsnTransactionDetails = {
+        from: eoaWithoutSmartWallet,
+        to: addr(0), // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        forwarder: addr(0), // There's no forwarder in a deploy, field not read
+        paymaster: paymaster.address,
+        paymasterData: '0x',
+        clientId: '1',
+        tokenRecipient: paymaster.address,
+        tokenContract: token.address,
+        tokenAmount: '1',
+        factory: factory.address, // Indicate to the RelayHub this is a Smart Wallet deploy
+        useGSN: true
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, details.to, details.data)
+      await token.mint('1000', swAddress)
+
+      const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
+      const cushion = 1000
+
+      assert.isTrue(estimatedGasResult >= (155000 - cushion))
+
     })
 
     it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {

@@ -21,6 +21,7 @@ import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransa
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
+import BN from 'bn.js'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -107,9 +108,12 @@ contract('RelayServer', function (accounts) {
       })
 
       it('should fail to relay with unacceptable gasPrice', async function () {
-        const wrongGasPrice = '100'
         const req = await env.createRelayHttpRequest()
-        req.relayRequest.relayData.gasPrice = wrongGasPrice
+        const serverGasPrice = env.relayServer.gasPrice
+        const wrongGasPrice = serverGasPrice - 1
+
+        req.relayRequest.relayData.gasPrice = new BN(wrongGasPrice).toString()
+
         try {
           env.relayServer.validateInput(req)
           assert.fail()
