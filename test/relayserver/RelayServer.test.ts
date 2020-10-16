@@ -379,7 +379,7 @@ contract('RelayServer', function (accounts) {
       })
       assert.equal((await relayServer.getManagerBalance()).toString(), '0')
       await env.web3.eth.sendTransaction(
-        { from: accounts[0], to: relayServer.managerAddress, value: relayServer.config.managerTargetBalance - 1e7 })
+        { from: accounts[0], to: relayServer.managerAddress, value: relayServer.config.managerTargetBalance - 1e7, gasPrice: 1 })
       const managerHubBalanceBefore = await env.relayHub.balanceOf(relayServer.managerAddress)
       const managerEthBalanceBefore = await relayServer.getManagerBalance()
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)

@@ -47,6 +47,7 @@ export interface ServerConfigParams {
   retryGasPriceFactor: number
   maxGasPrice: string
   defaultGasLimit: number
+  estimateGasFactor: number
 }
 
 export interface ServerDependencies {
@@ -88,7 +89,8 @@ const serverDefaultConfiguration: ServerConfigParams = {
   confirmationsNeeded: 12,
   retryGasPriceFactor: 1.2,
   defaultGasLimit: 500000,
-  maxGasPrice: 100e9.toString()
+  maxGasPrice: 100e9.toString(),
+  estimateGasFactor: 1.5
 }
 
 const ConfigParamsTypes = {
