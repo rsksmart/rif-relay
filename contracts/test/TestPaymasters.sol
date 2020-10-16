@@ -6,6 +6,7 @@ import "../interfaces/IPaymaster.sol";
 
 contract TestPaymasters {
 
+    event Deposited(address indexed paymaster, address indexed from, uint256 amount);
     event Accepted(uint256 tokenAmount, address from);
 
     IPaymaster public paymasterContract;
@@ -25,5 +26,9 @@ contract TestPaymasters {
     returns (bytes memory context, bool revertOnRecipientRevert) {
         (context, revertOnRecipientRevert) = paymasterContract.preRelayedCall(relayRequest, signature, approvalData, maxPossibleGas);
         emit Accepted(relayRequest.request.tokenAmount, relayRequest.request.from);
+    }
+
+    function depositFor(address target) public payable {
+        emit Deposited(target, msg.sender, msg.value);
     }
 }

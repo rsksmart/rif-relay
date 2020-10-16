@@ -35,11 +35,6 @@ contract RelayPaymaster is BasePaymaster {
         gasUsedByPost = _gasUsedByPost;
     }
 
-    event Received(uint eth);
-    receive() external override payable {
-        emit Received(msg.value);
-    }
-
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,

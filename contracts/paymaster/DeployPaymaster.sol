@@ -20,11 +20,6 @@ contract DeployPaymaster is BasePaymaster {
 
     mapping (address => bool) public tokens;
 
-    event Received(uint eth);
-    receive() external override payable {
-        emit Received(msg.value);
-    }
-
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
