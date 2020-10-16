@@ -20,7 +20,6 @@ import paymasterAbi from '../common/interfaces/IPaymaster.json'
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
-import gsnRecipientAbi from '../common/interfaces/IRelayRecipient.json'
 import knowForwarderAddressAbi from '../common/interfaces/IKnowForwarderAddress.json'
 import proxyFactoryAbi from '../common/interfaces/IProxyFactory.json'
 
@@ -76,7 +75,6 @@ export default class ContractInteractor {
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
-  private readonly IRelayRecipient: Contract<BaseRelayRecipientInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
   private readonly IProxyFactoryContract: Contract<IProxyFactoryInstance>
 
@@ -122,11 +120,6 @@ export default class ContractInteractor {
       abi: stakeManagerAbi
     })
     // @ts-ignore
-    this.IRelayRecipient = TruffleContract({
-      contractName: 'BaseRelayRecipient',
-      abi: gsnRecipientAbi
-    })
-    // @ts-ignore
     this.IKnowForwarderAddress = TruffleContract({
       contractName: 'IKnowForwarderAddress',
       abi: knowForwarderAddressAbi
@@ -140,7 +133,6 @@ export default class ContractInteractor {
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IPaymasterContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
-    this.IRelayRecipient.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
     this.IProxyFactoryContract.setProvider(this.provider, undefined)
   }
@@ -217,13 +209,6 @@ export default class ContractInteractor {
     return this.knowForwarderAddressInstance
   }
 
-  async _createRecipient (address: Address): Promise<BaseRelayRecipientInstance> {
-    if (this.relayRecipientInstance != null && this.relayRecipientInstance.address.toLowerCase() === address.toLowerCase()) {
-      return this.relayRecipientInstance
-    }
-    this.relayRecipientInstance = await this.IRelayRecipient.at(address)
-    return this.relayRecipientInstance
-  }
 
   async _createPaymaster (address: Address): Promise<IPaymasterInstance> {
     return await this.IPaymasterContract.at(address)
