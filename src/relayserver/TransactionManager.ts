@@ -98,7 +98,7 @@ data         | 0x${transaction.data.toString('hex')}
   async attemptEstimateGas (methodName: string, method: any, from: Address): Promise<number> {
     try {
       const estimateGas = await method.estimateGas({ from })
-      return parseInt(estimateGas)
+      return Math.round(parseInt(estimateGas) * this.config.estimateGasFactor)
     } catch (e) {
       log.error(`Failed to estimate gas for method ${methodName}\n. Using default ${this.config.defaultGasLimit}`, e.message)
     }

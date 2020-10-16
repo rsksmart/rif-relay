@@ -277,7 +277,8 @@ contract('RegistrationManager', function (accounts) {
           serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
           destination: env.relayHub.address,
           creationBlockNumber: 0,
-          gasLimit,
+          // FIX for RSK: gas estimation works a bit different, requiring to increase estimated gas limit in a factor of 1.5
+          gasLimit: Math.round(gasLimit * 1.5),
           method
         })
         const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)

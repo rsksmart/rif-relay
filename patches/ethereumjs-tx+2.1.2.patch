@@ -1,0 +1,41 @@
+diff --git a/node_modules/ethereumjs-tx/dist/transaction.js b/node_modules/ethereumjs-tx/dist/transaction.js
+index 541962c..a418d1e 100644
+--- a/node_modules/ethereumjs-tx/dist/transaction.js
++++ b/node_modules/ethereumjs-tx/dist/transaction.js
+@@ -63,7 +63,13 @@ var Transaction = /** @class */ (function () {
+             var chain = opts.chain ? opts.chain : 'mainnet';
+             var hardfork = opts.hardfork ? opts.hardfork : 'petersburg';
+             this._common = new ethereumjs_common_1.default(chain, hardfork);
++
++            // Custom chainId to support other EVM compatible blockchain networks.
++            if (opts.chainId) {
++                this._chainId = opts.chainId
++            }
+         }
++
+         // Define Properties
+         var fields = [
+             {
+@@ -174,7 +180,8 @@ var Transaction = /** @class */ (function () {
+      * returns chain ID
+      */
+     Transaction.prototype.getChainId = function () {
+-        return this._common.chainId();
++        // FIX: custom chainId to support other EVM compatible blockchain networks.
++        return this._chainId ? this._chainId : this._common.chainId();
+     };
+     /**
+      * returns the sender's address
+diff --git a/node_modules/ethereumjs-tx/dist/types.d.ts b/node_modules/ethereumjs-tx/dist/types.d.ts
+index fbbc6b1..4c6b17d 100644
+--- a/node_modules/ethereumjs-tx/dist/types.d.ts
++++ b/node_modules/ethereumjs-tx/dist/types.d.ts
+@@ -81,4 +81,8 @@ export interface TransactionOptions {
+      * The hardfork of the transaction, default: 'petersburg'
+      */
+     hardfork?: string;
++    /**
++     * Custom chainId to support other EVM compatible blockchain networks.
++     */
++    chainId?: number | string;
+ }
