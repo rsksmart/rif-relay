@@ -65,6 +65,4 @@ contract DeployPaymaster is BasePaymaster {
     function acceptToken(address token) external onlyOwner {
         tokens[token] = true;
     }
-
-    event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
 }

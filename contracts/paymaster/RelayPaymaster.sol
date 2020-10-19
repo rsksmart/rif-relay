@@ -25,16 +25,6 @@ contract RelayPaymaster is BasePaymaster {
 
     mapping (address => bool) public tokens;
 
-    uint public gasUsedByPost;
-
-    /**
-     * set gas used by postRelayedCall, for proper gas calculation.
-     * You can use TokenGasCalculator to calculate these values (they depend on actual code of postRelayedCall)
-     */
-    function setPostGasUsage(uint _gasUsedByPost) external onlyOwner {
-        gasUsedByPost = _gasUsedByPost;
-    }
-
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
@@ -76,6 +66,4 @@ contract RelayPaymaster is BasePaymaster {
     function acceptToken(address token) external onlyOwner {
         tokens[token] = true;
     }
-
-    event TokensCharged(uint gasUseWithoutPost, uint gasJustPost, uint ethActualCharge, uint tokenActualCharge);
 }

@@ -13,7 +13,7 @@ import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
-import { constants } from "../src/common/Constants"
+import { constants } from '../src/common/Constants'
 
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
@@ -64,7 +64,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
 
     // We simulate the testPaymasters contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    await deployPaymaster.setRelayHub(testPaymasters.address, { from:  paymasterOwner})
+    await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
 
     relayRequestData = {
       request: {
@@ -96,18 +96,18 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, {from: paymasterOwner})
+    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
 
     const { logs } = await testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
 
     expectEvent.inLogs(logs, 'Accepted', {
-      tokenAmount : new BN(tokensPaid),
+      tokenAmount: new BN(tokensPaid),
       from: ownerAddress
     })
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, {from: paymasterOwner})
+    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
 
     const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
 
@@ -161,7 +161,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, {from: paymasterOwner})
+    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
 
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
@@ -213,7 +213,7 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
 
     // We simulate the testPaymasters contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    await relayPaymaster.setRelayHub(testPaymasters.address, { from:  paymasterOwner})
+    await relayPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
 
     relayRequestData = {
       request: {
@@ -244,19 +244,19 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
-    await relayPaymaster.acceptToken(token.address, {from: paymasterOwner})
+    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
     // run method
     const { logs } = await testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
     // All checks should pass
 
     expectEvent.inLogs(logs, 'Accepted', {
-      tokenAmount : new BN(tokensPaid),
+      tokenAmount: new BN(tokensPaid),
       from: senderAddress
     })
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await relayPaymaster.acceptToken(token.address, {from: paymasterOwner})
+    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
     // Address should be contract, we use this one
     relayRequestData.relayData.forwarder = other
     // run method
