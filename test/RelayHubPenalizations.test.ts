@@ -553,10 +553,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         gasPrice: relayCallArgs.gasPrice,
         to: relayHub.address,
         value: relayCallArgs.value,
-        // @ts-ignore
-        chainId,
         data: encodedCall
-      }, isRsk(env) ? { chainId: 33 } : undefined)
+      }, { chainId: env.chainId })
 
       transaction.sign(Buffer.from(relayCallArgs.privateKey, 'hex'))
       return transaction

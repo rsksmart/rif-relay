@@ -6,8 +6,6 @@ import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 
-import { isRsk } from '../../src/common/Environments'
-
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2
   const callsPerStateRefresh = 11
@@ -26,7 +24,7 @@ contract('RelayServerRequestsProfiling', function (accounts) {
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init(isRsk(await getTestingEnvironment()) ? { chainId: 33 } : {}, {}, contractFactory)
+    await env.init({ chainId: (await getTestingEnvironment()).chainId }, {}, contractFactory)
     await env.newServerInstance({ refreshStateTimeoutBlocks })
     relayServer = env.relayServer
     const latestBlock = await web3.eth.getBlock('latest')
