@@ -1,10 +1,12 @@
 import { RelayServer } from '../../src/relayserver/RelayServer'
-import { evmMine, evmMineMany } from '../TestUtils'
+import { evmMine, evmMineMany, getTestingEnvironment } from '../TestUtils'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
+
+import { isRsk } from '../../src/common/Environments'
 
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2
@@ -24,7 +26,7 @@ contract('RelayServerRequestsProfiling', function (accounts) {
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init({}, {}, contractFactory)
+    await env.init(isRsk(await getTestingEnvironment()) ? { chainId: 33 } : {}, {}, contractFactory)
     await env.newServerInstance({ refreshStateTimeoutBlocks })
     relayServer = env.relayServer
     const latestBlock = await web3.eth.getBlock('latest')
