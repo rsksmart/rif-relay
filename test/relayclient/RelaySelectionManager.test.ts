@@ -14,14 +14,15 @@ import { constants } from '@openzeppelin/test-helpers'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
-contract('RelaySelectionManager', function (accounts) {
+// eslint-disable-next-line @typescript-eslint/no-misused-promises
+contract('RelaySelectionManager', async function (accounts) {
   const sliceSize = 3
   const dependencyTree = getDependencies(configureGSN({}), web3.currentProvider as HttpProvider)
   const stubGetRelaysSorted = sinon.stub(dependencyTree.knownRelaysManager, 'getRelaysSortedForTransaction')
   const errors = new Map<string, Error>()
   const config = configureGSN({
     sliceSize,
-    chainId: 33
+    chainId: (await getTestingEnvironment()).chainId
   })
   const eventInfo = {
     relayManager: '',

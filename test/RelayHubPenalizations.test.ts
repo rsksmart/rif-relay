@@ -256,7 +256,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(Object.assign({}, encodedCallArgs, { data: '0xabcd' }), relayCallArgs, chainId, env), chainId)
 
-          // 160457
           const rskDifference: number = isRsk(env) ? 200000 : 0
 
           await expectPenalization(async (opts) =>
@@ -271,7 +270,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, Object.assign({}, relayCallArgs, { gasLimit: 100 }), chainId, env), chainId)
 
-          // 135162
           const rskDifference: number = isRsk(env) ? 150000 : 0
 
           await expectPenalization(async (opts) =>
@@ -286,7 +284,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const txDataSigA = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, relayCallArgs, chainId, env), chainId)
           const txDataSigB = getDataAndSignature(encodeRelayCallEIP155(encodedCallArgs, Object.assign({}, relayCallArgs, { value: 100 }), chainId, env), chainId)
 
-          // 135334
           const rskDifference: number = isRsk(env) ? 150000 : 0
 
           await expectPenalization(async (opts) =>
@@ -340,7 +337,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
       describe('illegal call', function () {
         // TODO: this tests are excessive, and have a lot of tedious build-up
-        // TODO: re-enable
         it('penalizes relay transactions to addresses other than RelayHub', async function () {
           const env: Environment = await getTestingEnvironment()
 
@@ -350,7 +346,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const transactionHash = receipt.transactionHash
           const { data, signature } = await getDataAndSignatureFromHash(transactionHash, env)
 
-          // 72543
           const rskDifference: number = isRsk(env) ? 100000 : 0
 
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts), rskDifference)
@@ -367,7 +362,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           })
           const { data, signature } = await getDataAndSignatureFromHash(tx, env)
 
-          // 75364
           const rskDifference: number = isRsk(env) ? 100000 : 0
 
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts), rskDifference)
@@ -390,8 +384,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
 
-          // 95397
-          const rskDifference: number = isRsk(env) ? 100000 : 0
+          const rskDifference: number = isRsk(env) ? 105000 : 0
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
@@ -510,7 +503,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           it('relay cannot be penalized twice', async function () {
             const env: Environment = await getTestingEnvironment()
 
-            // 72524
             const rskDifference: number = isRsk(env) ? 100000 : 0
 
             await penalize(rskDifference)
@@ -553,10 +545,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         gasPrice: relayCallArgs.gasPrice,
         to: relayHub.address,
         value: relayCallArgs.value,
-        // @ts-ignore
-        chainId,
         data: encodedCall
-      }, isRsk(env) ? { chainId: 33 } : undefined)
+      }, { chainId: env.chainId })
 
       transaction.sign(Buffer.from(relayCallArgs.privateKey, 'hex'))
       return transaction

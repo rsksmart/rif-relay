@@ -158,7 +158,8 @@ contract('KnownRelaysManager 2', function (accounts) {
   }
 
   before(async function () {
-    contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configureGSN({ chainId: 33 }))
+    const env = await getTestingEnvironment()
+    contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configureGSN({ chainId: env.chainId }))
     await contractInteractor.init()
   })
 
@@ -230,7 +231,10 @@ contract('KnownRelaysManager 2', function (accounts) {
     })
   })
 
-  describe('#getRelaysSortedForTransaction()', function () {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  describe('#getRelaysSortedForTransaction()', async function () {
+    const env = await getTestingEnvironment()
+
     const relayInfoLowFee = {
       relayManager: accounts[0],
       relayUrl: 'lowFee',
@@ -245,7 +249,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     }
 
     const knownRelaysManager = new KnownRelaysManager(
-      contractInteractor, configureGSN({ chainId: 33 }))
+      contractInteractor, configureGSN({ chainId: env.chainId }))
 
     describe('#_refreshFailures()', function () {
       let lastErrorTime: number
@@ -293,7 +297,10 @@ contract('KnownRelaysManager 2', function (accounts) {
     })
   })
 
-  describe('getRelaysSortedForTransaction', function () {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  describe('getRelaysSortedForTransaction', async function () {
+    const env = await getTestingEnvironment()
+
     const biasedRelayScore = async function (relay: RelayRegisteredEventInfo): Promise<number> {
       if (relay.relayUrl === 'alex') {
         return await Promise.resolve(1000)
@@ -302,7 +309,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       }
     }
     const knownRelaysManager = new KnownRelaysManager(
-      contractInteractor, configureGSN({ chainId: 33 }), undefined, biasedRelayScore)
+      contractInteractor, configureGSN({ chainId: env.chainId }), undefined, biasedRelayScore)
     before(function () {
       const activeRelays: RelayRegisteredEventInfo[][] = [[], [{
         relayManager: accounts[0],

@@ -56,7 +56,7 @@ contract('ContractInteractor', function () {
         pk = 'c85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'
         address = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
         gasPrice = 1
-        txOpts = { chainId: 33 }
+        txOpts = { chainId: env.chainId }
       }
 
       provider = new ProfilingProvider(web3.currentProvider as HttpProvider)

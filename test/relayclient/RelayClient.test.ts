@@ -281,14 +281,15 @@ contract('RelayClient', function (accounts) {
     })
   })
 
-  describe('#_calculateDefaultGasPrice()', function () {
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
+  describe('#_calculateDefaultGasPrice()', async function () {
     it('should use minimum gas price if calculated is to low', async function () {
       const minGasPrice = 1e18
       const gsnConfig: Partial<GSNConfig> = {
         logLevel: 5,
         relayHubAddress: relayHub.address,
         minGasPrice,
-        chainId: 33 // Pablo: wired in, since this is not a async context :(
+        chainId: (await getTestingEnvironment()).chainId
       }
       const relayClient = new RelayClient(underlyingProvider, gsnConfig)
       const calculatedGasPrice = await relayClient._calculateGasPrice()

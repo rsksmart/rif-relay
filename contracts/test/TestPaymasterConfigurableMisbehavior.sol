@@ -14,6 +14,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     bool public revertPreRelayCall;
     bool public greedyAcceptanceBudget;
     bool public expensiveGasLimits;
+    int public expensiveGasLimitsIterations;
 
     function setWithdrawDuringPostRelayedCall(bool val) public {
         withdrawDuringPostRelayedCall = val;
@@ -39,6 +40,9 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     }
     function setExpensiveGasLimits(bool val) public {
         expensiveGasLimits = val;
+    }
+    function setExpensiveGasLimitsIterations(int val) public {
+        expensiveGasLimitsIterations = val;
     }
 
     function preRelayedCall(
@@ -107,7 +111,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
         if (expensiveGasLimits) {
             uint sum;
             //memory access is 700gas, so we waste ~50000
-            for ( int i=0; i<60000; i+=700 ) {
+            for ( int i=0; i<expensiveGasLimitsIterations; i+=1 ) {
                 sum  = sum + limits.acceptanceBudget;
             }
         }

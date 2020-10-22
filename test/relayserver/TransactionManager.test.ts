@@ -8,8 +8,6 @@ import { RelayServer } from '../../src/relayserver/RelayServer'
 import { HttpProvider } from 'web3-core'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 
-import { isRsk } from '../../src/common/Environments'
-
 contract('TransactionManager', function (accounts) {
   const pendingTransactionTimeoutBlocks = 5
   const confirmationsNeeded = 12
@@ -18,8 +16,9 @@ contract('TransactionManager', function (accounts) {
   let env: ServerTestEnvironment
 
   before(async function () {
+    const chainId = (await getTestingEnvironment()).chainId
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init(isRsk(await getTestingEnvironment()) ? { chainId: 33 } : {})
+    await env.init({ chainId })
     await env.newServerInstance({ pendingTransactionTimeoutBlocks })
     relayServer = env.relayServer
   })
