@@ -659,7 +659,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
         it('should fail a transaction if paymaster.getGasLimits is too expensive', async function () {
           await misbehavingPaymaster.setExpensiveGasLimits(true)
-          // Set the number of iterations in TestPaymasterConfigurableMisbehavior > getGasLimits() to spend ~50000 gas units
+          // Set the number of iterations in TestPaymasterConfigurableMisbehavior for getGasLimits() to spend ~50000 gas units
           await misbehavingPaymaster.setExpensiveGasLimitsIterations(isRsk(env) ? 190 : 85)
 
           await expectRevert.unspecified(relayHubInstance.relayCall(10e6, relayRequestMisbehavingPaymaster,
