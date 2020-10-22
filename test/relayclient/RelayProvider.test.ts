@@ -157,11 +157,11 @@ contract('RelayProvider', function (accounts) {
       const res = await testRecipient.emitMessage('hello world', {
         from: senderAddress,
         forceGasPrice: '0x51f4d5c00',
-
         value: '0',
         // TODO: for some reason estimated values are crazy high!
         gas: '100000',
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
 
       })
 
@@ -189,7 +189,8 @@ contract('RelayProvider', function (accounts) {
         forceGasPrice: '0x51f4d5c00',
         value,
         gas: '100000',
-        paymaster
+        paymaster,
+        factory:constants.ZERO_ADDRESS
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -206,7 +207,8 @@ contract('RelayProvider', function (accounts) {
           forceGasPrice: '0x51f4d5c00',
           value: '0',
           gas: '100000',
-          paymaster
+          paymaster,
+          factory:constants.ZERO_ADDRESS
         })
       } catch (error) {
         const expectedText = 'Requestor is not the owner of the Smart Wallet'
@@ -237,7 +239,8 @@ contract('RelayProvider', function (accounts) {
       await testRecipient2.emitMessage('hello again', {
         from: senderAddress,
         gas: '100000',
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
       })
       const log: any = await eventPromise
       assert.equal(log.returnValues.message, 'hello again')
@@ -248,7 +251,8 @@ contract('RelayProvider', function (accounts) {
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
         from: senderAddress,
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
       }), 'always fail')
     })
   })
@@ -280,6 +284,7 @@ contract('RelayProvider', function (accounts) {
             forceGasPrice: '0x51f4d5c00',
             paymaster,
             forwarder: smartWallet.address,
+            factory: constants.ZERO_ADDRESS,
             to: testRecipient.address,
             data: testRecipient.contract.methods.emitMessage('hello world').encodeABI()
           }
