@@ -207,7 +207,7 @@ export class RelayClient {
 
     if (gsnTransactionDetails.gas == null) {
       if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
-        gsnTransactionDetails.factory === '0x0000000000000000000000000000000000000000') {
+        gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
         const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       } else {
@@ -358,13 +358,10 @@ export class RelayClient {
     let senderNonce: string
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
 
-    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
       // Common relay scenario
       senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
     } else {
-      if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null) {
-        throw new Error(`Invalid factory contract, must be addr(0) or a valid factory: ${gsnTransactionDetails.factory}`)
-      }
       senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
     }
     const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
@@ -437,12 +434,12 @@ export class RelayClient {
   async resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Promise<Address> {
     // The forwarder is the SmartWallet contract calling the final contract.
     // In the case of a SmartWallet deploy, there's is no forwarder, the forwarder value is not read
-    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
+      gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
       const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
       if (forwarderAddress === constants.ZERO_ADDRESS) {
         throw new Error('No forwarder address configured')
       }
-
       return forwarderAddress
     } else {
       return gsnTransactionDetails.forwarder ?? constants.ZERO_ADDRESS
