@@ -3,6 +3,7 @@ import { NetworkSimulatingProvider } from '../../src/common/dev/NetworkSimulatin
 import { HttpProvider } from 'web3-core'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment
@@ -16,7 +17,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init({}, {}, contractFactory)
+    await env.init({chainId:(await getTestingEnvironment()).chainId}, {}, contractFactory)
     await env.newServerInstance()
     provider.setDelayTransactions(true)
   })
@@ -38,16 +39,21 @@ contract('Network Simulation for Relay Server', function (accounts) {
     })
 
     it('should broadcast multiple transactions at once', async function () {
+      const SmartWallet = artifacts.require('SmartWallet')
+      let sWalletTemplate = await SmartWallet.new()
+      const factory = await createProxyFactory(sWalletTemplate)
+      const smartWallet = await createSmartWallet(accounts[1], factory, (await getTestingEnvironment()).chainId)
+
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
-      const overrideDetails = { from: accounts[1] }
+      const overrideDetails = { from: accounts[1], forwarder:smartWallet.address }
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)
       assert.equal(provider.mempool.size, 2)
       await provider.mineTransaction(txs[0].txHash)
-      await env.assertTransactionRelayed(txs[0].txHash)
       await provider.mineTransaction(txs[1].txHash)
+      await env.assertTransactionRelayed(txs[0].txHash)
       await env.assertTransactionRelayed(txs[1].txHash, overrideDetails)
     })
   })

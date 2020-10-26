@@ -7,7 +7,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
-const EIP712DomainType = [
+export const EIP712DomainType = [
   { name: 'name', type: 'string' },
   { name: 'version', type: 'string' },
   { name: 'chainId', type: 'uint256' },
@@ -25,13 +25,17 @@ const RelayDataType = [
   { name: 'clientId', type: 'uint256' }
 ]
 
-const ForwardRequestType = [
+export const ForwardRequestType = [
   { name: 'from', type: 'address' },
   { name: 'to', type: 'address' },
   { name: 'value', type: 'uint256' },
   { name: 'gas', type: 'uint256' },
   { name: 'nonce', type: 'uint256' },
-  { name: 'data', type: 'bytes' }
+  { name: 'data', type: 'bytes' },
+  { name: 'tokenRecipient', type: 'address' },
+  { name: 'tokenContract', type: 'address' },
+  { name: 'tokenAmount', type: 'uint256' },
+  { name: 'factory', type: 'address' }
 ]
 
 const RelayRequestType = [
@@ -90,6 +94,8 @@ export default class TypedRequestData implements EIP712TypedData {
     }
   }
 }
+
+export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory'
 
 export const GsnRequestType = {
   typeName: 'RelayRequest',

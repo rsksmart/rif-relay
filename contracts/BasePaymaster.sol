@@ -8,7 +8,6 @@ import "./interfaces/GsnTypes.sol";
 import "./interfaces/IPaymaster.sol";
 import "./interfaces/IRelayHub.sol";
 import "./utils/GsnEip712Library.sol";
-import "./forwarder/Forwarder.sol";
 
 /**
  * Abstract base class to be inherited by a concrete Paymaster
@@ -19,7 +18,6 @@ import "./forwarder/Forwarder.sol";
 abstract contract BasePaymaster is IPaymaster, Ownable {
 
     IRelayHub internal relayHub;
-    IForwarder public override trustedForwarder;
 
     function getHubAddr() public override view returns (address) {
         return address(relayHub);
@@ -48,15 +46,6 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         );
     }
 
-    // this method must be called from preRelayedCall to validate that the forwarder
-    // is approved by the paymaster as well as by the recipient contract.
-    function _verifyForwarder(GsnTypes.RelayRequest calldata relayRequest)
-    public
-    view
-    {
-        require(address(trustedForwarder) == relayRequest.relayData.forwarder, "Forwarder is not trusted");
-        GsnEip712Library.verifyForwarderTrusted(relayRequest);
-    }
 
     /*
      * modifier to be used by recipients as access control protection for preRelayedCall & postRelayedCall
@@ -70,9 +59,6 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
         relayHub = hub;
     }
 
-    function setTrustedForwarder(IForwarder forwarder) public onlyOwner {
-        trustedForwarder = forwarder;
-    }
 
     /// check current deposit on relay hub.
     // (wanted to name it "getRelayHubDeposit()", but we use the name from IRelayRecipient...

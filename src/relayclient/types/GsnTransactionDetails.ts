@@ -7,6 +7,11 @@ export default interface GsnTransactionDetails {
   readonly data: PrefixedHexString
   readonly to: Address
 
+  readonly tokenRecipient?: Address
+  readonly tokenContract?: Address
+  readonly tokenAmount?: IntString
+  readonly factory?: Address
+
   readonly value?: IntString
   /**
    * TODO: this is horrible. Think about it some more

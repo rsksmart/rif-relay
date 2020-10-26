@@ -12,12 +12,13 @@ import {
   TestPaymasterVariableGasLimitsInstance,
   StakeManagerInstance,
   IForwarderInstance,
-  PenalizerInstance
+  PenalizerInstance,
+  SmartWalletInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, getTestingEnvironment } from './TestUtils'
-import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
+import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment } from './TestUtils'
 
-const Forwarder = artifacts.require('Forwarder')
+const SmartWallet = artifacts.require('SmartWallet')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -42,8 +43,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       post: 1644
     },
     rsk: {
-      pre: 4251,
-      post: 1044
+      pre: 855,
+      post: 944
     }
   }
 
@@ -65,17 +66,17 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     env = await getTestingEnvironment()
     chainId = env.chainId
 
-    forwarderInstance = await Forwarder.new()
+    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
     forwarder = forwarderInstance.address
-    recipient = await TestRecipient.new(forwarder)
+    recipient = await TestRecipient.new()
     paymaster = await TestPaymasterVariableGasLimits.new()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHub = await deployHub(stakeManager.address, penalizer.address)
-    await paymaster.setTrustedForwarder(forwarder)
+
     await paymaster.setRelayHub(relayHub.address)
-    // register hub's RelayRequest with forwarder, if not already done.
-    await registerForwarderForGsn(forwarderInstance)
 
     await relayHub.depositFor(paymaster.address, {
       value: ether('1'),
@@ -90,6 +91,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
     await relayHub.registerRelayServer(0, fee, '', { from: relayManager })
     encodedFunction = recipient.contract.methods.emitMessage(message).encodeABI()
+    const addrZero = '0x0000000000000000000000000000000000000000'
+
     relayRequest = {
       request: {
         to: recipient.address,
@@ -97,7 +100,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         from: senderAddress,
         nonce: senderNonce.toString(),
         value: '0',
-        gas: gasLimit.toString()
+        gas: gasLimit.toString(),
+        tokenRecipient: addrZero,
+        tokenContract: addrZero,
+        tokenAmount: '0',
+        factory: addrZero // only set if this is a deploy request
       },
       relayData: {
         baseRelayFee: baseFee.toString(),
@@ -218,12 +225,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     it('should revert an attempt to use more than allowed gas for preRelayedCall', async function () {
       // TODO: extract preparation to 'before' block
       const misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-      await misbehavingPaymaster.setTrustedForwarder(forwarder)
+      // await misbehavingPaymaster.setTrustedForwarder(forwarder)
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: ether('0.1') })
       await misbehavingPaymaster.setOverspendAcceptGas(true)
 
-      const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+      const senderNonce = (await forwarderInstance.getNonce()).toString()
       const relayRequestMisbehaving = cloneRelayRequest(relayRequest)
       relayRequestMisbehaving.relayData.paymaster = misbehavingPaymaster.address
       relayRequestMisbehaving.request.nonce = senderNonce
@@ -307,13 +314,15 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       .forEach(([doRevert, len, b]) => {
         it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
           const beforeBalances = getBalances()
-          const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+          const senderNonce = (await forwarderInstance.getNonce()).toString()
           let encodedFunction
           if (len === 0) {
             encodedFunction = recipient.contract.methods.checkNoReturnValues(doRevert).encodeABI()
           } else {
             encodedFunction = recipient.contract.methods.checkReturnValues(len, doRevert).encodeABI()
           }
+          const addrZero = '0x0000000000000000000000000000000000000000'
+
           const relayRequest: RelayRequest = {
             request: {
               to: recipient.address,
@@ -321,7 +330,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               from: senderAddress,
               nonce: senderNonce,
               value: '0',
-              gas: gasLimit.toString()
+              gas: gasLimit.toString(),
+              tokenRecipient: addrZero,
+              tokenContract: addrZero,
+              tokenAmount: '0',
+              factory: addrZero // only set if this is a deploy request
             },
             relayData: {
               baseRelayFee: '0',
@@ -355,7 +368,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
 
-          const rskDiff: number = isRsk(env) ? 3000 : 0
+          const rskDiff: number = isRsk(env) ? 3135 : 0
           const gasUsed: number = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
 
@@ -380,9 +393,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             it(`should compensate relay with requested fee of ${requestedFee.toString()}% with ${messageLength.toString()} calldata size`, async function () {
               const beforeBalances = await getBalances()
               const pctRelayFee = requestedFee.toString()
-              const senderNonce = (await forwarderInstance.getNonce(senderAddress)).toString()
+              const senderNonce = (await forwarderInstance.getNonce()).toString()
               const encodedFunction = recipient.contract.methods.emitMessage('a'.repeat(messageLength)).encodeABI()
               const baseRelayFee = '0'
+              const addrZero = '0x0000000000000000000000000000000000000000'
+
               const relayRequest: RelayRequest = {
                 request: {
                   to: recipient.address,
@@ -390,7 +405,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                   from: senderAddress,
                   nonce: senderNonce,
                   value: '0',
-                  gas: gasLimit.toString()
+                  gas: gasLimit.toString(),
+                  tokenRecipient: addrZero,
+                  tokenContract: addrZero,
+                  tokenAmount: '0',
+                  factory: addrZero // only set if this is a deploy request
                 },
                 relayData: {
                   baseRelayFee,

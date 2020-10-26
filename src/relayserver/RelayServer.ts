@@ -189,6 +189,8 @@ export class RelayServer extends EventEmitter {
     }
 
     const hubOverhead = (await this.relayHubContract.gasOverhead()).toNumber()
+    // TODO: Here, for deploy transactions, the hubOverhead includes the forwarder extra
+
     const maxPossibleGas = GAS_RESERVE + calculateTransactionMaxPossibleGas({
       gasLimits,
       hubOverhead,

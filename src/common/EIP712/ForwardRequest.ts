@@ -8,4 +8,8 @@ export default interface ForwardRequest {
   value: IntString
   nonce: IntString
   gas: IntString
+  tokenRecipient: Address
+  tokenContract: Address
+  tokenAmount: IntString
+  factory: Address // only set if this is a deploy request
 }

@@ -46,6 +46,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     }
 
     function preRelayedCall(
+        /* solhint-disable-next-line no-unused-vars */
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
@@ -56,7 +57,6 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     relayHubOnly
     returns (bytes memory, bool) {
         (signature, approvalData, maxPossibleGas);
-        _verifyForwarder(relayRequest);
         if (overspendAcceptGas) {
             uint i = 0;
             while (true) {

@@ -5,14 +5,21 @@ import path from 'path'
 
 import { constants, ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, StakeManagerInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, IForwarderInstance, SmartWalletInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { sleep } from '../src/common/Utils'
+import { sleep, getEip712Signature } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
+import EnvelopingTypedRequestData, { GsnRequestType, getDomainSeparatorHash, ENVELOPING_PARAMS, GsnDomainSeparatorType, EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
+
+// @ts-ignore
+import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util'
+import { bufferToHex, toBuffer } from 'ethereumjs-util'
+
+const zeroAddr = '0x0000000000000000000000000000000000000000'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -244,6 +251,119 @@ export async function deployHub (
     relayHubConfiguration.maximumRecipientDeposit,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
+}
+
+export async function createProxyFactory (template: IForwarderInstance): Promise<ProxyFactoryInstance> {
+  const ProxyFactory = artifacts.require('ProxyFactory')
+  const factory: ProxyFactoryInstance = await ProxyFactory.new(template.address)
+
+  await factory.registerRequestType(
+    GsnRequestType.typeName,
+    GsnRequestType.typeSuffix
+  )
+  await factory.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
+  return factory
+}
+
+export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, chainId: number = 33, privKey: string = '', logicAddr: string = zeroAddr,
+  initParams: string = '0x', tokenContract: string = zeroAddr, tokenRecipient: string = zeroAddr, tokenAmount: string = '0',
+  gas: string = '400000'): Promise<SmartWalletInstance> {
+  const reqParamCount = 10
+
+  let deploySignature
+  let encoded
+
+  if (privKey === '') {
+    const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
+    const typeHash = web3.utils.keccak256(typeName)
+    const rReq = {
+      request: {
+        from: ownerEOA,
+        to: logicAddr,
+        value: '0',
+        gas: gas,
+        nonce: '0',
+        data: initParams,
+        tokenRecipient: tokenRecipient,
+        tokenContract: tokenContract,
+        tokenAmount: tokenAmount,
+        factory: factory.address
+      },
+      relayData: {
+        gasPrice: '10',
+        pctRelayFee: '10',
+        baseRelayFee: '10000',
+        relayWorker: zeroAddr,
+        paymaster: zeroAddr,
+        forwarder: zeroAddr,
+        paymasterData: '0x',
+        clientId: '1'
+      }
+    }
+    const createdataToSign = new EnvelopingTypedRequestData(
+      chainId,
+      factory.address,
+      rReq
+    )
+    deploySignature = await getEip712Signature(
+      web3,
+      createdataToSign
+    )
+    encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
+    const suffixData = bufferToHex(encoded.slice((1 + reqParamCount) * 32))
+    await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
+  } else {
+    // We can use a simpler type, without the extra relayData in suffixData
+
+    const typeName = `ForwardRequest(${ENVELOPING_PARAMS})`
+    const typeHash = web3.utils.keccak256(typeName)
+    const rReq = {
+      from: ownerEOA,
+      to: logicAddr,
+      value: '0',
+      gas: gas,
+      nonce: '0',
+      data: initParams,
+      tokenRecipient: tokenRecipient,
+      tokenContract: tokenContract,
+      tokenAmount: tokenAmount,
+      factory: factory.address
+    }
+    const domainInfo = {
+      name: GsnDomainSeparatorType.name,
+      version: GsnDomainSeparatorType.version,
+      chainId,
+      verifyingContract: factory.address
+    }
+    const data = {
+      domain: domainInfo,
+      primaryType: 'ForwardRequest',
+      types: {
+        EIP712Domain: EIP712DomainType,
+        ForwardRequest: ForwardRequestType
+      },
+      message: rReq
+    }
+
+    deploySignature = signTypedData_v4(toBuffer(privKey), { data })
+    await factory.relayedUserSmartWalletCreation(rReq, getDomainSeparatorHash(factory.address, chainId), typeHash, '0x', deploySignature)
+  }
+
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, logicAddr, initParams)
+
+  const SmartWallet = artifacts.require('SmartWallet')
+  const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
+  await sw.registerRequestType(
+    GsnRequestType.typeName,
+    GsnRequestType.typeSuffix
+  )
+  await sw.registerRequestType(
+    'ForwardRequest',
+    ''
+  )
+  await sw.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
+
+  return sw
 }
 
 /**

@@ -14,7 +14,8 @@ import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
 import Paymaster from './compiled/TestPaymasterEverythingAccepted.json'
-import Forwarder from './compiled/Forwarder.json'
+import SmartWallet from './compiled/SmartWallet.json'
+import ProxyFactory from './compiled/ProxyFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
 import { Address, notNull } from '../relayclient/types/Aliases'
 import ContractInteractor from '../relayclient/ContractInteractor'
@@ -24,7 +25,7 @@ import HttpWrapper from '../relayclient/HttpWrapper'
 import { constants } from '../common/Constants'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
-import { registerForwarderForGsn } from '../common/EIP712/ForwarderUtil'
+import { registerContractForGsn } from '../common/EIP712/ForwarderUtil'
 
 interface RegisterOptions {
   from: Address
@@ -38,7 +39,8 @@ interface DeployOptions {
   from: Address
   gasPrice: string
   deployPaymaster?: boolean
-  forwarderAddress?: string
+  factoryAddress?: string
+  sWalletTemplateAddress?: string
   relayHubAddress?: string
   stakeManagerAddress?: string
   penalizerAddress?: string
@@ -53,7 +55,8 @@ export interface DeploymentResult {
   relayHubAddress: Address
   stakeManagerAddress: Address
   penalizerAddress: Address
-  forwarderAddress: Address
+  sWalletTemplateAddress: Address
+  factoryAddress: Address
   versionRegistryAddress: Address
   naivePaymasterAddress: Address
 }
@@ -239,7 +242,13 @@ export default class CommandsLogic {
 
     const sInstance = await this.getContractInstance(StakeManager, {}, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pInstance = await this.getContractInstance(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const fInstance = await this.getContractInstance(Forwarder, {}, deployOptions.forwarderAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const swtInstance = await this.getContractInstance(SmartWallet, {}, deployOptions.sWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const pfInstance = await this.getContractInstance(ProxyFactory, {
+      arguments: [
+        swtInstance.options.address
+      ]
+    }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     const rInstance = await this.getContractInstance(RelayHub, {
       arguments: [
         sInstance.options.address,
@@ -261,7 +270,7 @@ export default class CommandsLogic {
 
     let paymasterAddress = constants.ZERO_ADDRESS
     if (deployOptions.deployPaymaster === true) {
-      const pmInstance = await this.deployPaymaster(Object.assign({}, options), rInstance.options.address, deployOptions.from, fInstance, deployOptions.skipConfirmation)
+      const pmInstance = await this.deployPaymaster(Object.assign({}, options), rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
       paymasterAddress = pmInstance.options.address
 
       // Overriding saved configuration with newly deployed instances
@@ -269,13 +278,15 @@ export default class CommandsLogic {
     }
     this.config.relayHubAddress = rInstance.options.address
 
-    await registerForwarderForGsn(fInstance, options)
+    await registerContractForGsn(swtInstance, options)
+    await registerContractForGsn(pfInstance, options)
 
     return {
       relayHubAddress: rInstance.options.address,
       stakeManagerAddress: sInstance.options.address,
       penalizerAddress: pInstance.options.address,
-      forwarderAddress: fInstance.options.address,
+      sWalletTemplateAddress: swtInstance.options.address,
+      factoryAddress: pfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
       naivePaymasterAddress: paymasterAddress
     }
@@ -309,10 +320,9 @@ export default class CommandsLogic {
     return contractInstance
   }
 
-  async deployPaymaster (options: Required<SendOptions>, hub: Address, from: string, fInstance: Contract, skipConfirmation: boolean | undefined): Promise<Contract> {
+  async deployPaymaster (options: Required<SendOptions>, hub: Address, from: string, skipConfirmation: boolean | undefined): Promise<Contract> {
     const pmInstance = await this.getContractInstance(Paymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
     await pmInstance.methods.setRelayHub(hub).send(options)
-    await pmInstance.methods.setTrustedForwarder(fInstance.options.address).send(options)
     return pmInstance
   }
 

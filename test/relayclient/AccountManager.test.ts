@@ -59,6 +59,8 @@ contract('AccountManager', function (accounts) {
   })
 
   describe('#sign()', function () {
+    const addrZero = '0x0000000000000000000000000000000000000000'
+
     accountManager.addAccount(keypair)
     const relayRequest: RelayRequest = {
       request: {
@@ -67,7 +69,11 @@ contract('AccountManager', function (accounts) {
         from: '',
         nonce: '1',
         value: '0',
-        gas: '1'
+        gas: '1',
+        tokenRecipient: addrZero,
+        tokenContract: addrZero,
+        tokenAmount: '0',
+        factory: addrZero // only set if this is a deploy request
       },
       relayData: {
         pctRelayFee: '1',

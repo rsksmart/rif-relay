@@ -6,14 +6,18 @@ interface IForwarder {
 
     struct ForwardRequest {
         address from;
-        address to;
+        address to; // In a deploy request, the to param inidicates an optional logic contract
         uint256 value;
         uint256 gas;
         uint256 nonce;
         bytes data;
+        address tokenRecipient;
+        address tokenContract;
+        uint256 tokenAmount;
+        address factory; // only set if this is a deploy request
     }
 
-    function getNonce(address from)
+    function getNonce()
     external view
     returns(uint256);
 
@@ -51,7 +55,7 @@ interface IForwarder {
         bytes calldata signature
     )
     external payable
-    returns (bool success, bytes memory ret);
+    returns (bool success, uint256 lastSuccTx, bytes memory ret);
 
     /**
      * Register a new Request typehash.

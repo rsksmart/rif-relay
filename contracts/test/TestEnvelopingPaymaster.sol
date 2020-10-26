@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../BasePaymaster.sol";
 
-contract TestPaymasterEverythingAccepted is BasePaymaster {
+contract TestEnvelopingPaymaster is BasePaymaster {
 
     function versionPaymaster() external view override virtual returns (string memory){
         return "2.0.0+opengsn.test-pea.ipaymaster";
