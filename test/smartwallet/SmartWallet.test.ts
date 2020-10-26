@@ -162,9 +162,9 @@ contract('SmartWallet', ([from]) => {
         nonce: 0,
         gas: 123,
         tokenRecipient: addr(2),
-        tokenContract: addr(3),
+        tokenContract: addr(0),
         tokenAmount: 1,
-        factory: addr(4)
+        factory: addr(0)
       }
 
       it('should fail on unregistered domain separator', async () => {
@@ -197,9 +197,9 @@ contract('SmartWallet', ([from]) => {
         nonce: 0,
         gas: 123,
         tokenRecipient: addr(2),
-        tokenContract: addr(3),
+        tokenContract: addr(0),
         tokenAmount: 1,
-        factory: addr(4)
+        factory: addr(0)
       }
 
       let data: EIP712TypedData
@@ -245,9 +245,9 @@ contract('SmartWallet', ([from]) => {
           nonce: 0,
           gas: 123,
           tokenRecipient: addr(2),
-          tokenContract: addr(3),
+          tokenContract: addr(0),
           tokenAmount: 1,
-          factory: addr(4),
+          factory: addr(0),
           extra: {
             extraAddr: addr(5)
           }
@@ -376,7 +376,7 @@ contract('SmartWallet', ([from]) => {
         tokenRecipient: recipient.address,
         tokenContract: token.address,
         tokenAmount: 1,
-        factory: addr(4)
+        factory: addr(0)
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
       const domainSeparator = TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types)
@@ -410,7 +410,7 @@ contract('SmartWallet', ([from]) => {
         tokenRecipient: recipient.address,
         tokenContract: token.address,
         tokenAmount: 1,
-        factory: addr(4)
+        factory: addr(0)
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -438,7 +438,7 @@ contract('SmartWallet', ([from]) => {
         tokenRecipient: recipient.address,
         tokenContract: token.address,
         tokenAmount: 1,
-        factory: addr(4)
+        factory: addr(0)
       }
       const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -486,7 +486,7 @@ contract('SmartWallet', ([from]) => {
           tokenRecipient: recipient.address,
           tokenContract: token.address,
           tokenAmount: 1,
-          factory: addr(4)
+          factory: addr(0)
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -513,7 +513,7 @@ contract('SmartWallet', ([from]) => {
           tokenRecipient: recipient.address,
           tokenContract: token.address,
           tokenAmount: 1,
-          factory: addr(4)
+          factory: addr(0)
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
@@ -540,7 +540,7 @@ contract('SmartWallet', ([from]) => {
           tokenRecipient: recipient.address,
           tokenContract: token.address,
           tokenAmount: 1,
-          factory: addr(4)
+          factory: addr(0)
         }
         const sig = signTypedData_v4(senderPrivateKey, { data: { ...data, message: req1 } })
 
