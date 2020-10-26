@@ -22,6 +22,7 @@ import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 
+
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
@@ -243,7 +244,7 @@ contract('RelayServer', function (accounts) {
 
         before(async function () {
           rejectingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-          await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
+          // await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
           await rejectingPaymaster.setRelayHub(env.relayHub.address)
           await rejectingPaymaster.deposit({ value: env.web3.utils.toWei('1', 'ether') })
           req = await env.createRelayHttpRequest()
@@ -545,7 +546,7 @@ contract('RelayServer', function (accounts) {
       })
       newServer = env.relayServer
       rejectingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-      await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
+      // await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
       await rejectingPaymaster.setRelayHub(env.relayHub.address)
       await rejectingPaymaster.deposit({ value: env.web3.utils.toWei('1', 'ether') })
       await attackTheServer(newServer)

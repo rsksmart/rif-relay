@@ -35,7 +35,6 @@ contract TestPaymasterStoreContext is TestPaymasterEverythingAccepted {
     override
     returns (bytes memory, bool) {
         (signature, approvalData, maxPossibleGas);
-        _verifyForwarder(relayRequest);
 
         emit SampleRecipientPreCallWithValues(
             relayRequest.relayData.relayWorker,

@@ -13,7 +13,8 @@ import { getEnvironment } from '../../common/Environments'
 
 gsnCommander(['n', 'f', 'm', 'g'])
   .option('-w, --workdir <directory>', 'relative work directory (defaults to build/gsn/)', 'build/gsn')
-  .option('--forwarder <address>', 'address of forwarder deployed to the current network (optional; deploys new one by default)')
+  .option('--factory <address>', 'address of the Smart Wallet factory deployed to the current network (optional; deploys new one by default)')
+  .option('--sWalletTemplate <address>', 'address of the Smart Wallet template to be instantiated by the factory deployed to the current network (optional; deploys new one by default)')
   .option('--stakeManager <address>', 'stakeManager')
   .option('--relayHub <address>', 'relayHub')
   .option('--penalizer <address>', 'penalizer')
@@ -47,7 +48,8 @@ gsnCommander(['n', 'f', 'm', 'g'])
     deployPaymaster: true,
     verbose: true,
     skipConfirmation: commander.skipConfirmation,
-    forwarderAddress: commander.forwarder,
+    factoryAddress: commander.factory,
+    sWalletTemplateAddress: commander.sWalletTemplate,
     stakeManagerAddress: commander.stakeManager,
     relayHubAddress: commander.relayHub,
     penalizerAddress: commander.penalizer,

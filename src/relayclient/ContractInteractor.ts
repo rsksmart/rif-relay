@@ -20,26 +20,26 @@ import paymasterAbi from '../common/interfaces/IPaymaster.json'
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
-import gsnRecipientAbi from '../common/interfaces/IRelayRecipient.json'
 import knowForwarderAddressAbi from '../common/interfaces/IKnowForwarderAddress.json'
+import proxyFactoryAbi from '../common/interfaces/IProxyFactory.json'
 
 import { event2topic } from '../common/Utils'
 import { constants } from '../common/Constants'
 import replaceErrors from '../common/ErrorReplacerJSON'
 import VersionsManager from '../common/VersionsManager'
 import {
-  BaseRelayRecipientInstance,
   IForwarderInstance,
   IKnowForwarderAddressInstance,
   IPaymasterInstance,
   IRelayHubInstance,
-  IRelayRecipientInstance,
-  IStakeManagerInstance
+  BaseRelayRecipientInstance,
+  IStakeManagerInstance, IProxyFactoryInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from './types/Aliases'
 import { GSNConfig } from './GSNConfigurator'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
+import ForwardRequest from '../common/EIP712/ForwardRequest'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
@@ -75,12 +75,11 @@ export default class ContractInteractor {
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
-  private readonly IRelayRecipient: Contract<BaseRelayRecipientInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
+  private readonly IProxyFactoryContract: Contract<IProxyFactoryInstance>
 
   private paymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
-  private forwarderInstance!: IForwarderInstance
   private stakeManagerInstance!: IStakeManagerInstance
   private relayRecipientInstance?: BaseRelayRecipientInstance
   private knowForwarderAddressInstance?: IKnowForwarderAddressInstance
@@ -121,21 +120,21 @@ export default class ContractInteractor {
       abi: stakeManagerAbi
     })
     // @ts-ignore
-    this.IRelayRecipient = TruffleContract({
-      contractName: 'IRelayRecipient',
-      abi: gsnRecipientAbi
-    })
-    // @ts-ignore
     this.IKnowForwarderAddress = TruffleContract({
       contractName: 'IKnowForwarderAddress',
       abi: knowForwarderAddressAbi
+    })
+    // @ts-ignore
+    this.IProxyFactoryContract = TruffleContract({
+      contractName: 'IProxyFactory',
+      abi: proxyFactoryAbi
     })
     this.IStakeManager.setProvider(this.provider, undefined)
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IPaymasterContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
-    this.IRelayRecipient.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
+    this.IProxyFactoryContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -175,9 +174,6 @@ export default class ContractInteractor {
   }
 
   async _initializeContracts (): Promise<void> {
-    if (this.config.forwarderAddress !== constants.ZERO_ADDRESS) {
-      this.forwarderInstance = await this._createForwarder(this.config.forwarderAddress)
-    }
     if (this.config.relayHubAddress !== constants.ZERO_ADDRESS) {
       this.relayHubInstance = await this._createRelayHub(this.config.relayHubAddress)
       let hubStakeManagerAddress: string | undefined
@@ -213,13 +209,6 @@ export default class ContractInteractor {
     return this.knowForwarderAddressInstance
   }
 
-  async _createRecipient (address: Address): Promise<IRelayRecipientInstance> {
-    if (this.relayRecipientInstance != null && this.relayRecipientInstance.address.toLowerCase() === address.toLowerCase()) {
-      return this.relayRecipientInstance
-    }
-    this.relayRecipientInstance = await this.IRelayRecipient.at(address)
-    return this.relayRecipientInstance
-  }
 
   async _createPaymaster (address: Address): Promise<IPaymasterInstance> {
     return await this.IPaymasterContract.at(address)
@@ -233,23 +222,23 @@ export default class ContractInteractor {
     return await this.IForwarderContract.at(address)
   }
 
+  async _createFactory (address: Address): Promise<IProxyFactoryInstance> {
+    return await this.IProxyFactoryContract.at(address)
+  }
+
   async _createStakeManager (address: Address): Promise<IStakeManagerInstance> {
     return await this.IStakeManager.at(address)
   }
 
-  async getForwarder (recipientAddress: Address): Promise<Address> {
-    const recipient = await this._createKnowsForwarder(recipientAddress)
-    return await recipient.getTrustedForwarder()
+  async getSenderNonce (sWallet: Address): Promise<IntString> {
+    const forwarder = await this._createForwarder(sWallet)
+    const nonce = await forwarder.getNonce()
+    return nonce.toString()
   }
 
-  async isTrustedForwarder (recipientAddress: Address, forwarder: Address): Promise<boolean> {
-    const recipient = await this._createRecipient(recipientAddress)
-    return await recipient.isTrustedForwarder(forwarder)
-  }
-
-  async getSenderNonce (sender: Address, forwarderAddress: Address): Promise<IntString> {
-    const forwarder = await this._createForwarder(forwarderAddress)
-    const nonce = await forwarder.getNonce(sender)
+  async getFactoryNonce (factoryAddr: Address, from: Address): Promise<IntString> {
+    const factory = await this._createFactory(factoryAddr)
+    const nonce = await factory.getNonce(from)
     return nonce.toString()
   }
 
@@ -423,6 +412,20 @@ export default class ContractInteractor {
       gasCost,
       method
     }
+  }
+
+  async proxyFactoryDeployEstimageGas (request: ForwardRequest, domainHash: string, requestTypeHash: string,
+    suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
+    const pFactory = await this._createFactory(request.factory)
+
+    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request, domainHash, requestTypeHash,
+      suffixData, signature)
+
+    if (testCall) {
+      await method.call() // No particular msg.sender is required
+    }
+
+    return method.estimateGas()
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction

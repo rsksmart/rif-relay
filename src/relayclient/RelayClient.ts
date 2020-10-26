@@ -18,6 +18,7 @@ import { configureGSN, getDependencies, GSNConfig, GSNDependencies } from './GSN
 import { RelayInfo } from './types/RelayInfo'
 import { decodeRevertReason } from '../common/Utils'
 import { EventEmitter } from 'events'
+import { bufferToHex } from 'ethereumjs-util'
 
 import {
   GsnEvent,
@@ -26,6 +27,8 @@ import {
   GsnDoneRefreshRelaysEvent,
   GsnRefreshRelaysEvent, GsnRelayerResponseEvent, GsnSendToRelayerEvent, GsnSignRequestEvent, GsnValidateRequestEvent
 } from './GsnEvents'
+import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS } from '../common/EIP712/TypedRequestData'
+import { TypedDataUtils } from 'eth-sig-util'
 
 // generate "approvalData" and "paymasterData" for a request.
 // both are bytes arrays. paymasterData is part of the client request.
@@ -135,6 +138,7 @@ export class RelayClient {
       if (await this._isAlreadySubmitted(txHash)) {
         return { hasReceipt: true }
       }
+
       // can't find the TX in the mempool. broadcast it ourselves.
       await this.contractInteractor.sendSignedTransaction(rawTx)
       return { hasReceipt: true }
@@ -172,6 +176,25 @@ export class RelayClient {
     this.initialized = true
   }
 
+  async calculateSmartWalletDeployGas (gsnTransactionDetails: GsnTransactionDetails): Promise<number> {
+    const testInfo = await this._prepareFactoryGasEstimationRequest(gsnTransactionDetails)
+
+    const signedData = new TypedRequestData(
+      this.accountManager.chainId,
+      testInfo.relayRequest.request.factory,
+      { ...testInfo.relayRequest }
+    )
+
+    const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
+    const typeHash = web3.utils.keccak256(typeName)
+    const encoded = TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types)
+    const suffixData = bufferToHex(encoded.slice((1 + 10) * 32))
+    const domainHash = getDomainSeparatorHash(gsnTransactionDetails.factory ?? '', this.accountManager.chainId)
+    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest.request,
+      domainHash, typeHash, suffixData, testInfo.metadata.signature)
+    return estimatedGas
+  }
+
   async relayTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayingResult> {
     await this._init()
     // TODO: should have a better strategy to decide how often to refresh known relays
@@ -180,8 +203,14 @@ export class RelayClient {
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
 
     if (gsnTransactionDetails.gas == null) {
-      const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
-      gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
+      if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
+        gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+        const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
+        gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
+      } else {
+        const estimated = await this.calculateSmartWalletDeployGas(gsnTransactionDetails)
+        gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
+      }
     }
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
@@ -260,14 +289,80 @@ export class RelayClient {
     }
   }
 
+  async _prepareFactoryGasEstimationRequest (
+    gsnTransactionDetails: GsnTransactionDetails
+  ): Promise<RelayTransactionRequest> {
+    const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
+
+    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS || gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null) {
+      throw new Error(`Invalid factory contract,a valid factory: ${gsnTransactionDetails.factory}`)
+    }
+    const senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
+
+    const paymaster = constants.ZERO_ADDRESS
+    const relayWorker = constants.ZERO_ADDRESS
+    const gasPriceHex = gsnTransactionDetails.gasPrice ?? '0x00'
+    const gasLimitHex = gsnTransactionDetails.gas ?? '0x00'
+
+    const gasLimit = parseInt(gasLimitHex, 16).toString()
+    const gasPrice = parseInt(gasPriceHex, 16).toString()
+    const value = gsnTransactionDetails.value ?? '0'
+
+    const relayRequest: RelayRequest = {
+      request: {
+        to: gsnTransactionDetails.to, // optional LogicAddr
+        data: gsnTransactionDetails.data, // optional InitParams for LogicAddr
+        from: gsnTransactionDetails.from, // owner EOA
+        value: value,
+        nonce: senderNonce,
+        gas: gasLimit, // Not used since RelayHub won't be involved
+        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
+        tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS
+      },
+      relayData: {
+        pctRelayFee: '0',
+        baseRelayFee: '0',
+        gasPrice,
+        paymaster,
+        paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
+        clientId: this.config.clientId,
+        forwarder: forwarderAddress,
+        relayWorker
+      }
+    }
+
+    const signature = await this.accountManager.sign(relayRequest)
+
+    const metadata: RelayMetadata = {
+      relayHubAddress: this.config.relayHubAddress,
+      signature,
+      approvalData: '',
+      relayMaxNonce: 0
+    }
+    const httpRequest: RelayTransactionRequest = {
+      relayRequest,
+      metadata
+    }
+    return httpRequest
+  }
+
   async _prepareRelayHttpRequest (
     relayInfo: RelayInfo,
     gsnTransactionDetails: GsnTransactionDetails
   ): Promise<RelayTransactionRequest> {
+    let senderNonce: string
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
+
+    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+      // Common relay scenario
+      senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
+    } else {
+      senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
+    }
     const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
 
-    const senderNonce = await this.contractInteractor.getSenderNonce(gsnTransactionDetails.from, forwarderAddress)
     const relayWorker = relayInfo.pingResponse.relayWorkerAddress
     const gasPriceHex = gsnTransactionDetails.gasPrice
     const gasLimitHex = gsnTransactionDetails.gas
@@ -283,6 +378,7 @@ export class RelayClient {
     const gasLimit = parseInt(gasLimitHex, 16).toString()
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = gsnTransactionDetails.value ?? '0'
+
     const relayRequest: RelayRequest = {
       request: {
         to: gsnTransactionDetails.to,
@@ -290,7 +386,11 @@ export class RelayClient {
         from: gsnTransactionDetails.from,
         value: value,
         nonce: senderNonce,
-        gas: gasLimit
+        gas: gasLimit,
+        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
+        tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',
@@ -329,29 +429,18 @@ export class RelayClient {
   }
 
   async resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Promise<Address> {
-    let forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
-    if (forwarderAddress !== constants.ZERO_ADDRESS) {
-      const isRecipientDeployed = await this.contractInteractor.isContractDeployed(gsnTransactionDetails.to)
-      if (!isRecipientDeployed) {
-        console.warn(`No IRelayRecipient code at ${gsnTransactionDetails.to}, proceeding without validating 'isTrustedForwarder'!
-        Unless you are using some counterfactual contract deployment technique the transaction will fail!`)
-      } else {
-        const isTrusted = await this.contractInteractor.isTrustedForwarder(gsnTransactionDetails.to, forwarderAddress)
-        if (!isTrusted) {
-          throw new Error('The Forwarder address configured but is not trusted by the Recipient contract')
-        }
+    // The forwarder is the SmartWallet contract calling the final contract.
+    // In the case of a SmartWallet deploy, there's is no forwarder, the forwarder value is not read
+    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
+      gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+      const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
+      if (forwarderAddress === constants.ZERO_ADDRESS) {
+        throw new Error('No forwarder address configured')
       }
+      return forwarderAddress
     } else {
-      try {
-        log.info(`will attempt to get trusted forwarder from: ${gsnTransactionDetails.to}`)
-        forwarderAddress = await this.contractInteractor.getForwarder(gsnTransactionDetails.to)
-        log.info(`on-chain forwarder for: ${gsnTransactionDetails.to} is ${forwarderAddress}`)
-      } catch (e) {
-        throw new Error('No forwarder address configured and no getTrustedForwarder in target contract (fetching from Recipient failed)')
-      }
+      return gsnTransactionDetails.forwarder ?? constants.ZERO_ADDRESS
     }
-
-    return forwarderAddress
   }
 
   getEstimateGasParams (gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {

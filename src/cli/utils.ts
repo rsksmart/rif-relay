@@ -75,7 +75,8 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
   saveContractToFile(deploymentResult.naivePaymasterAddress, workdir, 'Paymaster.json')
-  saveContractToFile(deploymentResult.forwarderAddress, workdir, 'Forwarder.json')
+  saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
+  saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
@@ -88,7 +89,8 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   StakeManager: ${deploymentResult.stakeManagerAddress}
   Penalizer: ${deploymentResult.penalizerAddress}
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
-  Forwarder: ${deploymentResult.forwarderAddress}
+  SmartWallet Template: ${deploymentResult.sWalletTemplateAddress}
+  SmartWallet Factory: ${deploymentResult.factoryAddress}
   Paymaster ${paymasterTitle != null ? '(' + paymasterTitle + ')' : ''}: ${deploymentResult.naivePaymasterAddress}`)
 }
 
@@ -101,7 +103,8 @@ export function loadDeployment (workdir: string): DeploymentResult {
     relayHubAddress: getAddress('RelayHub'),
     stakeManagerAddress: getAddress('StakeManager'),
     penalizerAddress: getAddress('Penalizer'),
-    forwarderAddress: getAddress('Forwarder'),
+    sWalletTemplateAddress: getAddress('SmartWallet'),
+    factoryAddress: getAddress('ProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
     naivePaymasterAddress: getAddress('Paymaster')
   }

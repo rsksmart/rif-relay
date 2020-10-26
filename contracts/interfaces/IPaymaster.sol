@@ -46,8 +46,6 @@ interface IPaymaster {
         GasLimits memory limits
     );
 
-    function trustedForwarder() external view returns (IForwarder);
-
 /**
  * return the relayHub of this contract.
  */

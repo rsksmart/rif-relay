@@ -28,7 +28,6 @@ contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
     override
     returns (bytes memory, bool) {
         (signature, approvalData);
-        _verifyForwarder(relayRequest);
         emit SampleRecipientPreCallWithValues(
             gasleft(), maxPossibleGas);
         return ("", false);

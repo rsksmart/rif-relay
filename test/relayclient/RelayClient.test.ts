@@ -12,7 +12,7 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  TestPaymasterEverythingAcceptedInstance
+  TestEnvelopingPaymasterInstance, SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
 
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
@@ -26,10 +26,9 @@ import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDet
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
-import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 import { GsnEvent } from '../../src/relayclient/GsnEvents'
 import { Web3Provider } from '../../src/relayclient/ContractInteractor'
 import bodyParser from 'body-parser'
@@ -40,9 +39,9 @@ import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransa
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
-const Forwarder = artifacts.require('Forwarder')
-
+const TestEnvelopingPaymaster = artifacts.require('TestEnvelopingPaymaster')
+const SmartWallet = artifacts.require('SmartWallet')
+const TestToken = artifacts.require('TestToken')
 const expect = chai.expect
 chai.use(sinonChai)
 
@@ -64,15 +63,17 @@ class MockHttpClient extends HttpClient {
   }
 }
 
+function addr (n: number): string {
+  return '0x' + n.toString().repeat(40)
+}
+
 contract('RelayClient', function (accounts) {
   let web3: Web3
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
   let testRecipient: TestRecipientInstance
-  let paymaster: TestPaymasterEverythingAcceptedInstance
-  let gasLess: Address
+  let paymaster: TestEnvelopingPaymasterInstance
   let relayProcess: ChildProcessWithoutNullStreams
-  let forwarderAddress: Address
 
   let relayClient: RelayClient
   let gsnConfig: Partial<GSNConfig>
@@ -81,18 +82,23 @@ contract('RelayClient', function (accounts) {
   let from: Address
   let data: PrefixedHexString
   let gsnEvents: GsnEvent[] = []
+  let factory: ProxyFactoryInstance
+  let sWalletTemplate: SmartWalletInstance
+  let smartWallet: SmartWalletInstance
+  let token: TestTokenInstance
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address)
-    const forwarderInstance = await Forwarder.new()
-    forwarderAddress = forwarderInstance.address
-    testRecipient = await TestRecipient.new(forwarderAddress)
-    // register hub's RelayRequest with forwarder, if not already done.
-    await registerForwarderForGsn(forwarderInstance)
-    paymaster = await TestPaymasterEverythingAccepted.new()
-    await paymaster.setTrustedForwarder(forwarderAddress)
+    testRecipient = await TestRecipient.new()
+    sWalletTemplate = await SmartWallet.new()
+    token = await TestToken.new()
+    const env = (await getTestingEnvironment())
+    const senderAddress = accounts[0]
+    factory = await createProxyFactory(sWalletTemplate)
+    smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
+    paymaster = await TestEnvelopingPaymaster.new()
     await paymaster.setRelayHub(relayHub.address)
     await paymaster.deposit({ value: web3.utils.toWei('1', 'ether') })
 
@@ -105,21 +111,28 @@ contract('RelayClient', function (accounts) {
     gsnConfig = {
       logLevel: 5,
       relayHubAddress: relayHub.address,
-      chainId: (await getTestingEnvironment()).chainId
+      chainId: env.chainId
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
-    gasLess = await web3.eth.personal.newAccount('password')
-    from = gasLess
+
+    from = senderAddress
     to = testRecipient.address
+    await token.mint('1000', smartWallet.address)
+
     data = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
+
     options = {
       from,
       to,
       data,
-      forwarder: forwarderAddress,
+      forwarder: smartWallet.address,
       paymaster: paymaster.address,
       paymasterData: '0x',
-      clientId: '1'
+      clientId: '1',
+      tokenRecipient: paymaster.address,
+      tokenContract: token.address,
+      tokenAmount: '1',
+      factory: addr(0)
     }
   })
 
@@ -131,6 +144,7 @@ contract('RelayClient', function (accounts) {
     it('should send transaction to a relay and receive a signed transaction in response', async function () {
       const relayingResult = await relayClient.relayTransaction(options)
       const validTransaction = relayingResult.transaction
+
       if (validTransaction == null) {
         assert.fail(`validTransaction is null: ${JSON.stringify(relayingResult, replaceErrors)}`)
         return
@@ -141,7 +155,7 @@ contract('RelayClient', function (accounts) {
 
       // validate we've got the "SampleRecipientEmitted" event
       // TODO: use OZ test helpers
-      const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,address,uint256,uint256)') ?? ''
+      const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
       assert(res.logs.find(log => log.topics.includes(topic)))
 
       const destination: string = validTransaction.to.toString('hex')
@@ -252,6 +266,104 @@ contract('RelayClient', function (accounts) {
       assert.equal(relayingErrors.size, 1)
       assert.match(relayingErrors.values().next().value.message, /score-error/)
     })
+
+    // TODOO test other things, for example, if the smart wallet to deploy has no funds, etc
+    // Do we want to restrict to certnain factories?
+
+    it('should calculate the estimatedGas for deploying a SmartWallet using the ProxyFactory', async function () {
+      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('pas2')
+      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'pas2')
+
+      const details: GsnTransactionDetails = {
+        from: eoaWithoutSmartWallet,
+        to: addr(0), // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        forwarder: addr(0), // There's no forwarder in a deploy, field not read
+        paymaster: paymaster.address,
+        paymasterData: '0x',
+        clientId: '1',
+        tokenRecipient: paymaster.address,
+        tokenContract: token.address,
+        tokenAmount: '1',
+        factory: factory.address, // Indicate to the RelayHub this is a Smart Wallet deploy
+        useGSN: true
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, details.to, details.data)
+      await token.mint('1000', swAddress)
+
+      const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
+      const cushion = 1000
+
+      assert.isTrue(estimatedGasResult >= (155000 - cushion))
+
+    })
+
+    it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {
+      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('eoaPass')
+      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'eoaPass')
+
+      const deployOptions = {
+        from: eoaWithoutSmartWallet,
+        to: addr(0), // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        gas: '0x1E8480',
+        forwarder: addr(0), // There's no forwarder in a deploy, field not read
+        paymaster: paymaster.address,
+        paymasterData: '0x',
+        clientId: '1',
+        tokenRecipient: paymaster.address,
+        tokenContract: token.address,
+        tokenAmount: '1',
+        factory: factory.address // Indicate to the RelayHub this is a Smart Wallet deploy
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, deployOptions.to, deployOptions.data)
+      await token.mint('1000', swAddress)
+
+      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+
+      const relayingResult = await relayClient.relayTransaction(deployOptions)
+      const validTransaction = relayingResult.transaction
+
+      if (validTransaction == null) {
+        assert.fail(`validTransaction is null: ${JSON.stringify(relayingResult, replaceErrors)}`)
+        return
+      }
+      const validTransactionHash: string = validTransaction.hash(true).toString('hex')
+      const txHash = `0x${validTransactionHash}`
+      const res = await web3.eth.getTransactionReceipt(txHash)
+      // validate we've got the "Deployed" event
+
+      const topic: string = web3.utils.sha3('Deployed(address,uint256)') ?? ''
+      assert.notEqual(topic, '', 'error while calculating topic')
+
+      assert(res.logs.find(log => log.topics.includes(topic)))
+      const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
+      const loggedEvent = res.logs[eventIdx]
+      const saltSha = web3.utils.soliditySha3(
+        { t: 'address', v: eoaWithoutSmartWallet },
+        { t: 'address', v: deployOptions.to },
+        { t: 'bytes', v: deployOptions.data }
+      ) ?? ''
+      assert.notEqual(saltSha, '', 'error while calculating salt')
+
+      const expectedSalt = web3.utils.toBN(saltSha).toString()
+
+      const obtainedEvent = web3.eth.abi.decodeParameters([{ type: 'address', name: 'sWallet' },
+        { type: 'uint256', name: 'salt' }], loggedEvent.data)
+
+      assert.equal(obtainedEvent.salt, expectedSalt, 'salt from Deployed event is not the expected one')
+      assert.equal(obtainedEvent.sWallet, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
+
+      const destination: string = validTransaction.to.toString('hex')
+      assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+
+      let expectedCode = await factory.getCreationBytecode()
+      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)// only runtime code
+      assert.equal(await web3.eth.getCode(swAddress), expectedCode, 'The installed code is not the expected one')
+    })
+
     describe('with events listener', () => {
       function eventsHandler (e: GsnEvent): void {
         gsnEvents.push(e)

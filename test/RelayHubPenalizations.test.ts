@@ -16,11 +16,13 @@ import {
   PenalizerInstance,
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance,
-  TestRecipientInstance
+  TestRecipientInstance,
+  SmartWalletInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment } from './TestUtils'
-import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
+import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+
 
 import TransactionResponse = Truffle.TransactionResponse
 
@@ -29,7 +31,8 @@ const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
-const Forwarder = artifacts.require('Forwarder')
+const SmartWallet = artifacts.require('SmartWallet')
+const addrZero = '0x0000000000000000000000000000000000000000'
 
 const paymasterData = '0x'
 const clientId = '0'
@@ -42,7 +45,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let penalizer: PenalizerInstance
   let recipient: TestRecipientInstance
   let paymaster: TestPaymasterEverythingAcceptedInstance
-
+  let env: Environment
   let forwarder: string
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
   before(async function () {
@@ -53,11 +56,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHub = await deployHub(stakeManager.address, penalizer.address)
-    const forwarderInstance = await Forwarder.new()
+    env = await getTestingEnvironment()
+    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+    const forwarderInstance = await createSmartWallet(sender, factory, env.chainId)
     forwarder = forwarderInstance.address
-    recipient = await TestRecipient.new(forwarder)
-    // register hub's RelayRequest with forwarder, if not already done.
-    await registerForwarderForGsn(forwarderInstance)
+
+    recipient = await TestRecipient.new()
 
     paymaster = await TestPaymasterEverythingAccepted.new()
     await stakeManager.stakeForAddress(relayManager, 1000, {
@@ -66,7 +71,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       gasPrice: '1'
     })
     await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
-    await paymaster.setTrustedForwarder(forwarder)
+    // await paymaster.setTrustedForwarder(forwarder)
     await paymaster.setRelayHub(relayHub.address)
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
     // @ts-ignore
@@ -93,6 +98,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     const gasPrice = new BN('1')
     const gasLimit = new BN('5000000')
     const txData = recipient.contract.methods.emitMessage('').encodeABI()
+
     const relayRequest: RelayRequest = {
       request: {
         to: recipient.address,
@@ -100,7 +106,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         from: sender,
         nonce: '0',
         value: '0',
-        gas: gasLimit.toString()
+        gas: gasLimit.toString(),
+        tokenRecipient: addrZero,
+        tokenContract: addrZero,
+        tokenAmount: '0',
+        factory: addrZero // only set if this is a deploy request
       },
       relayData: {
         gasPrice: gasPrice.toString(),
@@ -408,7 +418,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
               from: sender,
               nonce: senderNonce.toString(),
               value: '0',
-              gas: gasLimit.toString()
+              gas: gasLimit.toString(),
+              tokenRecipient: addrZero,
+              tokenContract: addrZero,
+              tokenAmount: '0',
+              factory: addrZero // only set if this is a deploy request
             },
             relayData: {
               gasPrice: gasPrice.toString(),
@@ -524,7 +538,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             from: encodedCallArgs.sender,
             nonce: encodedCallArgs.nonce.toString(),
             value: '0',
-            gas: encodedCallArgs.gasLimit.toString()
+            gas: encodedCallArgs.gasLimit.toString(),
+            tokenRecipient: addrZero,
+            tokenContract: addrZero,
+            tokenAmount: '0',
+            factory: addrZero // only set if this is a deploy request
           },
           relayData: {
             baseRelayFee: encodedCallArgs.baseFee.toString(),
