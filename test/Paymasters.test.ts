@@ -54,17 +54,21 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   const initParams = '0x00'
 
   beforeEach(async function () {
-    deployPaymaster = await DeployPaymaster.new({ from: paymasterOwner })
+    
     token = await TestToken.new()
     template = await SmartWallet.new()
 
-    testPaymasters = await TestPaymasters.new(deployPaymaster.address)
+    
 
     factory = await createProxyFactory(template)
 
+    deployPaymaster = await DeployPaymaster.new(factory.address, { from: paymasterOwner })
+    testPaymasters = await TestPaymasters.new(deployPaymaster.address)
+    
     // We simulate the testPaymasters contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
+    
 
     relayRequestData = {
       request: {
@@ -177,6 +181,20 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     await expectRevert.unspecified(
       testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Token contract not allowed'
+    )
+  })
+
+  it('SHOULD fail when factory is incorrect on preRelayCall', async function () {
+    deployPaymaster = await DeployPaymaster.new(other1, { from: paymasterOwner })
+
+    // We simulate the testPaymasters contract is a relayHub to make sure
+    // the onlyRelayHub condition is correct
+    await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
+    testPaymasters = await TestPaymasters.new(deployPaymaster.address)
+
+    await expectRevert.unspecified(
+      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      'factory should be the trusted one!'
     )
   })
 })

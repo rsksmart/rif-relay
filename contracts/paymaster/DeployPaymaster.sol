@@ -14,6 +14,13 @@ import "./BasePaymaster.sol";
  * - GSN compatible
  */
 contract DeployPaymaster is BasePaymaster {
+
+    address trustedFactory;
+
+    constructor(address factory) public {
+        trustedFactory = factory;
+    }
+
     function versionPaymaster() external override virtual view returns (string memory){
         return "2.0.1+opengsn.token.ipaymaster";
     }
@@ -35,6 +42,7 @@ contract DeployPaymaster is BasePaymaster {
         IERC20 token = IERC20(relayRequest.request.tokenContract);
 
         require(address(relayRequest.request.factory) != address(0), "factory should be defined");
+        require(address(relayRequest.request.factory) == trustedFactory, "factory should be the trusted one!");
         
         address contractAddr = ProxyFactory(relayRequest.request.factory).getSmartWalletAddress(relayRequest.request.from, relayRequest.request.to, relayRequest.request.data);
 
