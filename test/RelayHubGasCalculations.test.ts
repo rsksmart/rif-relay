@@ -43,8 +43,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       post: 1644
     },
     rsk: {
-      pre: 4251,
-      post: 1044
+      pre: 855,
+      post: 944
     }
   }
 
@@ -172,7 +172,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           hubOverhead,
           relayCallGasLimit: gasLimit.toString()
         })
-
+        
         await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
           gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
           maxPossibleGas: maxPossibleGas.toString()
@@ -368,7 +368,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
 
-          const rskDiff: number = isRsk(env) ? 3000 : 0
+          const rskDiff: number = isRsk(env) ? 3135 : 0
           const gasUsed: number = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
 
