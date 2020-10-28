@@ -68,7 +68,8 @@ contract('TransactionManager', function (accounts) {
       }
     })
 
-    it('should handle nonce atomically', async function () {
+    // Skipping this test since it doesn't make sense when running using RSKJ
+    it.skip('should handle nonce atomically', async function () {
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(), env.relayTransaction(false, { data: '0xdeadbeef' })]
       await Promise.all(promises)
@@ -159,7 +160,5 @@ contract('TransactionManager', function (accounts) {
       assert.equal(toBN(minedTxAfter.gasPrice).toString(), toBN(minedTxBefore.gasPrice).muln(12).divn(10).toString())
       await env.assertTransactionRelayed(parsedTxHash)
     })
-
-    it('should resend multiple unconfirmed transactions')
   })
 })
