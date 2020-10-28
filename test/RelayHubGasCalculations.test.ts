@@ -172,7 +172,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           hubOverhead,
           relayCallGasLimit: gasLimit.toString()
         })
-        
+
         await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
           gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
           maxPossibleGas: maxPossibleGas.toString()

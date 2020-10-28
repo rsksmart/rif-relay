@@ -81,7 +81,7 @@ export default class ContractInteractor {
   private paymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
   private stakeManagerInstance!: IStakeManagerInstance
-  private relayRecipientInstance?: BaseRelayRecipientInstance
+  private readonly relayRecipientInstance?: BaseRelayRecipientInstance
   private knowForwarderAddressInstance?: IKnowForwarderAddressInstance
 
   readonly web3: Web3
@@ -208,7 +208,6 @@ export default class ContractInteractor {
     this.knowForwarderAddressInstance = await this.IKnowForwarderAddress.at(address)
     return this.knowForwarderAddressInstance
   }
-
 
   async _createPaymaster (address: Address): Promise<IPaymasterInstance> {
     return await this.IPaymasterContract.at(address)

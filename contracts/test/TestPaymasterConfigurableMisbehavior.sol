@@ -46,6 +46,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     }
 
     function preRelayedCall(
+        /* solhint-disable-next-line no-unused-vars */
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,

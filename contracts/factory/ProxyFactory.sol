@@ -205,6 +205,7 @@ contract ProxyFactory is IProxyFactory {
         //uint256 size;
 
         //Deployment of the Smart Wallet
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             addr := create2(0, add(code, 0x20), mload(code), salt)
             if iszero(extcodesize(addr)) {
@@ -224,6 +225,7 @@ contract ProxyFactory is IProxyFactory {
         //Since the init code determines the address of the smart wallet, any initialization
         //require is done via the runtime code, to avoid the parameters impacting on the resulting address
         
+        /* solhint-disable-next-line avoid-low-level-calls */
         (bool success, ) = addr.call(initdata);
         require(success);
 

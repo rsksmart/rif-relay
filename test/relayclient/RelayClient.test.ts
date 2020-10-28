@@ -296,7 +296,6 @@ contract('RelayClient', function (accounts) {
       const cushion = 1000
 
       assert.isTrue(estimatedGasResult >= (155000 - cushion))
-
     })
 
     it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {

@@ -23,7 +23,6 @@ import {
 
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 
-
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')

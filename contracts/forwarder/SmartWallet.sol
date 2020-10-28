@@ -79,20 +79,22 @@ contract SmartWallet is IForwarder {
         }
 
         address logic;
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             logic := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
             )
         }
 
-        // solhint-disable-next-line avoid-low-level-calls
         // If there's no extra logic, then call the destination contract
         if (logic == address(0)) {
+            /* solhint-disable-next-line avoid-low-level-calls */
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(
                 abi.encodePacked(req.data, req.from)
             );
         } else {
             //If there's extra logic, delegate the execution
+            /* solhint-disable-next-line avoid-low-level-calls */
             (success, ret) = logic.delegatecall(msg.data);
         }
 
@@ -111,6 +113,7 @@ contract SmartWallet is IForwarder {
 
     function _verifyOwner(ForwardRequest memory req) internal view {
         address swalletOwner;
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             //First of all, verify the req.from is the owner of this smart wallet
             swalletOwner := sload(
@@ -211,6 +214,7 @@ contract SmartWallet is IForwarder {
 
     function isInitialized() external view returns (bool) {
         bytes32 swalletOwner;
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             swalletOwner := sload(
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
@@ -244,6 +248,7 @@ contract SmartWallet is IForwarder {
         bytes memory transferData
     ) external returns (bool) {
         bytes32 swalletOwner;
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             //This function can be called only if not initialized (i.e., owner not set)
             //The slot used complies with EIP-1967-like, obtained as:
@@ -256,6 +261,7 @@ contract SmartWallet is IForwarder {
         if (swalletOwner == 0x0) {
             //we need to initialize the contract
             if (tokenAddr != address(0)) {
+                /* solhint-disable-next-line avoid-low-level-calls */
                 (bool success, ) = tokenAddr.call(transferData);
                 require(success, "Unable to pay for deployment");
             }
@@ -270,13 +276,14 @@ contract SmartWallet is IForwarder {
                     hex"439fab91",
                     initParams
                 );
+                /* solhint-disable-next-line avoid-low-level-calls */
                 (bool success, ) = logic.delegatecall(initP);
 
                 require(
                     success,
                     "initialize(bytes) call in logic contract failed"
                 );
-
+                /* solhint-disable-next-line no-inline-assembly */
                 assembly {
                     //The slot used complies with EIP-1967, obtained as:
                     //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
@@ -291,6 +298,7 @@ contract SmartWallet is IForwarder {
             //storing the logic address
             //Set the owner of this Smart Wallet
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            /* solhint-disable-next-line no-inline-assembly */
             assembly {
                 sstore(
                     0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
@@ -302,8 +310,6 @@ contract SmartWallet is IForwarder {
         }
         return false;
     }
-
-
 
     function registerDomainSeparator(string calldata name, string calldata version) external override {
         uint256 chainId;
@@ -323,7 +329,6 @@ contract SmartWallet is IForwarder {
         emit DomainRegistered(domainHash, domainValue);
     }
 
-
     /**
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
      * function in the contract matches the call data.
@@ -336,7 +341,7 @@ contract SmartWallet is IForwarder {
         //Proxy code to the logic (if any)
 
         bytes32 logicStrg;
-
+        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             logicStrg := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
@@ -347,7 +352,7 @@ contract SmartWallet is IForwarder {
             //If the storage cell is not empty
             
             address logic = address(uint160(uint256(logicStrg)));
-
+            /* solhint-disable-next-line no-inline-assembly */
             assembly {
                 let ptr := mload(0x40)
 

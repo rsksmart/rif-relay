@@ -160,7 +160,5 @@ contract('TransactionManager', function (accounts) {
       assert.equal(toBN(minedTxAfter.gasPrice).toString(), toBN(minedTxBefore.gasPrice).muln(12).divn(10).toString())
       await env.assertTransactionRelayed(parsedTxHash)
     })
-
-    it('should resend multiple unconfirmed transactions')
   })
 })

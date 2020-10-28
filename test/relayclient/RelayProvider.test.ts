@@ -190,7 +190,7 @@ contract('RelayProvider', function (accounts) {
         value,
         gas: '100000',
         paymaster,
-        factory:constants.ZERO_ADDRESS
+        factory: constants.ZERO_ADDRESS
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -208,7 +208,7 @@ contract('RelayProvider', function (accounts) {
           value: '0',
           gas: '100000',
           paymaster,
-          factory:constants.ZERO_ADDRESS
+          factory: constants.ZERO_ADDRESS
         })
       } catch (error) {
         const expectedText = 'Requestor is not the owner of the Smart Wallet'
