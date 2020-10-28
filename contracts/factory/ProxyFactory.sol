@@ -232,7 +232,6 @@ contract ProxyFactory is IProxyFactory {
 
     // Returns the proxy code to that is deployed on every Smart Wallet creation
     function getCreationBytecode() public view returns (bytes memory) {
-
         bytes memory payloadStart
          = hex"602D3D8160093D39F3363D3D373D3D3D3D363D73";
         bytes memory payloadEnd = hex"5AF43D923D90803E602B57FD5BF3";
