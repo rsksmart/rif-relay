@@ -68,7 +68,8 @@ contract('TransactionManager', function (accounts) {
       }
     })
 
-    it('should handle nonce atomically', async function () {
+    // Skipping this test since it doesn't make sense when running using RSKJ
+    it.skip('should handle nonce atomically', async function () {
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(), env.relayTransaction(false, { data: '0xdeadbeef' })]
       await Promise.all(promises)

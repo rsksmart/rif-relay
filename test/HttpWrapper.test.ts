@@ -29,7 +29,8 @@ describe('HttpWrapper', () => {
     await expect(res).to.be.eventually.rejectedWith({ error: 'connect ECONNREFUSED 127.0.0.1:44321' })
   })
 
-  it('should timeout after specified time', async () => {
+  // This test does not make sense when runnig with RSKJ
+  it.skip('should timeout after specified time', async () => {
     // this test abuses the fact that a local ganache is slow, and should take over 1ms to respond even if it's local
     const http = new HttpWrapper({ timeout: 1 })
     const res =
