@@ -17,7 +17,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init({chainId:(await getTestingEnvironment()).chainId}, {}, contractFactory)
+    await env.init({ chainId: (await getTestingEnvironment()).chainId }, {}, contractFactory)
     await env.newServerInstance()
     provider.setDelayTransactions(true)
   })
@@ -40,13 +40,13 @@ contract('Network Simulation for Relay Server', function (accounts) {
 
     it('should broadcast multiple transactions at once', async function () {
       const SmartWallet = artifacts.require('SmartWallet')
-      let sWalletTemplate = await SmartWallet.new()
+      const sWalletTemplate = await SmartWallet.new()
       const factory = await createProxyFactory(sWalletTemplate)
       const smartWallet = await createSmartWallet(accounts[1], factory, (await getTestingEnvironment()).chainId)
 
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
-      const overrideDetails = { from: accounts[1], forwarder:smartWallet.address }
+      const overrideDetails = { from: accounts[1], forwarder: smartWallet.address }
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)
