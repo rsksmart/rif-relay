@@ -14,23 +14,23 @@ import {
   TestPaymasterEverythingAcceptedInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
   TestRecipientContract,
-  TestRecipientInstance
+  TestRecipientInstance,
+  ProxyFactoryInstance,
+  SmartWalletInstance
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment } from '../TestUtils'
+import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 import { getEip712Signature } from '../../src/common/Utils'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
-import { registerForwarderForGsn } from '../../src/common/EIP712/ForwarderUtil'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
-const IForwarder = artifacts.require('IForwarder')
-const Forwarder = artifacts.require('Forwarder')
 const StakeManager = artifacts.require('StakeManager')
+const SmartWallet = artifacts.require('SmartWallet')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 
@@ -38,20 +38,22 @@ const underlyingProvider = web3.currentProvider as HttpProvider
 
 const paymasterData = '0x'
 const clientId = '1'
+const addrZero = '0x0000000000000000000000000000000000000000'
 
 // TODO: once Utils.js is translated to TypeScript, move to Utils.ts
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3): Promise<{ relayRequest: RelayRequest, signature: string }> {
-  const testRecipientForwarderAddress = await testRecipient.getTrustedForwarder()
-  const testRecipientForwarder = await IForwarder.at(testRecipientForwarderAddress)
-  const senderNonce = (await testRecipientForwarder.getNonce(account)).toString()
+export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const relayRequest: RelayRequest = {
     request: {
       to: testRecipient.address,
       data: testRecipient.contract.methods.emitMessage('hello world').encodeABI(),
       from: account,
-      nonce: senderNonce,
+      nonce: nonce,
       value: '0',
-      gas: '10000'
+      gas: '10000',
+      tokenRecipient: addrZero,
+      tokenContract: addrZero,
+      tokenAmount: '0',
+      factory: addrZero // only set if this is a deploy request
     },
     relayData: {
       pctRelayFee: '1',
@@ -60,14 +62,14 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       paymaster,
       paymasterData,
       clientId,
-      forwarder: testRecipientForwarderAddress,
+      forwarder: swallet,
       relayWorker
     }
   }
   const dataToSign = new TypedRequestData(
     // domain.defaultEnvironment.chainId,
     (await getTestingEnvironment()).chainId,
-    testRecipientForwarderAddress,
+    swallet,
     relayRequest
   )
   const signature = await getEip712Signature(
@@ -82,27 +84,29 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
 
 contract('RelayProvider', function (accounts) {
   let web3: Web3
-  let gasLess: Address
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
   let paymasterInstance: TestPaymasterEverythingAcceptedInstance
   let paymaster: Address
   let relayProcess: ChildProcessWithoutNullStreams
   let relayProvider: provider
-  let forwarderAddress: Address
-
+  let factory: ProxyFactoryInstance
+  let sWalletTemplate: SmartWalletInstance
+  let smartWallet: SmartWalletInstance
+  let senderAddress: string
   before(async function () {
     web3 = new Web3(underlyingProvider)
-    gasLess = await web3.eth.personal.newAccount('password')
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
-    const forwarderInstance = await Forwarder.new()
-    forwarderAddress = forwarderInstance.address
-    await registerForwarderForGsn(forwarderInstance)
+
+    sWalletTemplate = await SmartWallet.new()
+    const env = (await getTestingEnvironment())
+    senderAddress = accounts[0]
+    factory = await createProxyFactory(sWalletTemplate)
+    smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
     paymaster = paymasterInstance.address
-    await paymasterInstance.setTrustedForwarder(forwarderAddress)
     await paymasterInstance.setRelayHub(relayHub.address)
     await paymasterInstance.deposit({ value: web3.utils.toWei('2', 'ether') })
     relayProcess = await startRelay(relayHub.address, stakeManager, {
@@ -120,16 +124,19 @@ contract('RelayProvider', function (accounts) {
 
   describe('Use Provider to relay transparently', () => {
     let testRecipient: TestRecipientInstance
+    let testRecipient2: TestRecipientInstance
     before(async () => {
       const env = await getTestingEnvironment()
       const TestRecipient = artifacts.require('TestRecipient')
-      testRecipient = await TestRecipient.new(forwarderAddress)
+      testRecipient = await TestRecipient.new()
+      testRecipient2 = await TestRecipient.new()
       const gsnConfig = configureGSN({
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: env.chainId
       })
 
+      gsnConfig.forwarderAddress = smartWallet.address
       let websocketProvider: WebsocketProvider
 
       if (isRsk(await getTestingEnvironment())) {
@@ -148,16 +155,18 @@ contract('RelayProvider', function (accounts) {
     })
     it('should relay transparently', async function () {
       const res = await testRecipient.emitMessage('hello world', {
-        from: gasLess,
+        from: senderAddress,
         forceGasPrice: '0x51f4d5c00',
+        value: '0',
         // TODO: for some reason estimated values are crazy high!
         gas: '100000',
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
+
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
         message: 'hello world',
-        realSender: gasLess,
         msgValue: '0',
         balance: '0'
       })
@@ -170,24 +179,45 @@ contract('RelayProvider', function (accounts) {
       // probably by swapping user's tokens into eth.
 
       await web3.eth.sendTransaction({
-        from: accounts[0],
-        to: forwarderAddress,
+        from: senderAddress,
+        to: smartWallet.address,
         value
       })
+
       const res = await testRecipient.emitMessage('hello world', {
-        from: gasLess,
+        from: senderAddress,
         forceGasPrice: '0x51f4d5c00',
         value,
         gas: '100000',
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
         message: 'hello world',
-        realSender: gasLess,
         msgValue: value,
         balance: value
       })
+    })
+
+    it('should revert if the sender is not the owner of the smart wallet', async function () {
+      try {
+        await testRecipient.emitMessage('hello world', {
+          from: accounts[3], // different sender
+          forceGasPrice: '0x51f4d5c00',
+          value: '0',
+          gas: '100000',
+          paymaster,
+          factory: constants.ZERO_ADDRESS
+        })
+      } catch (error) {
+        const expectedText = 'Requestor is not the owner of the Smart Wallet'
+        const err: string = String(error)
+        const index = err.search(expectedText)
+        assert.isTrue(index >= 0)
+        return
+      }
+      assert.fail('It should have thrown an exception')
     })
 
     it('should subscribe to events', async () => {
@@ -195,7 +225,7 @@ contract('RelayProvider', function (accounts) {
 
       const eventPromise = new Promise((resolve, reject) => {
         // @ts-ignore
-        testRecipient.contract.once('SampleRecipientEmitted', { fromBlock: block }, (err, ev) => {
+        testRecipient2.contract.once('SampleRecipientEmitted', { fromBlock: block }, (err, ev) => {
           if (err !== null) {
             reject(err)
           } else {
@@ -204,10 +234,11 @@ contract('RelayProvider', function (accounts) {
         })
       })
 
-      await testRecipient.emitMessage('hello again', {
-        from: gasLess,
+      await testRecipient2.emitMessage('hello again', {
+        from: senderAddress,
         gas: '100000',
-        paymaster
+        paymaster,
+        factory: constants.ZERO_ADDRESS
       })
       const log: any = await eventPromise
 
@@ -218,8 +249,9 @@ contract('RelayProvider', function (accounts) {
     // this is not the way the revert reason is being reported by GSN solidity contracts
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
-        from: gasLess,
-        paymaster
+        from: senderAddress,
+        paymaster,
+        factory: constants.ZERO_ADDRESS
       }), 'always fail')
     })
   })
@@ -232,10 +264,12 @@ contract('RelayProvider', function (accounts) {
 
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
-      testRecipient = await TestRecipient.new(forwarderAddress)
+      testRecipient = await TestRecipient.new()
 
       const env = await getTestingEnvironment()
       gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      gsnConfig.forwarderAddress = smartWallet.address
+
       // call to emitMessage('hello world')
       jsonRpcPayload = {
         jsonrpc: '2.0',
@@ -243,12 +277,13 @@ contract('RelayProvider', function (accounts) {
         method: 'eth_sendTransaction',
         params: [
           {
-            from: gasLess,
+            from: senderAddress,
             gas: '0x186a0',
             gasPrice: '0x4a817c800',
             forceGasPrice: '0x51f4d5c00',
             paymaster,
-            forwarder: forwarderAddress,
+            forwarder: smartWallet.address,
+            factory: constants.ZERO_ADDRESS,
             to: testRecipient.address,
             data: testRecipient.contract.methods.emitMessage('hello world').encodeABI()
           }
@@ -281,6 +316,8 @@ contract('RelayProvider', function (accounts) {
         relayHubAddress: relayHub.address,
         chainId: env.chainId
       })
+      gsnConfig.forwarderAddress = smartWallet.address
+
       const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
       const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result: JsonRpcResponse | undefined): void => {
         if (error != null) {
@@ -309,9 +346,11 @@ contract('RelayProvider', function (accounts) {
     // It is not strictly necessary to make this test against actual tx receipt, but I prefer to do it anyway
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
-      testRecipient = await TestRecipient.new(forwarderAddress)
+      testRecipient = await TestRecipient.new()
       const env = await getTestingEnvironment()
       const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      gsnConfig.forwarderAddress = smartWallet.address
+
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
         // @ts-ignore
@@ -331,10 +370,11 @@ contract('RelayProvider', function (accounts) {
 
       // create desired transactions
       misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-      await misbehavingPaymaster.setTrustedForwarder(forwarderAddress)
+      // await misbehavingPaymaster.setTrustedForwarder(forwarderAddress)
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, accounts[0], accounts[0], misbehavingPaymaster.address, web3)
+      const nonceToUse = await smartWallet.getNonce()
+      const { relayRequest, signature } = await prepareTransaction(testRecipient, accounts[0], accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
       await misbehavingPaymaster.setReturnInvalidErrorCode(true)
       const paymasterRejectedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
         from: accounts[0],
@@ -423,11 +463,13 @@ contract('RelayProvider', function (accounts) {
     let TestRecipient: TestRecipientContract
     before(async function () {
       TestRecipient = artifacts.require('TestRecipient')
+
       const gsnConfig = configureGSN({
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: (await getTestingEnvironment()).chainId
       })
+      gsnConfig.forwarderAddress = smartWallet.address
 
       let websocketProvider: WebsocketProvider
 
@@ -443,11 +485,11 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should throw on calling .new without useGSN: false', async function () {
-      await expect(TestRecipient.new(forwarderAddress)).to.be.eventually.rejectedWith('GSN cannot relay contract deployment transactions. Add {from: accountWithEther, useGSN: false}.')
+      await expect(TestRecipient.new()).to.be.eventually.rejectedWith('GSN cannot relay contract deployment transactions. Add {from: accountWithEther, useGSN: false}.')
     })
 
     it('should deploy a contract without GSN on calling .new with useGSN: false', async function () {
-      const testRecipient = await TestRecipient.new(forwarderAddress, {
+      const testRecipient = await TestRecipient.new({
         from: accounts[0],
         useGSN: false
       })

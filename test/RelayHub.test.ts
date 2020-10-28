@@ -12,18 +12,19 @@ import {
   PenalizerInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  ForwarderInstance,
+  IForwarderInstance,
   TestPaymasterEverythingAcceptedInstance,
-  TestPaymasterConfigurableMisbehaviorInstance
+  TestPaymasterConfigurableMisbehaviorInstance,
+  SmartWalletInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason, getTestingEnvironment } from './TestUtils'
-import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
+import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 const { expect, assert } = chai.use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
-const Forwarder = artifacts.require('Forwarder')
+const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -48,7 +49,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
   let paymasterContract: TestPaymasterEverythingAcceptedInstance
-  let forwarderInstance: ForwarderInstance
+  let forwarderInstance: IForwarderInstance
   let target: string
   let paymaster: string
   let forwarder: string
@@ -57,24 +58,22 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
   beforeEach(async function () {
     env = await getTestingEnvironment()
+    chainId = env.chainId
+
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
     paymasterContract = await TestPaymasterEverythingAccepted.new()
-    forwarderInstance = await Forwarder.new()
+
+    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
     forwarder = forwarderInstance.address
-    recipientContract = await TestRecipient.new(forwarder)
-
-    chainId = env.chainId
-
-    // register hub's RelayRequest with forwarder, if not already done.
-    await registerForwarderForGsn(forwarderInstance)
+    recipientContract = await TestRecipient.new()
 
     target = recipientContract.address
     paymaster = paymasterContract.address
     relayHub = relayHubInstance.address
-
-    await paymasterContract.setTrustedForwarder(forwarder)
     await paymasterContract.setRelayHub(relayHub)
   })
 
@@ -192,6 +191,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     let sharedRelayRequestData: RelayRequest
     const paymasterData = '0x'
     const clientId = '1'
+    const addrZero = '0x0000000000000000000000000000000000000000'
 
     beforeEach(function () {
       sharedRelayRequestData = {
@@ -201,7 +201,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
-          gas: gasLimit
+          gas: gasLimit,
+          tokenRecipient: addrZero,
+          tokenContract: addrZero,
+          tokenAmount: '0',
+          factory: addrZero // only set if this is a deploy request
         },
         relayData: {
           pctRelayFee,
@@ -331,7 +335,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
         beforeEach(async function () {
           misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-          await misbehavingPaymaster.setTrustedForwarder(forwarder)
+          // await misbehavingPaymaster.setTrustedForwarder(forwarder)
           await misbehavingPaymaster.setRelayHub(relayHub)
           await relayHubInstance.depositFor(misbehavingPaymaster.address, {
             value: ether('1'),
@@ -386,8 +390,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         beforeEach(async function () {
           paymasterWithContext = await TestPaymasterStoreContext.new()
           misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-          await paymasterWithContext.setTrustedForwarder(forwarder)
-          await misbehavingPaymaster.setTrustedForwarder(forwarder)
+          // await paymasterWithContext.setTrustedForwarder(forwarder)
+          // await misbehavingPaymaster.setTrustedForwarder(forwarder)
           await paymasterWithContext.setRelayHub(relayHub)
           await misbehavingPaymaster.setRelayHub(relayHub)
           await relayHubInstance.depositFor(paymasterWithContext.address, {
@@ -436,19 +440,18 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         })
 
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
-          const nonceBefore = await forwarderInstance.getNonce(senderAddress)
+          const nonceBefore = await forwarderInstance.getNonce()
 
           const { tx, logs } = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
             gas,
             gasPrice
           })
-          const nonceAfter = await forwarderInstance.getNonce(senderAddress)
+          const nonceAfter = await forwarderInstance.getNonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
 
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message,
-            realSender: senderAddress,
             msgSender: forwarder,
             origin: relayWorker
           })
@@ -500,7 +503,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           })
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message: messageWithNoParams,
-            realSender: senderAddress,
             msgSender: forwarder,
             origin: relayWorker
           })
@@ -607,7 +609,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         it('should not accept relay requests if destination recipient doesn\'t have a balance to pay for it',
           async function () {
             const paymaster2 = await TestPaymasterEverythingAccepted.new()
-            await paymaster2.setTrustedForwarder(forwarder)
+            // await paymaster2.setTrustedForwarder(forwarder)
             await paymaster2.setRelayHub(relayHub)
             const maxPossibleCharge = (await relayHubInstance.calculateCharge(gasLimit, {
               gasPrice,
@@ -696,7 +698,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           let signature: string
           beforeEach(async function () {
             misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-            await misbehavingPaymaster.setTrustedForwarder(forwarder)
+            // await misbehavingPaymaster.setTrustedForwarder(forwarder)
             await misbehavingPaymaster.setRelayHub(relayHub)
             await relayHubInstance.depositFor(misbehavingPaymaster.address, {
               value: ether('1'),

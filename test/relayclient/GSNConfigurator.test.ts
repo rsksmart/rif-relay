@@ -71,10 +71,11 @@ contract('client-configuration', () => {
 
     describe('with successful resolveConfigurationGSN', () => {
       it('should fill relayHub, stakeManager, Forwarder from valid paymaster paymaster address ', async () => {
+        // RSK Evenloping: Paymaster does NOT have a reference to the Smart Wallet (a.k.a, Forwarder)
         const gsnConfig = await resolveConfigurationGSN(web3.currentProvider as Web3Provider, { paymasterAddress })
         assert.equal(gsnConfig.relayHubAddress, deploymentResult.relayHubAddress)
         assert.equal(gsnConfig.paymasterAddress, deploymentResult.naivePaymasterAddress)
-        assert.equal(gsnConfig.forwarderAddress, deploymentResult.forwarderAddress)
+        // assert.equal(gsnConfig.forwarderAddress, deploymentResult.forwarderAddress)
       })
       it('should set metamask defaults', async () => {
         const metamaskProvider = {

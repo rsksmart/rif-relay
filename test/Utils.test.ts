@@ -12,10 +12,10 @@ import TypedRequestData, {
   GsnDomainSeparatorType, GsnRequestType
 } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { ForwarderInstance, TestRecipientInstance, TestUtilInstance } from '../types/truffle-contracts'
+import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
-import { encodeRevertReason } from './TestUtils'
+import { encodeRevertReason, createProxyFactory, createSmartWallet } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment } from '../src/common/Environments'
@@ -28,8 +28,8 @@ require('source-map-support').install({ errorFormatterForce: true })
 const { expect, assert } = chai.use(chaiAsPromised)
 
 const TestUtil = artifacts.require('TestUtil')
-const Forwarder = artifacts.require('Forwarder')
 const TestRecipient = artifacts.require('TestRecipient')
+const SmartWallet = artifacts.require('SmartWallet')
 
 interface SplittedRelayRequest {
   request: ForwardRequest
@@ -46,13 +46,15 @@ contract('Utils', function (accounts) {
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
 
-    let forwarderInstance: ForwarderInstance
+    let forwarderInstance: SmartWalletInstance
     before(async () => {
       testUtil = await TestUtil.new()
       chainId = (await testUtil.libGetChainID()).toNumber()
-      forwarderInstance = await Forwarder.new()
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+      forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
       forwarder = forwarderInstance.address
-      recipient = await TestRecipient.new(forwarder)
+      recipient = await TestRecipient.new()
 
       const senderNonce = '0'
       const target = recipient.address
@@ -66,6 +68,7 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
+      const addrZero = '0x0000000000000000000000000000000000000000'
 
       const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
       console.log(res1.logs[0])
@@ -88,7 +91,11 @@ contract('Utils', function (accounts) {
           from: senderAddress,
           nonce: senderNonce,
           value: '0',
-          gas: gasLimit
+          gas: gasLimit,
+          tokenRecipient: addrZero,
+          tokenContract: addrZero,
+          tokenAmount: '0',
+          factory: addrZero // only set if this is a deploy request
         },
         relayData: {
           gasPrice,
@@ -184,7 +191,7 @@ contract('Utils', function (accounts) {
       })
       it('should call target', async function () {
         relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
-        relayRequest.request.nonce = (await forwarderInstance.getNonce(relayRequest.request.from)).toString()
+        relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
 
         const sig = await getEip712Signature(
           web3, new TypedRequestData(

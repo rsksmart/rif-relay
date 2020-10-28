@@ -19,6 +19,7 @@ contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
     );
 
     function preRelayedCall(
+        /* solhint-disable-next-line no-unused-vars */
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
@@ -28,7 +29,6 @@ contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
     override
     returns (bytes memory, bool) {
         (signature, approvalData);
-        _verifyForwarder(relayRequest);
         emit SampleRecipientPreCallWithValues(
             gasleft(), maxPossibleGas);
         return ("", false);

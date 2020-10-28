@@ -9,12 +9,13 @@ import { Address, AsyncDataCallback } from '../src/relayclient/types/Aliases'
 import {
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
-  TestRecipientInstance
+  TestRecipientInstance,
+  SmartWalletInstance,
+  ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment } from './TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
-import { registerForwarderForGsn } from '../src/common/EIP712/ForwarderUtil'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -22,7 +23,7 @@ const TestPaymasterPreconfiguredApproval = artifacts.require('tests/TestPaymaste
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
-const Forwarder = artifacts.require('Forwarder')
+const SmartWallet = artifacts.require('SmartWallet')
 
 const options = [
   {
@@ -45,12 +46,17 @@ options.forEach(params => {
     let gasless: Address
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<GSNConfig>
+    let smartWalletInstance: SmartWalletInstance
 
     before(async () => {
       const gasPriceFactor = 1.2
 
       gasless = await web3.eth.personal.newAccount('password')
       await web3.eth.personal.unlockAccount(gasless, 'password')
+      const env = await getTestingEnvironment()
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+      smartWalletInstance = await createSmartWallet(gasless, factory, env.chainId)
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
@@ -73,13 +79,8 @@ options.forEach(params => {
         from = accounts[0]
       }
 
-      const forwarder = await Forwarder.new()
-      sr = await TestRecipient.new(forwarder.address)
-
-      await registerForwarderForGsn(forwarder)
-
+      sr = await TestRecipient.new()
       paymaster = await TestPaymasterEverythingAccepted.new()
-      await paymaster.setTrustedForwarder(forwarder.address)
       await paymaster.setRelayHub(rhub.address)
     })
 
@@ -97,7 +98,8 @@ options.forEach(params => {
           logLevel: 5,
           relayHubAddress: rhub.address,
           paymasterAddress: paymaster.address,
-          chainId: env.chainId
+          chainId: env.chainId,
+          forwarderAddress: smartWalletInstance.address
         }
 
         // @ts-ignore
@@ -160,7 +162,6 @@ options.forEach(params => {
         before(async function () {
           approvalPaymaster = await TestPaymasterPreconfiguredApproval.new()
           await approvalPaymaster.setRelayHub(rhub.address)
-          await approvalPaymaster.setTrustedForwarder(await sr.getTrustedForwarder())
           await rhub.depositFor(approvalPaymaster.address, { value: (1e18).toString() })
         })
 

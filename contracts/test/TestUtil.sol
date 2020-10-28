@@ -44,7 +44,8 @@ contract TestUtil {
         bytes memory ret
     ) {
         bool forwarderSuccess;
-        (forwarderSuccess, success, ret) = GsnEip712Library.execute(relayRequest, signature);
+        uint256 lastSuccTx;
+        (forwarderSuccess, success, lastSuccTx, ret) = GsnEip712Library.execute(relayRequest, signature);
         if ( !forwarderSuccess) {
             GsnUtils.revertWithData(ret);
         }

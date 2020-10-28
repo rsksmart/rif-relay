@@ -39,6 +39,14 @@ module.exports = {
       },
       network_id: 1
     },
+    rsktestnet: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co')
+      },
+      network_id: '*',
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
+    },
     kovan: {
       provider: function () {
         return new HDWalletProvider(mnemonic, 'https://kovan.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
@@ -85,7 +93,7 @@ module.exports = {
   },
   compilers: {
     solc: {
-      version: '0.6.10',
+      version: '0.6.12',
       settings: {
         evmVersion: 'istanbul',
         optimizer: {

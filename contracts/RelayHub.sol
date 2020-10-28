@@ -21,7 +21,7 @@ import "./interfaces/IStakeManager.sol";
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
-    string public override versionHub = "2.0.0+opengsn.hub.irelayhub";
+    string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
 
     uint256 public override minimumStake;
     uint256 public override minimumUnstakeDelay;
@@ -132,6 +132,26 @@ contract RelayHub is IRelayHub {
             gasLimits.preRelayedCallGasLimit).add(
             gasLimits.postRelayedCallGasLimit).add(
             relayRequest.request.gas);
+        /**
+        NOTE on gasOverhead, which is a hardcoded value
+        In forwarder.execute, the gas of lines 1,2,3, and 5:
+
+           1) _verifyNonce(req);
+           2) _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+           3) _updateNonce(req);
+            
+           4)(success,ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
+
+           5) if ( address(this).balance>0 ) {
+                payable(req.from).transfer(address(this).balance);
+            }
+
+        Should already be included in gasOverhead because relayRequest.request.gas is only for line 4
+        We need to check this, if that's the case, then for deploy calls (req.factory!=0) we need
+        to substract to the gasOverhead, the gas of lines 1,2,3,and 5 (we can calculate it and put it
+        as another constant), because the relayRequest.request.gas estimate for deploy calls includes the
+        estimation of calling the whole function
+         */
 
         // This transaction must have enough gas to forward the call to the recipient with the requested amount, and not
         // run out of gas later in this function.
@@ -176,7 +196,6 @@ contract RelayHub is IRelayHub {
     {
         (signature);
         RelayCallData memory vars;
-        vars.functionSelector = MinLibBytes.readBytes4(relayRequest.request.data, 0);
         require(msg.sender == tx.origin, "relay worker cannot be a smart contract");
         require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
         require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
@@ -187,6 +206,11 @@ contract RelayHub is IRelayHub {
         require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
         require(externalGasLimit <= block.gaslimit, "Impossible gas limit");
 
+        //In SmartWallet deploys (factory!=0) the data attribute is used for initialization params of extra logic contract, 
+        //this extra logic contract is defined in the "to" parameter
+        if(address(0) == relayRequest.request.factory){
+            vars.functionSelector = MinLibBytes.readBytes4(relayRequest.request.data, 0);
+        }
         (vars.gasLimits, vars.maxPossibleGas) =
              verifyGasLimits(paymasterMaxAcceptanceBudget, relayRequest, externalGasLimit);
 
@@ -237,6 +261,8 @@ contract RelayHub is IRelayHub {
             }
         }
         // We now perform the actual charge calculation, based on the measured gas used
+        //externalGasLimit is the maxPossibleGas set by the Relay Server
+        //in the case of dep
         uint256 gasUsed = (externalGasLimit - gasleft()) + gasOverhead;
         uint256 charge = calculateCharge(gasUsed, relayRequest.relayData);
 
@@ -313,7 +339,8 @@ contract RelayHub is IRelayHub {
 
         {
             bool forwarderSuccess;
-            (forwarderSuccess, vars.relayedCallSuccess, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);
+            uint256 lastSuccTrx;
+            (forwarderSuccess, vars.relayedCallSuccess,lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
             if ( !forwarderSuccess ) {
                 revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
             }

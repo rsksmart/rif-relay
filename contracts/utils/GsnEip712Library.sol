@@ -3,8 +3,8 @@ pragma solidity ^0.6.2;
 pragma experimental ABIEncoderV2;
 
 import "../interfaces/GsnTypes.sol";
-import "../interfaces/IRelayRecipient.sol";
 import "../forwarder/IForwarder.sol";
+import "../factory/IProxyFactory.sol";
 
 import "./GsnUtils.sol";
 
@@ -16,7 +16,7 @@ library GsnEip712Library {
     uint256 private constant MAX_RETURN_SIZE = 1024;
 
     //copied from Forwarder (can't reference string constants even from another library)
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data";
+    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory";
 
     bytes public constant RELAYDATA_TYPE = "RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
 
@@ -40,6 +40,8 @@ library GsnEip712Library {
         "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
     );
 
+
+
     function splitRequest(
         GsnTypes.RelayRequest calldata req
     )
@@ -55,7 +57,11 @@ library GsnEip712Library {
             req.request.value,
             req.request.gas,
             req.request.nonce,
-            req.request.data
+            req.request.data,
+            req.request.tokenRecipient,
+            req.request.tokenContract,
+            req.request.tokenAmount,
+            req.request.factory
         );
         suffixData = abi.encode(
             hashRelayData(req.relayData));
@@ -63,16 +69,6 @@ library GsnEip712Library {
 
     //verify that the recipient trusts the given forwarder
     // MUST be called by paymaster
-    function verifyForwarderTrusted(GsnTypes.RelayRequest calldata relayRequest) internal view {
-        (bool success, bytes memory ret) = relayRequest.request.to.staticcall(
-            abi.encodeWithSelector(
-                IRelayRecipient.isTrustedForwarder.selector, relayRequest.relayData.forwarder
-            )
-        );
-        require(success, "isTrustedForwarder reverted");
-        require(ret.length == 32, "isTrustedForwarder returned invalid response");
-        require(abi.decode(ret, (bool)), "invalid forwarder for recipient");
-    }
 
     function verifySignature(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal view {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
@@ -82,24 +78,39 @@ library GsnEip712Library {
     }
 
     function verify(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal view {
-        verifyForwarderTrusted(relayRequest);
         verifySignature(relayRequest, signature);
     }
 
-    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, bytes memory ret) {
+        function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool callSuccess, uint256 lastSuccTx, bytes memory ret) {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
-        bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
-            abi.encodeWithSelector(IForwarder.execute.selector,
-            forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
-        ));
-        if ( forwarderSuccess ) {
 
-          //decode return value of execute:
-          (callSuccess, ret) = abi.decode(ret, (bool, bytes));
+        if(address(0)!= forwardRequest.factory){//Deploy of smart wallet
+            bytes32 domainSeparator = domainSeparator(forwardRequest.factory);      
+
+            //The gas limit for the deploy creation is injected here, since the gasCalculation
+            //estimate is done against the whole relayedUserSmartWalletCreation function in
+            //the relayClient
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess,) = forwardRequest.factory.call{gas: forwardRequest.gas}(
+                abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
         }
-        truncateInPlace(ret);
+        else{
+            bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
+                abi.encodeWithSelector(IForwarder.execute.selector,
+                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+            ));
+            
+            if ( forwarderSuccess ) {
+                //decode return value of execute:
+                //ret includes
+                (callSuccess, lastSuccTx, ret) = abi.decode(ret, (bool, uint256, bytes));
+            }
+            truncateInPlace(ret);
+        }
     }
 
     //truncate the given parameter (in-place) if its length is above the given maximum length
