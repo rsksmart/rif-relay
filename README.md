@@ -37,14 +37,12 @@ Enveloping core architecture is defined by the following components:
 - **Relay Server** - a relay service daemon, running as a  HTTP service.  Advertises itself (through the RelayHub) and waits for client requests.
 - **Relay Client** - a typescript library for a client to access the blockchain through a relay. Provides APIs to find a good relay, and to send transactions through it. The library hooks the local web3, so that any loade. Id contract API will go through the relay.
 
-For a full techincal description, see [Tabookey's EIP draft](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1613.md) and [Open GSN documentation](https://docs.opengsn.org/learn/index.html).
-
 ## 3. Building project <a id="c03"></a>
 
 In order to build the project:
 
 - Download Enveloping project and stand in the root directory.
--  `yarn install` (for instruction to install yarn see [here](https://classic.yarnpkg.com/en/))
+-  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
 - `./rsknode/rskj.sh` (local) or `./rsknode/run.sh` (with [docker](https://www.docker.com/) )
 
 ### 3.1. Testing <a id="c03.1"></a>
@@ -68,7 +66,7 @@ As was mentioned before, at the moment the user needs to use the Enveloping syst
 
 Mint and send tokens without requiring RBTC for gas. Works on Regtest. 
 
-Try it: 
+Try it: https://github.com/rsksmart/enveloping-metacoin
 
 ## 5. Documentation <a id="c05"></a>
 
