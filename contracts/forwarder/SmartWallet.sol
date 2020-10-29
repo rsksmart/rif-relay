@@ -13,6 +13,7 @@ contract SmartWallet is IForwarder {
        
     string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
+    string public constant GENERIC_SUFFIX =  "RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
 
     mapping(bytes32 => bool) public typeHashes;
     mapping(bytes32 => bool) public domains;
@@ -247,6 +248,7 @@ contract SmartWallet is IForwarder {
         bytes memory initParams,
         bytes memory transferData
     ) external returns (bool) {
+
         bytes32 swalletOwner;
         /* solhint-disable-next-line no-inline-assembly */
         assembly {
@@ -265,6 +267,12 @@ contract SmartWallet is IForwarder {
                 (bool success, ) = tokenAddr.call(transferData);
                 require(success, "Unable to pay for deployment");
             }
+
+            string memory requestType = string(
+                abi.encodePacked("RelayRequest(", GENERIC_PARAMS, ",", GENERIC_SUFFIX)
+            );
+            registerRequestTypeInternal(requestType);
+            registerDomainSeparator("GSN Relayed Transaction","2");
 
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
@@ -311,7 +319,7 @@ contract SmartWallet is IForwarder {
         return false;
     }
 
-    function registerDomainSeparator(string calldata name, string calldata version) external override {
+    function registerDomainSeparator(string memory name, string memory version) public override {
         uint256 chainId;
         /* solhint-disable-next-line no-inline-assembly */
         assembly { chainId := chainid() }
