@@ -2,8 +2,7 @@
 
 System for users to pay for transactions in ERC-20 tokens.
 
-[![Build Status][ci-badge]][https://app.circleci.com/pipelines/github/rsksmart/enveloping?branch=master]
-
+[![Build Status](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=svg)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 
 ## Table of Contents
 
