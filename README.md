@@ -2,7 +2,7 @@
 
 System for users to pay for transactions in ERC-20 tokens.
 
-[![Build Status](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=svg)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
+[![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 
 ## Table of Contents
 
@@ -40,7 +40,14 @@ The core enveloping architecture is defined by the following components:
 
 ## 2.1 Testnet Contracts <a id="c02.1"></a>
 
-Pending..
+| Contract      | Address                                    |
+|---------------|--------------------------------------------|
+| StakeManager  | 0x5D4aE8144bc5020526b31ee3744b038a847bBCF1 |
+| Penalizer     | 0x8BB74f5c904B2d29FFa8Feeb4eed9f933B5F1d14 |
+| RelayHub      | 0xF9214a2C007331022553eCeF5f239C9E223C3466 |
+| TestRecipient | 0xB543a8516B299520C6b6Ae762f43aa9dbA137149 |
+| SmartWallet   | 0x5Aaf0feDc9aE43C43A0f92976CBa0DFB7D8C0e84 |
+| ProxyFactory  | 0x893F97d2d839977429Aa7CB93bC44E6d31f1bEB8 |
 
 ## 3. Building project <a id="c03"></a>
 
@@ -75,7 +82,7 @@ Try it: https://github.com/rsksmart/enveloping-metacoin
 
 ## 5. Documentation <a id="c05"></a>
 
-For more detailed documentation, go [here](https://drive.google.com/file/d/1SVzgazN_FmKWlYiQ9_J98LKBB5ul_aa5/view?usp=sharing)
+For more detailed documentation, go [here](https://docs.google.com/document/d/1kan8xUFYgjWNozBfpkopn35P9E6IuRjC-PNhwcrQLN4/edit)
 
 ## 6. Troubleshooting <a id="c06"></a>
 
@@ -93,7 +100,7 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
 
-### 6.2 Common errors when testing
+### 6.2 Common errors when testing <a id="c06.2"></a>
 
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
 
