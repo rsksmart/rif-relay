@@ -44,8 +44,8 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       post: 1644
     },
     rsk: {
-      pre: 855,
-      post: 944
+      pre: 831,
+      post: 1010
     }
   }
 

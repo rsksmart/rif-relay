@@ -86,7 +86,7 @@ export class HttpServer {
   }
 
   statusHandler (req: any, res: any): void {
-    let status = jsonrpc.success(req.body.id, { code: 200 })
+    const status = jsonrpc.success(req.body.id, { code: 200 })
     res.send(status)
   }
 

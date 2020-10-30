@@ -292,7 +292,7 @@ contract('RelayClient', function (accounts) {
         useGSN: true
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), details.to, web3.utils.keccak256(details.data)??constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), details.to, web3.utils.keccak256(details.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
@@ -322,7 +322,7 @@ contract('RelayClient', function (accounts) {
         index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data)??constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
@@ -350,7 +350,7 @@ contract('RelayClient', function (accounts) {
         { t: 'address', v: eoaWithoutSmartWallet },
         { t: 'address', v: addr(0) },
         { t: 'address', v: deployOptions.to },
-        { t: 'bytes32', v: web3.utils.keccak256(deployOptions.data) },
+        { t: 'bytes32', v: web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32 },
         { t: 'uint256', v: '0' }
       ) ?? ''
 

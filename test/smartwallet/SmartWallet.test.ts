@@ -58,6 +58,7 @@ contract('SmartWallet', ([from]) => {
     chainId = (await getTestingEnvironment()).chainId
 
     sw = await createSmartWallet(senderAddress, factory, chainId, senderPrivKeyStr)
+    await sw.registerRequestType('ForwardRequest', '')
   })
 
   describe('#registerRequestType', () => {

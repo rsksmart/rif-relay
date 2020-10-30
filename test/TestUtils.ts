@@ -267,7 +267,6 @@ export async function createProxyFactory (template: IForwarderInstance): Promise
 export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, chainId: number = 33, privKey: string = '', logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenRecipient: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
-
   let deploySignature
   let encoded
 
@@ -352,7 +351,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     await factory.relayedUserSmartWalletCreation(rReq, getDomainSeparatorHash(factory.address, chainId), typeHash, '0x', deploySignature)
   }
 
-  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, web3.utils.keccak256(initParams)??constants.ZERO_BYTES32, '0')
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, '0')
 
   const SmartWallet = artifacts.require('SmartWallet')
   const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
