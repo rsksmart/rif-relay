@@ -7,7 +7,8 @@ System for users to pay for transactions in ERC-20 tokens.
 ## Table of Contents
 
 1. [Description](#c01)
-2. [Technical Overview](#c02)
+2. [Technical Overview](#c02)<br>
+  2.1 [Testnet Contracts](#c02.1)<br>
 3. [Building project](#c03)<br>
   3.1 [Testing](#c03.1)<br>
   3.2 [Use Enveloping](#c03.2)<br>
@@ -37,6 +38,10 @@ The core enveloping architecture is defined by the following components:
 - **Relay Server** - a relay service daemon, running as a  HTTP service.  Advertises itself (through the RelayHub) and waits for client requests.
 - **Relay Client** - a typescript library for a client to access the blockchain through a relay. Provides APIs to find a good relay, and to send transactions through it. The library hooks the local web3, so that any loade. Id contract API will go through the relay.
 
+## 2.1 Testnet Contracts <a id="c02.1"></a>
+
+Pending..
+
 ## 3. Building project <a id="c03"></a>
 
 Clone the project. Then run the following from the project's root directory
@@ -58,6 +63,7 @@ We can deploy the project with
 
 As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet.
 
+Pending..
 
 
 
