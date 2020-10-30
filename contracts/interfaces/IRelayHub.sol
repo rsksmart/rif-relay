@@ -15,6 +15,14 @@ interface IRelayHub {
         uint256 pctRelayFee,
         string relayUrl);
 
+    //TODO: New proposal for the registration
+    /*event RelayServerRegistered2(
+        address indexed relayManager,
+        uint256 baseRelayFee,
+        uint256 pctRelayFee,
+        string relayUrl,
+        address token);*/
+
     /// Emitted when relays are added by a relayManager
     event RelayWorkersAdded(
         address indexed relayManager,

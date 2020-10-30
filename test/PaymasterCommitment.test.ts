@@ -18,6 +18,7 @@ import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import RelayData from '../src/common/EIP712/RelayData'
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
+import { constants } from '../src/common/Constants'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -136,7 +137,6 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         value: ether('1'),
         from: other
       })
-      const addrZero = '0x0000000000000000000000000000000000000000'
 
       sharedRelayRequestData = {
         request: {
@@ -146,10 +146,12 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: addrZero,
-          tokenContract: addrZero,
+          tokenRecipient: constants.ZERO_ADDRESS,
+          tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '0',
-          factory: addrZero // only set if this is a deploy request
+          factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+          recoverer: constants.ZERO_ADDRESS,
+          index: '0'
         },
         relayData: {
           pctRelayFee,

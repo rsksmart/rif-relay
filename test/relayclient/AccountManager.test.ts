@@ -2,7 +2,6 @@ import AccountManager from '../../src/relayclient/AccountManager'
 import { defaultEnvironment } from '../../src/common/Environments'
 import { HttpProvider } from 'web3-core'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
-import { constants } from '@openzeppelin/test-helpers'
 import sinon from 'sinon'
 import sigUtil from 'eth-sig-util'
 import { isSameAddress } from '../../src/common/Utils'
@@ -11,6 +10,7 @@ import sinonChai from 'sinon-chai'
 import { configureGSN } from '../../src/relayclient/GSNConfigurator'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import chaiAsPromised from 'chai-as-promised'
+import { constants } from '../../src/common/Constants'
 
 const { expect, assert } = chai.use(chaiAsPromised)
 
@@ -59,8 +59,6 @@ contract('AccountManager', function (accounts) {
   })
 
   describe('#sign()', function () {
-    const addrZero = '0x0000000000000000000000000000000000000000'
-
     accountManager.addAccount(keypair)
     const relayRequest: RelayRequest = {
       request: {
@@ -70,10 +68,12 @@ contract('AccountManager', function (accounts) {
         nonce: '1',
         value: '0',
         gas: '1',
-        tokenRecipient: addrZero,
-        tokenContract: addrZero,
+        tokenRecipient: constants.ZERO_ADDRESS,
+        tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: addrZero // only set if this is a deploy request
+        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
       },
       relayData: {
         pctRelayFee: '1',

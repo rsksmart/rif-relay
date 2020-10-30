@@ -5,6 +5,7 @@ import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, SmartWalletInstance, ProxyFactoryInstance, IForwarderInstance } from '../types/truffle-contracts'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { Environment } from '../src/common/Environments'
+import { constants } from '../src/common/Constants'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -51,7 +52,6 @@ contract('GsnTestEnvironment', function () {
     })
 
     it('should relay using relayTransaction', async () => {
-      const zeroAddr = '0x0000000000000000000000000000000000000000'
       const ret = await relayClient.relayTransaction({
         from: sender,
         to: sr.address,
@@ -59,10 +59,10 @@ contract('GsnTestEnvironment', function () {
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
-        tokenRecipient: zeroAddr,
+        tokenRecipient: constants.ZERO_ADDRESS,
         tokenAmount: '0x00',
-        tokenContract: zeroAddr,
-        factory: zeroAddr
+        tokenContract: constants.ZERO_ADDRESS,
+        factory: constants.ZERO_ADDRESS
       })
       assert.deepEqual([...ret.relayingErrors.values(), ...ret.pingErrors.values()], [])
       const events = await sr.contract.getPastEvents()

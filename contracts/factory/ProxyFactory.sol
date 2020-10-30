@@ -83,7 +83,7 @@ contract ProxyFactory is IProxyFactory {
 
     event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
 
-    string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory";
+    string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
     /**
@@ -105,28 +105,33 @@ contract ProxyFactory is IProxyFactory {
 
     function createUserSmartWallet(
         address owner,
+        address recoverer,
         address logic,
+        uint256 index,
         bytes calldata initParams,
         bytes calldata sig
     ) external override {
         bytes memory packed = abi.encodePacked(
             "\x19\x10",
-            owner,
+            owner, 
+            recoverer,
             logic,
+            index,
             initParams
         );
 
         bytes32 digest = keccak256(packed);
         require(digest.recover(sig) == owner, string(packed));
 
-        bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
+        bytes32 initParamsHash = (initParams.length == 0 ? bytes32(0) : keccak256(initParams));
+        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, initParamsHash, index));
 
         //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
         bytes memory initData = abi.encodeWithSelector(
             hex"772d909b",
             owner,
             logic,
-            address(0),
+            address(0), // This "gas-funded" call does not pay with tokens
             initParams,
             hex"00"
         );
@@ -145,9 +150,8 @@ contract ProxyFactory is IProxyFactory {
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         _updateNonce(req);
 
-        bytes32 salt = keccak256(
-            abi.encodePacked(req.from, req.to, req.data)
-        );
+        bytes32 initParamsHash = (req.data.length == 0 ? bytes32(0) : keccak256(req.data));
+        bytes32 salt = keccak256(abi.encodePacked(req.from, req.recoverer, req.to, initParamsHash, req.index));
 
         //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
@@ -171,15 +175,20 @@ contract ProxyFactory is IProxyFactory {
     /**
      * Calculates the Smart Wallet address for an owner EOA, wallet logic, and specific initialization params
      * @param owner - EOA of the owner of the smart wallet
+     * @param recoverer - Address of that can be used by some contracts to give specific roles to the caller (e.g, a recoverer)
      * @param logic - Custom logic to use in the smart wallet (address(0) if no extra logic needed)
-     * @param initParams - If there's a custom logic, these are the params to call initialize(bytes) (function sig must not be included)
+     * @param initParamsHash - If there's a custom logic, these are the params to call initialize(bytes) (function sig must not be included). Only the hash value is passed
+     * @param index - Allows to create many addresses for the same owner|recoverer|logic|initParams
      */
     function getSmartWalletAddress(
         address owner,
+        address recoverer,
         address logic,
-        bytes memory initParams
+        bytes32 initParamsHash,
+        uint256 index
     ) external override view returns (address) {
-        bytes32 salt = keccak256(abi.encodePacked(owner, logic, initParams));
+
+        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, initParamsHash, index));
 
         bytes32 result = keccak256(
             abi.encodePacked(
@@ -257,7 +266,9 @@ contract ProxyFactory is IProxyFactory {
                 req.tokenRecipient,
                 req.tokenContract,
                 req.tokenAmount,
-                req.factory
+                req.factory,
+                req.recoverer,
+                req.index
             ),
             suffixData
         );

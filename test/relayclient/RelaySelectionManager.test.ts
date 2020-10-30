@@ -10,7 +10,7 @@ import { PartialRelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { register, stake } from './KnownRelaysManager.test'
 import PingResponse from '../../src/common/PingResponse'
 import { deployHub, getTestingEnvironment } from '../TestUtils'
-import { constants } from '@openzeppelin/test-helpers'
+import { constants } from '../../src/common/Constants'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 

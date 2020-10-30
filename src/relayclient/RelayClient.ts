@@ -27,7 +27,7 @@ import {
   GsnDoneRefreshRelaysEvent,
   GsnRefreshRelaysEvent, GsnRelayerResponseEvent, GsnSendToRelayerEvent, GsnSignRequestEvent, GsnValidateRequestEvent
 } from './GsnEvents'
-import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS } from '../common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS, ForwardRequestType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
 
 // generate "approvalData" and "paymasterData" for a request.
@@ -188,7 +188,8 @@ export class RelayClient {
     const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
     const typeHash = web3.utils.keccak256(typeName)
     const encoded = TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types)
-    const suffixData = bufferToHex(encoded.slice((1 + 10) * 32))
+    const countParams = ForwardRequestType.length
+    const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
     const domainHash = getDomainSeparatorHash(gsnTransactionDetails.factory ?? '', this.accountManager.chainId)
     const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest.request,
       domainHash, typeHash, suffixData, testInfo.metadata.signature)
@@ -319,7 +320,9 @@ export class RelayClient {
         tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS
+        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS,
+        recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
+        index: gsnTransactionDetails.index ?? '0'
       },
       relayData: {
         pctRelayFee: '0',
@@ -390,7 +393,9 @@ export class RelayClient {
         tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS
+        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS,
+        recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
+        index: gsnTransactionDetails.index ?? '0'
       },
       relayData: {
         pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',

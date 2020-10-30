@@ -35,7 +35,9 @@ export const ForwardRequestType = [
   { name: 'tokenRecipient', type: 'address' },
   { name: 'tokenContract', type: 'address' },
   { name: 'tokenAmount', type: 'uint256' },
-  { name: 'factory', type: 'address' }
+  { name: 'factory', type: 'address' },
+  { name: 'recoverer', type: 'address' },
+  { name: 'index', type: 'uint256' }
 ]
 
 const RelayRequestType = [
@@ -95,7 +97,7 @@ export default class TypedRequestData implements EIP712TypedData {
   }
 }
 
-export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory'
+export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index'
 
 export const GsnRequestType = {
   typeName: 'RelayRequest',

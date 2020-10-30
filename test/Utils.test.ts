@@ -21,6 +21,7 @@ import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relaycl
 import { defaultEnvironment } from '../src/common/Environments'
 import { Web3Provider } from '../src/relayclient/ContractInteractor'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
+import { constants } from '../src/common/Constants'
 require('source-map-support').install({ errorFormatterForce: true })
 
 // import web3Utils from 'web3-utils'
@@ -68,7 +69,6 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
-      const addrZero = '0x0000000000000000000000000000000000000000'
 
       const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
       console.log(res1.logs[0])
@@ -92,10 +92,12 @@ contract('Utils', function (accounts) {
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: addrZero,
-          tokenContract: addrZero,
+          tokenRecipient: constants.ZERO_ADDRESS,
+          tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '0',
-          factory: addrZero // only set if this is a deploy request
+          factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+          recoverer: constants.ZERO_ADDRESS, // since we are calling a contract in this test, we cannot ommit it
+          index: '0' // since we are calling a contract in this test, we cannot ommit it
         },
         relayData: {
           gasPrice,

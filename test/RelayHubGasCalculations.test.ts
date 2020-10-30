@@ -17,6 +17,7 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
 import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment } from './TestUtils'
+import { constants } from '../src/common/Constants'
 
 const SmartWallet = artifacts.require('SmartWallet')
 const StakeManager = artifacts.require('StakeManager')
@@ -91,7 +92,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
     await relayHub.registerRelayServer(0, fee, '', { from: relayManager })
     encodedFunction = recipient.contract.methods.emitMessage(message).encodeABI()
-    const addrZero = '0x0000000000000000000000000000000000000000'
 
     relayRequest = {
       request: {
@@ -101,10 +101,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         nonce: senderNonce.toString(),
         value: '0',
         gas: gasLimit.toString(),
-        tokenRecipient: addrZero,
-        tokenContract: addrZero,
+        tokenRecipient: constants.ZERO_ADDRESS,
+        tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: addrZero // only set if this is a deploy request
+        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
       },
       relayData: {
         baseRelayFee: baseFee.toString(),
@@ -321,7 +323,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
           } else {
             encodedFunction = recipient.contract.methods.checkReturnValues(len, doRevert).encodeABI()
           }
-          const addrZero = '0x0000000000000000000000000000000000000000'
 
           const relayRequest: RelayRequest = {
             request: {
@@ -331,10 +332,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               nonce: senderNonce,
               value: '0',
               gas: gasLimit.toString(),
-              tokenRecipient: addrZero,
-              tokenContract: addrZero,
+              tokenRecipient: constants.ZERO_ADDRESS,
+              tokenContract: constants.ZERO_ADDRESS,
               tokenAmount: '0',
-              factory: addrZero // only set if this is a deploy request
+              factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+              recoverer: constants.ZERO_ADDRESS,
+              index: '0'
             },
             relayData: {
               baseRelayFee: '0',
@@ -396,7 +399,6 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
               const senderNonce = (await forwarderInstance.getNonce()).toString()
               const encodedFunction = recipient.contract.methods.emitMessage('a'.repeat(messageLength)).encodeABI()
               const baseRelayFee = '0'
-              const addrZero = '0x0000000000000000000000000000000000000000'
 
               const relayRequest: RelayRequest = {
                 request: {
@@ -406,10 +408,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                   nonce: senderNonce,
                   value: '0',
                   gas: gasLimit.toString(),
-                  tokenRecipient: addrZero,
-                  tokenContract: addrZero,
+                  tokenRecipient: constants.ZERO_ADDRESS,
+                  tokenContract: constants.ZERO_ADDRESS,
                   tokenAmount: '0',
-                  factory: addrZero // only set if this is a deploy request
+                  factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+                  recoverer: constants.ZERO_ADDRESS,
+                  index: '0'
                 },
                 relayData: {
                   baseRelayFee,

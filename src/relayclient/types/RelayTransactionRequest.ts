@@ -28,7 +28,9 @@ export const RelayTransactionRequestShape = {
       tokenRecipient: ow.string,
       tokenContract: ow.string,
       tokenAmount: ow.string,
-      factory: ow.string // only set if this is a deploy request
+      factory: ow.string, // only set if this is a deploy request
+      recoverer: ow.string, // only used if factory is set
+      index: ow.string // only used if factory is set
     },
     relayData: {
       gasPrice: ow.string,

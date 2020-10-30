@@ -21,6 +21,7 @@ import {
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
+import { constants } from '../src/common/Constants'
 const { expect, assert } = chai.use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
@@ -191,7 +192,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     let sharedRelayRequestData: RelayRequest
     const paymasterData = '0x'
     const clientId = '1'
-    const addrZero = '0x0000000000000000000000000000000000000000'
 
     beforeEach(function () {
       sharedRelayRequestData = {
@@ -202,10 +202,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: addrZero,
-          tokenContract: addrZero,
+          tokenRecipient: constants.ZERO_ADDRESS,
+          tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '0',
-          factory: addrZero // only set if this is a deploy request
+          factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+          recoverer: constants.ZERO_ADDRESS,
+          index: '0'
         },
         relayData: {
           pctRelayFee,

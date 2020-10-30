@@ -6,13 +6,14 @@ export default interface GsnTransactionDetails {
   readonly from: Address
   readonly data: PrefixedHexString
   readonly to: Address
-
   readonly tokenRecipient?: Address
   readonly tokenContract?: Address
   readonly tokenAmount?: IntString
   readonly factory?: Address
-
+  readonly recoverer?: Address
+  readonly index?: IntString
   readonly value?: IntString
+
   /**
    * TODO: this is horrible. Think about it some more
    * Do not set this value manually as this value will be overwritten. Use {@link forceGasPrice} instead.

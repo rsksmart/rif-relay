@@ -91,6 +91,7 @@ export class RelayProvider implements HttpProvider {
       }
       if (payload.method === 'eth_accounts') {
         this._getAccounts(payload, callback)
+        return
       }
     }
 
