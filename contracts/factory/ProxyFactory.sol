@@ -90,6 +90,8 @@ contract ProxyFactory is IProxyFactory {
     bytes private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
     bytes private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
 
+    bytes32 public runtimeCodeHash;
+
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
      * it pays for the deployment during initialization, and it pays for the transaction
@@ -98,6 +100,8 @@ contract ProxyFactory is IProxyFactory {
      */
     constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
+
+        runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END));
        
         string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
         registerRequestTypeInternal(requestType);
@@ -245,12 +249,6 @@ contract ProxyFactory is IProxyFactory {
     function getCreationBytecode() public view returns (bytes memory) {
         //The code to install
         return abi.encodePacked(CONSTR, RUNTIME_START, masterCopy, RUNTIME_END);
-    }
-
-    // Returns the proxy code to that is deployed on every Smart Wallet creation
-    function getRuntimeCodeHash() public view returns (bytes32) {
-        //The code to install
-        return keccak256(abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END));
     }
 
     function _getEncoded(

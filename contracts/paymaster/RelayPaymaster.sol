@@ -53,8 +53,8 @@ contract RelayPaymaster is BasePaymaster {
             bytes32 smartWalletCodeHash;
             assembly { smartWalletCodeHash := extcodehash(payer) }
 
-            bytes32 swTemplateCodeHash = ProxyFactory(factory).getRuntimeCodeHash();
-            
+            bytes32 swTemplateCodeHash = ProxyFactory(factory).runtimeCodeHash();
+
             require(swTemplateCodeHash == smartWalletCodeHash, "SW different to template");
         }
 
