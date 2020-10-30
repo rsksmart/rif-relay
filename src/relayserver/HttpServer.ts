@@ -87,7 +87,7 @@ export class HttpServer {
 
   statusHandler (req: any, res: any): void {
     // TODO: check components and return proper status code
-    res.send({ code: 204 })
+    res.send(204)
   }
 
   async relayHandler (req: any, res: any): Promise<void> {
