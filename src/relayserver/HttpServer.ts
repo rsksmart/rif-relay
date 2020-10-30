@@ -21,6 +21,7 @@ export class HttpServer {
     // TODO change all to jsonrpc
     this.app.post('/getaddr', this.pingHandler.bind(this))
     this.app.get('/getaddr', this.pingHandler.bind(this))
+    this.app.get('/status', this.statusHandler.bind(this))
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
@@ -82,6 +83,11 @@ export class HttpServer {
     const pingResponse = this.backend.pingHandler(req.query.paymaster)
     res.send(pingResponse)
     console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
+  }
+
+  statusHandler (req: any, res: any): void {
+    let status = jsonrpc.success(req.body.id, { code: 200 })
+    res.send(status)
   }
 
   async relayHandler (req: any, res: any): Promise<void> {
