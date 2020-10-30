@@ -11,7 +11,7 @@ import {
   TestRecipientInstance,
   SmartWalletInstance, ProxyFactoryInstance
 } from '../../types/truffle-contracts'
-import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { prepareTransaction } from './RelayProvider.test'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
@@ -46,8 +46,7 @@ contract('KnownRelaysManager', function (
     notActiveRelay,
     workerPaymasterRejected,
     workerTransactionRelayed,
-    owner,
-    other
+    owner
   ]) {
   const relayLookupWindowBlocks = 100
 
@@ -99,6 +98,8 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, activePaymasterRejected, owner)
       await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
       await stake(stakeManager, relayHub, notActiveRelay, owner)
+
+      const other = await getGaslessAccount()
       const nextNonce = (await smartWallet.getNonce()).toString()
       const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
       const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)

@@ -26,14 +26,16 @@ import {
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
-import { getEip712Signature } from '../../src/common/Utils'
+// @ts-ignore
+import { signTypedData_v4 } from 'eth-sig-util'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
+import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -51,12 +53,12 @@ const clientId = '1'
 abiDecoder.addABI(proxyFactoryAbi)
 
 // TODO: once Utils.js is translated to TypeScript, move to Utils.ts
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
+export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const relayRequest: RelayRequest = {
     request: {
       to: testRecipient.address,
       data: testRecipient.contract.methods.emitMessage('hello world').encodeABI(),
-      from: account,
+      from: account.address,
       nonce: nonce,
       value: '0',
       gas: '10000',
@@ -78,16 +80,15 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       relayWorker
     }
   }
+
   const dataToSign = new TypedRequestData(
-    // domain.defaultEnvironment.chainId,
     (await getTestingEnvironment()).chainId,
     swallet,
     relayRequest
   )
-  const signature = await getEip712Signature(
-    web3,
-    dataToSign
-  )
+
+  const signature = signTypedData_v4(account.privateKey, { data: dataToSign })
+
   return {
     relayRequest,
     signature
@@ -101,23 +102,26 @@ contract('RelayProvider', function (accounts) {
   let paymasterInstance: TestPaymasterEverythingAcceptedInstance
   let paymaster: Address
   let relayProcess: ChildProcessWithoutNullStreams
-  let relayProvider: provider
+  let relayProvider: RelayProvider
   let factory: ProxyFactoryInstance
   let sWalletTemplate: SmartWalletInstance
   let smartWallet: SmartWalletInstance
-  let senderAddress: string
+  let sender: string
   let token: TestTokenInstance
+  let gaslessAccount: AccountKeypair
 
   before(async function () {
+    sender = accounts[0]
+    gaslessAccount = await getGaslessAccount()
+
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
 
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())
-    senderAddress = accounts[0]
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
+    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
     token = await TestToken.new()
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
@@ -167,10 +171,11 @@ contract('RelayProvider', function (accounts) {
       // so changing the global one is not enough.
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
+      relayProvider.addAccount(gaslessAccount)
     })
     it('should relay transparently', async function () {
       const res = await testRecipient.emitMessage('hello world', {
-        from: senderAddress,
+        from: gaslessAccount.address,
         forceGasPrice: '0x51f4d5c00',
         value: '0',
         // TODO: for some reason estimated values are crazy high!
@@ -194,13 +199,13 @@ contract('RelayProvider', function (accounts) {
       // probably by swapping user's tokens into eth.
 
       await web3.eth.sendTransaction({
-        from: senderAddress,
+        from: sender,
         to: smartWallet.address,
         value
       })
 
       const res = await testRecipient.emitMessage('hello world', {
-        from: senderAddress,
+        from: gaslessAccount.address,
         forceGasPrice: '0x51f4d5c00',
         value,
         gas: '100000',
@@ -217,8 +222,10 @@ contract('RelayProvider', function (accounts) {
 
     it('should revert if the sender is not the owner of the smart wallet', async function () {
       try {
+        const differentSender = await getGaslessAccount()
+        relayProvider.addAccount(differentSender)
         await testRecipient.emitMessage('hello world', {
-          from: accounts[3], // different sender
+          from: differentSender.address, // different sender
           forceGasPrice: '0x51f4d5c00',
           value: '0',
           gas: '100000',
@@ -246,16 +253,16 @@ contract('RelayProvider', function (accounts) {
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
 
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, senderAddress, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
 
-      const expectedAddress = await factory.getSmartWalletAddress(senderAddress, recoverer, customLogic, constants.ZERO_BYTES32, walletIndex)
+      const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, customLogic, constants.ZERO_BYTES32, walletIndex)
 
       assert.equal(swAddress, expectedAddress)
     }
     )
 
     it('should fail to deploy the smart wallet due to insufficient token balance', async function () {
-      const ownerEOA = accounts[8]
+      const ownerEOA = await getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'
@@ -265,8 +272,9 @@ contract('RelayProvider', function (accounts) {
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
 
       assert.isTrue((await token.balanceOf(swAddress)).toNumber() < 10, 'Account must have insufficient funds')
 
@@ -274,7 +282,7 @@ contract('RelayProvider', function (accounts) {
       assert.equal('0x00', expectedCode)
 
       const trxData: GsnTransactionDetails = {
-        from: ownerEOA,
+        from: ownerEOA.address,
         to: customLogic,
         data: logicData,
         tokenRecipient: paymaster,
@@ -295,7 +303,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should correclty deploy the smart wallet', async function () {
-      const ownerEOA = accounts[8]
+      const ownerEOA = await getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'
@@ -305,15 +313,16 @@ contract('RelayProvider', function (accounts) {
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
       assert.equal('0x00', expectedCode)
 
       const trxData: GsnTransactionDetails = {
-        from: ownerEOA,
+        from: ownerEOA.address,
         to: customLogic,
         data: logicData,
         tokenRecipient: paymaster,
@@ -357,7 +366,7 @@ contract('RelayProvider', function (accounts) {
       })
 
       await testRecipient2.emitMessage('hello again', {
-        from: senderAddress,
+        from: gaslessAccount.address,
         gas: '100000',
         paymaster,
         factory: constants.ZERO_ADDRESS
@@ -371,7 +380,7 @@ contract('RelayProvider', function (accounts) {
     // this is not the way the revert reason is being reported by GSN solidity contracts
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
-        from: senderAddress,
+        from: gaslessAccount.address,
         paymaster,
         factory: constants.ZERO_ADDRESS
       }), 'always fail')
@@ -399,7 +408,7 @@ contract('RelayProvider', function (accounts) {
         method: 'eth_sendTransaction',
         params: [
           {
-            from: senderAddress,
+            from: gaslessAccount.address,
             gas: '0x186a0',
             gasPrice: '0x4a817c800',
             forceGasPrice: '0x51f4d5c00',
@@ -441,6 +450,7 @@ contract('RelayProvider', function (accounts) {
       gsnConfig.forwarderAddress = smartWallet.address
 
       const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      relayProvider.addAccount(gaslessAccount)
       const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result: JsonRpcResponse | undefined): void => {
         if (error != null) {
           reject(error)
@@ -479,6 +489,7 @@ contract('RelayProvider', function (accounts) {
         relayHub.constructor.network.events[topic] = TestRecipient.events[topic]
       })
       relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      relayProvider.addAccount(gaslessAccount)
 
       // add accounts[0], accounts[1] and accounts[2] as worker, manager and owner
       await stakeManager.stakeForAddress(accounts[1], 1000, {
@@ -496,8 +507,9 @@ contract('RelayProvider', function (accounts) {
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
       const nonceToUse = await smartWallet.getNonce()
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, accounts[0], accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
+      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
       await misbehavingPaymaster.setReturnInvalidErrorCode(true)
+
       const paymasterRejectedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
         from: accounts[0],
         gas,
@@ -525,6 +537,7 @@ contract('RelayProvider', function (accounts) {
         gas,
         gasPrice: '1'
       })
+
       expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'TransactionRelayed', {
         status: '0'
       })

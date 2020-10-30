@@ -300,12 +300,32 @@ export class RelayProvider implements HttpProvider {
   // The RSKJ node doesn't support additional parameters in RPC calls.
   // When using the original provider with the RSKJ node it is necessary to remove the additional useGSN property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
-    let p = payload
+    let p: JsonRpcPayload = payload
+
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (payload.params[0]?.hasOwnProperty('useGSN')) {
+    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('paymaster')) {
       // Deep copy the payload to safely remove the useGSN property
       p = JSON.parse(JSON.stringify(payload))
-      delete p.params[0].useGSN
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('useGSN')) {
+        delete p.params[0].useGSN
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('paymaster')) {
+        delete p.params[0].paymaster
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('forceGasPrice')) {
+        delete p.params[0].forceGasPrice
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('factory')) {
+        delete p.params[0].factory
+      }
     }
 
     return p

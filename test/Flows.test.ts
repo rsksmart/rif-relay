@@ -13,9 +13,11 @@ import {
   SmartWalletInstance,
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
+import { toBuffer } from 'ethereumjs-util'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -43,20 +45,23 @@ options.forEach(params => {
     let paymaster: TestPaymasterEverythingAcceptedInstance
     let rhub: RelayHubInstance
     let sm: StakeManagerInstance
-    let gasless: Address
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<GSNConfig>
-    let smartWalletInstance: SmartWalletInstance
+
+    let fundedAccount: AccountKeypair
+    let gaslessAccount: AccountKeypair
 
     before(async () => {
       const gasPriceFactor = 1.2
 
-      gasless = await web3.eth.personal.newAccount('password')
-      await web3.eth.personal.unlockAccount(gasless, 'password')
-      const env = await getTestingEnvironment()
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      smartWalletInstance = await createSmartWallet(gasless, factory, env.chainId)
+      // An accound already funded on RSK
+      fundedAccount = {
+        privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),
+        address: '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
+      }
+
+      // An account from RSK that has been depleted to ensure it has no funds
+      gaslessAccount = await getExistingGaslessAccount()
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
@@ -67,16 +72,16 @@ options.forEach(params => {
           delay: 3600 * 24 * 7,
           pctRelayFee: 12,
           url: 'asd',
-          relayOwner: accounts[0],
+          relayOwner: fundedAccount.address,
           // @ts-ignore
           ethereumNodeUrl: web3.currentProvider.host,
           gasPriceFactor,
           relaylog: process.env.relaylog
         })
         console.log('relay started')
-        from = gasless
+        from = gaslessAccount.address
       } else {
-        from = accounts[0]
+        from = fundedAccount.address
       }
 
       sr = await TestRecipient.new()
@@ -93,6 +98,9 @@ options.forEach(params => {
         await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
 
         const env = await getTestingEnvironment()
+        const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+        const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+        const smartWalletInstance: SmartWalletInstance = await createSmartWallet(gaslessAccount.address, factory, env.chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
 
         relayClientConfig = {
           logLevel: 5,
@@ -104,6 +112,7 @@ options.forEach(params => {
 
         // @ts-ignore
         const relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig)
+        relayProvider.addAccount(gaslessAccount)
 
         // web3.setProvider(relayProvider)
 
@@ -128,12 +137,12 @@ options.forEach(params => {
     })
 
     it(params.title + 'send gasless transaction', async () => {
-      console.log('gasless=' + gasless)
+      console.log('gasless=' + gaslessAccount.address)
 
       console.log('running gasless-emitMessage (should fail for direct, succeed for relayed)')
       let ex: Error | undefined
       try {
-        const res = await sr.emitMessage('hello, from gasless', { from: gasless, gas: 1e6 })
+        const res = await sr.emitMessage('hello, from gasless', { from: gaslessAccount.address, gas: 1e6 })
         console.log('res after gasless emit:', res.logs[0].args.message)
       } catch (e) {
         ex = e
@@ -145,9 +154,10 @@ options.forEach(params => {
       } else {
         // In RSK if the account doesn't have funds the error message received is 'the sender account doesn't exist'
         // eslint-disable-next-line @typescript-eslint/no-base-to-string,@typescript-eslint/restrict-template-expressions
-        assert.ok(ex!.toString().indexOf('the sender account doesn\'t exist') > 0, `Expected Error with 'the sender account doesn't exist'. got: ${ex?.toString()}`)
+        assert.ok(ex!.toString().indexOf('insufficient funds') > 0, `Expected Error with 'insufficient funds'. got: ${ex?.toString()}`)
       }
     })
+
     it(params.title + 'running testRevert (should always fail)', async () => {
       await asyncShouldThrow(async () => {
         await sr.testRevert({ from: from })
@@ -166,24 +176,27 @@ options.forEach(params => {
         })
 
         const setRecipientProvider = function (asyncApprovalData: AsyncDataCallback): void {
-          relayProvider =
-            // @ts-ignore
-            new RelayProvider(web3.currentProvider,
-              relayClientConfig, { asyncApprovalData })
+          // @ts-ignore
+          relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig, { asyncApprovalData })
+
           TestRecipient.web3.setProvider(relayProvider)
+          TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
+          TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
+
+          relayProvider.addAccount(gaslessAccount)
         }
 
         it(params.title + 'wait for specific approvalData', async () => {
           try {
-            await approvalPaymaster.setExpectedApprovalData('0x414243', {
-              from: accounts[0]
-              // ,useGSN: false
-            })
-
             setRecipientProvider(async () => await Promise.resolve('0x414243'))
 
+            await approvalPaymaster.setExpectedApprovalData('0x414243', {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+
             await sr.emitMessage('xxx', {
-              from: gasless,
+              from: gaslessAccount.address,
               paymaster: approvalPaymaster.address
             })
           } catch (e) {
@@ -191,8 +204,8 @@ options.forEach(params => {
             throw e
           } finally {
             await approvalPaymaster.setExpectedApprovalData('0x', {
-              from: accounts[0]
-              // ,useGSN: false
+              from: fundedAccount.address,
+              useGSN: false
             })
           }
         })
@@ -201,7 +214,7 @@ options.forEach(params => {
           setRecipientProvider(() => { throw new Error('approval-exception') })
           await asyncShouldThrow(async () => {
             await sr.emitMessage('xxx', {
-              from: gasless,
+              from: gaslessAccount.address,
               paymaster: approvalPaymaster.address
             })
           }, 'approval-exception')
@@ -211,14 +224,14 @@ options.forEach(params => {
           try {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
-              from: accounts[0]
-              // ,useGSN: false
+              from: fundedAccount.address,
+              useGSN: false
             })
             await asyncShouldThrow(async () => {
               setRecipientProvider(async () => await Promise.resolve('0x'))
 
               await sr.emitMessage('xxx', {
-                from: gasless,
+                from: gaslessAccount.address,
                 paymaster: approvalPaymaster.address
               })
             }, 'unexpected approvalData: \'\' instead of')
@@ -228,8 +241,8 @@ options.forEach(params => {
           } finally {
             // @ts-ignore
             await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
-              from: accounts[0]
-              // ,useGSN: false
+              from: fundedAccount.address,
+              useGSN: false
             })
           }
         })

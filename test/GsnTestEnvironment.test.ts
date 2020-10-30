@@ -3,9 +3,10 @@ import { HttpProvider } from 'web3-core'
 import { RelayClient } from '../src/relayclient/RelayClient'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, SmartWalletInstance, ProxyFactoryInstance, IForwarderInstance } from '../types/truffle-contracts'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { Environment } from '../src/common/Environments'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -14,15 +15,16 @@ contract('GsnTestEnvironment', function () {
   let host: string
   let forwarder: IForwarderInstance
   let env: Environment
-  let sender: string
+  let sender: AccountKeypair
 
   before(async function () {
     host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    sender = await web3.eth.personal.newAccount('password')
+    sender = await getGaslessAccount()
+
     env = await getTestingEnvironment()
-    forwarder = await createSmartWallet(sender, factory, env.chainId)
+    forwarder = await createSmartWallet(sender.address, factory, env.chainId)
   })
 
   describe('#startGsn()', function () {
@@ -44,6 +46,8 @@ contract('GsnTestEnvironment', function () {
     before(async () => {
       testEnvironment = await GsnTestEnvironment.startGsn(host, env)
       relayClient = testEnvironment.relayProvider.relayClient
+      relayClient.accountManager.addAccount(sender)
+
       sr = await TestRecipient.new()
     })
 
@@ -53,7 +57,7 @@ contract('GsnTestEnvironment', function () {
 
     it('should relay using relayTransaction', async () => {
       const ret = await relayClient.relayTransaction({
-        from: sender,
+        from: sender.address,
         to: sr.address,
         forwarder: forwarder.address,
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
@@ -80,6 +84,7 @@ contract('GsnTestEnvironment', function () {
 
       // @ts-ignore
       TestRecipient.web3.setProvider(testEnvironment.relayProvider)
+      testEnvironment.relayProvider.addAccount(sender)
     })
     after(async () => {
       await GsnTestEnvironment.stopGsn()
@@ -87,7 +92,7 @@ contract('GsnTestEnvironment', function () {
 
     it('should send relayed transaction through RelayProvider', async () => {
       const txDetails = {
-        from: sender,
+        from: sender.address,
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
         forwarder: forwarder.address
       }

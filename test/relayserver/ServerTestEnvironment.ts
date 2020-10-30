@@ -29,7 +29,7 @@ import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { constants } from '../../src/common/Constants'
-import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { ether, removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
@@ -108,13 +108,16 @@ export class ServerTestEnvironment {
     await this.paymaster.deposit({ value: this.web3.utils.toWei('1', 'ether') })
 
     this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
-    this.gasLess = await this.web3.eth.personal.newAccount('password')
+
+    // Get gasless account from RSKJ
+    const gaslessAccount = await getGaslessAccount()
+    this.gasLess = gaslessAccount.address
 
     const sWalletTemplate = await SmartWallet.new()
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
-    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, chainId)
+    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
     this.forwarder = smartWallet
 
     const shared: Partial<GSNConfig> = {
@@ -129,6 +132,9 @@ export class ServerTestEnvironment {
     }
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
+
+    // Regisgter gasless account to avoid signing with RSKJ
+    this.relayClient.accountManager.addAccount(gaslessAccount)
   }
 
   async newServerInstance (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): Promise<void> {

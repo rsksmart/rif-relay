@@ -17,8 +17,13 @@ import EnvelopingTypedRequestData, { GsnRequestType, getDomainSeparatorHash, ENV
 
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util'
-import { bufferToHex, toBuffer } from 'ethereumjs-util'
+import { BN, bufferToHex, toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
 import { constants } from '../src/common/Constants'
+
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+
+// @ts-ignore
+import ethWallet from 'ethereumjs-wallet'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -357,6 +362,54 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
   const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
 
   return sw
+}
+
+export function getGaslessAccount (): AccountKeypair {
+  const a = ethWallet.generate()
+  const gaslessAccount = {
+    privateKey: a.privKey,
+    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+    address: toChecksumAddress(bufferToHex(privateToAddress(a.privKey)))
+  }
+
+  return gaslessAccount
+}
+
+// An existing account in RSKJ that have been depleted
+export async function getExistingGaslessAccount (): Promise<AccountKeypair> {
+  const gaslessAccount = {
+    privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),
+    address: '0x09a1eda29f664ac8f68106f6567276df0c65d859'
+  }
+
+  const balance = new BN(await web3.eth.getBalance(gaslessAccount.address))
+  if (!balance.eqn(0)) {
+    const receiverAddress = toChecksumAddress(bufferToHex(privateToAddress(toBuffer(bytes32(1)))))
+
+    await web3.eth.sendTransaction({
+      from: gaslessAccount.address,
+      to: receiverAddress,
+      value: balance.subn(21000),
+      gasPrice: 1,
+      gas: 21000
+    })
+  }
+
+  assert(await web3.eth.getBalance(gaslessAccount.address) === '0', 'Gassless account should have no funds')
+
+  return gaslessAccount
+}
+
+export function addr (n: number): string {
+  return '0x' + n.toString().repeat(40).slice(0, 40)
+}
+
+export function bytes32 (n: number): string {
+  return '0x' + n.toString().repeat(64).slice(0, 64)
+}
+
+export function stripHex (s: string): string {
+  return s.slice(2, s.length)
 }
 
 /**
