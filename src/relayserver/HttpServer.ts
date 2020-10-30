@@ -86,8 +86,8 @@ export class HttpServer {
   }
 
   statusHandler (req: any, res: any): void {
-    let status = jsonrpc.success(req.body.id, { code: 200 })
-    res.send(status)
+    // TODO: check components and return proper status code
+    res.send({ code: 204 })
   }
 
   async relayHandler (req: any, res: any): Promise<void> {
