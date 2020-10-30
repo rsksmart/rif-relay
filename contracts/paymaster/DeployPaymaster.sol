@@ -15,10 +15,10 @@ import "./BasePaymaster.sol";
  */
 contract DeployPaymaster is BasePaymaster {
 
-    address trustedFactory;
+    address private factory;
 
-    constructor(address factory) public {
-        trustedFactory = factory;
+    constructor(address proxyFactory) public {
+        factory = proxyFactory;
     }
 
     function versionPaymaster() external override virtual view returns (string memory){
@@ -42,7 +42,7 @@ contract DeployPaymaster is BasePaymaster {
         IERC20 token = IERC20(relayRequest.request.tokenContract);
 
         require(address(relayRequest.request.factory) != address(0), "factory should be defined");
-        require(address(relayRequest.request.factory) == trustedFactory, "factory should be the trusted one!");
+        require(address(relayRequest.request.factory) == factory, "factory should be the trusted one!");
         
         address contractAddr = ProxyFactory(relayRequest.request.factory).getSmartWalletAddress(relayRequest.request.from, relayRequest.request.to, relayRequest.request.data);
 

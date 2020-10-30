@@ -216,14 +216,13 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
     const env = await getTestingEnvironment()
     const chainId = env.chainId
 
-    relayPaymaster = await RelayPaymaster.new({ from: paymasterOwner })
-
-    testPaymasters = await TestPaymasters.new(relayPaymaster.address)
-
     token = await TestToken.new()
     template = await SmartWallet.new()
 
     factory = await createProxyFactory(template)
+
+    relayPaymaster = await RelayPaymaster.new(factory.address, { from: paymasterOwner })
+    testPaymasters = await TestPaymasters.new(relayPaymaster.address)
 
     sw = await createSmartWallet(senderAddress, factory, chainId, senderPrivKeyStr)
     const smartWallet = sw.address
@@ -275,7 +274,6 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
     await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
-    // Address should be contract, we use this one
     relayRequestData.relayData.forwarder = other
     // run method
     await expectRevert.unspecified(
@@ -288,6 +286,19 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
     await expectRevert.unspecified(
       testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Token contract not allowed'
+    )
+  })
+
+  it('SHOULD fail on SW different to template of preRelayCall', async function () {
+    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    // Forwarder needs to be a contract with balance
+    // But a different than the template needed
+    relayRequestData.relayData.forwarder = other
+    await token.mint(tokensPaid + 4, other)
+    // run method
+    await expectRevert.unspecified(
+      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      'SW different to template'
     )
   })
 })

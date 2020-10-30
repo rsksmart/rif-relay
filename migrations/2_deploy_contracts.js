@@ -17,5 +17,5 @@ module.exports = async function (deployer) {
   // Factory to create Smart Wallets
   await deployer.deploy(ProxyFactory, SmartWallet.address)
   await deployer.deploy(DeployPaymaster, ProxyFactory.address)
-  await deployer.deploy(RelayPaymaster)
+  await deployer.deploy(RelayPaymaster, ProxyFactory.address)
 }
