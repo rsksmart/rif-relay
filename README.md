@@ -2,7 +2,7 @@
 
 System for users to pay for transactions in ERC-20 tokens.
 
-[![Build Status](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=svg)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
+[![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 
 ## Table of Contents
 
@@ -93,7 +93,7 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
 
-### 6.2 Common errors when testing
+### 6.2 Common errors when testing <a id="c06.2"></a>
 
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
 
