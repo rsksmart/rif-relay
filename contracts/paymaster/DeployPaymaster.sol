@@ -41,10 +41,15 @@ contract DeployPaymaster is BasePaymaster {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
         IERC20 token = IERC20(relayRequest.request.tokenContract);
 
-        require(address(relayRequest.request.factory) != address(0), "factory should be defined");
-        require(address(relayRequest.request.factory) == factory, "factory should be the trusted one!");
-        
-        address contractAddr = ProxyFactory(relayRequest.request.factory).getSmartWalletAddress(relayRequest.request.from, relayRequest.request.to, relayRequest.request.data);
+        require(relayRequest.request.factory == factory, "factory should be the trusted one!");
+
+        address contractAddr = ProxyFactory(relayRequest.request.factory)
+            .getSmartWalletAddress(
+            relayRequest.request.from, 
+            relayRequest.request.recoverer, 
+            relayRequest.request.to, 
+            (relayRequest.request.data.length == 0 ? bytes32(0) : keccak256(relayRequest.request.data)), 
+            relayRequest.request.index);
 
         require(!GsnUtils._isContract(contractAddr), "Address already created!");
         require(relayRequest.request.tokenAmount <= token.balanceOf(contractAddr), "balance too low");

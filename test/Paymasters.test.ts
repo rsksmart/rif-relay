@@ -14,6 +14,7 @@ import { toChecksumAddress } from 'web3-utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { constants } from '../src/common/Constants'
+import { Address } from '../src/relayclient/types/Aliases'
 
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
@@ -47,11 +48,15 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   let factory: ProxyFactoryInstance
 
   let testPaymasters: TestPaymastersInstance
+  let expectedAddress : Address 
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
   const logicAddress = addr(0)
   const initParams = '0x00'
+  
+  let recoverer = constants.ZERO_ADDRESS
+  let index = '0'
 
   beforeEach(async function () {
     
@@ -68,7 +73,6 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     // We simulate the testPaymasters contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
-    
 
     relayRequestData = {
       request: {
@@ -81,7 +85,9 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
         tokenRecipient: dest,
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
-        factory: factory.address
+        factory: factory.address,
+        recoverer,
+        index        
       },
       relayData: {
         pctRelayFee,
@@ -95,7 +101,8 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
       }
     }
     // we mint tokens to the sender,
-    const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+    expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress,
+       web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, index)
     await token.mint(tokensPaid + 4, expectedAddress)
   })
 
@@ -113,43 +120,34 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   it('SHOULD fail on address already created on preRelayCall', async function () {
     await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
 
-    const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-
-    let toSign: string = ''
-
-    const signSha = web3.utils.soliditySha3(
+    const toSign: string = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
+      { t: 'address', v: recoverer },
       { t: 'address', v: logicAddress },
-      { t: 'bytes', v: initParams }
-    )
-
-    if (signSha != null) {
-      toSign = signSha
-    }
+      { t: 'uint256', v: index },
+      { t: 'bytes', v: initParams }// Init params is empty
+    ) ?? ''
 
     const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
     const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
     const signature = signingKey.signDigest(toSignAsBinaryArray)
     const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-    const { logs } = await factory.createUserSmartWallet(ownerAddress,
-      logicAddress, initParams, signatureCollapsed)
+    const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+      index, initParams, signatureCollapsed)
 
     relayRequestData.request.from = ownerAddress
     relayRequestData.request.to = logicAddress
     relayRequestData.request.data = initParams
 
-    let salt = ''
-    const saltSha = web3.utils.soliditySha3(
+    const salt = web3.utils.soliditySha3(
       { t: 'address', v: ownerAddress },
+      { t: 'address', v: recoverer },
       { t: 'address', v: logicAddress },
-      { t: 'bytes', v: initParams }
-    )
-
-    if (saltSha != null) {
-      salt = saltSha
-    }
+      { t: 'bytes32', v: web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32 },
+      { t: 'uint256', v: index }
+    ) ?? ''
 
     const expectedSalt = web3.utils.toBN(salt).toString()
 
@@ -243,7 +241,9 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
         tokenRecipient: dest,
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
-        factory: factory.address
+        factory: factory.address,
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
       },
       relayData: {
         pctRelayFee,

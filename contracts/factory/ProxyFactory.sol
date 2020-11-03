@@ -86,9 +86,9 @@ contract ProxyFactory is IProxyFactory {
     string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
-    bytes private constant CONSTR = hex"602D3D8160093D39F3";
-    bytes private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
-    bytes private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
+    bytes9 private constant CONSTR = hex"602D3D8160093D39F3";
+    bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
+    bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
 
     bytes32 public runtimeCodeHash;
 
@@ -101,7 +101,7 @@ contract ProxyFactory is IProxyFactory {
     constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
 
-        runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END));
+        runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END));
        
         string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
         registerRequestTypeInternal(requestType);

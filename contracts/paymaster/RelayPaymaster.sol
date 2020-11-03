@@ -49,14 +49,12 @@ contract RelayPaymaster is BasePaymaster {
         require(tokenAmount <= token.balanceOf(payer), "balance too low");
 
         // Check for the codehash of the smart wallet sent
-        {
-            bytes32 smartWalletCodeHash;
-            assembly { smartWalletCodeHash := extcodehash(payer) }
+        bytes32 smartWalletCodeHash;
+        assembly { smartWalletCodeHash := extcodehash(payer) }
 
-            bytes32 swTemplateCodeHash = ProxyFactory(factory).runtimeCodeHash();
+        bytes32 swTemplateCodeHash = ProxyFactory(factory).runtimeCodeHash();
 
-            require(swTemplateCodeHash == smartWalletCodeHash, "SW different to template");
-        }
+        require(swTemplateCodeHash == smartWalletCodeHash, "SW different to template");
 
         //We dont do that here
         //token.transferFrom(payer, address(this), tokenPrecharge);
