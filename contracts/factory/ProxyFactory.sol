@@ -81,8 +81,6 @@ contract ProxyFactory is IProxyFactory {
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
 
-    event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
-
     string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
