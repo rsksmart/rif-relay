@@ -32,4 +32,6 @@ interface IProxyFactory {
         bytes32 initParamsHash,
         uint256 index
     ) external view returns (address);
+    
+    event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
 }

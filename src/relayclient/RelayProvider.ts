@@ -11,6 +11,9 @@ import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
 import { GsnEvent } from './GsnEvents'
+import { constants } from '../common/Constants'
+import { Address } from './types/Aliases'
+import { toChecksumAddress } from 'web3-utils'
 
 abiDecoder.addABI(relayHubAbi)
 
@@ -98,6 +101,74 @@ export class RelayProvider implements HttpProvider {
     this.origProviderSend(this._getPayloadForRSKProvider(payload), (error: Error | null, result?: JsonRpcResponse) => {
       callback(error, result)
     })
+  }
+
+  /**
+   * Generates a Enveloping deploy transaction, to deploy the Smart Wallet of the requester
+   * @param gsnTransactionDetails All the necessary information for creating the deploy request
+   * from:address => EOA of the Smart Wallet owner
+   * to:address => Optional custom logic address
+   * data:bytes => init params for the optional custom logic
+   * tokenRecipient:address => Account that gets paid for the deploy
+   * tokenContract:address => Token used to pay for the deployment, can be address(0) if the deploy is subsidized
+   * tokenAmount:IntString => Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
+   * factory:address => Address of the factory used to deploy the Smart Wallet
+   * recoverer:address => Optional recoverer account/contract, can be address(0)
+   * index:IntString => Numeric value used to generate several SW instances using the same paramaters defined above
+   *
+   * value: Not used here, only used in other scenarios where the worker account of the relay server needs to replenish balance.
+   * Any value put here wont be sent to the "to" property, it won't be moved at all.
+   *
+   * @returns The transaction hash
+   */
+  async deploySmartWallet (gsnTransactionDetails: GsnTransactionDetails): Promise<string> {
+    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
+      throw new Error('Invalid factory address')
+    }
+
+    try {
+      const relayingResult = await this.relayClient.relayTransaction(gsnTransactionDetails)
+      if (relayingResult.transaction != null) {
+        const txHash: string = relayingResult.transaction.hash(true).toString('hex')
+        const hash = `0x${txHash}`
+        return hash
+      } else {
+        const message = `Failed to relay call. Results:\n${_dumpRelayingResult(relayingResult)}`
+        log.error(message)
+        throw new Error(message)
+      }
+    } catch (error) {
+      const reasonStr = error instanceof Error ? error.message : JSON.stringify(error)
+      log.info('Rejected deploy wallet call', error)
+      throw new Error(`Rejected deploy wallet call - Reason: ${reasonStr}`)
+    }
+  }
+
+  /**
+   * @param ownerEOA EOA of the Smart Wallet onwer
+   * @param recoverer Address of a recoverer account, can be smart contract. It's used in gasless tokens, can be address(0) if desired
+   * @param customLogic An optional custom logic code that the wallet will proxy to as fallback, optional, can be address(0)
+   * @param walletIndex Numeric value used to generate different wallet instances for the owner using the same parameters and factory
+   * @param logicInitParamsHash If customLogic was defined and it needs initialization params, they are passed as abi-encoded here, do not include the function selector
+   * If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero
+   */
+  calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, customLogic: Address, walletIndex: number, bytecodeHash: string, logicInitParamsHash?: string): Address {
+    const salt: string = web3.utils.soliditySha3(
+      { t: 'address', v: ownerEOA },
+      { t: 'address', v: recoverer },
+      { t: 'address', v: customLogic },
+      { t: 'bytes32', v: logicInitParamsHash ?? constants.ZERO_BYTES32 },
+      { t: 'uint256', v: walletIndex }
+    ) ?? ''
+
+    const _data: string = web3.utils.soliditySha3(
+      { t: 'bytes1', v: '0xff' },
+      { t: 'address', v: factory },
+      { t: 'bytes32', v: salt },
+      { t: 'bytes32', v: bytecodeHash }
+    ) ?? ''
+
+    return toChecksumAddress('0x' + _data.slice(26, _data.length))
   }
 
   _ethGetTransactionReceipt (payload: JsonRpcPayload, callback: JsonRpcCallback): void {

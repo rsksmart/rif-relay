@@ -2,9 +2,14 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
+import proxyFactoryAbi from '../../src/common/interfaces/IProxyFactory.json'
+
 import chaiAsPromised from 'chai-as-promised'
 import Web3 from 'web3'
-import { toBN } from 'web3-utils'
+import { toBN, toChecksumAddress } from 'web3-utils'
+
+// @ts-ignore
+import abiDecoder from 'abi-decoder'
 
 import { BaseTransactionReceipt, RelayProvider } from '../../src/relayclient/RelayProvider'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
@@ -16,7 +21,8 @@ import {
   TestRecipientContract,
   TestRecipientInstance,
   ProxyFactoryInstance,
-  SmartWalletInstance
+  SmartWalletInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
@@ -27,11 +33,14 @@ import { getEip712Signature } from '../../src/common/Utils'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
+import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
+const TestToken = artifacts.require('TestToken')
+
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 
@@ -39,6 +48,7 @@ const underlyingProvider = web3.currentProvider as HttpProvider
 
 const paymasterData = '0x'
 const clientId = '1'
+abiDecoder.addABI(proxyFactoryAbi)
 
 // TODO: once Utils.js is translated to TypeScript, move to Utils.ts
 export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
@@ -96,6 +106,8 @@ contract('RelayProvider', function (accounts) {
   let sWalletTemplate: SmartWalletInstance
   let smartWallet: SmartWalletInstance
   let senderAddress: string
+  let token: TestTokenInstance
+
   before(async function () {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
@@ -106,6 +118,7 @@ contract('RelayProvider', function (accounts) {
     senderAddress = accounts[0]
     factory = await createProxyFactory(sWalletTemplate)
     smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
+    token = await TestToken.new()
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
     paymaster = paymasterInstance.address
@@ -221,6 +234,113 @@ contract('RelayProvider', function (accounts) {
       }
       assert.fail('It should have thrown an exception')
     })
+
+    it('should calculate the correct smart wallet address', async function () {
+      assert.isTrue(relayProvider != null)
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      const recoverer = constants.ZERO_ADDRESS
+      const customLogic = constants.ZERO_ADDRESS
+      const walletIndex: number = 0
+      const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
+
+      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, senderAddress, recoverer, customLogic, walletIndex, bytecodeHash)
+
+      const expectedAddress = await factory.getSmartWalletAddress(senderAddress, recoverer, customLogic, constants.ZERO_BYTES32, walletIndex)
+
+      assert.equal(swAddress, expectedAddress)
+    }
+    )
+
+    it('should fail to deploy the smart wallet due to insufficient token balance', async function () {
+      const ownerEOA = accounts[8]
+      const recoverer = constants.ZERO_ADDRESS
+      const customLogic = constants.ZERO_ADDRESS
+      const logicData = '0x'
+      const walletIndex = 0
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      assert.isTrue(relayProvider != null)
+      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA, recoverer, customLogic, walletIndex, bytecodeHash)
+
+      assert.isTrue((await token.balanceOf(swAddress)).toNumber() < 10, 'Account must have insufficient funds')
+
+      const expectedCode = await web3.eth.getCode(swAddress)
+      assert.equal('0x00', expectedCode)
+
+      const trxData: GsnTransactionDetails = {
+        from: ownerEOA,
+        to: customLogic,
+        data: logicData,
+        tokenRecipient: paymaster,
+        tokenContract: token.address,
+        tokenAmount: '10',
+        factory: factory.address,
+        recoverer: recoverer,
+        index: walletIndex.toString(),
+        paymaster: paymaster
+      }
+
+      try {
+        await rProvider.deploySmartWallet(trxData)
+        assert.fail()
+      } catch (error) {
+        assert.include(error.message, 'paymaster rejected in local view call to \'relayCall()\'')
+      }
+    })
+
+    it('should correclty deploy the smart wallet', async function () {
+      const ownerEOA = accounts[8]
+      const recoverer = constants.ZERO_ADDRESS
+      const customLogic = constants.ZERO_ADDRESS
+      const logicData = '0x'
+      const walletIndex = 0
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      assert.isTrue(relayProvider != null)
+      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA, recoverer, customLogic, walletIndex, bytecodeHash)
+      await token.mint('10000', swAddress)
+
+      let expectedCode = await web3.eth.getCode(swAddress)
+      assert.equal('0x00', expectedCode)
+
+      const trxData: GsnTransactionDetails = {
+        from: ownerEOA,
+        to: customLogic,
+        data: logicData,
+        tokenRecipient: paymaster,
+        tokenContract: token.address,
+        tokenAmount: '10',
+        factory: factory.address,
+        recoverer: recoverer,
+        index: walletIndex.toString(),
+        paymaster: paymaster
+      }
+
+      const txHash = await rProvider.deploySmartWallet(trxData)
+      const trx = await web3.eth.getTransactionReceipt(txHash)
+
+      const logs = abiDecoder.decodeLogs(trx.logs)
+      const deployedEvent = logs.find((e: any) => e != null && e.name === 'Deployed')
+      const event = deployedEvent.events[0]
+      assert.equal(event.name, 'addr')
+      const generatedSWAddress = toChecksumAddress(event.value)
+
+      assert.equal(generatedSWAddress, swAddress)
+      const deployedCode = await web3.eth.getCode(generatedSWAddress)
+      expectedCode = await factory.getCreationBytecode()
+      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
+      assert.equal(deployedCode, expectedCode)
+    }
+    )
 
     it('should subscribe to events', async () => {
       const block = await web3.eth.getBlockNumber()
