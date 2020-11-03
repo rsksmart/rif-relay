@@ -26,7 +26,7 @@ import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDet
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { GsnEvent } from '../../src/relayclient/GsnEvents'
@@ -37,6 +37,7 @@ import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { constants } from '../../src/common/Constants'
+import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -87,6 +88,7 @@ contract('RelayClient', function (accounts) {
   let sWalletTemplate: SmartWalletInstance
   let smartWallet: SmartWalletInstance
   let token: TestTokenInstance
+  let gaslessAccount: AccountKeypair
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
@@ -96,9 +98,9 @@ contract('RelayClient', function (accounts) {
     sWalletTemplate = await SmartWallet.new()
     token = await TestToken.new()
     const env = (await getTestingEnvironment())
-    const senderAddress = accounts[0]
+    gaslessAccount = await getGaslessAccount()
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(senderAddress, factory, env.chainId)
+    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
     paymaster = await TestEnvelopingPaymaster.new()
     await paymaster.setRelayHub(relayHub.address)
     await paymaster.deposit({ value: web3.utils.toWei('1', 'ether') })
@@ -116,7 +118,10 @@ contract('RelayClient', function (accounts) {
     }
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
 
-    from = senderAddress
+    // register gasless account in RelayClient to avoid signing with RSKJ
+    relayClient.accountManager.addAccount(gaslessAccount)
+
+    from = gaslessAccount.address
     to = testRecipient.address
     await token.mint('1000', smartWallet.address)
 
@@ -191,6 +196,9 @@ contract('RelayClient', function (accounts) {
           httpClient: new MockHttpClient(mockServerPort, new HttpWrapper({ timeout: 100 }), gsnConfig)
         })
 
+        // register gasless account in RelayClient to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
+
         // async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
         const relayingResult = await relayClient.relayTransaction(options)
         assert.match(_dumpRelayingResult(relayingResult), /timeout.*exceeded/)
@@ -223,6 +231,10 @@ contract('RelayClient', function (accounts) {
       const badHttpClient = new BadHttpClient(configureGSN(gsnConfig), false, true, false)
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, { httpClient: badHttpClient })
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
       const { transaction, relayingErrors, pingErrors } = await relayClient.relayTransaction(options)
       assert.isUndefined(transaction)
       assert.equal(pingErrors.size, 0)
@@ -235,6 +247,10 @@ contract('RelayClient', function (accounts) {
         new RelayClient(underlyingProvider, gsnConfig, {
           asyncApprovalData: async () => { throw new Error('approval-error') }
         })
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
       const { transaction, relayingErrors, pingErrors } = await relayClient.relayTransaction(options)
       assert.isUndefined(transaction)
       assert.equal(pingErrors.size, 0)
@@ -272,11 +288,13 @@ contract('RelayClient', function (accounts) {
     // Do we want to restrict to certnain factories?
 
     it('should calculate the estimatedGas for deploying a SmartWallet using the ProxyFactory', async function () {
-      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('pas2')
-      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'pas2')
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+
+      // register eoaWithoutSmartWalletAccount account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
 
       const details: GsnTransactionDetails = {
-        from: eoaWithoutSmartWallet,
+        from: eoaWithoutSmartWalletAccount.address,
         to: addr(0), // No extra logic for the Smart Wallet
         data: '0x', // No extra-logic init data
         forwarder: addr(0), // There's no forwarder in a deploy, field not read
@@ -292,7 +310,7 @@ contract('RelayClient', function (accounts) {
         useGSN: true
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), details.to, web3.utils.keccak256(details.data) ?? constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), details.to, web3.utils.keccak256(details.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
@@ -302,11 +320,13 @@ contract('RelayClient', function (accounts) {
     })
 
     it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {
-      const eoaWithoutSmartWallet = await web3.eth.personal.newAccount('eoaPass')
-      await web3.eth.personal.unlockAccount(eoaWithoutSmartWallet, 'eoaPass')
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+
+      // register eoaWithoutSmartWallet account to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
 
       const deployOptions = {
-        from: eoaWithoutSmartWallet,
+        from: eoaWithoutSmartWalletAccount.address,
         to: addr(0), // No extra logic for the Smart Wallet
         data: '0x', // No extra-logic init data
         gas: '0x1E8480',
@@ -322,7 +342,7 @@ contract('RelayClient', function (accounts) {
         index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
@@ -347,7 +367,7 @@ contract('RelayClient', function (accounts) {
       const loggedEvent = res.logs[eventIdx]
 
       const saltSha = web3.utils.soliditySha3(
-        { t: 'address', v: eoaWithoutSmartWallet },
+        { t: 'address', v: eoaWithoutSmartWalletAccount.address },
         { t: 'address', v: addr(0) },
         { t: 'address', v: deployOptions.to },
         { t: 'bytes32', v: web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32 },
@@ -380,6 +400,9 @@ contract('RelayClient', function (accounts) {
       before('registerEventsListener', () => {
         relayClient = new RelayClient(underlyingProvider, gsnConfig)
         relayClient.registerEventListener(eventsHandler)
+
+        // register gaslessAccount account to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
       })
       it('should call events handler', async function () {
         await relayClient.relayTransaction(options)
@@ -464,6 +487,9 @@ contract('RelayClient', function (accounts) {
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, { contractInteractor: badContractInteractor })
       await relayClient._init()
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
       const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
       assert.isUndefined(transaction)
       assert.equal(error!.message, `local view call to 'relayCall()' reverted: ${BadContractInteractor.message}`)
@@ -475,6 +501,9 @@ contract('RelayClient', function (accounts) {
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, dependencyTree)
       await relayClient._init()
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
 
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
@@ -489,6 +518,10 @@ contract('RelayClient', function (accounts) {
       dependencyTree.httpClient = badHttpClient
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, dependencyTree)
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
       await relayClient._attemptRelay(relayInfo, optionsWithGas)
@@ -507,6 +540,10 @@ contract('RelayClient', function (accounts) {
         new RelayClient(underlyingProvider, gsnConfig, dependencyTree)
 
       await relayClient._init()
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
       const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
@@ -529,6 +566,10 @@ contract('RelayClient', function (accounts) {
             asyncApprovalData,
             asyncPaymasterData
           })
+
+        // register gasless account in RelayClient to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
+
         const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas)
         assert.equal(httpRequest.metadata.approvalData, '0x1234567890')
         assert.equal(httpRequest.relayRequest.relayData.paymasterData, '0xabcd')

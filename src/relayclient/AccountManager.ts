@@ -26,11 +26,13 @@ export default class AccountManager {
   private readonly accounts: AccountKeypair[] = []
   private readonly config: GSNConfig
   readonly chainId: number
+  private readonly signWithProviderImpl: (signedData: any) => Promise<string>
 
-  constructor (provider: HttpProvider, chainId: number, config: GSNConfig) {
+  constructor (provider: HttpProvider, chainId: number, config: GSNConfig, signWithProviderImpl?: (signedData: any) => Promise<string>) {
     this.web3 = new Web3(provider)
     this.chainId = chainId
     this.config = config
+    this.signWithProviderImpl = signWithProviderImpl ?? this._signWithProviderDefault
   }
 
   addAccount (keypair: AccountKeypair): void {
@@ -103,6 +105,10 @@ export default class AccountManager {
   // a) allow different implementations in the future, and
   // b) allow spying on Account Manager in tests
   async _signWithProvider (signedData: any): Promise<string> {
+    return await this.signWithProviderImpl(signedData)
+  }
+
+  async _signWithProviderDefault (signedData: any): Promise<string> {
     return await getEip712Signature(
       this.web3,
       signedData,

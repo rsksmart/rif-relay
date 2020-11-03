@@ -11,6 +11,7 @@ import { configureGSN } from '../../src/relayclient/GSNConfigurator'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../../src/common/Constants'
+import { getGaslessAccount } from '../TestUtils'
 
 const { expect, assert } = chai.use(chaiAsPromised)
 
@@ -26,7 +27,19 @@ contract('AccountManager', function (accounts) {
     methodSuffix: '',
     jsonStringifyRequest: false
   })
-  const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config)
+
+  const account = getGaslessAccount()
+  let shouldThrow = false
+
+  const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
+    async (signedData: any): Promise<string> => {
+      if (shouldThrow) {
+        throw new Error('Fail of testing')
+      }
+      // @ts-ignore
+      return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
+    }
+  )
   // @ts-ignore
   sinon.spy(accountManager)
   describe('#addAccount()', function () {
@@ -113,12 +126,14 @@ contract('AccountManager', function (accounts) {
       expect(accountManager._signWithProvider).to.have.not.been.called
     })
     it('should ask provider to sign if key is not controlled', async function () {
-      relayRequest.request.from = accounts[0]
+      relayRequest.request.from = account.address
+
       const signedData = new TypedRequestData(
         defaultEnvironment.chainId,
         constants.ZERO_ADDRESS,
         relayRequestWithoutExtraData(relayRequest)
       )
+
       const signature = await accountManager.sign(relayRequest)
       // @ts-ignore
       const rec = sigUtil.recoverTypedSignature_v4({
@@ -130,6 +145,7 @@ contract('AccountManager', function (accounts) {
       expect(accountManager._signWithControlledKey).to.have.not.been.called
     })
     it('should throw if web3 fails to sign with requested address', async function () {
+      shouldThrow = true
       relayRequest.request.from = '0x4cfb3f70bf6a80397c2e634e5bdd85bc0bb189ee'
       const promise = accountManager.sign(relayRequest)
       await expect(promise).to.be.eventually.rejectedWith('Failed to sign relayed transaction for 0x4cfb3f70bf6a80397c2e634e5bdd85bc0bb189ee')

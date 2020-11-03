@@ -10,7 +10,7 @@ import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 import { ethers } from 'ethers'
 import chai from 'chai'
-import { getTestingEnvironment } from './TestUtils'
+import { addr, bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
 import { EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
@@ -20,18 +20,6 @@ const keccak256 = web3.utils.keccak256
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
 const ProxyFactory = artifacts.require('ProxyFactory')
-
-function addr (n: number): string {
-  return '0x' + n.toString().repeat(40)
-}
-
-function bytes32 (n: number): string {
-  return '0x' + n.toString().repeat(64).slice(0, 64)
-}
-
-function stripHex (s: string): string {
-  return s.slice(2, s.length)
-}
 
 contract('ProxyFactory', ([from]) => {
   let fwd: SmartWalletInstance

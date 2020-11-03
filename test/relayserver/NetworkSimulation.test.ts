@@ -3,7 +3,8 @@ import { NetworkSimulatingProvider } from '../../src/common/dev/NetworkSimulatin
 import { HttpProvider } from 'web3-core'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment
@@ -39,14 +40,18 @@ contract('Network Simulation for Relay Server', function (accounts) {
     })
 
     it('should broadcast multiple transactions at once', async function () {
+      const gaslessAccount: AccountKeypair = await getGaslessAccount()
+
       const SmartWallet = artifacts.require('SmartWallet')
       const sWalletTemplate = await SmartWallet.new()
       const factory = await createProxyFactory(sWalletTemplate)
-      const smartWallet = await createSmartWallet(accounts[1], factory, (await getTestingEnvironment()).chainId)
+      const smartWallet = await createSmartWallet(gaslessAccount.address, factory, (await getTestingEnvironment()).chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
+
+      env.relayClient.accountManager.addAccount(gaslessAccount)
 
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
-      const overrideDetails = { from: accounts[1], forwarder: smartWallet.address }
+      const overrideDetails = { from: gaslessAccount.address, forwarder: smartWallet.address }
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)

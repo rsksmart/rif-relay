@@ -12,7 +12,7 @@ import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet } from '../TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, addr } from '../TestUtils'
 import { EIP712DomainType, ForwardRequestType, ENVELOPING_PARAMS } from '../../src/common/EIP712/TypedRequestData'
 
 require('source-map-support').install({ errorFormatterForce: true })
@@ -24,14 +24,6 @@ const SmartWallet = artifacts.require('SmartWallet')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const keccak256 = web3.utils.keccak256
-
-function addr (n: number): string {
-  return '0x' + n.toString().repeat(40)
-}
-
-function bytes32 (n: number): string {
-  return '0x' + n.toString().repeat(64).slice(0, 64)
-}
 
 contract('SmartWallet', ([from]) => {
   const countParams = ForwardRequestType.length
