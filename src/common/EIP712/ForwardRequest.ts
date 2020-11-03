@@ -11,5 +11,7 @@ export default interface ForwardRequest {
   tokenRecipient: Address
   tokenContract: Address
   tokenAmount: IntString
-  factory: Address // only set if this is a deploy request
+  factory: Address // only set if this is a deploy request,
+  recoverer: Address // only used if factory is set
+  index: IntString // only used if factory is set
 }

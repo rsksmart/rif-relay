@@ -1,10 +1,11 @@
-import { balance, ether, expectEvent, expectRevert, constants } from '@openzeppelin/test-helpers'
+import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { expect } from 'chai'
 import BN from 'bn.js'
 import { evmMineMany, getTestingEnvironment } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
 
 import { StakeManagerInstance } from '../types/truffle-contracts'
+import { constants } from '../src/common/Constants'
 
 const StakeManager = artifacts.require('StakeManager')
 

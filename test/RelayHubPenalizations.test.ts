@@ -22,6 +22,7 @@ import {
 } from '../types/truffle-contracts'
 
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { constants } from '../src/common/Constants'
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
@@ -30,7 +31,6 @@ const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
-const addrZero = '0x0000000000000000000000000000000000000000'
 
 const paymasterData = '0x'
 const clientId = '0'
@@ -105,10 +105,12 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         nonce: '0',
         value: '0',
         gas: gasLimit.toString(),
-        tokenRecipient: addrZero,
-        tokenContract: addrZero,
+        tokenRecipient: constants.ZERO_ADDRESS,
+        tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: addrZero // only set if this is a deploy request
+        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
       },
       relayData: {
         gasPrice: gasPrice.toString(),
@@ -417,10 +419,12 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
               nonce: senderNonce.toString(),
               value: '0',
               gas: gasLimit.toString(),
-              tokenRecipient: addrZero,
-              tokenContract: addrZero,
+              tokenRecipient: constants.ZERO_ADDRESS,
+              tokenContract: constants.ZERO_ADDRESS,
               tokenAmount: '0',
-              factory: addrZero // only set if this is a deploy request
+              factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+              recoverer: constants.ZERO_ADDRESS,
+              index: '0'
             },
             relayData: {
               gasPrice: gasPrice.toString(),
@@ -537,10 +541,12 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             nonce: encodedCallArgs.nonce.toString(),
             value: '0',
             gas: encodedCallArgs.gasLimit.toString(),
-            tokenRecipient: addrZero,
-            tokenContract: addrZero,
+            tokenRecipient: constants.ZERO_ADDRESS,
+            tokenContract: constants.ZERO_ADDRESS,
             tokenAmount: '0',
-            factory: addrZero // only set if this is a deploy request
+            factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+            recoverer: constants.ZERO_ADDRESS,
+            index: '0'
           },
           relayData: {
             baseRelayFee: encodedCallArgs.baseFee.toString(),

@@ -14,7 +14,9 @@ interface IForwarder {
         address tokenRecipient;
         address tokenContract;
         uint256 tokenAmount;
-        address factory; // only set if this is a deploy request
+        address factory; // only set if this is a SmartWallet deploy request
+        address recoverer; // only used in SmartWallet deploy requests
+        uint256 index; // only used in SmartWallet deploy requests
     }
 
     function getNonce()

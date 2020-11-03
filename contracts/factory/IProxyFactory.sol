@@ -10,7 +10,9 @@ interface IProxyFactory {
 
     function createUserSmartWallet(
         address owner,
+        address recoverer,
         address logic,
+        uint256 index,
         bytes calldata initParams,
         bytes calldata sig
     ) external;
@@ -25,7 +27,9 @@ interface IProxyFactory {
 
     function getSmartWalletAddress(
         address owner,
+        address recoverer,
         address logic,
-        bytes memory initParams
+        bytes32 initParamsHash,
+        uint256 index
     ) external view returns (address);
 }

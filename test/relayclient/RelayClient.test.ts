@@ -36,6 +36,7 @@ import { Server } from 'http'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
+import { constants } from '../../src/common/Constants'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -286,10 +287,12 @@ contract('RelayClient', function (accounts) {
         tokenContract: token.address,
         tokenAmount: '1',
         factory: factory.address, // Indicate to the RelayHub this is a Smart Wallet deploy
+        recoverer: addr(0),
+        index: '0',
         useGSN: true
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, details.to, details.data)
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), details.to, web3.utils.keccak256(details.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
@@ -314,10 +317,12 @@ contract('RelayClient', function (accounts) {
         tokenRecipient: paymaster.address,
         tokenContract: token.address,
         tokenAmount: '1',
-        factory: factory.address // Indicate to the RelayHub this is a Smart Wallet deploy
+        factory: factory.address, // Indicate to the RelayHub this is a Smart Wallet deploy
+        recoverer: addr(0),
+        index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, deployOptions.to, deployOptions.data)
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWallet, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32, '0')
       await token.mint('1000', swAddress)
 
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
@@ -340,11 +345,15 @@ contract('RelayClient', function (accounts) {
       assert(res.logs.find(log => log.topics.includes(topic)))
       const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
       const loggedEvent = res.logs[eventIdx]
+
       const saltSha = web3.utils.soliditySha3(
         { t: 'address', v: eoaWithoutSmartWallet },
+        { t: 'address', v: addr(0) },
         { t: 'address', v: deployOptions.to },
-        { t: 'bytes', v: deployOptions.data }
+        { t: 'bytes32', v: web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32 },
+        { t: 'uint256', v: '0' }
       ) ?? ''
+
       assert.notEqual(saltSha, '', 'error while calculating salt')
 
       const expectedSalt = web3.utils.toBN(saltSha).toString()

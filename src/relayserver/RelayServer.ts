@@ -200,6 +200,7 @@ export class RelayServer extends EventEmitter {
       await this.relayHubContract.calculateCharge(maxPossibleGas, req.relayRequest.relayData)
     const paymasterBalance = await this.relayHubContract.balanceOf(paymaster)
 
+    // TODO Enveloping: Remove when the paymaster no longer pays for the relay
     if (paymasterBalance.lt(maxCharge)) {
       throw new Error(`paymaster balance too low: ${paymasterBalance.toString()}, maxCharge: ${maxCharge.toString()}`)
     }

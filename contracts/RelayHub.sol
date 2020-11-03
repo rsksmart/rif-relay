@@ -17,7 +17,9 @@ import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPaymaster.sol";
 import "./forwarder/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
-
+    //TODO Enveloping
+    //If req.token != address(0) then do not use the balances at all
+    //If req.token == 0, then the relayHub will pay the worker with balance
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 

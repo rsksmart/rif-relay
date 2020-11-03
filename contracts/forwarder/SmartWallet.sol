@@ -11,7 +11,7 @@ import "../utils/GsnUtils.sol";
 contract SmartWallet is IForwarder {
     using ECDSA for bytes32;
        
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory";
+    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
     string public constant GENERIC_SUFFIX =  "RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
 
@@ -113,7 +113,7 @@ contract SmartWallet is IForwarder {
     }
 
     function _verifyOwner(ForwardRequest memory req) internal view {
-        address swalletOwner;
+        bytes32 swalletOwner; //hash of owner address
         /* solhint-disable-next-line no-inline-assembly */
         assembly {
             //First of all, verify the req.from is the owner of this smart wallet
@@ -123,7 +123,7 @@ contract SmartWallet is IForwarder {
         }
 
         require(
-            swalletOwner == req.from,
+            swalletOwner == keccak256(abi.encodePacked(req.from)),
             "Requestor is not the owner of the Smart Wallet"
         );
     }
@@ -207,7 +207,9 @@ contract SmartWallet is IForwarder {
                     req.tokenRecipient,
                     req.tokenContract,
                     req.tokenAmount,
-                    req.factory
+                    req.factory,
+                    req.recoverer,
+                    req.index
                 ),
                 suffixData
             );
@@ -221,7 +223,7 @@ contract SmartWallet is IForwarder {
                 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             )
         }
-        if (swalletOwner == 0x0) {
+        if (swalletOwner == bytes32(0)) {
             return false;
         } else {
             return true;
@@ -260,7 +262,7 @@ contract SmartWallet is IForwarder {
             )
         }
 
-        if (swalletOwner == 0x0) {
+        if (swalletOwner == bytes32(0)) {
             //we need to initialize the contract
             if (tokenAddr != address(0)) {
                 /* solhint-disable-next-line avoid-low-level-calls */
@@ -291,13 +293,15 @@ contract SmartWallet is IForwarder {
                     success,
                     "initialize(bytes) call in logic contract failed"
                 );
+
+                bytes memory logicCell = abi.encodePacked(logic);
                 /* solhint-disable-next-line no-inline-assembly */
                 assembly {
                     //The slot used complies with EIP-1967, obtained as:
                     //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
                     sstore(
                         0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                        logic
+                        logicCell
                     )
                 }
             }
@@ -306,11 +310,12 @@ contract SmartWallet is IForwarder {
             //storing the logic address
             //Set the owner of this Smart Wallet
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
             /* solhint-disable-next-line no-inline-assembly */
             assembly {
                 sstore(
                     0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                    owner
+                    ownerCell
                 )
             }
 

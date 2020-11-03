@@ -13,6 +13,7 @@ import chai from 'chai'
 import { getTestingEnvironment } from './TestUtils'
 import { Environment } from '../src/common/Environments'
 import { EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
+import { constants } from '../src/common/Constants'
 
 const keccak256 = web3.utils.keccak256
 
@@ -42,7 +43,7 @@ contract('ProxyFactory', ([from]) => {
 
   const recipientPrivateKey = toBuffer(bytes32(1))
   const recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)))
-  const FORWARDER_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory'
+  const FORWARDER_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index'
 
   let env: Environment
 
@@ -71,42 +72,30 @@ contract('ProxyFactory', ([from]) => {
   describe('#getSmartWalletAddress', () => {
     it('should create the correct create2 Address', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
-      const create2Address = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-
+      const initParamsHash = constants.ZERO_BYTES32
+      const recoverer = addr(0)
+      const index = '0'
+      const create2Address = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress, initParamsHash, index)
       const creationByteCode = await factory.getCreationBytecode()
 
-      let salt: string = ''
-      const ssha3 = web3.utils.soliditySha3(
+      const salt: string = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-      if (ssha3 != null) {
-        salt = ssha3
-      }
+        { t: 'bytes32', v: initParamsHash },
+        { t: 'uint256', v: index }
+      ) ?? ''
 
-      let bytecodeHash: string = ''
-      const bytesSha = web3.utils.soliditySha3(
+      const bytecodeHash: string = web3.utils.soliditySha3(
         { t: 'bytes', v: creationByteCode }
-      )
+      ) ?? ''
 
-      if (bytesSha != null) {
-        bytecodeHash = bytesSha
-      }
-
-      let _data: string = ''
-
-      const dataSha = web3.utils.soliditySha3(
+      const _data: string = web3.utils.soliditySha3(
         { t: 'bytes1', v: '0xff' },
         { t: 'address', v: factory.address },
         { t: 'bytes32', v: salt },
         { t: 'bytes32', v: bytecodeHash }
-      )
-
-      if (dataSha != null) {
-        _data = dataSha
-      }
+      ) ?? ''
 
       const expectedAddress = toChecksumAddress('0x' + _data.slice(26, _data.length))
       assert.equal(create2Address, expectedAddress)
@@ -116,42 +105,37 @@ contract('ProxyFactory', ([from]) => {
   describe('#createUserSmartWallet', () => {
     it('should create the Smart Wallet in the expected address', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
+      const recoverer = addr(0)
+      const index = '0'
 
-      let toSign: string = ''
-
-      const signSha = web3.utils.soliditySha3(
+      const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-
-      if (signSha != null) {
-        toSign = signSha
-      }
+        { t: 'uint256', v: index },
+        { t: 'bytes', v: initParams }// Init params is empty
+      ) ?? ''
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, logicAddress,
-        initParams, signatureCollapsed)
+      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed)
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
-      let salt = ''
-
-      const saltSha = web3.utils.soliditySha3(
+      const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-
-      if (saltSha != null) {
-        salt = saltSha
-      }
+        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'uint256', v: index }
+      ) ?? ''
 
       const expectedSalt = web3.utils.toBN(salt).toString()
 
@@ -163,22 +147,21 @@ contract('ProxyFactory', ([from]) => {
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
-      let toSign: string = ''
-
-      const signSha = web3.utils.soliditySha3(
+      const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
+        { t: 'uint256', v: index },
         { t: 'bytes', v: initParams }
-      )
-
-      if (signSha != null) {
-        toSign = signSha
-      }
+      ) ?? ''
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -189,8 +172,8 @@ contract('ProxyFactory', ([from]) => {
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress,
-        logicAddress, initParams, signatureCollapsed)
+      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed)
 
       const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
 
@@ -200,18 +183,17 @@ contract('ProxyFactory', ([from]) => {
     it('should revert for an invalid signature', async () => {
       const logicAddress = addr(0)
       const initParams = '0x00'
+      const recoverer = addr(0)
+      const index = '0'
 
-      let toSign: string = ''
-      const signSha = web3.utils.soliditySha3(
+      const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
+        { t: 'uint256', v: index },
         { t: 'bytes', v: initParams }
-      )
-
-      if (signSha != null) {
-        toSign = signSha
-      }
+      ) ?? ''
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -220,47 +202,43 @@ contract('ProxyFactory', ([from]) => {
 
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
-      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, logicAddress,
-        initParams, signatureCollapsed))
+      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed))
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
-      let toSign: string = ''
-
-      const signSha = web3.utils.soliditySha3(
+      const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
+        { t: 'uint256', v: index },
         { t: 'bytes', v: initParams }
-      )
-
-      if (signSha != null) {
-        toSign = signSha
-      }
+      ) ?? ''
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress,
-        logicAddress, initParams, signatureCollapsed)
+      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed)
 
-      let salt = ''
-      const saltSha = web3.utils.soliditySha3(
+      const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-
-      if (saltSha != null) {
-        salt = saltSha
-      }
+        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'uint256', v: index }
+      ) ?? ''
 
       const expectedSalt = web3.utils.toBN(salt).toString()
 
@@ -343,10 +321,13 @@ contract('ProxyFactory', ([from]) => {
   describe('#relayedUserSmartWalletCreation', () => {
     it('should create the Smart Wallet in the expected address', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
       const deployPrice = '0x01' // 1 token
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -365,7 +346,9 @@ contract('ProxyFactory', ([from]) => {
         tokenRecipient: recipientAddress,
         tokenContract: token.address,
         tokenAmount: deployPrice,
-        factory: addr(0) // param only needed by RelayHub
+        factory: addr(0), // param only needed by RelayHub
+        recoverer: recoverer,
+        index: index
       }
 
       const data: EIP712TypedData = {
@@ -388,17 +371,13 @@ contract('ProxyFactory', ([from]) => {
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig)
 
-      let salt = ''
-
-      const saltSha = web3.utils.soliditySha3(
+      const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-
-      if (saltSha != null) {
-        salt = saltSha
-      }
+        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'uint256', v: index }
+      ) ?? ''
 
       const expectedSalt = web3.utils.toBN(salt).toString()
 
@@ -416,10 +395,13 @@ contract('ProxyFactory', ([from]) => {
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
       const deployPrice = '0x01' // 1 token
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -437,7 +419,9 @@ contract('ProxyFactory', ([from]) => {
         tokenRecipient: recipientAddress,
         tokenContract: token.address,
         tokenAmount: deployPrice,
-        factory: addr(0) // param only needed by RelayHub
+        factory: addr(0), // param only needed by RelayHub
+        recoverer: recoverer,
+        index: index
       }
 
       const data: EIP712TypedData = {
@@ -471,11 +455,13 @@ contract('ProxyFactory', ([from]) => {
 
     it('should revert for an invalid signature', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
       const deployPrice = '0x01' // 1 token
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
-      await token.mint('200', expectedAddress)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
       const originalBalance = await token.balanceOf(expectedAddress)
       const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
@@ -491,7 +477,9 @@ contract('ProxyFactory', ([from]) => {
         tokenRecipient: recipientAddress,
         tokenContract: token.address,
         tokenAmount: deployPrice,
-        factory: addr(0) // param only needed by RelayHub
+        factory: addr(0), // param only needed by RelayHub
+        recoverer: recoverer,
+        index: index
       }
 
       const data: EIP712TypedData = {
@@ -522,10 +510,13 @@ contract('ProxyFactory', ([from]) => {
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
       const logicAddress = addr(0)
-      const initParams = '0x00'
+      const initParams = '0x'
       const deployPrice = '0x01' // 1 token
+      const recoverer = addr(0)
+      const index = '0'
 
-      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, logicAddress, initParams)
+      const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
+        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -544,7 +535,9 @@ contract('ProxyFactory', ([from]) => {
         tokenRecipient: recipientAddress,
         tokenContract: token.address,
         tokenAmount: deployPrice,
-        factory: addr(0) // param only needed by RelayHub
+        factory: addr(0), // param only needed by RelayHub
+        recoverer: recoverer,
+        index: index
       }
 
       const data: EIP712TypedData = {
@@ -567,17 +560,13 @@ contract('ProxyFactory', ([from]) => {
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig)
 
-      let salt = ''
-
-      const saltSha = web3.utils.soliditySha3(
+      const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
+        { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes', v: initParams }
-      )
-
-      if (saltSha != null) {
-        salt = saltSha
-      }
+        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'uint256', v: index }
+      ) ?? ''
 
       const expectedSalt = web3.utils.toBN(salt).toString()
 

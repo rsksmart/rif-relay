@@ -1,4 +1,4 @@
-import { ether, expectEvent, expectRevert, constants } from '@openzeppelin/test-helpers'
+import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
@@ -26,6 +26,7 @@ import BadRelayClient from '../dummies/BadRelayClient'
 import { getEip712Signature } from '../../src/common/Utils'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
+import { constants } from '../../src/common/Constants'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -38,7 +39,6 @@ const underlyingProvider = web3.currentProvider as HttpProvider
 
 const paymasterData = '0x'
 const clientId = '1'
-const addrZero = '0x0000000000000000000000000000000000000000'
 
 // TODO: once Utils.js is translated to TypeScript, move to Utils.ts
 export async function prepareTransaction (testRecipient: TestRecipientInstance, account: Address, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
@@ -50,10 +50,12 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       nonce: nonce,
       value: '0',
       gas: '10000',
-      tokenRecipient: addrZero,
-      tokenContract: addrZero,
+      tokenRecipient: constants.ZERO_ADDRESS,
+      tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '0',
-      factory: addrZero // only set if this is a deploy request
+      factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+      recoverer: constants.ZERO_ADDRESS,
+      index: '0'
     },
     relayData: {
       pctRelayFee: '1',
