@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, addr } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
 import { soliditySha3Raw } from 'web3-utils'
@@ -33,14 +33,6 @@ const paymasterData = '0x'
 const clientId = '1'
 const tokensPaid = 1
 let relayRequestData: RelayRequest
-
-function addr (n: number): string {
-  return '0x' + n.toString().repeat(40)
-}
-
-function bytes32 (n: number): string {
-  return '0x' + n.toString().repeat(64).slice(0, 64)
-}
 
 contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, senderAddress, other2, paymasterOwner, other3]) {
   let deployPaymaster: DeployPaymasterInstance
