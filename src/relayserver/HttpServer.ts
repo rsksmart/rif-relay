@@ -101,8 +101,9 @@ export class HttpServer {
     }
   }
 
-  async feeEstimatorHandler (req: any, res: any): Promise<void> {
-    const feesTable = await this.backend.envelopingArbiter.getFeesTable()
+  feeEstimatorHandler (req: any, res: any): void {
+    const feesTable = this.backend.envelopingArbiter.getFeesTable()
     res.send(feesTable)
+    console.log('Fees estimation table sent')
   }
 }
