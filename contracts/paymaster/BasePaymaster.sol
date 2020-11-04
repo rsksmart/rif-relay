@@ -4,10 +4,10 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "./interfaces/GsnTypes.sol";
-import "./interfaces/IPaymaster.sol";
-import "./interfaces/IRelayHub.sol";
-import "./utils/GsnEip712Library.sol";
+import "../interfaces/GsnTypes.sol";
+import "../interfaces/IPaymaster.sol";
+import "../interfaces/IRelayHub.sol";
+import "../utils/GsnEip712Library.sol";
 
 /**
  * Abstract base class to be inherited by a concrete Paymaster

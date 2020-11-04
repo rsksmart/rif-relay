@@ -57,6 +57,16 @@ contract('ProxyFactory', ([from]) => {
     })
   })
 
+  describe('#getRuntimeCodeHash', () => {
+    it('should return the expected code hash', async () => {
+      const expectedCode = '0x363D3D373D3D3D3D363D73' + stripHex(fwd.address) + '5AF43D923D90803E602B57FD5BF3'
+      const expectedCodeHash = keccak256(expectedCode)
+
+      const code = await factory.runtimeCodeHash()
+      chai.expect(web3.utils.toBN(expectedCodeHash)).to.be.bignumber.equal(web3.utils.toBN(code))
+    })
+  })
+
   describe('#getSmartWalletAddress', () => {
     it('should create the correct create2 Address', async () => {
       const logicAddress = addr(0)

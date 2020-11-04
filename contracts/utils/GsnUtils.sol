@@ -22,6 +22,19 @@ library GsnUtils {
         return MinLibBytes.readUint256(msgData, 4 + index * 32);
     }
 
+    /**
+     * Check if a contract has code in it
+     * Should NOT be used on contructor, it fails
+     * See: https://stackoverflow.com/a/54056854
+     */
+    function _isContract(address _addr) internal view returns (bool){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
+    }
+
     //re-throw revert with the same revert data.
     function revertWithData(bytes memory data) internal pure {
         assembly {

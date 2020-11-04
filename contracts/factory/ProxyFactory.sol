@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IProxyFactory.sol";
 
 //import "@nomiclabs/buidler/console.sol";
+/* solhint-disable no-inline-assembly */
+/* solhint-disable avoid-low-level-calls */
 
 /**
 ====================================================================================================================================================
@@ -84,6 +86,12 @@ contract ProxyFactory is IProxyFactory {
     string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
     string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
 
+    bytes9 private constant CONSTR = hex"602D3D8160093D39F3";
+    bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
+    bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
+
+    bytes32 public runtimeCodeHash;
+
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
      * it pays for the deployment during initialization, and it pays for the transaction
@@ -92,6 +100,8 @@ contract ProxyFactory is IProxyFactory {
      */
     constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
+
+        runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END));
        
         string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
         registerRequestTypeInternal(requestType);
@@ -237,12 +247,8 @@ contract ProxyFactory is IProxyFactory {
 
     // Returns the proxy code to that is deployed on every Smart Wallet creation
     function getCreationBytecode() public view returns (bytes memory) {
-        bytes memory payloadStart
-         = hex"602D3D8160093D39F3363D3D373D3D3D3D363D73";
-        bytes memory payloadEnd = hex"5AF43D923D90803E602B57FD5BF3";
-
         //The code to install
-        return abi.encodePacked(payloadStart, masterCopy, payloadEnd);
+        return abi.encodePacked(CONSTR, RUNTIME_START, masterCopy, RUNTIME_END);
     }
 
     function _getEncoded(
