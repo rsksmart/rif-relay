@@ -47,8 +47,6 @@ contract RelayPaymaster is BasePaymaster {
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
-        
-        require(relayRequest.request.factory == factory, "factory should be the trusted one!");
 
         address payer = relayRequest.relayData.forwarder;
         IERC20 token = IERC20(relayRequest.request.tokenContract);
