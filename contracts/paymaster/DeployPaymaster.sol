@@ -49,7 +49,7 @@ contract DeployPaymaster is BasePaymaster {
             relayRequest.request.from, 
             relayRequest.request.recoverer, 
             relayRequest.request.to, 
-            (relayRequest.request.data.length == 0 ? bytes32(0) : keccak256(relayRequest.request.data)), 
+            keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
         require(!GsnUtils._isContract(contractAddr), "Address already created!");

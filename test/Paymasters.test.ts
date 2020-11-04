@@ -15,6 +15,7 @@ import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
+import { soliditySha3Raw } from 'web3-utils'
 
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
@@ -53,7 +54,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   const ownerPrivateKey = toBuffer(bytes32(1))
   const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
   const logicAddress = addr(0)
-  const initParams = '0x00'
+  const initParams = '0x'
 
   const recoverer = constants.ZERO_ADDRESS
   const index = '0'
@@ -99,7 +100,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     }
     // we mint tokens to the sender,
     expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress,
-      web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+      soliditySha3Raw({t:'bytes', v:initParams}), index)
     await token.mint(tokensPaid + 4, expectedAddress)
   })
 
@@ -142,7 +143,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
       { t: 'address', v: ownerAddress },
       { t: 'address', v: recoverer },
       { t: 'address', v: logicAddress },
-      { t: 'bytes32', v: web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32 },
+      { t: 'bytes32', v: soliditySha3Raw({t:'bytes', v:initParams})},
       { t: 'uint256', v: index }
     ) ?? ''
 
