@@ -6,6 +6,7 @@ import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
 import { RelayServer } from '../../src/relayserver/RelayServer'
+import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { ServerConfigParams, ServerDependencies } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
@@ -99,12 +100,6 @@ contract('RegistrationManager', function (accounts) {
           relayHubAddress: env.relayHub.address
         }))
       await contractInteractor.init()
-      const serverDependencies: ServerDependencies = {
-        txStoreManager,
-        managerKeyManager,
-        workersKeyManager,
-        contractInteractor
-      }
       const params: Partial<ServerConfigParams> = {
         relayHubAddress: env.relayHub.address,
         url: LocalhostOne,
@@ -113,6 +108,15 @@ contract('RegistrationManager', function (accounts) {
         pctRelayFee: 0,
         gasPriceFactor: 1,
         checkInterval: 10
+      }
+      const envelopingArbiter = new EnvelopingArbiter(params, serverWeb3provider)
+      await envelopingArbiter.start()
+      const serverDependencies: ServerDependencies = {
+        txStoreManager,
+        managerKeyManager,
+        workersKeyManager,
+        contractInteractor,
+        envelopingArbiter
       }
       const newRelayServer = new RelayServer(params, serverDependencies)
       await newRelayServer.init()
