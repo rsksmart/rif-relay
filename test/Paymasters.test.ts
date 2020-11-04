@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
 import { toChecksumAddress } from 'web3-utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, addr } from './TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
 import { soliditySha3Raw } from 'web3-utils'
@@ -45,7 +45,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
-  const logicAddress = addr(0)
+  const logicAddress = constants.ZERO_ADDRESS
   const initParams = '0x'
 
   const recoverer = constants.ZERO_ADDRESS
