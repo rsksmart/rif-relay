@@ -283,8 +283,8 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
     await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
     // Forwarder needs to be a contract with balance
     // But a different than the template needed
-    relayRequestData.relayData.forwarder = other
-    await token.mint(tokensPaid + 4, other)
+    relayRequestData.relayData.forwarder = token.address
+    await token.mint(tokensPaid + 4, token.address)
     // run method
     await expectRevert.unspecified(
       testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
