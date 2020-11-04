@@ -5,6 +5,7 @@ import { HttpServer } from './HttpServer'
 import { RelayServer } from './RelayServer'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager, TXSTORE_FILENAME } from './TxStoreManager'
+import { EnvelopingArbiter } from './enveloping/EnvelopingArbiter'
 import ContractInteractor from '../relayclient/ContractInteractor'
 import { configureGSN } from '../relayclient/GSNConfigurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
@@ -40,12 +41,15 @@ async function run (): Promise<void> {
   const txStoreManager = new TxStoreManager({ workdir })
   const contractInteractor = new ContractInteractor(web3provider, configureGSN({ relayHubAddress: config.relayHubAddress }))
   await contractInteractor.init()
+  const envelopingArbiter = new EnvelopingArbiter(config, web3provider)
+  await envelopingArbiter.start()
 
   const dependencies: ServerDependencies = {
     txStoreManager,
     managerKeyManager,
     workersKeyManager,
-    contractInteractor
+    contractInteractor,
+    envelopingArbiter
   }
 
   const relay = new RelayServer(config, dependencies)

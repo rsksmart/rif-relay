@@ -31,6 +31,7 @@ import { SendTransactionDetails, TransactionManager } from './TransactionManager
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
+import { EnvelopingArbiter } from './enveloping/EnvelopingArbiter'
 
 import Timeout = NodeJS.Timeout
 
@@ -66,6 +67,7 @@ export class RelayServer extends EventEmitter {
   trustedPaymastersGasLimits: Map<String | undefined, PaymasterGasLimits> = new Map<String | undefined, PaymasterGasLimits>()
 
   workerBalanceRequired: AmountRequired
+  envelopingArbiter: EnvelopingArbiter
 
   constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies) {
     super()
@@ -73,6 +75,7 @@ export class RelayServer extends EventEmitter {
     this.config = configureServer(config)
     this.contractInteractor = dependencies.contractInteractor
     this.txStoreManager = dependencies.txStoreManager
+    this.envelopingArbiter = dependencies.envelopingArbiter
     this.transactionManager = new TransactionManager(dependencies, this.config)
     this.managerAddress = this.transactionManager.managerKeyManager.getAddress(0)
     this.workerAddress = this.transactionManager.workersKeyManager.getAddress(0)
