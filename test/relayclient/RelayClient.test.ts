@@ -36,8 +36,8 @@ import { Server } from 'http'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
-import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
+import { soliditySha3Raw } from 'web3-utils'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -310,7 +310,7 @@ contract('RelayClient', function (accounts) {
         useGSN: true
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), details.to, web3.utils.keccak256(details.data) ?? constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), details.to, soliditySha3Raw({ t: 'bytes', v: details.data }), '0')
       await token.mint('1000', swAddress)
 
       const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
@@ -342,7 +342,7 @@ contract('RelayClient', function (accounts) {
         index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), deployOptions.to, web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32, '0')
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, addr(0), deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
       await token.mint('1000', swAddress)
 
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
@@ -370,7 +370,7 @@ contract('RelayClient', function (accounts) {
         { t: 'address', v: eoaWithoutSmartWalletAccount.address },
         { t: 'address', v: addr(0) },
         { t: 'address', v: deployOptions.to },
-        { t: 'bytes32', v: web3.utils.keccak256(deployOptions.data) ?? constants.ZERO_BYTES32 },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: deployOptions.data }) },
         { t: 'uint256', v: '0' }
       ) ?? ''
 
