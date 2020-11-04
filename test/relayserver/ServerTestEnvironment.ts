@@ -36,7 +36,6 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { bufferToHex } from 'ethereumjs-util'
 import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
 
 const StakeManager = artifacts.require('StakeManager')
