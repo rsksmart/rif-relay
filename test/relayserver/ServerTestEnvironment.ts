@@ -36,11 +36,8 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-<<<<<<< HEAD
-=======
 import { bufferToHex } from 'ethereumjs-util'
 import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
->>>>>>> added FeeEstimator component and integrated EnvelopingArbiter component on RelayServer
 
 const StakeManager = artifacts.require('StakeManager')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
