@@ -2,9 +2,9 @@
   "baseRelayFee": 70,
   "pctRelayFee": 0,
   "port": 8090,
-  "relayHubAddress": "0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B",
-  "gasPricePercent": 10,
-  "ethereumNodeUrl": "http://host.docker.internal:8545",
+  "relayHubAddress": "0x726ECC75d5D51356AA4d0a5B648790cC345985ED",
+  "gasPriceFactor": 10,
+  "ethereumNodeUrl": "http://docker.ip:4444/2.0.1/",
   "devMode": true,
-  "debug": false
+  "logLevel": 1
 }
