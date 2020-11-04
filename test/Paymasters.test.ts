@@ -10,12 +10,11 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
-import { toChecksumAddress } from 'web3-utils'
+import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
-import { soliditySha3Raw } from 'web3-utils'
 
 const DeployPaymaster = artifacts.require('DeployPaymaster')
 const RelayPaymaster = artifacts.require('RelayPaymaster')
@@ -92,7 +91,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     }
     // we mint tokens to the sender,
     expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress,
-      soliditySha3Raw({t:'bytes', v:initParams}), index)
+      soliditySha3Raw({ t: 'bytes', v: initParams }), index)
     await token.mint(tokensPaid + 4, expectedAddress)
   })
 
@@ -135,7 +134,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
       { t: 'address', v: ownerAddress },
       { t: 'address', v: recoverer },
       { t: 'address', v: logicAddress },
-      { t: 'bytes32', v: soliditySha3Raw({t:'bytes', v:initParams})},
+      { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
       { t: 'uint256', v: index }
     ) ?? ''
 
