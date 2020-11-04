@@ -7,7 +7,7 @@ import {
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
-import { toChecksumAddress } from 'web3-utils'
+import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
 import { ethers } from 'ethers'
 import chai from 'chai'
 import { addr, bytes32, getTestingEnvironment, stripHex } from './TestUtils'
@@ -60,7 +60,7 @@ contract('ProxyFactory', ([from]) => {
   describe('#getSmartWalletAddress', () => {
     it('should create the correct create2 Address', async () => {
       const logicAddress = addr(0)
-      const initParamsHash = constants.ZERO_BYTES32
+      const initParamsHash = constants.SHA3_NULL_S
       const recoverer = addr(0)
       const index = '0'
       const create2Address = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress, initParamsHash, index)
@@ -115,13 +115,13 @@ contract('ProxyFactory', ([from]) => {
         index, initParams, signatureCollapsed)
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
         { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
         { t: 'uint256', v: index }
       ) ?? ''
 
@@ -140,7 +140,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
@@ -201,7 +201,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       const toSign: string = web3.utils.soliditySha3(
         { t: 'bytes2', v: '0x1910' },
@@ -224,7 +224,7 @@ contract('ProxyFactory', ([from]) => {
         { t: 'address', v: ownerAddress },
         { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
         { t: 'uint256', v: index }
       ) ?? ''
 
@@ -315,7 +315,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -363,7 +363,7 @@ contract('ProxyFactory', ([from]) => {
         { t: 'address', v: ownerAddress },
         { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
         { t: 'uint256', v: index }
       ) ?? ''
 
@@ -389,7 +389,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -449,7 +449,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       const originalBalance = await token.balanceOf(expectedAddress)
       const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
@@ -504,7 +504,7 @@ contract('ProxyFactory', ([from]) => {
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
@@ -552,7 +552,7 @@ contract('ProxyFactory', ([from]) => {
         { t: 'address', v: ownerAddress },
         { t: 'address', v: recoverer },
         { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: keccak256(initParams) ?? constants.ZERO_BYTES32 },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
         { t: 'uint256', v: index }
       ) ?? ''
 

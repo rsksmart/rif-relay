@@ -121,8 +121,7 @@ contract ProxyFactory is IProxyFactory {
         bytes32 digest = keccak256(packed);
         require(digest.recover(sig) == owner, string(packed));
 
-        bytes32 initParamsHash = (initParams.length == 0 ? bytes32(0) : keccak256(initParams));
-        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, initParamsHash, index));
+        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, keccak256(initParams), index));
 
         //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
         bytes memory initData = abi.encodeWithSelector(
@@ -148,8 +147,7 @@ contract ProxyFactory is IProxyFactory {
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         _updateNonce(req);
 
-        bytes32 initParamsHash = (req.data.length == 0 ? bytes32(0) : keccak256(req.data));
-        bytes32 salt = keccak256(abi.encodePacked(req.from, req.recoverer, req.to, initParamsHash, req.index));
+        bytes32 salt = keccak256(abi.encodePacked(req.from, req.recoverer, req.to, keccak256(req.data), req.index));
 
         //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)

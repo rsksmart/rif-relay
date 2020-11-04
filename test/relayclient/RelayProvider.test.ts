@@ -255,7 +255,7 @@ contract('RelayProvider', function (accounts) {
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
 
-      const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, customLogic, constants.ZERO_BYTES32, walletIndex)
+      const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, customLogic, constants.SHA3_NULL_S, walletIndex)
 
       assert.equal(swAddress, expectedAddress)
     }

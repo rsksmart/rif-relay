@@ -14,6 +14,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { sleep, getEip712Signature } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 import EnvelopingTypedRequestData, { GsnRequestType, getDomainSeparatorHash, ENVELOPING_PARAMS, GsnDomainSeparatorType, EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
+import { soliditySha3Raw } from 'web3-utils'
 
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util'
@@ -356,7 +357,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     await factory.relayedUserSmartWalletCreation(rReq, getDomainSeparatorHash(factory.address, chainId), typeHash, '0x', deploySignature)
   }
 
-  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, '0')
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')
 
   const SmartWallet = artifacts.require('SmartWallet')
   const sw: SmartWalletInstance = await SmartWallet.at(swAddress)

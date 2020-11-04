@@ -157,7 +157,7 @@ export class RelayProvider implements HttpProvider {
       { t: 'address', v: ownerEOA },
       { t: 'address', v: recoverer },
       { t: 'address', v: customLogic },
-      { t: 'bytes32', v: logicInitParamsHash ?? constants.ZERO_BYTES32 },
+      { t: 'bytes32', v: logicInitParamsHash ?? constants.SHA3_NULL_S },
       { t: 'uint256', v: walletIndex }
     ) ?? ''
 
