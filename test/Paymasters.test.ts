@@ -299,4 +299,18 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
       'SW different to template'
     )
   })
+
+  it('SHOULD fail when factory is incorrect on preRelayCall', async function () {
+    relayPaymaster = await RelayPaymaster.new(other, { from: paymasterOwner })
+
+    // We simulate the testPaymasters contract is a relayHub to make sure
+    // the onlyRelayHub condition is correct
+    await relayPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
+    testPaymasters = await TestPaymasters.new(relayPaymaster.address)
+
+    await expectRevert.unspecified(
+      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      'factory should be the trusted one!'
+    )
+  })
 })

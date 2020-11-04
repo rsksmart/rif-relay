@@ -40,8 +40,7 @@ contract DeployPaymaster is BasePaymaster {
     relayHubOnly
     returns (bytes memory context, bool revertOnRecipientRevert) {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
-        IERC20 token = IERC20(relayRequest.request.tokenContract);
-
+    
         require(relayRequest.request.factory == factory, "factory should be the trusted one!");
 
         address contractAddr = ProxyFactory(relayRequest.request.factory)
@@ -53,6 +52,8 @@ contract DeployPaymaster is BasePaymaster {
             relayRequest.request.index);
 
         require(!GsnUtils._isContract(contractAddr), "Address already created!");
+
+        IERC20 token = IERC20(relayRequest.request.tokenContract);
         require(relayRequest.request.tokenAmount <= token.balanceOf(contractAddr), "balance too low");
 
         //We dont do that here
