@@ -68,10 +68,28 @@ We can deploy the project with
 
 ### 3.3 Create a Smart Wallet <a id="c03.3"></a>
 
-As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet.
+As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). For that, the `Relay Provider` exposes auxiliar function to create a Smart Wallet.
 
-Pending..
+`deploySmartWallet` -  This function receives a `GsnTransactionDetail` and returns a transaction hash. The latter is formmed by the next parameters:
+* from: Address of the SW Owner.
+* to: Address of the optional custom logic.
+* data: Parameters (in bytes) for the optional custom logic.
+* tokenRecipient: Address of the account that gets paid for the deploy.
+* tokenContract: Address of the token used to pay for the deployment (address(0) indicated the deploy is subsidized).
+* tokenAmount: Amount of tokens paid for the deployment (0 if the deploy is subsidized).
+* factory: Address of the factory used to deploy the SW.
+* recoverer: Address of an optional recoverer account/contract (address(0) if there is not).
+* index: Numeric value used to generate several SW instances using the same paramaters defined above.
+* value: Not used here, only used in other scenarios where the worker account of the relay server needs to replenish balance.
+** Any value put here wont be sent to the "to" property, it won't be moved at all.
 
+
+`calculateSmartWalletAddress` - Given the next parameters, a user may know its SW address.
+* ownerEOA: Address of the SW owner.
+* recoverer: If there is, address of the recoverer account, otherwise address(0).
+* customLogic: An optional custom logic code (in bytes), that the wallet will proxy to (it can be address(0)).
+* walletIndex: Numeric value used to generatte different wallet insttances for the owner using the same parameters and factory.
+* logicInitParamsHash: If customLogic was defined in it need initialization parameters, they are passed as abi-encoded here, without include the function selector. If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero.
 
 
 ## 4. Use MetaCoin <a id="c04"></a>
