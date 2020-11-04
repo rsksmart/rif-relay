@@ -31,9 +31,7 @@ import { SendTransactionDetails, TransactionManager } from './TransactionManager
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
-import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
-import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
-import { ethers } from 'ethers'
+import { EnvelopingArbiter } from './enveloping/EnvelopingArbiter'
 
 import Timeout = NodeJS.Timeout
 
