@@ -48,28 +48,25 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   let factory: ProxyFactoryInstance
 
   let testPaymasters: TestPaymastersInstance
-  let expectedAddress : Address 
+  let expectedAddress: Address
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
   const logicAddress = addr(0)
   const initParams = '0x00'
-  
-  let recoverer = constants.ZERO_ADDRESS
-  let index = '0'
+
+  const recoverer = constants.ZERO_ADDRESS
+  const index = '0'
 
   beforeEach(async function () {
-    
     token = await TestToken.new()
     template = await SmartWallet.new()
-
-    
 
     factory = await createProxyFactory(template)
 
     deployPaymaster = await DeployPaymaster.new(factory.address, { from: paymasterOwner })
     testPaymasters = await TestPaymasters.new(deployPaymaster.address)
-    
+
     // We simulate the testPaymasters contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
@@ -87,7 +84,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
         tokenAmount: tokensPaid.toString(),
         factory: factory.address,
         recoverer,
-        index        
+        index
       },
       relayData: {
         pctRelayFee,
@@ -102,7 +99,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     }
     // we mint tokens to the sender,
     expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress,
-       web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, index)
+      web3.utils.keccak256(initParams) ?? constants.ZERO_BYTES32, index)
     await token.mint(tokensPaid + 4, expectedAddress)
   })
 

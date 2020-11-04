@@ -27,6 +27,7 @@ contract DeployPaymaster is BasePaymaster {
 
     mapping (address => bool) public tokens;
 
+    /* solhint-disable no-unused-vars */
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
@@ -58,6 +59,7 @@ contract DeployPaymaster is BasePaymaster {
         //token.transferFrom(payer, address(this), tokenPrecharge);
         return (abi.encode(contractAddr, relayRequest.request.tokenAmount, token), true);
     }
+    /* solhint-ensable no-unused-vars */
 
     /* solhint-disable no-empty-blocks */
     function postRelayedCall(

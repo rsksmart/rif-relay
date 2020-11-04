@@ -9,6 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../factory/ProxyFactory.sol";
 import "./BasePaymaster.sol";
 
+/* solhint-disable no-inline-assembly */
+/* solhint-disable avoid-low-level-calls */
+
 /**
  * A paymaster for relay transactions.
  * - each request is paid for by the caller.
@@ -31,6 +34,7 @@ contract RelayPaymaster is BasePaymaster {
 
     mapping (address => bool) public tokens;
 
+    /* solhint-disable no-unused-vars */
     function preRelayedCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
@@ -60,6 +64,7 @@ contract RelayPaymaster is BasePaymaster {
         //token.transferFrom(payer, address(this), tokenPrecharge);
         return (abi.encode(payer, tokenAmount, token), true);
     }
+    /* solhint-enable no-unused-vars */
 
     /* solhint-disable no-empty-blocks */
     function postRelayedCall(
