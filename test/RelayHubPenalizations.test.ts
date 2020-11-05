@@ -4,12 +4,12 @@ import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-he
 import BN from 'bn.js'
 
 import { Transaction } from 'ethereumjs-tx'
-import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
+import { privateToAddress, stripZeros, toBuffer, bufferToHex } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
 
 import RelayRequest from '../src/common/EIP712/RelayRequest'
-import { getEip712Signature } from '../src/common/Utils'
+import { getLocalEip712Signature } from '../src/common/Utils'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 import { isRsk, Environment } from '../src/common/Environments'
 import {
@@ -21,8 +21,10 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
@@ -45,6 +47,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let paymaster: TestPaymasterEverythingAcceptedInstance
   let env: Environment
   let forwarder: string
+  const gaslessAccount: AccountKeypair = getGaslessAccount()
+
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
   before(async function () {
     for (const addr of [relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker]) {
@@ -57,7 +61,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     env = await getTestingEnvironment()
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    const forwarderInstance = await createSmartWallet(sender, factory, env.chainId)
+    const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
     forwarder = forwarderInstance.address
 
     recipient = await TestRecipient.new()
@@ -101,7 +105,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       request: {
         to: recipient.address,
         data: txData,
-        from: sender,
+        from: gaslessAccount.address,
         nonce: '0',
         value: '0',
         gas: gasLimit.toString(),
@@ -128,9 +132,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       forwarder,
       relayRequest
     )
-    const signature = await getEip712Signature(
-      web3,
-      dataToSign
+    const signature = await getLocalEip712Signature(
+      dataToSign,
+      gaslessAccount.privateKey
     )
     return {
       gasPrice,
@@ -220,7 +224,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
     describe('penalizable behaviors', function () {
       const encodedCallArgs = {
-        sender,
+        sender: gaslessAccount.address,
         recipient: '0x1820b744B33945482C17Dc37218C01D858EBc714',
         data: '0x1234',
         baseFee: 1000,
@@ -415,7 +419,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             request: {
               to: recipient.address,
               data: txData,
-              from: sender,
+              from: gaslessAccount.address,
               nonce: senderNonce.toString(),
               value: '0',
               gas: gasLimit.toString(),
@@ -442,9 +446,9 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             forwarder,
             relayRequest
           )
-          const signature = await getEip712Signature(
-            web3,
-            dataToSign
+          const signature = await getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
           await relayHub.depositFor(paymaster.address, {
             from: other,

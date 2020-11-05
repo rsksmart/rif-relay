@@ -8,7 +8,7 @@ import "./TestPaymasterConfigurableMisbehavior.sol";
 
 contract TestRecipient {
 
-    string public versionRecipient = "2.0.0+opengsn.test.irelayrecipient";
+    string public versionRecipient = "2.0.1+opengsn.test.irelayrecipient";
 
 
     event Reverting(string message);

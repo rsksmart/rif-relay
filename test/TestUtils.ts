@@ -413,6 +413,10 @@ export function stripHex (s: string): string {
   return s.slice(2, s.length)
 }
 
+export function bufferToHexString (b: Buffer): string {
+  return '0x' + b.toString('hex')
+}
+
 /**
  * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
  */

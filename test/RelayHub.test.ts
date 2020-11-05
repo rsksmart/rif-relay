@@ -2,7 +2,7 @@ import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-he
 import BN from 'bn.js'
 import chai from 'chai'
 
-import { decodeRevertReason, getEip712Signature, removeHexPrefix } from '../src/common/Utils'
+import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
 import { isRsk, Environment } from '../src/common/Environments'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
@@ -18,10 +18,12 @@ import {
   SmartWalletInstance,
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 const { expect, assert } = chai.use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
@@ -54,6 +56,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let target: string
   let paymaster: string
   let forwarder: string
+  let gaslessAccount: AccountKeypair
 
   let env: Environment
 
@@ -66,9 +69,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
     paymasterContract = await TestPaymasterEverythingAccepted.new()
 
+    gaslessAccount = getGaslessAccount()
+
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
 
@@ -198,7 +203,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         request: {
           to: target,
           data: '',
-          from: senderAddress,
+          from: gaslessAccount.address,
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
@@ -298,9 +303,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           forwarder,
           relayRequest
         )
-        signatureWithPermissivePaymaster = await getEip712Signature(
-          web3,
-          dataToSign
+        signatureWithPermissivePaymaster = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
         )
 
         await relayHubInstance.depositFor(paymaster, {
@@ -410,9 +415,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             relayRequest
           )
 
-          signature = await getEip712Signature(
-            web3,
-            dataToSign
+          signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
 
           relayRequestMisbehavingPaymaster = cloneRelayRequest(relayRequest)
@@ -423,9 +428,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             forwarder,
             relayRequestMisbehavingPaymaster
           )
-          signatureWithMisbehavingPaymaster = await getEip712Signature(
-            web3,
-            dataToSign
+          signatureWithMisbehavingPaymaster = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
 
           relayRequestPaymasterWithContext = cloneRelayRequest(relayRequest)
@@ -435,9 +440,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             forwarder,
             relayRequestPaymasterWithContext
           )
-          signatureWithContextPaymaster = await getEip712Signature(
-            web3,
-            dataToSign
+          signatureWithContextPaymaster = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
         })
 
@@ -494,9 +499,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             forwarder,
             relayRequestNoCallData
           )
-          signature = await getEip712Signature(
-            web3,
-            dataToSign
+          signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
           const { tx } = await relayHubInstance.relayCall(10e6, relayRequestNoCallData, signature, '0x', gas, {
             from: relayWorker,
@@ -519,9 +524,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             forwarder,
             relayRequestRevert
           )
-          signature = await getEip712Signature(
-            web3,
-            dataToSign
+          signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
           const { logs } = await relayHubInstance.relayCall(10e6, relayRequestRevert, signature, '0x', gas, {
             from: relayWorker,
@@ -714,9 +719,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
               forwarder,
               relayRequestMisbehavingPaymaster
             )
-            signature = await getEip712Signature(
-              web3,
-              dataToSign
+            signature = getLocalEip712Signature(
+              dataToSign,
+              gaslessAccount.privateKey
             )
           })
 

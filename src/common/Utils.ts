@@ -12,6 +12,8 @@ import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
 
+import sigUtil from 'eth-sig-util'
+
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
     throw new Error('Cannot remove hex prefix')
@@ -60,6 +62,22 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
   }
   // @ts-ignore
   return abi.decodeParameter('string', '0x' + revertBytes.slice(10)) as any
+}
+
+export function getLocalEip712Signature (
+  typedRequestData: TypedRequestData,
+  privateKey: Buffer,
+  jsonStringifyRequest = false
+): PrefixedHexString {
+  let dataToSign: TypedRequestData | string
+  if (jsonStringifyRequest) {
+    dataToSign = JSON.stringify(typedRequestData)
+  } else {
+    dataToSign = typedRequestData
+  }
+
+  // @ts-ignore
+  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
 }
 
 export async function getEip712Signature (

@@ -16,7 +16,7 @@ import {
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
-import { toBuffer } from 'ethereumjs-util'
+import { toBuffer, bufferToHex } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
@@ -100,7 +100,7 @@ options.forEach(params => {
         const env = await getTestingEnvironment()
         const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
         const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-        const smartWalletInstance: SmartWalletInstance = await createSmartWallet(gaslessAccount.address, factory, env.chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
+        const smartWalletInstance: SmartWalletInstance = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
 
         relayClientConfig = {
           logLevel: 5,

@@ -1,7 +1,7 @@
 import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
 
-import { getEip712Signature } from '../src/common/Utils'
+import { getLocalEip712Signature } from '../src/common/Utils'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 
@@ -16,9 +16,11 @@ import {
 import { PrefixedHexString } from 'ethereumjs-tx'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import RelayData from '../src/common/EIP712/RelayData'
-import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -32,9 +34,11 @@ interface PartialRelayRequest {
   relayData?: Partial<RelayData>
 }
 
+let gaslessAccount: AccountKeypair
+
 // given partial request, fill it in from defaults, and return request and signature to send.
 // if nonce is not explicitly specified, read it from forwarder
-async function makeRequest (web3: Web3, req: PartialRelayRequest, defaultRequest: RelayRequest, chainId: number, forwarderInstance: IForwarderInstance):
+async function makeRequest (req: PartialRelayRequest, defaultRequest: RelayRequest, chainId: number, forwarderInstance: IForwarderInstance):
 Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
   const filledRequest = {
     request: { ...defaultRequest.request, ...req.request },
@@ -45,13 +49,13 @@ Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
     filledRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
   }
 
-  const sig = await getEip712Signature(
-    web3,
+  const sig = getLocalEip712Signature(
     new TypedRequestData(
       chainId,
       filledRequest.relayData.forwarder,
       filledRequest
-    )
+    ),
+    gaslessAccount.privateKey
   )
   return {
     req: filledRequest,
@@ -93,6 +97,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
   const pctRelayFee = '0'
 
   before(async function () {
+    gaslessAccount = getGaslessAccount()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
@@ -101,7 +106,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     chainId = (await testUtil.libGetChainID()).toNumber()
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
 
@@ -142,7 +147,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         request: {
           to: target,
           data: '',
-          from: senderAddress,
+          from: gaslessAccount.address,
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
@@ -172,7 +177,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     })
 
     it('paymaster should pay for normal request', async () => {
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           // nonce: '4',
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
@@ -209,7 +214,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       // be small, and now making a 2nd call on-chain, but with the acceptanceBalance as parameter.
       // the RELAYER (not paymaster) will pay for this reject - but at least it is very small, as it is
       // "fails-fast", as one of the first validation tests in relayCall
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           // nonce: '4',
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
@@ -243,7 +248,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       //  NOTE: this means that
       //  GAS TOKENS CAN'T BE USED BY PAYMASTER - unless it is the same owner of relay and paymaster,
 
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
         }
@@ -271,7 +276,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     it('paymaster should not pay for OOG in preRelayedCall (under commitment gas)', async () => {
       await paymasterContract.setOverspendAcceptGas(true)
       // NOTE: as long as commitment>preRelayedCallGasLimit
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           // nonce: '4',
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
@@ -294,7 +299,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
 
     it('paymaster should not pay for Forwarder revert (under commitment gas)', async () => {
       // NOTE: as long as commitment > preRelayedCallGasLimit
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           nonce: '4',
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
@@ -321,7 +326,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       await paymasterContract.setGasLimits(10000, 50000, 10000)
 
       // NOTE: as long as commitment > preRelayedCallGasLimit
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           nonce: '4',
           data: recipientContract.contract.methods.emitMessage('').encodeABI()
@@ -341,7 +346,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
 
     it('paymaster should not pay for trusted-recipient revert (within commitment)', async () => {
       await paymasterContract.setTrustRecipientRevert(true)
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           data: recipientContract.contract.methods.testRevert().encodeABI()
         },
@@ -365,7 +370,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       await paymasterContract.setGasLimits(10000, 50000, 10000)
 
       await paymasterContract.setTrustRecipientRevert(true)
-      const r = await makeRequest(web3, {
+      const r = await makeRequest({
         request: {
           data: recipientContract.contract.methods.testRevert().encodeABI()
         },

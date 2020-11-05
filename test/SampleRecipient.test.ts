@@ -5,7 +5,9 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
 import BN from 'bn.js'
-import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment } from './TestUtils'
+import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -18,13 +20,15 @@ contract('SampleRecipient', function (accounts) {
   const message = 'hello world'
   let sample: TestRecipientInstance
   let paymaster: TestPaymasterEverythingAcceptedInstance
+  let gaslessAccount: AccountKeypair
 
   before(async function () {
+    gaslessAccount = getGaslessAccount()
     const env = await getTestingEnvironment()
     const chainId = env.chainId
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    await createSmartWallet(expectedRealSender, factory, chainId)
+    await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
 
     sample = await TestRecipient.new()
     paymaster = await TestPaymasterEverythingAccepted.new()

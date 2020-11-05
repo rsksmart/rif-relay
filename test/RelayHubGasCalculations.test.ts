@@ -1,7 +1,7 @@
 import BN from 'bn.js'
 import { ether, expectEvent } from '@openzeppelin/test-helpers'
 
-import { calculateTransactionMaxPossibleGas, getEip712Signature } from '../src/common/Utils'
+import { calculateTransactionMaxPossibleGas, getLocalEip712Signature } from '../src/common/Utils'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 import { defaultEnvironment, isRsk, Environment } from '../src/common/Environments'
 import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
@@ -16,8 +16,10 @@ import {
   SmartWalletInstance,
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment } from './TestUtils'
+import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 
 const SmartWallet = artifacts.require('SmartWallet')
 const StakeManager = artifacts.require('StakeManager')
@@ -63,13 +65,16 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   let chainId: number
   let env: Environment
 
+  let gaslessAccount: AccountKeypair
+
   beforeEach(async function prepareForHub () {
     env = await getTestingEnvironment()
     chainId = env.chainId
+    gaslessAccount = getGaslessAccount()
 
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
     forwarder = forwarderInstance.address
     recipient = await TestRecipient.new()
     paymaster = await TestPaymasterVariableGasLimits.new()
@@ -97,7 +102,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       request: {
         to: recipient.address,
         data: encodedFunction,
-        from: senderAddress,
+        from: gaslessAccount.address,
         nonce: senderNonce.toString(),
         value: '0',
         gas: gasLimit.toString(),
@@ -125,9 +130,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       forwarder,
       relayRequest
     )
-    signature = await getEip712Signature(
-      web3,
-      dataToSign
+    signature = getLocalEip712Signature(
+      dataToSign,
+      gaslessAccount.privateKey
     )
   })
 
@@ -241,9 +246,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         forwarder,
         relayRequestMisbehaving
       )
-      const signature = await getEip712Signature(
-        web3,
-        dataToSign
+      const signature = getLocalEip712Signature(
+        dataToSign,
+        gaslessAccount.privateKey
       )
 
       const viewRelayCallResponse =
@@ -328,7 +333,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             request: {
               to: recipient.address,
               data: encodedFunction,
-              from: senderAddress,
+              from: gaslessAccount.address,
               nonce: senderNonce,
               value: '0',
               gas: gasLimit.toString(),
@@ -355,9 +360,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             forwarder,
             relayRequest
           )
-          const signature = await getEip712Signature(
-            web3,
-            dataToSign
+          const signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
           )
           const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
             from: relayWorker,
@@ -404,7 +409,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                 request: {
                   to: recipient.address,
                   data: encodedFunction,
-                  from: senderAddress,
+                  from: gaslessAccount.address,
                   nonce: senderNonce,
                   value: '0',
                   gas: gasLimit.toString(),
@@ -431,9 +436,9 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
                 forwarder,
                 relayRequest
               )
-              const signature = await getEip712Signature(
-                web3,
-                dataToSign
+              const signature = getLocalEip712Signature(
+                dataToSign,
+                gaslessAccount.privateKey
               )
               const res = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
                 from: relayWorker,

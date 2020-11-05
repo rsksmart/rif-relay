@@ -6,7 +6,6 @@ import chai from 'chai'
 import { HttpProvider } from 'web3-core'
 
 import RelayRequest from '../src/common/EIP712/RelayRequest'
-import { getEip712Signature } from '../src/common/Utils'
 import TypedRequestData, {
   getDomainSeparatorHash,
   GsnDomainSeparatorType, GsnRequestType
@@ -15,13 +14,15 @@ import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
-import { encodeRevertReason, createProxyFactory, createSmartWallet } from './TestUtils'
+import { encodeRevertReason, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment } from '../src/common/Environments'
 import { Web3Provider } from '../src/relayclient/ContractInteractor'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import { constants } from '../src/common/Constants'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { getLocalEip712Signature } from '../src/common/Utils'
 require('source-map-support').install({ errorFormatterForce: true })
 
 // import web3Utils from 'web3-utils'
@@ -37,13 +38,17 @@ interface SplittedRelayRequest {
   encodedRelayData: string
 }
 
+const senderAccount: AccountKeypair = getGaslessAccount()
+
 contract('Utils', function (accounts) {
-  describe('#getEip712Signature()', function () {
+  // This test verifies signing typed data with a local implementation of signTypedData
+  describe('#getLocalEip712Signature()', function () {
     // ganache always reports chainId as '1'
     let chainId: number
     let forwarder: PrefixedHexString
     let relayRequest: RelayRequest
-    const senderAddress = accounts[0]
+    const senderAddress = senderAccount.address
+    const senderPrivateKey = senderAccount.privateKey
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
 
@@ -53,7 +58,7 @@ contract('Utils', function (accounts) {
       chainId = (await testUtil.libGetChainID()).toNumber()
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
       const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      forwarderInstance = await createSmartWallet(senderAddress, factory, chainId)
+      forwarderInstance = await createSmartWallet(senderAddress, factory, chainId, bufferToHex(senderPrivateKey))
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new()
 
@@ -64,7 +69,6 @@ contract('Utils', function (accounts) {
       const baseRelayFee = '1000'
       const gasPrice = '10000000'
       const gasLimit = '500000'
-      // const forwarder = accounts[6]
       const paymaster = accounts[7]
       const relayWorker = accounts[9]
       const paymasterData = '0x'
@@ -161,9 +165,9 @@ contract('Utils', function (accounts) {
         relayRequest
       )
 
-      const sig = await getEip712Signature(
-        web3,
-        dataToSign
+      const sig = await getLocalEip712Signature(
+        dataToSign,
+        senderPrivateKey
       )
 
       const recoveredAccount = recoverTypedSignature_v4({
@@ -178,12 +182,12 @@ contract('Utils', function (accounts) {
     describe('#callForwarderVerifyAndCall', () => {
       it('should return revert result', async function () {
         relayRequest.request.data = await recipient.contract.methods.testRevert().encodeABI()
-        const sig = await getEip712Signature(
-          web3, new TypedRequestData(
+        const sig = await getLocalEip712Signature(
+          new TypedRequestData(
             chainId,
             forwarder,
             relayRequest
-          ))
+          ), senderPrivateKey)
         const ret = await testUtil.callForwarderVerifyAndCall(relayRequest, sig)
         const expectedReturnValue = encodeRevertReason('always fail')
         expectEvent(ret, 'Called', {
@@ -195,12 +199,12 @@ contract('Utils', function (accounts) {
         relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
         relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
 
-        const sig = await getEip712Signature(
-          web3, new TypedRequestData(
+        const sig = await getLocalEip712Signature(
+          new TypedRequestData(
             chainId,
             forwarder,
             relayRequest
-          ))
+          ), senderPrivateKey)
         const ret = await testUtil.callForwarderVerifyAndCall(relayRequest, sig)
         expectEvent(ret, 'Called', {
           error: null
