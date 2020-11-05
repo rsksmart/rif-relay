@@ -40,14 +40,16 @@ The core enveloping architecture is defined by the following components:
 
 ## 2.1 Testnet Contracts <a id="c02.1"></a>
 
-| Contract      | Address                                    |
-|---------------|--------------------------------------------|
-| StakeManager  | 0x5D4aE8144bc5020526b31ee3744b038a847bBCF1 |
-| Penalizer     | 0x8BB74f5c904B2d29FFa8Feeb4eed9f933B5F1d14 |
-| RelayHub      | 0xF9214a2C007331022553eCeF5f239C9E223C3466 |
-| TestRecipient | 0xB543a8516B299520C6b6Ae762f43aa9dbA137149 |
-| SmartWallet   | 0x5Aaf0feDc9aE43C43A0f92976CBa0DFB7D8C0e84 |
-| ProxyFactory  | 0x893F97d2d839977429Aa7CB93bC44E6d31f1bEB8 |
+| Contract        | Address                                    |
+|-----------------|--------------------------------------------|
+| StakeManager    | 0x5D4aE8144bc5020526b31ee3744b038a847bBCF1 |
+| Penalizer       | 0x8BB74f5c904B2d29FFa8Feeb4eed9f933B5F1d14 |
+| RelayHub        | 0xF9214a2C007331022553eCeF5f239C9E223C3466 |
+| TestRecipient   | 0xB543a8516B299520C6b6Ae762f43aa9dbA137149 |
+| SmartWallet     | 0x5Aaf0feDc9aE43C43A0f92976CBa0DFB7D8C0e84 |
+| ProxyFactory    | 0x893F97d2d839977429Aa7CB93bC44E6d31f1bEB8 |
+| DeployPaymaster | 0xA0A6b4970C62A1155980AA8979EE3AC2caFd4Ebf |
+| RelayPaymaster  | 0x73F7d004E6E2ebb9863629fF747a929f4F6BE0f1 |
 
 ## 3. Building project <a id="c03"></a>
 
