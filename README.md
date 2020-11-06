@@ -12,7 +12,8 @@ System for users to pay for transactions in ERC-20 tokens.
 3. [Building project](#c03)<br>
   3.1 [Testing](#c03.1)<br>
   3.2 [Use Enveloping](#c03.2)<br>
-  3.3 [Create a Smart Wallet](#c03.3)
+  3.3 [Create a Smart Wallet](#c03.3)<br>
+  3.4 [Run a Javascript Client](#c03.4)
 4. [Use MetaCoin](#c04)
 5. [Documentation](#c05)
 6. [Troubleshooting](#c06)<br>
@@ -92,6 +93,21 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 * customLogic: An optional custom logic code (in bytes), that the wallet will proxy to (it can be address(0)).
 * walletIndex: Numeric value used to generatte different wallet insttances for the owner using the same parameters and factory.
 * logicInitParamsHash: If customLogic was defined in it need initialization parameters, they are passed as abi-encoded here, without include the function selector. If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero.
+
+### 3.4 Run a Javascript Client <a id="c03.4"></a>
+
+In order to run an Enveloping instance, clone the project then run the following from the project's root directory:
+
+1. `yarn install`
+2. `npm link`
+3. On a new terminal run `./rsknode/run-for-server.sh` to run a [docker](https://www.docker.com/)
+4. Create an account from an mnemonic, and store the mnemonic in a file.
+5. On a new terminal run `npx gsn start --network http://localhost:4444/2.0.1/`. Keeping the Relay Hub address.
+6. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address and the docker's ip.
+7. In the jsrelay directory run `./docker-build.sh` and then `docker-compose up`.
+8. Finally, run `gsn relayer-register -n http://localhost:4444 --relayUrl http://localhost:8090 -m <PATH.TO.MNEM> --from <ADDRESS CREATED IN STEP 4>`
+
+For checking if it's working, run `curl http://localhost:8090/getaddr`
 
 
 ## 4. Use MetaCoin <a id="c04"></a>
