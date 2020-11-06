@@ -82,9 +82,10 @@ jobs: # a collection of steps
                       sleep 1
                     done
                     npx truffle test --network rsk test/relayclient/RelayClient.test.ts
-                    npx truffle test --network rsk test/relayServer/RegistrationManager.test.ts
-                    npx truffle test --network rsk test/relayServer/RelayServer.test.ts
-                    npx truffle test --network rsk test/relayServer/RelayServer.webpack.test.ts
+                    npx truffle test --network rsk test/relayserver/NetworkSimulation.test.ts
+                    npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
+                    npx truffle test --network rsk test/relayserver/RelayServer.test.ts
+                    npx truffle test --network rsk test/relayserver/RelayServer.webpack.test.ts
                     npx truffle test --network rsk test/smartwallet/SmartWallet.test.ts
       - store_artifacts:
           path: ~/gls/logs
