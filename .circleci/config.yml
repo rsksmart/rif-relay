@@ -81,7 +81,6 @@ jobs: # a collection of steps
                       echo "Waiting for RskJ..."
                       sleep 1
                     done
-#                    npx truffle test --network rsk test/relayclient/KnownRelaysManager.test.ts
                     npx truffle test --network rsk test/relayclient/RelayClient.test.ts
                     npx truffle test --network rsk test/relayServer/NetworkSimulation.test.ts
                     npx truffle test --network rsk test/relayServer/RegistrationManager.test.ts
