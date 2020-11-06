@@ -40,6 +40,7 @@ jobs: # a collection of steps
                       echo "Waiting for RskJ..."
                       sleep 1
                     done
+                    yarn run prepare
                     yarn test-rsk
       - store_artifacts:
           path: ~/gls/logs
