@@ -49,6 +49,11 @@ jobs: # a collection of steps
                       sleep 1
                     done
                     npx truffle test --network rsk test/Flows.test.ts
+                    npx truffle test --network rsk test/GsnTestEnvironment.test.ts
+                    npx truffle test --network rsk test/HttpWrapper.test.ts
+                    npx truffle test --network rsk test/KeyManager.test.ts
+                    npx truffle test --network rsk test/PaymasterCommitment.test.ts
+                    npx truffle test --network rsk test/ProxyFactory.test.ts
                   
       - store_artifacts:
           path: ~/gls/logs
