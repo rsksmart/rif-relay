@@ -30,9 +30,17 @@ jobs: # a collection of steps
           key: dependency-cache-{{ checksum "package.json" }}-yarn2
           paths:
             - ./node_modules
-
       - run:
-          name: Start RskJ & Run Tests
+          name: Lint
+          command: yarn run lint
+      - run:
+          name: Generate
+          command: yarn generate
+      - run:
+          name: TSC
+          command: yarn tsc     
+      - run:
+          name: Start RskJ
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest nohup &               
                     until nc -z 127.0.0.1 4444
@@ -40,7 +48,10 @@ jobs: # a collection of steps
                       echo "Waiting for RskJ..."
                       sleep 1
                     done
-                    yarn run prepare
-                    yarn test-rsk
+      - run:
+          name: Run Tests
+          command: |
+                    npx truffle test --network rsk test/Flows.test.ts
+                  
       - store_artifacts:
           path: ~/gls/logs
