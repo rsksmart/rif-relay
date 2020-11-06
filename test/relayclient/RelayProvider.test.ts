@@ -36,6 +36,7 @@ import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -112,7 +113,7 @@ contract('RelayProvider', function (accounts) {
 
   before(async function () {
     sender = accounts[0]
-    gaslessAccount = await getGaslessAccount()
+    gaslessAccount = getGaslessAccount()
 
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
@@ -121,7 +122,7 @@ contract('RelayProvider', function (accounts) {
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, '0x' + gaslessAccount.privateKey.toString('hex'))
+    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
     token = await TestToken.new()
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
@@ -222,7 +223,7 @@ contract('RelayProvider', function (accounts) {
 
     it('should revert if the sender is not the owner of the smart wallet', async function () {
       try {
-        const differentSender = await getGaslessAccount()
+        const differentSender = getGaslessAccount()
         relayProvider.addAccount(differentSender)
         await testRecipient.emitMessage('hello world', {
           from: differentSender.address, // different sender
@@ -262,7 +263,7 @@ contract('RelayProvider', function (accounts) {
     )
 
     it('should fail to deploy the smart wallet due to insufficient token balance', async function () {
-      const ownerEOA = await getGaslessAccount()
+      const ownerEOA = getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'
@@ -303,7 +304,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should correclty deploy the smart wallet', async function () {
-      const ownerEOA = await getGaslessAccount()
+      const ownerEOA = getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'

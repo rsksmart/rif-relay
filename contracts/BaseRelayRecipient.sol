@@ -10,6 +10,6 @@ contract BaseRelayRecipient {
 
 
       function versionPaymaster() external view virtual returns (string memory){
-        return "2.0.0+opengsn.test-pea.baselerayrecipient";
+        return "2.0.1+opengsn.test-pea.baselerayrecipient";
     }
 }

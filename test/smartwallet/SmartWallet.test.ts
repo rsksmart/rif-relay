@@ -163,23 +163,25 @@ contract('SmartWallet', ([from]) => {
 
       it('should fail on unregistered domain separator', async () => {
         const dummyDomainSeparator = bytes32(1)
-
-        await expectRevert(sw.verify(req, dummyDomainSeparator, typeHash, '0x', '0x'.padEnd(65 * 2 + 2, '1b')), 'unregistered domain separator')
+        // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
+        await expectRevert.unspecified(sw.verify(req, dummyDomainSeparator, typeHash, '0x', '0x'.padEnd(65 * 2 + 2, '1b')), 'unregistered domain separator')
       })
 
       it('should fail on wrong nonce', async () => {
         const env: Environment = await getTestingEnvironment()
         const message: string = isRsk(env) ? 'Returned error: VM execution error: nonce mismatch' : 'revert nonce mismatch'
 
-        await expectRevert(sw.verify({
+        // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
+        await expectRevert.unspecified(sw.verify({
           ...req,
           nonce: 123
         }, domainSeparator, typeHash, '0x', '0x'), message)
       })
       it('should fail on invalid signature', async () => {
-        await expectRevert(sw.verify(req, domainSeparator, typeHash, '0x', '0x'), 'invalid signature length')
-        await expectRevert(sw.verify(req, domainSeparator, typeHash, '0x', '0x123456'), 'invalid signature length')
-        await expectRevert(sw.verify(req, domainSeparator, typeHash, '0x', '0x' + '1b'.repeat(65)), 'signature mismatch')
+        // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
+        await expectRevert.unspecified(sw.verify(req, domainSeparator, typeHash, '0x', '0x'), 'invalid signature length')
+        await expectRevert.unspecified(sw.verify(req, domainSeparator, typeHash, '0x', '0x123456'), 'invalid signature length')
+        await expectRevert.unspecified(sw.verify(req, domainSeparator, typeHash, '0x', '0x' + '1b'.repeat(65)), 'signature mismatch')
       })
     })
     describe('#verify success', () => {

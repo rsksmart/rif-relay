@@ -1,36 +1,19 @@
 import { GsnTestEnvironment, TestEnvironment } from '../src/relayclient/GsnTestEnvironment'
 import { HttpProvider } from 'web3-core'
-import { RelayClient } from '../src/relayclient/RelayClient'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { TestRecipientInstance, SmartWalletInstance, ProxyFactoryInstance, IForwarderInstance } from '../types/truffle-contracts'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
-import { Environment } from '../src/common/Environments'
+import { TestRecipientInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
+import { getTestingEnvironment, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { bufferToHex } from 'ethereumjs-util'
 
 const TestRecipient = artifacts.require('TestRecipient')
-const SmartWallet = artifacts.require('SmartWallet')
+const ProxyFactory = artifacts.require('ProxyFactory')
 
 contract('GsnTestEnvironment', function () {
-  let host: string
-  let forwarder: IForwarderInstance
-  let env: Environment
-  let sender: AccountKeypair
-
-  before(async function () {
-    host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
-    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    sender = await getGaslessAccount()
-
-    env = await getTestingEnvironment()
-    forwarder = await createSmartWallet(sender.address, factory, env.chainId)
-  })
-
   describe('#startGsn()', function () {
     it('should create a valid test environment for other tests to rely on', async function () {
       const host = (web3.currentProvider as HttpProvider).host
-      const testEnv = await GsnTestEnvironment.startGsn(host, env)
+      const testEnv = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
       assert.equal(testEnv.deploymentResult.relayHubAddress.length, 42)
     })
 
@@ -39,16 +22,12 @@ contract('GsnTestEnvironment', function () {
     })
   })
 
-  context('using RelayClient', () => {
-    let sr: TestRecipientInstance
+  describe('using RelayClient', () => {
     let testEnvironment: TestEnvironment
-    let relayClient: RelayClient
-    before(async () => {
-      testEnvironment = await GsnTestEnvironment.startGsn(host, env)
-      relayClient = testEnvironment.relayProvider.relayClient
-      relayClient.accountManager.addAccount(sender)
 
-      sr = await TestRecipient.new()
+    before(async () => {
+      const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
+      testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
     })
 
     after(async () => {
@@ -56,49 +35,65 @@ contract('GsnTestEnvironment', function () {
     })
 
     it('should relay using relayTransaction', async () => {
-      const ret = await relayClient.relayTransaction({
+      const sender = getGaslessAccount()
+      const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
+      const sr: TestRecipientInstance = await TestRecipient.new()
+
+      const wallet = await createSmartWallet(sender.address, proxyFactory, (await getTestingEnvironment()).chainId, bufferToHex(sender.privateKey))
+      testEnvironment.relayProvider.relayClient.accountManager.addAccount(sender)
+
+      const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
         from: sender.address,
         to: sr.address,
-        forwarder: forwarder.address,
+        forwarder: wallet.address,
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
+        paymasterData: '0x',
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
         tokenRecipient: constants.ZERO_ADDRESS,
         tokenAmount: '0x00',
         tokenContract: constants.ZERO_ADDRESS,
-        factory: constants.ZERO_ADDRESS
+        factory: constants.ZERO_ADDRESS,
+        clientId: '1'
       })
+
       assert.deepEqual([...ret.relayingErrors.values(), ...ret.pingErrors.values()], [])
       const events = await sr.contract.getPastEvents()
       assert.equal(events[0].event, 'SampleRecipientEmitted')
-      assert.equal(events[0].returnValues.msgSender.toLocaleLowerCase(), forwarder.address.toLocaleLowerCase())
+      assert.equal(events[0].returnValues.msgSender.toLocaleLowerCase(), wallet.address.toLocaleLowerCase())
     })
   })
 
-  context('using RelayProvider', () => {
-    let sr: TestRecipientInstance
+  describe('using RelayProvider', () => {
     let testEnvironment: TestEnvironment
-    before(async function () {
-      testEnvironment = await GsnTestEnvironment.startGsn(host, env)
-      sr = await TestRecipient.new()
 
-      // @ts-ignore
-      TestRecipient.web3.setProvider(testEnvironment.relayProvider)
-      testEnvironment.relayProvider.addAccount(sender)
+    before(async function () {
+      const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
+      testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
     })
+
     after(async () => {
       await GsnTestEnvironment.stopGsn()
     })
 
     it('should send relayed transaction through RelayProvider', async () => {
+      const sender = getGaslessAccount()
+      const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
+      const sr: TestRecipientInstance = await TestRecipient.new()
+
+      const wallet = await createSmartWallet(sender.address, proxyFactory, (await getTestingEnvironment()).chainId, bufferToHex(sender.privateKey))
+      testEnvironment.relayProvider.addAccount(sender)
+
+      // @ts-ignore
+      TestRecipient.web3.setProvider(testEnvironment.relayProvider)
+
       const txDetails = {
         from: sender.address,
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
-        forwarder: forwarder.address
+        forwarder: wallet.address
       }
       const ret = await sr.emitMessage('hello', txDetails)
-
-      expectEvent(ret, 'SampleRecipientEmitted', { msgSender: forwarder.address })
+      expectEvent(ret, 'SampleRecipientEmitted', { msgSender: wallet.address })
     })
   })
 })
