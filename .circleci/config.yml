@@ -82,7 +82,6 @@ jobs: # a collection of steps
                       sleep 1
                     done
                     npx truffle test --network rsk test/relayclient/RelayClient.test.ts
-                    npx truffle test --network rsk test/relayServer/NetworkSimulation.test.ts
                     npx truffle test --network rsk test/relayServer/RegistrationManager.test.ts
                     npx truffle test --network rsk test/relayServer/RelayServer.test.ts
                     npx truffle test --network rsk test/relayServer/RelayServer.webpack.test.ts
