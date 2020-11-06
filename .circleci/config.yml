@@ -40,7 +40,7 @@ jobs: # a collection of steps
           name: TSC
           command: yarn tsc     
       - run:
-          name: Tests without DB reset - Set A
+          name: Tests without DB reset Set A
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
@@ -55,7 +55,7 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/PaymasterCommitment.test.ts
                     npx truffle test --network rsk test/ProxyFactory.test.ts
       - run:
-          name: Tests without DB reset - Set B
+          name: Tests without DB reset Set B
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
@@ -73,7 +73,7 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
                     npx truffle test --network rsk test/relayclient/GSNConfigurator.test.ts
       - run:
-          name: Tests without DB reset - Set C
+          name: Tests without DB reset Set C
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
