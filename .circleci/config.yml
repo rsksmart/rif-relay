@@ -129,16 +129,6 @@ jobs: # a collection of steps
                   npx truffle test --network rsk test/StakeManager.test.ts
 
       - run:
-          name: Tests with DB reset 6
-          command: |
-                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
-                  until nc -z 127.0.0.1 4444
-                  do
-                    echo "Waiting for RskJ..."
-                    sleep 1
-                  done
-                  npx truffle test --network rsk test/relayclient/RelayProvider.test.ts
-      - run:
           name: Tests with DB reset 7
           command: |
                   java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
