@@ -86,5 +86,108 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.webpack.test.ts
+
+      - run:
+          name: Tests with DB reset 1
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/RelayHub.test.ts
+      - run:
+          name: Tests with DB reset 2
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/RelayHubGasCalculations.test.ts
+      - run:
+          name: Tests with DB reset 3
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/SampleRecipient.test.ts
+      - run:
+          name: Tests with DB reset 4
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/StakeManager.test.ts
+      - run:
+          name: Tests with DB reset 5
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/VersionRegistry.test.ts
+      - run:
+          name: Tests with DB reset 6
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayclient/RelayProvider.test.ts
+      - run:
+          name: Tests with DB reset 7
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayclient/RelaySelectionManager.test.ts
+      - run:
+          name: Tests with DB reset 8
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/RelayServerRequestsProfiling.test.ts
+      - run:
+          name: Tests with DB reset 9
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/ServerConfigParams.test.ts
+      - run:
+          name: Tests with DB reset 10
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/TransactionManager.test.ts
+            
+                    
       - store_artifacts:
           path: ~/gls/logs
