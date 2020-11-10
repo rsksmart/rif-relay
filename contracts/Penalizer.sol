@@ -98,7 +98,7 @@ contract Penalizer is IPenalizer{
                 "Legal relay transaction");
         }
         address relay = keccak256(abi.encodePacked(unsignedTx)).recover(signature);
-        require(relay != address(0), "ecrecover failed");
+        require(RSKAddrValidator.checkPKNotZero(relay), "ecrecover failed");
 
         penalize(relay, hub);
     }
