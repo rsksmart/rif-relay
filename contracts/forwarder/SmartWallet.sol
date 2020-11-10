@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity >=0.6.12 <0.8.0;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
@@ -138,10 +138,31 @@ contract SmartWallet is IForwarder {
         nonce++;
     }
 
+    modifier onlyOwner() {
+        bytes32 swalletOwner; //hash of owner address
+        /* solhint-disable-next-line no-inline-assembly */
+        assembly {
+            //First of all, verify the req.from is the owner of this smart wallet
+            swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+
+        // SmartWallet must be initialized.
+        require(swalletOwner != bytes32(0), "Smart wallet not initialized");
+
+        // Execution of this function can only be done by the owner of the SmartWallet using Enveloping or 
+        // directly by paying for the gas.
+        require(
+            msg.sender == address(this) || keccak256(abi.encodePacked(msg.sender)) == swalletOwner, 
+            "Sender is not the owner");
+        _;
+    }
+
     function registerRequestType(
         string calldata typeName,
         string calldata typeSuffix
-    ) external override {
+    ) external override onlyOwner {
         for (uint256 i = 0; i < bytes(typeName).length; i++) {
             bytes1 c = bytes(typeName)[i];
             require(c != "(" && c != ")", "invalid typename");
@@ -276,7 +297,7 @@ contract SmartWallet is IForwarder {
                 abi.encodePacked("RelayRequest(", GENERIC_PARAMS, ",", GENERIC_SUFFIX)
             );
             registerRequestTypeInternal(requestType);
-            registerDomainSeparator("GSN Relayed Transaction","2");
+            _registerDomainSeparator("GSN Relayed Transaction","2");
 
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
@@ -326,7 +347,17 @@ contract SmartWallet is IForwarder {
         return false;
     }
 
-    function registerDomainSeparator(string memory name, string memory version) public override {
+    function registerDomainSeparator(string memory name, string memory version) public override onlyOwner {
+        _registerDomainSeparator(name, version);
+    }
+
+    function removeDomainSeparatorRegistrations(bytes32[] calldata domainSeparators) external onlyOwner {
+        for (uint256 i = 0; i < domainSeparators.length; i++){
+            delete domains[domainSeparators[i]];
+        }
+    }
+
+    function _registerDomainSeparator(string memory name, string memory version) internal {
         uint256 chainId;
         /* solhint-disable-next-line no-inline-assembly */
         assembly { chainId := chainid() }

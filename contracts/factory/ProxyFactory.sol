@@ -70,7 +70,7 @@ PC | OPCODE|   Mnemonic     |   Stack [top, bottom]                       | Comm
  */
 
 
-/**Factory of Proxies to the SmartWallet (Forwarder)
+/** Factory of Proxies to the SmartWallet (Forwarder)
 The Forwarder itself is a Template with portions delegated to a custom logic (it is also a proxy) */
 contract ProxyFactory is IProxyFactory {
     using ECDSA for bytes32;
@@ -92,6 +92,8 @@ contract ProxyFactory is IProxyFactory {
 
     bytes32 public runtimeCodeHash;
 
+    address private _owner;
+
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
      * it pays for the deployment during initialization, and it pays for the transaction
@@ -99,12 +101,18 @@ contract ProxyFactory is IProxyFactory {
      * It also acts a a proxy to a logic contract. Any unrecognized function will be forwarded to this custom logic (if it exists)
      */
     constructor(address forwarderTemplate) public {
+        _owner = msg.sender;
         masterCopy = forwarderTemplate;
 
         runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END));
        
         string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
         registerRequestTypeInternal(requestType);
+    }
+
+    modifier onlyOwner() {
+        require(_owner == msg.sender, "Ownable: caller is not the owner");
+        _;
     }
 
     function getNonce(address from) public override view returns (uint256) {
@@ -312,7 +320,7 @@ contract ProxyFactory is IProxyFactory {
     function registerRequestType(
         string calldata typeName,
         string calldata typeSuffix
-    ) external  {
+    ) external onlyOwner {
         for (uint256 i = 0; i < bytes(typeName).length; i++) {
             bytes1 c = bytes(typeName)[i];
             require(c != "(" && c != ")", "invalid typename");
@@ -333,7 +341,7 @@ contract ProxyFactory is IProxyFactory {
         }
     }
 
-    function registerDomainSeparator(string calldata name, string calldata version) external {
+    function registerDomainSeparator(string calldata name, string calldata version) external onlyOwner {
         uint256 chainId;
         /* solhint-disable-next-line no-inline-assembly */
         assembly { chainId := chainid() }
@@ -349,6 +357,12 @@ contract ProxyFactory is IProxyFactory {
 
         domains[domainHash] = true;
         emit DomainRegistered(domainHash, domainValue);
+    }
+
+    function removeDomainSeparatorRegistrations(bytes32[] calldata domainSeparators) external onlyOwner {
+        for (uint256 i = 0; i < domainSeparators.length; i++){
+            delete domains[domainSeparators[i]];
+        }
     }
 
     event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
