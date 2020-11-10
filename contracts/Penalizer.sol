@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 import "./utils/RLPReader.sol";
 import "./utils/GsnUtils.sol";
+import "./utils/RSKAddrValidator.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
@@ -57,7 +58,7 @@ contract Penalizer is IPenalizer{
         address addr2 = keccak256(abi.encodePacked(unsignedTx2)).recover(signature2);
 
         require(addr1 == addr2, "Different signer");
-        require(addr1 != address(0), "ecrecover failed");
+        require(RSKAddrValidator.checkPKNotZero(addr1), "ecrecover failed");
 
         Transaction memory decodedTx1 = decodeTransaction(unsignedTx1);
         Transaction memory decodedTx2 = decodeTransaction(unsignedTx2);

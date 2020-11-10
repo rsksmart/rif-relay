@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
+import "../utils/RSKAddrValidator.sol";
 
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
@@ -188,7 +189,7 @@ contract SmartWallet is IForwarder {
                 keccak256(_getEncoded(req, requestTypeHash, suffixData))
             )
         );
-        require(digest.recover(sig) == req.from, "signature mismatch");
+        require(RSKAddrValidator.safeCompare(digest.recover(sig), req.from), "signature mismatch");
     }
 
     function _getEncoded(
