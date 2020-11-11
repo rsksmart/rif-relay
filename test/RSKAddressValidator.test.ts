@@ -22,4 +22,21 @@ contract('RSKAddressValidator', function (accounts) {
       const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
       expect(res).to.be.equal(false)
     })
+
+    it("should return true on check with data signed with zero with message hash from tx", async function () {
+      let messageHash = "0x4d3e45a3a5908513a10012e30a04fb2b438bab7da2acb93084e2f15a5eb55e8b"
+
+      let v = 27
+      let r = "90ef8cbc9ce5999887d32f3f5adf5292ada96b9506b51980f219d60271cf300c"
+      let s = "3e59fb0088da48b32cb4d83f17af47dd7340cd0dab15ac214b7039b65ee8876d"
+
+      let signature = `0x${r}${s}${v.toString(16)}`
+
+      addressValidator = await TestRSKAddressValidator.new()
+      const addr = await addressValidator.getSig.call(messageHash, signature)
+      expect(addr).to.be.equal("0xdcc703c0E500B653Ca82273B7BFAd8045D85a470")
+
+      const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
+      expect(res).to.be.equal(false)
+    })
   })
