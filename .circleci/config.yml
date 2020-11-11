@@ -25,6 +25,9 @@ jobs: # a collection of steps
       - run:
           name: yarn-install
           command: yarn
+      - run:
+          name: npm-install
+          command: npm install
 
       - save_cache: # special step to save the dependency cache
           key: dependency-cache-{{ checksum "package.json" }}-yarn2
