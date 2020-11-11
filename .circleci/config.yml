@@ -1,6 +1,6 @@
 version: 2.1 # use CircleCI 2.0
 jobs: # a collection of steps
-  RSKj_tests: # runs not using Workflows must have a `build` job as entry point
+  RSKj: # runs not using Workflows must have a `build` job as entry point
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
       - image: cimg/openjdk:8.0-node
@@ -220,7 +220,7 @@ jobs: # a collection of steps
 
       - store_artifacts:
           path: ~/gls/logs
-  Ganache_tests:
+  Ganache:
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
       - image: circleci/node:13.11.0
@@ -242,3 +242,9 @@ jobs: # a collection of steps
       - run: # run tests
           name: test
           command: yarn truffle-test
+
+workflows:
+  commit:
+      jobs:
+          - RSKj
+          - Ganache
