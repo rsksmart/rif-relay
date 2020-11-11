@@ -1,0 +1,16 @@
+diff --git a/node_modules/truffle/build/cli.bundled.js b/node_modules/truffle/build/cli.bundled.js
+index 73174bf..6dcb057 100755
+--- a/node_modules/truffle/build/cli.bundled.js
++++ b/node_modules/truffle/build/cli.bundled.js
+@@ -154237,6 +154237,7 @@ async function invokeCompiler({ compilerInput, options }) {
+ 
+   // perform compilation
+   const inputString = JSON.stringify(compilerInput);
++  require('fs').writeFileSync('json-input.json', JSON.stringify(compilerInput));
+   const outputString = solc.compile(inputString);
+   const compilerOutput = JSON.parse(outputString);
+ 
+diff --git a/node_modules/truffle/test/.npmignore b/node_modules/truffle/test/.gitignore
+similarity index 100%
+rename from node_modules/truffle/test/.npmignore
+rename to node_modules/truffle/test/.gitignore
