@@ -87,6 +87,7 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.webpack.test.ts
+                    npx truffle test --network rsk test/smartwallet/SmartWallet.test.ts
 
       - run:
           name: Tests with DB reset 1
