@@ -1,6 +1,6 @@
 version: 2.1 # use CircleCI 2.0
 jobs: # a collection of steps
-  build: # runs not using Workflows must have a `build` job as entry point
+  RSKj_tests: # runs not using Workflows must have a `build` job as entry point
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
       - image: cimg/openjdk:8.0-node
@@ -220,3 +220,25 @@ jobs: # a collection of steps
 
       - store_artifacts:
           path: ~/gls/logs
+  Ganache_tests:
+    working_directory: ~/gls # directory where steps will run
+    docker: # run the steps with Docker
+      - image: circleci/node:13.11.0
+
+    steps: # a collection of executable commands
+      - checkout # special step to check out source code to working directory
+
+      - restore_cache: # special step to restore the dependency cache
+          key: dependency-cache-{{ checksum "package.json" }}-yarn2
+      - run:
+          name: yarn-install
+          command: yarn
+
+      - save_cache: # special step to save the dependency cache
+          key: dependency-cache-{{ checksum "package.json" }}-yarn2
+          paths:
+            - ./node_modules
+
+      - run: # run tests
+          name: test
+          command: yarn truffle-test
