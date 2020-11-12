@@ -1,8 +1,8 @@
 diff --git a/node_modules/web3-eth-contract/types/index.d.ts b/node_modules/web3-eth-contract/types/index.d.ts
-index 3b8485e..950fffb 100644
+index 6f141ab..1207009 100644
 --- a/node_modules/web3-eth-contract/types/index.d.ts
 +++ b/node_modules/web3-eth-contract/types/index.d.ts
-@@ -80,7 +80,7 @@ export interface Options extends ContractOptions {
+@@ -78,7 +78,7 @@ export interface Options extends ContractOptions {
  }
  
  export interface DeployOptions {
