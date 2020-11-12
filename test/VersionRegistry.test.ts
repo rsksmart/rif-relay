@@ -82,9 +82,9 @@ contract('VersionRegistry', ([account]) => {
         assert.deepInclude(versions[1], { version: 'ver2', value: 'value2', canceled: false })
         assert.deepInclude(versions[2], { version: 'ver', value: 'value', canceled: false })
 
-        assert.closeTo(now - versions[0].time, 100, isRsk(env) ? 4 : 2)
-        assert.closeTo(now - versions[1].time, 200, isRsk(env) ? 4 : 2)
-        assert.closeTo(now - versions[2].time, 300, isRsk(env) ? 4 : 2)
+        assert.closeTo(now - versions[0].time, 100, isRsk(env) ? 10 : 2)
+        assert.closeTo(now - versions[1].time, 200, isRsk(env) ? 10 : 2)
+        assert.closeTo(now - versions[2].time, 300, isRsk(env) ? 10 : 2)
       })
 
       it('should ignore repeated added version (can\'t modify history: only adding to it)', async () => {
