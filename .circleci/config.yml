@@ -1,53 +1,227 @@
-version: 2 # use CircleCI 2.0
+version: 2.1 # use CircleCI 2.0
 jobs: # a collection of steps
-  build: # runs not using Workflows must have a `build` job as entry point
+  RSKj: # runs not using Workflows must have a `build` job as entry point
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
-      - image: circleci/node:13.11.0
+      - image: cimg/openjdk:8.0-node
 
     steps: # a collection of executable commands
       - checkout # special step to check out source code to working directory
+      - run:
+          name: Avoid hosts unknown for github
+          command: mkdir -p ~/.ssh/ && echo -e "Host github.com\n\tStrictHostKeyChecking no\n" > ~/.ssh/config
+
+      - run:
+          name: Clone and Build RSKj
+          command: |
+                  GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
+                  git clone -b PAPYRUS-2.1.0 git@github.com:rsksmart/rskj.git ~/rsksmart/rskj
+                  cd ~/rsksmart/rskj/
+                  ./configure.sh
+                  ./gradlew clean build -x test
 
       - restore_cache: # special step to restore the dependency cache
           key: dependency-cache-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
           command: yarn
+      - run:
+          name: npm-install
+          command: npm install
 
       - save_cache: # special step to save the dependency cache
           key: dependency-cache-{{ checksum "package.json" }}-yarn2
           paths:
             - ./node_modules
+      - run:
+          name: Lint
+          command: yarn run lint
+      - run:
+          name: Generate
+          command: yarn generate
+      - run:
+          name: TSC
+          command: yarn tsc     
 
-      - run: # run tests
-          name: test
-          command: yarn test | tee /tmp/test-results.log
+      - run:
+          name: Tests without DB reset Set A
+          command: |
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    until nc -z 127.0.0.1 4444
+                    do
+                      echo "Waiting for RskJ..."
+                      sleep 1
+                    done
+                    npx truffle test --network rsk test/Flows.test.ts
+                    npx truffle test --network rsk test/GsnTestEnvironment.test.ts
+                    npx truffle test --network rsk test/HttpWrapper.test.ts
+                    npx truffle test --network rsk test/KeyManager.test.ts
+                    npx truffle test --network rsk test/PaymasterCommitment.test.ts
+                    npx truffle test --network rsk test/ProxyFactory.test.ts
+      - run:
+          name: Tests without DB reset Set B
+          command: |
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    until nc -z 127.0.0.1 4444
+                    do
+                      echo "Waiting for RskJ..."
+                      sleep 1
+                    done
+                    npx truffle test --network rsk test/RelayHubPenalizations.test.ts
+                    npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
+                    npx truffle test --network rsk test/TxStoreManager.test.ts
+                    npx truffle test --network rsk test/Utils.test.ts
+                    npx truffle test --network rsk test/common/VersionManager.test.ts
+                    npx truffle test --network rsk test/regressions/PayableWithEmit.test.ts
+                    npx truffle test --network rsk test/relayclient/AccountManager.test.ts
+                    npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
+                    npx truffle test --network rsk test/relayclient/GSNConfigurator.test.ts
+      - run:
+          name: Tests without DB reset Set C
+          command: |
+                    java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    until nc -z 127.0.0.1 4444
+                    do
+                      echo "Waiting for RskJ..."
+                      sleep 1
+                    done
+                    npx truffle test --network rsk test/relayclient/RelayClient.test.ts
+                    npx truffle test --network rsk test/relayserver/NetworkSimulation.test.ts
+                    npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
+                    npx truffle test --network rsk test/relayserver/RelayServer.test.ts
+                    npx truffle test --network rsk test/relayserver/RelayServer.webpack.test.ts
 
-#coverage is broken (doesn't cover all contracts). disabled for now..
-#      - restore_cache: # special cache for coverage test
-#          key: last-coverage
-#          paths:
-#            - ./coverage
+      - run:
+          name: Tests with DB reset 1
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/RelayHub.test.ts
+      - run:
+          name: Tests with DB reset 2
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/RelayHubGasCalculations.test.ts
+      - run:
+          name: Tests with DB reset 3
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/SampleRecipient.test.ts
+      - run:
+          name: Tests with DB reset 4
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/StakeManager.test.ts
+      - run:
+          name: Tests with DB reset 5
+          command: |
+                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/VersionRegistry.test.ts
 
-#      - run: # run coverage. update "coverage/covsig.txt" if successful run.
-#          # use last coverage report if no test/contract was changed.
-#          name: coverage
-#          command: yarn run coverage-if-changed
+          
+      - run:
+          name: Tests with DB reset 6
+          command: |
+                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayclient/RelayProvider.test.ts
 
-#      - save_cache: # special cache for coverage test
-#          key: last-coverage
-#          paths:
-#            - ./coverage
+      - run:
+          name: Tests with DB reset 7
+          command: |
+                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayclient/RelaySelectionManager.test.ts
+          
+      - run:
+          name: Tests with DB reset 8
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/RelayServerRequestsProfiling.test.ts
+      - run:
+          name: Tests with DB reset 9
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/ServerConfigParams.test.ts
+      - run:
+          name: Tests with DB reset 10
+          command: |
+                  java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayserver/TransactionManager.test.ts
+            
+      - run:
+          name: Tests with DB reset 11
+          command: |
+                  java -Dminer.client.autoMine=true  -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/relayclient/KnownRelaysManager.test.ts
 
-#      - store_artifacts: # special step to save test results as as artifact
-#          path: ./coverage
-#      - store_artifacts:
-#          path: ./coverage.html
+      - run:
+          name: Tests with DB reset 11
+          command: |
+                  java -Dminer.client.autoMine=true  -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                    echo "Waiting for RskJ..."
+                    sleep 1
+                  done
+                  npx truffle test --network rsk test/smartwallet/SmartWallet.test.ts
 
-      - store_test_results: # special step to upload test results for display in Test Summary
-          path: /tmp/test-results.log
+      - store_artifacts:
+          path: ~/gls/logs
 
-#too much noise..
-#notify:
-#  webhooks:
-#    - url: https://twist.com/integrations/circleci/from_circleci?install_id=85424&post_data_url=https%3A%2F%2Ftwist.com%2Fapi%2Fv3%2Fintegration_incoming%2Fpost_data%3Finstall_id%3D85424%26install_token%3D85424_0aad1ece9d2470896c9142aae3440b5b
+workflows:
+  commit:
+      jobs:
+          - RSKj
