@@ -1,20 +1,20 @@
 diff --git a/node_modules/@truffle/hdwallet-provider/dist/index.d.ts b/node_modules/@truffle/hdwallet-provider/dist/index.d.ts
-index c168914..308f41c 100644
+index 11014a6..e3e9cd9 100644
 --- a/node_modules/@truffle/hdwallet-provider/dist/index.d.ts
 +++ b/node_modules/@truffle/hdwallet-provider/dist/index.d.ts
-@@ -1,7 +1,7 @@
+@@ -1,7 +1,6 @@
  import "source-map-support/register";
- import ProviderEngine from "web3-provider-engine";
+-import ProviderEngine from "@trufflesuite/web3-provider-engine";
++import ProviderEngine from "web3-provider-engine";
  import { JSONRPCRequestPayload, JSONRPCErrorCallback } from "ethereum-protocol";
 -import { Callback, JsonRPCResponse } from "web3/providers";
-+
+ import { ConstructorArguments } from "./constructor/ConstructorArguments";
  declare class HDWalletProvider {
      private hdwallet?;
-     private walletHdpath;
-@@ -9,8 +9,8 @@ declare class HDWalletProvider {
+@@ -10,8 +9,8 @@ declare class HDWalletProvider {
      private addresses;
      engine: ProviderEngine;
-     constructor(mnemonic: string | string[], provider: string | any, addressIndex?: number, numAddresses?: number, shareNonce?: boolean, walletHdpath?: string);
+     constructor(...args: ConstructorArguments);
 -    send(payload: JSONRPCRequestPayload, callback: JSONRPCErrorCallback | Callback<JsonRPCResponse>): void;
 -    sendAsync(payload: JSONRPCRequestPayload, callback: JSONRPCErrorCallback | Callback<JsonRPCResponse>): void;
 +    send(payload: JSONRPCRequestPayload, callback: JSONRPCErrorCallback): void;
