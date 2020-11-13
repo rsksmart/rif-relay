@@ -90,6 +90,8 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/relayclient/AccountManager.test.ts
                     npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
                     npx truffle test --network rsk test/relayclient/GSNConfigurator.test.ts  
+      - store_artifacts:
+          path: ~/gls/logs  
   Test_Thread_2: # Test thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
@@ -109,6 +111,8 @@ jobs: # a collection of steps
           test: "test/relayclient/KnownRelaysManager.test.ts"
       - run_rskj_test:
           test: "test/smartwallet/SmartWallet.test.ts"
+      - store_artifacts:
+          path: ~/gls/logs
   Test_Thread_3: # Test thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
@@ -124,12 +128,8 @@ jobs: # a collection of steps
           test: "test/SampleRecipient.test.ts"
       - run_rskj_test:
           test: "test/StakeManager.test.ts"
-      - run_rskj_test:
-          test: "test/VersionRegistry.test.ts"
-      - run_rskj_test:
-          test: "test/relayclient/RelayProvider.test.ts"
-      - run_rskj_test:
-          test: "test/relayclient/RelaySelectionManager.test.ts"
+      - store_artifacts:
+          path: ~/gls/logs
   Lint_Tsc: # Lint and other prechecks thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
@@ -160,6 +160,8 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/KeyManager.test.ts
                     npx truffle test --network rsk test/PaymasterCommitment.test.ts
                     npx truffle test --network rsk test/ProxyFactory.test.ts
+      - store_artifacts:
+          path: ~/gls/logs
   Test_Thread_5: # Test thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
@@ -181,7 +183,23 @@ jobs: # a collection of steps
                     npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.test.ts
                     npx truffle test --network rsk test/relayserver/RelayServer.webpack.test.ts
-
+      - store_artifacts:
+          path: ~/gls/logs
+  Test_Thread_6: # Test thread
+    working_directory: ~/gls # directory where steps will run
+    docker: # run the steps with Docker
+      - image: cimg/openjdk:8.0-node
+  
+    steps: # a collection of executable commands
+      - prepare
+      - run_rskj_test:
+          test: "test/VersionRegistry.test.ts"
+      - run_rskj_test:
+          test: "test/relayclient/RelayProvider.test.ts"
+      - run_rskj_test:
+          test: "test/relayclient/RelaySelectionManager.test.ts"
+      - store_artifacts:
+          path: ~/gls/logs
 workflows:
   commit:
       jobs:
