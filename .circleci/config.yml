@@ -49,15 +49,15 @@ commands:
           type: string
     steps:
       - run:
-        name: Execute << parameters.test >>
-        command: |
-                java -Dminer.client.autoMine=true  -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
-                until nc -z 127.0.0.1 4444
-                do
-                  echo "Waiting for RskJ..."
-                  sleep 1
-                done
-                npx truffle test --network rsk << parameters.test >>
+          name: Execute << parameters.test >>
+          command: |
+                  java -Dminer.client.autoMine=true  -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  until nc -z 127.0.0.1 4444
+                  do
+                   echo "Waiting for RskJ..."
+                   sleep 1
+                 done
+                 npx truffle test --network rsk << parameters.test >>
 
 jobs: # a collection of steps
   Test_Set_1: # runs not using Workflows must have a `build` job as entry point
