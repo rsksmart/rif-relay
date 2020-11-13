@@ -56,8 +56,8 @@ commands:
                   do
                    echo "Waiting for RskJ..."
                    sleep 1
-                 done
-                 npx truffle test --network rsk << parameters.test >>
+                  done
+                  npx truffle test --network rsk << parameters.test >>
 
 jobs: # a collection of steps
   Test_Set_1: # runs not using Workflows must have a `build` job as entry point
