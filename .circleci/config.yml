@@ -209,3 +209,4 @@ workflows:
           - Test_Thread_3          
           - Test_Thread_4
           - Test_Thread_5
+          - Test_Thread_6
