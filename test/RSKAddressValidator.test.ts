@@ -1,6 +1,7 @@
 import {
   TestRSKAddressValidatorInstance
 } from '../types/truffle-contracts'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 const TestRSKAddressValidator = artifacts.require('TestRSKAddressValidator')
 
@@ -16,7 +17,7 @@ contract('RSKAddressValidator', function (accounts) {
     const signature = `0x${r}${s}${v.toString(16)}`
 
     addressValidator = await TestRSKAddressValidator.new()
-    const addr = await addressValidator.getSig.call(messageHash, signature)
+    const addr = await addressValidator.getAddress.call(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
     const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
@@ -33,10 +34,46 @@ contract('RSKAddressValidator', function (accounts) {
     const signature = `0x${r}${s}${v.toString(16)}`
 
     addressValidator = await TestRSKAddressValidator.new()
-    const addr = await addressValidator.getSig.call(messageHash, signature)
+    const addr = await addressValidator.getAddress.call(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
     const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
     expect(res).to.be.equal(false)
+  })
+
+  it('should return FALSE on check with small case address and TRUE on check with checksummed address', async function () {
+    const messageHash = '0x4d3e45a3a5908513a10012e30a04fb2b438bab7da2acb93084e2f15a5eb55e8b'
+
+    const v = 27
+    const r = '90ef8cbc9ce5999887d32f3f5adf5292ada96b9506b51980f219d60271cf300c'
+    const s = '3e59fb0088da48b32cb4d83f17af47dd7340cd0dab15ac214b7039b65ee8876d'
+
+    const signature = `0x${r}${s}${v.toString(16)}`
+
+    addressValidator = await TestRSKAddressValidator.new()
+    const addr = await addressValidator.getAddress.call(messageHash, signature)
+    expect(addr).to.be.not.equal('0xdcc703c0e500b653ca82273b7bfad8045d85a470')
+    expect(addr).to.be.equal(toChecksumAddress('0xdcc703c0e500b653ca82273b7bfad8045d85a470'))
+  })
+
+  it('should return true on check with small case address on solidity', async function () {
+    const messageHash = '0x4d3e45a3a5908513a10012e30a04fb2b438bab7da2acb93084e2f15a5eb55e8b'
+
+    const v = 27
+    const r = '90ef8cbc9ce5999887d32f3f5adf5292ada96b9506b51980f219d60271cf300c'
+    const s = '3e59fb0088da48b32cb4d83f17af47dd7340cd0dab15ac214b7039b65ee8876d'
+
+    const signature = `0x${r}${s}${v.toString(16)}`
+
+    const addr = '0xdcc703c0e500b653ca82273b7bfad8045d85a470'
+
+    addressValidator = await TestRSKAddressValidator.new()
+    const areEqualSmallCase = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addr)
+    expect(areEqualSmallCase).to.be.true;
+
+    const addrChecksummed = toChecksumAddress(addr)
+
+    const areEqualChecksummed = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addrChecksummed)
+    expect(areEqualChecksummed).to.be.true;
   })
 })

@@ -130,7 +130,7 @@ contract ProxyFactory is IProxyFactory {
         );
 
         bytes32 digest = keccak256(packed);
-        require(RSKAddrValidator.safeCompare(digest.recover(sig),owner), string(packed));
+        require(RSKAddrValidator.safeEquals(digest.recover(sig),owner), string(packed));
 
         bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, keccak256(initParams), index));
 
@@ -293,7 +293,7 @@ contract ProxyFactory is IProxyFactory {
                 keccak256(_getEncoded(req, requestTypeHash, suffixData))
             )
         );
-        require(RSKAddrValidator.safeCompare(digest.recover(sig), req.from), "signature mismatch");
+        require(RSKAddrValidator.safeEquals(digest.recover(sig), req.from), "signature mismatch");
     }
 
     function _verifyNonce(IForwarder.ForwardRequest memory req) internal view {

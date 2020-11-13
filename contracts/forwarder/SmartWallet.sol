@@ -189,7 +189,7 @@ contract SmartWallet is IForwarder {
                 keccak256(_getEncoded(req, requestTypeHash, suffixData))
             )
         );
-        require(RSKAddrValidator.safeCompare(digest.recover(sig), req.from), "signature mismatch");
+        require(RSKAddrValidator.safeEquals(digest.recover(sig), req.from), "signature mismatch");
     }
 
     function _getEncoded(
