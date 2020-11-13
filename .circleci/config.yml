@@ -119,9 +119,7 @@ jobs: # a collection of steps
       - image: cimg/openjdk:8.0-node
   
     steps: # a collection of executable commands
-      - prepare
-      - run_rskj_test:
-          test: "test/RelayHub.test.ts"   
+      - prepare 
       - run_rskj_test:
           test: "test/RelayHubGasCalculations.test.ts"
       - run_rskj_test:
@@ -192,6 +190,8 @@ jobs: # a collection of steps
   
     steps: # a collection of executable commands
       - prepare
+      - run_rskj_test:
+         test: "test/RelayHub.test.ts"  
       - run_rskj_test:
           test: "test/VersionRegistry.test.ts"
       - run_rskj_test:
