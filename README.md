@@ -99,13 +99,15 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 In order to run an Enveloping instance, clone the project then run the following from the project's root directory:
 
 1. `yarn install`
-2. `npm link`
-3. On a new terminal run `./rsknode/run-for-server.sh` to run a [docker](https://www.docker.com/)
-4. Create an account from an mnemonic, and store the mnemonic in a file.
-5. On a new terminal run `npx gsn start --network http://localhost:4444/2.0.1/`. Keeping the Relay Hub address.
-6. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address and the docker's ip.
-7. In the jsrelay directory run `./docker-build.sh` and then `docker-compose up`.
-8. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
+2. On the jsrelay directory `npx webpack`
+3. `npm link`
+4. On the project's root directory, run `docker-compose build`
+5. Run `docker-compose up -d rskj`
+6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
+7. Create an account from an mnemonic, and store the mnemonic in a file, then found it.
+8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
+9. On the project's root directory, run `docker-compose up -d jsrelay`
+10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
 
 For checking if it's working, run `curl http://localhost:8090/getaddr`
 

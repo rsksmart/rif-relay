@@ -1,0 +1,29 @@
+version: "3"
+services:
+  rskj:
+    build:
+      context: ./rsknode
+      args:
+        - rskj_codename=PAPYRUS
+        - rskj_version=2.1.0
+    container_name: rskj
+    image: rskj:latest
+    command: --regtest
+    ports:
+      - "127.0.0.1:4444:4444"
+  jsrelay:
+    build:
+      context: ./jsrelay
+    container_name: jsrelay
+    environment:
+      workdir: /app/data
+      config: /app/config/gsn-relay-config.json
+      url: http://localhost:8090
+      port: 8090
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./jsrelay/gsndata:/app/data
+      - ./jsrelay/config:/app/config
+    depends_on:
+      - rskj
