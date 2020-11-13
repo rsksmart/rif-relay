@@ -56,7 +56,7 @@ The core enveloping architecture is defined by the following components:
 
 Clone the project. Then run the following from the project's root directory
 -  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
-- `./rsknode/rskj.sh` (local) or `./rsknode/run.sh` (with [docker](https://www.docker.com/) )
+- Move [here](rsknode/README.md)
 
 ### 3.1. Test <a id="c03.1"></a>
 
@@ -152,13 +152,6 @@ Stop the running node and delete the db used by the node.
 #### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-#### Changes to the RSKJ node or changes in the `run.sh` script
-
-If you are using Docker, you should delete the old image using `docker image rm rsknode`
-
-Then delete the directory `rsknode/home/` and finally run `rsknode/run.sh` again (before this step you must download all the new changes).
-
 
 ## 7. Gas Station Network <a id="c07"></a>
 
