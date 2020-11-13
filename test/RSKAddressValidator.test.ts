@@ -69,11 +69,11 @@ contract('RSKAddressValidator', function (accounts) {
 
     addressValidator = await TestRSKAddressValidator.new()
     const areEqualSmallCase = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addr)
-    expect(areEqualSmallCase).to.be.true;
+    expect(areEqualSmallCase).to.be.true
 
     const addrChecksummed = toChecksumAddress(addr)
 
     const areEqualChecksummed = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addrChecksummed)
-    expect(areEqualChecksummed).to.be.true;
+    expect(areEqualChecksummed).to.be.true
   })
 })
