@@ -376,7 +376,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
 
-          const rskDiff: number = isRsk(env) ? 3135 : 0
+          const rskDiff: number = isRsk(env) ? 3042 : 0
           const gasUsed: number = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
 
