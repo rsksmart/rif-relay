@@ -9,7 +9,7 @@ library RSKAddrValidator {
     * also an address from PK = ZERO. So we check for both of them.
     */
     function checkPKNotZero(address addr) internal pure returns (bool){
-        return (addr != address(0) && addr != 0xdcc703c0E500B653Ca82273B7BFAd8045D85a470);
+        return (addr != 0xdcc703c0E500B653Ca82273B7BFAd8045D85a470 && addr != address(0));
     }
 
     /*
