@@ -40,16 +40,25 @@ The core enveloping architecture is defined by the following components:
 
 ## 2.1 Testnet Contracts <a id="c02.1"></a>
 
-| Contract        | Address                                    |
-|-----------------|--------------------------------------------|
-| StakeManager    | 0x5D4aE8144bc5020526b31ee3744b038a847bBCF1 |
-| Penalizer       | 0x8BB74f5c904B2d29FFa8Feeb4eed9f933B5F1d14 |
-| RelayHub        | 0xF9214a2C007331022553eCeF5f239C9E223C3466 |
-| TestRecipient   | 0xB543a8516B299520C6b6Ae762f43aa9dbA137149 |
-| SmartWallet     | 0x5Aaf0feDc9aE43C43A0f92976CBa0DFB7D8C0e84 |
-| ProxyFactory    | 0x893F97d2d839977429Aa7CB93bC44E6d31f1bEB8 |
-| DeployPaymaster | 0xA0A6b4970C62A1155980AA8979EE3AC2caFd4Ebf |
-| RelayPaymaster  | 0x73F7d004E6E2ebb9863629fF747a929f4F6BE0f1 |
+| Contract          | Address                                    |
+|-------------------|--------------------------------------------|
+| [StakeManager]    | 0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D |
+| [Penalizer]       | 0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726 |
+| [RelayHub]        | 0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C |
+| [TestRecipient]   | 0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa |
+| [SmartWallet]     | 0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1 |
+| [ProxyFactory]    | 0xb7a5370F126d51138d60e20E3F332c81f1507Ce2 |
+| [DeployPaymaster] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
+| [RelayPaymaster]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
+
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726)
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C)
+[TestRecipient]:(https://explorer.testnet.rsk.co/address/0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xb7a5370F126d51138d60e20E3F332c81f1507Ce2)
+[DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
+[RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
 
 ## 3. Building project <a id="c03"></a>
 
