@@ -36,7 +36,6 @@ import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -114,7 +113,6 @@ contract('RelayProvider', function (accounts) {
   before(async function () {
     sender = accounts[0]
     gaslessAccount = getGaslessAccount()
-
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
@@ -122,7 +120,7 @@ contract('RelayProvider', function (accounts) {
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
+    smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     token = await TestToken.new()
 
     paymasterInstance = await TestPaymasterEverythingAccepted.new()

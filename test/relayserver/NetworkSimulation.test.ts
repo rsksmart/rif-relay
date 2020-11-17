@@ -5,7 +5,6 @@ import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment
@@ -46,7 +45,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
       const SmartWallet = artifacts.require('SmartWallet')
       const sWalletTemplate = await SmartWallet.new()
       const factory = await createProxyFactory(sWalletTemplate)
-      const smartWallet = await createSmartWallet(gaslessAccount.address, factory, (await getTestingEnvironment()).chainId, bufferToHex(gaslessAccount.privateKey))
+      const smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
 
       env.relayClient.accountManager.addAccount(gaslessAccount)
 

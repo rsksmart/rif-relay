@@ -20,7 +20,6 @@ import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactor
 import { isRsk } from '../src/common/Environments'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -106,7 +105,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     chainId = (await testUtil.libGetChainID()).toNumber()
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
 

@@ -78,7 +78,7 @@ contract TestUtil {
 
     function libEncodedDomain(address forwarder) public pure returns (bytes memory) {
         GsnEip712Library.EIP712Domain memory req = GsnEip712Library.EIP712Domain({
-            name : "GSN Relayed Transaction",
+            name : "RSK Enveloping Transaction",
             version : "2",
             chainId : libGetChainID(),
             verifyingContract : forwarder

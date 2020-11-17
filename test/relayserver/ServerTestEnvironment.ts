@@ -36,7 +36,6 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -117,7 +116,7 @@ export class ServerTestEnvironment {
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
-    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, chainId, bufferToHex(gaslessAccount.privateKey))
+    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
 
     const shared: Partial<GSNConfig> = {

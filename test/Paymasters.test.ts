@@ -195,8 +195,7 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
   let factory: ProxyFactoryInstance
   let testPaymasters: TestPaymastersInstance
 
-  const senderPrivKeyStr = bytes32(1)
-  const senderPrivateKey = toBuffer(senderPrivKeyStr)
+  const senderPrivateKey = toBuffer(bytes32(1))
   const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
 
   before(async function () {
@@ -211,7 +210,7 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
     relayPaymaster = await RelayPaymaster.new(factory.address, { from: paymasterOwner })
     testPaymasters = await TestPaymasters.new(relayPaymaster.address)
 
-    sw = await createSmartWallet(senderAddress, factory, chainId, senderPrivKeyStr)
+    sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
     const smartWallet = sw.address
     const recipientContract = await TestRecipient.new()
 

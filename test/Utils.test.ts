@@ -6,10 +6,7 @@ import chai from 'chai'
 import { HttpProvider } from 'web3-core'
 
 import RelayRequest from '../src/common/EIP712/RelayRequest'
-import TypedRequestData, {
-  getDomainSeparatorHash,
-  GsnDomainSeparatorType, GsnRequestType
-} from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -58,7 +55,7 @@ contract('Utils', function (accounts) {
       chainId = (await testUtil.libGetChainID()).toNumber()
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
       const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      forwarderInstance = await createSmartWallet(senderAddress, factory, chainId, bufferToHex(senderPrivateKey))
+      forwarderInstance = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new()
 
@@ -73,20 +70,6 @@ contract('Utils', function (accounts) {
       const relayWorker = accounts[9]
       const paymasterData = '0x'
       const clientId = '0'
-
-      const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
-      console.log(res1.logs[0])
-      const { domainSeparator } = res1.logs[0].args
-
-      // sanity check: our locally-calculated domain-separator is the same as on-chain registered domain-separator
-      assert.equal(domainSeparator, getDomainSeparatorHash(forwarder, chainId))
-
-      const res = await forwarderInstance.registerRequestType(
-        GsnRequestType.typeName,
-        GsnRequestType.typeSuffix
-      )
-
-      const typeName = res.logs[0].args.typeStr
 
       relayRequest = {
         request: {
@@ -114,12 +97,6 @@ contract('Utils', function (accounts) {
           clientId
         }
       }
-      const dataToSign = new TypedRequestData(
-        chainId,
-        forwarder,
-        relayRequest
-      )
-      assert.equal(typeName, TypedDataUtils.encodeType(dataToSign.primaryType, dataToSign.types))
     })
 
     it('#_getEncoded should extract data exactly as local encoded data', async () => {
@@ -133,25 +110,6 @@ contract('Utils', function (accounts) {
       )
       const localEncoded = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types))
       assert.equal(getEncoded, localEncoded)
-    })
-
-    it('library constants should match RelayHub eip712 constants', async function () {
-      assert.equal(GsnRequestType.typeName, await testUtil.libRelayRequestName())
-      assert.equal(GsnRequestType.typeSuffix, await testUtil.libRelayRequestSuffix())
-
-      const res1 = await forwarderInstance.registerDomainSeparator(GsnDomainSeparatorType.name, GsnDomainSeparatorType.version)
-      console.log(res1.logs[0])
-      const { domainSeparator } = res1.logs[0].args
-      assert.equal(domainSeparator, await testUtil.libDomainSeparator(forwarder))
-
-      const res = await forwarderInstance.registerRequestType(
-        GsnRequestType.typeName,
-        GsnRequestType.typeSuffix
-      )
-      const { typeStr, typeHash } = res.logs[0].args
-
-      assert.equal(typeStr, await testUtil.libRelayRequestType())
-      assert.equal(typeHash, await testUtil.libRelayRequestTypeHash())
     })
 
     it('should use same domainSeparator on-chain and off-chain', async () => {

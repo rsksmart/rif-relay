@@ -7,7 +7,6 @@ import {
 import BN from 'bn.js'
 import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -28,7 +27,7 @@ contract('SampleRecipient', function (accounts) {
     const chainId = env.chainId
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
+    await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
 
     sample = await TestRecipient.new()
     paymaster = await TestPaymasterEverythingAccepted.new()

@@ -38,7 +38,6 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { soliditySha3Raw } from 'web3-utils'
-import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -101,7 +100,7 @@ contract('RelayClient', function (accounts) {
     const env = (await getTestingEnvironment())
     gaslessAccount = getGaslessAccount()
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
+    smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     paymaster = await TestEnvelopingPaymaster.new()
     await paymaster.setRelayHub(relayHub.address)
     await paymaster.deposit({ value: web3.utils.toWei('1', 'ether') })

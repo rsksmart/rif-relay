@@ -4,7 +4,7 @@ import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-he
 import BN from 'bn.js'
 
 import { Transaction } from 'ethereumjs-tx'
-import { privateToAddress, stripZeros, toBuffer, bufferToHex } from 'ethereumjs-util'
+import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
 
@@ -48,7 +48,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let env: Environment
   let forwarder: string
   const gaslessAccount: AccountKeypair = getGaslessAccount()
-
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
   before(async function () {
     for (const addr of [relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker]) {
@@ -61,7 +60,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     env = await getTestingEnvironment()
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, env.chainId, bufferToHex(gaslessAccount.privateKey))
+    const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     forwarder = forwarderInstance.address
 
     recipient = await TestRecipient.new()

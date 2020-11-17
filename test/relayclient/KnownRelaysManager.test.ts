@@ -19,7 +19,6 @@ import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegis
 import { Environment } from '../../src/common/Environments'
 import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
@@ -66,7 +65,6 @@ contract('KnownRelaysManager', function (
     let factory: ProxyFactoryInstance
     let sWalletTemplate: SmartWalletInstance
     let smartWallet: SmartWalletInstance
-
     let env: Environment
 
     before(async function () {
@@ -89,7 +87,7 @@ contract('KnownRelaysManager', function (
       testRecipient = await TestRecipient.new()
       sWalletTemplate = await SmartWallet.new()
       factory = await createProxyFactory(sWalletTemplate)
-      smartWallet = await createSmartWallet(senderAddress.address, factory, env.chainId, bufferToHex(senderAddress.privateKey))
+      smartWallet = await createSmartWallet(senderAddress.address, factory, senderAddress.privateKey, env.chainId)
       // register hub's RelayRequest with forwarder, if not already done.
 
       paymaster = await TestPaymasterConfigurableMisbehavior.new()

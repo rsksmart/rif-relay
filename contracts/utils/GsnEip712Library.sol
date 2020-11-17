@@ -74,9 +74,8 @@ library GsnEip712Library {
 
     function verifySignature(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal view {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
-        bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
         IForwarder forwarder = IForwarder(payable(relayRequest.relayData.forwarder));
-        forwarder.verify(forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature);
+        forwarder.verify(forwardRequest, domainSeparator(relayRequest.relayData.forwarder), RELAY_REQUEST_TYPEHASH, suffixData, signature);
     }
 
     function verify(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal view {
@@ -87,7 +86,6 @@ library GsnEip712Library {
         (IForwarder.ForwardRequest memory forwardRequest, bytes memory suffixData) = splitRequest(relayRequest);
 
         if(address(0)!= forwardRequest.factory){//Deploy of smart wallet
-            bytes32 domainSeparator = domainSeparator(forwardRequest.factory);      
 
             //The gas limit for the deploy creation is injected here, since the gasCalculation
             //estimate is done against the whole relayedUserSmartWalletCreation function in
@@ -95,15 +93,14 @@ library GsnEip712Library {
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess,) = forwardRequest.factory.call{gas: forwardRequest.gas}(
                 abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
-                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+                forwardRequest, domainSeparator(forwardRequest.factory), RELAY_REQUEST_TYPEHASH, suffixData, signature
             ));
         }
         else{
-            bytes32 domainSeparator = domainSeparator(relayRequest.relayData.forwarder);
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.forwarder.call(
                 abi.encodeWithSelector(IForwarder.execute.selector,
-                forwardRequest, domainSeparator, RELAY_REQUEST_TYPEHASH, suffixData, signature
+                forwardRequest, domainSeparator(relayRequest.relayData.forwarder), RELAY_REQUEST_TYPEHASH, suffixData, signature
             ));
             
             if ( forwarderSuccess ) {
@@ -122,12 +119,12 @@ library GsnEip712Library {
         MinLibBytes.truncateInPlace(data, MAX_RETURN_SIZE);
     }
 
-    function domainSeparator(address forwarder) internal pure returns (bytes32) {
+    function domainSeparator(address verifier) internal pure returns (bytes32) {
         return hashDomain(EIP712Domain({
-            name : "GSN Relayed Transaction",
+            name : "RSK Enveloping Transaction",
             version : "2",
             chainId : getChainID(),
-            verifyingContract : forwarder
+            verifyingContract : verifier
             }));
     }
 

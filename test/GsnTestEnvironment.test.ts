@@ -4,7 +4,6 @@ import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { getTestingEnvironment, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
-import { bufferToHex } from 'ethereumjs-util'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const ProxyFactory = artifacts.require('ProxyFactory')
@@ -39,7 +38,7 @@ contract('GsnTestEnvironment', function () {
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
-      const wallet = await createSmartWallet(sender.address, proxyFactory, (await getTestingEnvironment()).chainId, bufferToHex(sender.privateKey))
+      const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
       testEnvironment.relayProvider.relayClient.accountManager.addAccount(sender)
 
       const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
@@ -81,7 +80,7 @@ contract('GsnTestEnvironment', function () {
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
-      const wallet = await createSmartWallet(sender.address, proxyFactory, (await getTestingEnvironment()).chainId, bufferToHex(sender.privateKey))
+      const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
       testEnvironment.relayProvider.addAccount(sender)
 
       // @ts-ignore

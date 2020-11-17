@@ -59,21 +59,4 @@ interface IForwarder {
     external payable
     returns (bool success, uint256 lastSuccTx, bytes memory ret);
 
-    /**
-     * Register a new Request typehash.
-     * @param typeName - the name of the request type.
-     * @param typeSuffix - anything after the generic params can be empty string (if no extra fields are needed)
-     *        if it does contain a value, then a comma is added first.
-     */
-    function registerRequestType(string calldata typeName, string calldata typeSuffix) external;
-
-    /**
-     * Register a new domain separator.
-     * The domain separator must have the following fields: name,version,chainId, verifyingContract.
-     * the chainId is the current network's chainId, and the verifyingContract is this forwarder.
-     * This method is given the domain name and version to create and register the domain separator value.
-     * @param name the domain's display name
-     * @param version the domain/protocol version
-     */
-    function registerDomainSeparator(string calldata name, string calldata version) external;
 }
