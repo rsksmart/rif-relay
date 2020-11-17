@@ -12,7 +12,8 @@ System for users to pay for transactions in ERC-20 tokens.
 3. [Building project](#c03)<br>
   3.1 [Testing](#c03.1)<br>
   3.2 [Use Enveloping](#c03.2)<br>
-  3.3 [Create a Smart Wallet](#c03.3)
+  3.3 [Create a Smart Wallet](#c03.3)<br>
+  3.4 [Run a Javascript Client](#c03.4)
 4. [Use MetaCoin](#c04)
 5. [Documentation](#c05)
 6. [Troubleshooting](#c06)<br>
@@ -64,7 +65,7 @@ The core enveloping architecture is defined by the following components:
 
 Clone the project. Then run the following from the project's root directory
 -  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
-- `./rsknode/rskj.sh` (local) or `./rsknode/run.sh` (with [docker](https://www.docker.com/) )
+- Move [here](rsknode/README.md)
 
 ### 3.1. Test <a id="c03.1"></a>
 
@@ -101,6 +102,23 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 * customLogic: An optional custom logic code (in bytes), that the wallet will proxy to (it can be address(0)).
 * walletIndex: Numeric value used to generatte different wallet insttances for the owner using the same parameters and factory.
 * logicInitParamsHash: If customLogic was defined in it need initialization parameters, they are passed as abi-encoded here, without include the function selector. If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero.
+
+### 3.4 Run a Javascript Client <a id="c03.4"></a>
+
+In order to run an Enveloping instance, clone the project then run the following from the project's root directory:
+
+1. `yarn install`
+2. On the jsrelay directory `npx webpack`
+3. `npm link`
+4. On the project's root directory, run `docker-compose build`
+5. Run `docker-compose up -d rskj`
+6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
+7. Create an account from an mnemonic, and store the mnemonic in a file, then found it.
+8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
+9. On the project's root directory, run `docker-compose up -d jsrelay`
+10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
+
+For checking if it's working, run `curl http://localhost:8090/getaddr`
 
 
 ## 4. Use MetaCoin <a id="c04"></a>
@@ -143,13 +161,6 @@ Stop the running node and delete the db used by the node.
 #### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-#### Changes to the RSKJ node or changes in the `run.sh` script
-
-If you are using Docker, you should delete the old image using `docker image rm rsknode`
-
-Then delete the directory `rsknode/home/` and finally run `rsknode/run.sh` again (before this step you must download all the new changes).
-
 
 ## 7. Gas Station Network <a id="c07"></a>
 
