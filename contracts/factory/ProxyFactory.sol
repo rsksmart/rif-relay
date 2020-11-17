@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.6.12 <0.8.0;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IProxyFactory.sol";
+import "../utils/RSKAddrValidator.sol";
 
 //import "@nomiclabs/buidler/console.sol";
 /* solhint-disable no-inline-assembly */
@@ -69,42 +70,59 @@ PC | OPCODE|   Mnemonic     |   Stack [top, bottom]                       | Comm
 44 | F3    | RETURN         | []                                          | return(Mem[0, rds-1])
  */
 
-
-/**Factory of Proxies to the SmartWallet (Forwarder)
+/** Factory of Proxies to the SmartWallet (Forwarder)
 The Forwarder itself is a Template with portions delegated to a custom logic (it is also a proxy) */
 contract ProxyFactory is IProxyFactory {
     using ECDSA for bytes32;
 
-    //change to internal after debug
-    address public masterCopy; // this is the ForwarderProxy contract that will be proxied
-    mapping(bytes32 => bool) public typeHashes;
-    mapping(bytes32 => bool) public domains;
+    bytes32 public constant DOMAIN_NAME = keccak256(
+        "RSK Enveloping Transaction"
+    );
 
-    // Nonces of senders, used to prevent replay attacks
-    mapping(address => uint256) private nonces;
-
-    string public constant FORWARDER_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
-    string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
+    bytes32 public constant REQUEST_TYPE_HASH = keccak256(
+        "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)"
+    );
+    bytes32 public constant EIP712DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );
 
     bytes9 private constant CONSTR = hex"602D3D8160093D39F3";
     bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
     bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
 
+    address public masterCopy; // this is the ForwarderProxy contract that will be proxied
+    address public contractOwner;
+    // Nonces of senders, used to prevent replay attacks
+    mapping(address => uint256) private nonces;
+
+    bytes32 public currentVersionHash;
     bytes32 public runtimeCodeHash;
+    
 
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
      * it pays for the deployment during initialization, and it pays for the transaction
      * execution on each execute() call.
      * It also acts a a proxy to a logic contract. Any unrecognized function will be forwarded to this custom logic (if it exists)
+     * @param versionHash It's the domain version to accept when receiving EIP712 signatures
      */
-    constructor(address forwarderTemplate) public {
+    constructor(address forwarderTemplate, bytes32 versionHash) public {
         masterCopy = forwarderTemplate;
 
-        runtimeCodeHash = keccak256(abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END));
-       
-        string memory requestType = string(abi.encodePacked("ForwardRequest(", FORWARDER_PARAMS, ")"));
-        registerRequestTypeInternal(requestType);
+        runtimeCodeHash = keccak256(
+            abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END)
+        );
+        currentVersionHash = versionHash;
+        contractOwner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == contractOwner, "Sender is not the owner");
+        _;
+    }
+
+    function setVersion(bytes32 versionHash) external onlyOwner {
+        currentVersionHash = versionHash;
     }
 
     function getNonce(address from) public override view returns (uint256) {
@@ -121,7 +139,7 @@ contract ProxyFactory is IProxyFactory {
     ) external override {
         bytes memory packed = abi.encodePacked(
             "\x19\x10",
-            owner, 
+            owner,
             recoverer,
             logic,
             index,
@@ -129,16 +147,25 @@ contract ProxyFactory is IProxyFactory {
         );
 
         bytes32 digest = keccak256(packed);
-        require(digest.recover(sig) == owner, string(packed));
+        require(RSKAddrValidator.safeEquals(digest.recover(sig),owner), string(packed));
 
-        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, keccak256(initParams), index));
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                owner,
+                recoverer,
+                logic,
+                keccak256(initParams),
+                index
+            )
+        );
 
-        //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
+        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
         bytes memory initData = abi.encodeWithSelector(
-            hex"772d909b",
+            hex"60654ec4",
             owner,
             logic,
             address(0), // This "gas-funded" call does not pay with tokens
+            currentVersionHash,
             initParams,
             hex"00"
         );
@@ -152,21 +179,30 @@ contract ProxyFactory is IProxyFactory {
         bytes32 requestTypeHash,
         bytes calldata suffixData,
         bytes calldata sig
-    ) external override{
+    ) external override {
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-        _updateNonce(req);
+        nonces[req.from]++;
 
-        bytes32 salt = keccak256(abi.encodePacked(req.from, req.recoverer, req.to, keccak256(req.data), req.index));
+        bytes32 salt = keccak256(
+            abi.encodePacked(
+                req.from,
+                req.recoverer,
+                req.to,
+                keccak256(req.data),
+                req.index
+            )
+        );
 
-        //772d909b  =>  initialize(address owner,address logic,address tokenAddr,bytes initParams,bytes transferData)  
+        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         //initParams (req.data) must not contain the function selector for the logic initialization function
         bytes memory initData = abi.encodeWithSelector(
-            hex"772d909b",
+            hex"60654ec4",
             req.from,
             req.to,
             req.tokenContract,
+            currentVersionHash,
             req.data,
             abi.encodeWithSelector(
                 hex"a9059cbb",
@@ -193,19 +229,27 @@ contract ProxyFactory is IProxyFactory {
         bytes32 initParamsHash,
         uint256 index
     ) external override view returns (address) {
-
-        bytes32 salt = keccak256(abi.encodePacked(owner, recoverer, logic, initParamsHash, index));
-
-        bytes32 result = keccak256(
-            abi.encodePacked(
-                bytes1(0xff),
-                address(this),
-                salt,
-                keccak256(getCreationBytecode())
-            )
-        );
-
-        return address(uint256(result));
+        return
+            address(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            bytes1(0xff),
+                            address(this),
+                            keccak256(
+                                abi.encodePacked(
+                                    owner,
+                                    recoverer,
+                                    logic,
+                                    initParamsHash,
+                                    index
+                                )
+                            ),
+                            keccak256(getCreationBytecode())
+                        )
+                    )
+                )
+            );
     }
 
     function deploy(
@@ -213,8 +257,6 @@ contract ProxyFactory is IProxyFactory {
         bytes32 salt,
         bytes memory initdata
     ) internal returns (address addr) {
-        //bytes memory pointerTo;
-        //uint256 size;
 
         //Deployment of the Smart Wallet
         /* solhint-disable-next-line no-inline-assembly */
@@ -223,20 +265,11 @@ contract ProxyFactory is IProxyFactory {
             if iszero(extcodesize(addr)) {
                 revert(0, 0)
             }
-
-            /*size := extcodesize(addr)
-            pointerTo := mload(0x40)
-            mstore(
-                0x40,
-                add(pointerTo, and(add(add(size, 0x20), 0x1f), not(0x1f)))
-            )
-            mstore(pointerTo, size)
-            extcodecopy(addr, add(pointerTo, 0x20), 0, size)*/
         }
 
         //Since the init code determines the address of the smart wallet, any initialization
         //require is done via the runtime code, to avoid the parameters impacting on the resulting address
-        
+
         /* solhint-disable-next-line avoid-low-level-calls */
         (bool success, ) = addr.call(initdata);
         require(success);
@@ -256,24 +289,32 @@ contract ProxyFactory is IProxyFactory {
         bytes32 requestTypeHash,
         bytes memory suffixData
     ) public pure returns (bytes memory) {
-        return abi.encodePacked(
-            requestTypeHash,
-            abi.encode(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                keccak256(req.data),
-                req.tokenRecipient,
-                req.tokenContract,
-                req.tokenAmount,
-                req.factory,
-                req.recoverer,
-                req.index
-            ),
-            suffixData
-        );
+        return
+            abi.encodePacked(
+                requestTypeHash,
+                abi.encode(
+                    req.from,
+                    req.to,
+                    req.value,
+                    req.gas,
+                    req.nonce,
+                    keccak256(req.data),
+                    req.tokenRecipient,
+                    req.tokenContract,
+                    req.tokenAmount,
+                    req.factory,
+                    req.recoverer,
+                    req.index
+                ),
+                suffixData
+            );
+    }
+
+    function getChainID() internal pure returns (uint256 id) {
+        /* solhint-disable no-inline-assembly */
+        assembly {
+            id := chainid()
+        }
     }
 
     function _verifySig(
@@ -283,75 +324,39 @@ contract ProxyFactory is IProxyFactory {
         bytes memory suffixData,
         bytes memory sig
     ) internal view {
-        require(domains[domainSeparator], "unregistered domain separator");
-        require(typeHashes[requestTypeHash], "unregistered request typehash");
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                keccak256(_getEncoded(req, requestTypeHash, suffixData))
-            )
+
+        //Verify Request type
+        require(
+            REQUEST_TYPE_HASH == requestTypeHash,
+            "Invalid request typehash"
         );
-        require(digest.recover(sig) == req.from, "signature mismatch");
+
+        //Verify Domain separator
+        require(
+            keccak256(
+                abi.encode(
+                    EIP712DOMAIN_TYPEHASH,
+                    DOMAIN_NAME,
+                    currentVersionHash,
+                    getChainID(),
+                    address(this)
+                )
+            ) == domainSeparator,
+            "Invalid domain separator"
+        );
+
+        require(
+            RSKAddrValidator.safeEquals(
+                keccak256(abi.encodePacked(
+                    "\x19\x01",
+                    domainSeparator,
+                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                ).recover(sig), req.from),"signature mismatch"
+        );
     }
 
     function _verifyNonce(IForwarder.ForwardRequest memory req) internal view {
         require(nonces[req.from] == req.nonce, "nonce mismatch");
     }
-
-    function _updateNonce(IForwarder.ForwardRequest memory req) internal {
-        nonces[req.from]++;
-    }
-
-    function registerRequestTypeInternal(string memory requestType) internal {
-        bytes32 requestTypehash = keccak256(bytes(requestType));
-        typeHashes[requestTypehash] = true;
-        emit RequestTypeRegistered(requestTypehash, string(requestType));
-    }
-
-    function registerRequestType(
-        string calldata typeName,
-        string calldata typeSuffix
-    ) external  {
-        for (uint256 i = 0; i < bytes(typeName).length; i++) {
-            bytes1 c = bytes(typeName)[i];
-            require(c != "(" && c != ")", "invalid typename");
-        }
-
-        bytes memory suffixBytes = bytes(typeSuffix);
-
-        if (suffixBytes.length == 0) {
-            string memory requestType = string(
-                abi.encodePacked(typeName, "(", FORWARDER_PARAMS, ")")
-            );
-            registerRequestTypeInternal(requestType);
-        } else {
-            string memory requestType = string(
-                abi.encodePacked(typeName, "(", FORWARDER_PARAMS, ",", typeSuffix)
-            );
-            registerRequestTypeInternal(requestType);
-        }
-    }
-
-    function registerDomainSeparator(string calldata name, string calldata version) external {
-        uint256 chainId;
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly { chainId := chainid() }
-
-        bytes memory domainValue = abi.encode(
-            keccak256(bytes(EIP712_DOMAIN_TYPE)),
-            keccak256(bytes(name)),
-            keccak256(bytes(version)),
-            chainId,
-            address(this));
-
-        bytes32 domainHash = keccak256(domainValue);
-
-        domains[domainHash] = true;
-        emit DomainRegistered(domainHash, domainValue);
-    }
-
-    event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
-    event DomainRegistered(bytes32 indexed domainSeparator, bytes domainValue);
 
 }

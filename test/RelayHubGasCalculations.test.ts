@@ -19,7 +19,6 @@ import {
 import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 
 const SmartWallet = artifacts.require('SmartWallet')
 const StakeManager = artifacts.require('StakeManager')
@@ -74,7 +73,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
 
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
     recipient = await TestRecipient.new()
     paymaster = await TestPaymasterVariableGasLimits.new()

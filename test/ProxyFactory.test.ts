@@ -4,7 +4,7 @@ import {
   ProxyFactoryInstance
 } from '../types/truffle-contracts'
   // @ts-ignore
-import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
+import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
@@ -12,7 +12,7 @@ import { ethers } from 'ethers'
 import chai from 'chai'
 import { addr, bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
-import { EIP712DomainType, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
 
 const keccak256 = web3.utils.keccak256
@@ -28,23 +28,48 @@ contract('ProxyFactory', ([from]) => {
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
-
+  const versionHash = keccak256('2')
   const recipientPrivateKey = toBuffer(bytes32(1))
   const recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)))
-  const FORWARDER_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index'
+  const typeHash = keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
 
   let env: Environment
+
+  const request = {
+    request: {
+      from: ownerAddress,
+      to: constants.ZERO_ADDRESS,
+      value: '0',
+      gas: '400000',
+      nonce: '0',
+      data: '0x',
+      tokenRecipient: recipientAddress,
+      tokenContract: constants.ZERO_ADDRESS,
+      tokenAmount: '1',
+      factory: addr(0), // param only needed by RelayHub
+      recoverer: constants.ZERO_ADDRESS,
+      index: '0'
+    },
+    relayData: {
+      pctRelayFee: '1',
+      baseRelayFee: '1',
+      gasPrice: '1',
+      relayWorker: constants.ZERO_ADDRESS,
+      forwarder: constants.ZERO_ADDRESS,
+      paymaster: constants.ZERO_ADDRESS,
+      paymasterData: '0x',
+      clientId: '1'
+    }
+  }
 
   before(async () => {
     env = await getTestingEnvironment()
     fwd = await SmartWallet.new()
-    await fwd.registerDomainSeparator('Test Domain', '1')
   })
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await ProxyFactory.new(fwd.address)
-    await factory.registerDomainSeparator('Test Domain', '1')
+    factory = await ProxyFactory.new(fwd.address, versionHash)
   })
 
   describe('#getCreationBytecode', () => {
@@ -287,6 +312,10 @@ contract('ProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'bytes32',
+          name: 'versionHash'
+        },
+        {
           type: 'bytes',
           name: 'initParams'
         },
@@ -295,7 +324,7 @@ contract('ProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, addr(0), initParams, '0x00'])
+      }, [ownerAddress, logicAddress, addr(0), versionHash, initParams, '0x00'])
 
       newTrx.data = initFunc
 
@@ -331,43 +360,30 @@ contract('ProxyFactory', ([from]) => {
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
-      const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
-      const typeHash = keccak256(typeName)
 
       const req = {
-        from: ownerAddress,
-        to: logicAddress,
-        value: 0,
-        gas: 400000,
-        nonce: 0,
-        data: initParams,
-        tokenRecipient: recipientAddress,
-        tokenContract: token.address,
-        tokenAmount: deployPrice,
-        factory: addr(0), // param only needed by RelayHub
-        recoverer: recoverer,
-        index: index
+        request: {
+          ...request.request,
+          tokenContract: token.address,
+          tokenAmount: deployPrice
+        },
+        relayData: {
+          ...request.relayData
+        }
       }
 
-      const data: EIP712TypedData = {
-        domain: {
-          name: 'Test Domain',
-          version: '1',
-          chainId: env.chainId,
-          verifyingContract: factory.address
-        },
-        primaryType: 'ForwardRequest',
-        types: {
-          EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
-        },
-        message: req
-      }
+      const dataToSign = new TypedRequestData(
+        env.chainId,
+        factory.address,
+        req
+      )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data })
-      const domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
+      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig)
+      // relayData information
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
@@ -404,47 +420,31 @@ contract('ProxyFactory', ([from]) => {
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
 
-      const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
-      const typeHash = keccak256(typeName)
-
       const req = {
-        from: ownerAddress,
-        to: logicAddress,
-        value: 0,
-        gas: 400000,
-        nonce: 0,
-        data: initParams,
-        tokenRecipient: recipientAddress,
-        tokenContract: token.address,
-        tokenAmount: deployPrice,
-        factory: addr(0), // param only needed by RelayHub
-        recoverer: recoverer,
-        index: index
+        request: {
+          ...request.request,
+          tokenContract: token.address,
+          tokenAmount: deployPrice
+        },
+        relayData: {
+          ...request.relayData
+        }
       }
 
-      const data: EIP712TypedData = {
-        domain: {
-          name: 'Test Domain',
-          version: '1',
-          chainId: env.chainId,
-          verifyingContract: factory.address
-        },
-        primaryType: 'ForwardRequest',
-        types: {
-          EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
-        },
-        message: req
-      }
+      const dataToSign = new TypedRequestData(
+        env.chainId,
+        factory.address,
+        req
+      )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data })
-      const domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
+      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
       // expectedCode = runtime code only
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig)
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
       const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
 
@@ -462,45 +462,31 @@ contract('ProxyFactory', ([from]) => {
         logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
 
       const originalBalance = await token.balanceOf(expectedAddress)
-      const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
-      const typeHash = keccak256(typeName)
 
       const req = {
-        from: ownerAddress,
-        to: logicAddress,
-        value: 0,
-        gas: 400000,
-        nonce: 0,
-        data: initParams,
-        tokenRecipient: recipientAddress,
-        tokenContract: token.address,
-        tokenAmount: deployPrice,
-        factory: addr(0), // param only needed by RelayHub
-        recoverer: recoverer,
-        index: index
+        request: {
+          ...request.request,
+          tokenContract: token.address,
+          tokenAmount: deployPrice
+        },
+        relayData: {
+          ...request.relayData
+        }
       }
 
-      const data: EIP712TypedData = {
-        domain: {
-          name: 'Test Domain',
-          version: '1',
-          chainId: env.chainId,
-          verifyingContract: factory.address
-        },
-        primaryType: 'ForwardRequest',
-        types: {
-          EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
-        },
-        message: req
-      }
+      const dataToSign = new TypedRequestData(
+        env.chainId,
+        factory.address,
+        req
+      )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data })
-      const domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
+      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
-      req.factory = addr(1) // change data after signature
+      req.request.factory = addr(1) // change data after signature
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+
+      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig))
 
       const newBalance = await token.balanceOf(expectedAddress)
       chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
@@ -520,43 +506,28 @@ contract('ProxyFactory', ([from]) => {
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
-      const typeName = `ForwardRequest(${FORWARDER_PARAMS})`
-      const typeHash = keccak256(typeName)
 
       const req = {
-        from: ownerAddress,
-        to: logicAddress,
-        value: 0,
-        gas: 400000,
-        nonce: 0,
-        data: initParams,
-        tokenRecipient: recipientAddress,
-        tokenContract: token.address,
-        tokenAmount: deployPrice,
-        factory: addr(0), // param only needed by RelayHub
-        recoverer: recoverer,
-        index: index
+        request: {
+          ...request.request,
+          tokenContract: token.address,
+          tokenAmount: deployPrice
+        },
+        relayData: {
+          ...request.relayData
+        }
       }
 
-      const data: EIP712TypedData = {
-        domain: {
-          name: 'Test Domain',
-          version: '1',
-          chainId: env.chainId,
-          verifyingContract: factory.address
-        },
-        primaryType: 'ForwardRequest',
-        types: {
-          EIP712Domain: EIP712DomainType,
-          ForwardRequest: ForwardRequestType
-        },
-        message: req
-      }
+      const dataToSign = new TypedRequestData(
+        env.chainId,
+        factory.address,
+        req
+      )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data })
-      const domainSeparator = bufferToHex(TypedDataUtils.hashStruct('EIP712Domain', data.domain, data.types))
+      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req, domainSeparator, typeHash, '0x', sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },

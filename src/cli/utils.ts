@@ -55,6 +55,10 @@ export function getRegistryAddress (defaultAddress?: string): string | undefined
   return getAddressFromFile('build/gsn/VersionRegistry.json', defaultAddress)
 }
 
+export function getSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
+  return getAddressFromFile('build/gsn/ProxyFactory.json', defaultAddress)
+}
+
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
   if (defaultAddress == null) {
     if (fs.existsSync(path)) {

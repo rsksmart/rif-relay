@@ -126,6 +126,8 @@ jobs: # a collection of steps
           test: "test/SampleRecipient.test.ts"
       - run_rskj_test:
           test: "test/StakeManager.test.ts"
+      - run_rskj_test:
+          test: "test/RSKAddressValidator.test.ts"
       - store_artifacts:
           path: ~/gls/logs
   Lint_Tsc: # Lint and other prechecks thread

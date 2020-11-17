@@ -1,11 +1,12 @@
 // SPDX-License-Identifier:MIT
-pragma solidity >=0.6.12 <0.8.0;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
 import "../utils/GsnUtils.sol";
+import "../utils/RSKAddrValidator.sol";
 
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
@@ -13,9 +14,15 @@ import "../utils/GsnUtils.sol";
 contract SmartWallet is IForwarder {
     using ECDSA for bytes32;
        
-    string public constant GENERIC_PARAMS = "address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index";
-    string public constant EIP712_DOMAIN_TYPE = "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)";
-    string public constant GENERIC_SUFFIX =  "RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
+    bytes32 public constant DOMAIN_NAME = keccak256(
+        "RSK Enveloping Transaction"
+    );
+    bytes32 public constant REQUEST_TYPE_HASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)");
+    bytes32 public constant EIP712DOMAIN_TYPEHASH = keccak256(
+        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
+    );    
+
+    bytes32 public currentVersionHash;
 
     mapping(bytes32 => bool) public typeHashes;
     mapping(bytes32 => bool) public domains;
@@ -28,11 +35,26 @@ contract SmartWallet is IForwarder {
         return nonce;
     }
 
-    constructor() public {
-        string memory requestType = string(
-            abi.encodePacked("ForwardRequest(", GENERIC_PARAMS, ")")
-        );
-        registerRequestTypeInternal(requestType);
+
+    /**It will only work if called through Enveloping */
+    function setVersion(bytes32 versionHash) external {
+        
+        bytes32 swalletOwner; //hash of owner address
+        
+        /* solhint-disable-next-line no-inline-assembly */
+        assembly {
+            //First of all, verify the req.from is the owner of this smart wallet
+            swalletOwner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+
+        require(
+            swalletOwner == keccak256(abi.encodePacked(msg.sender)),
+            "Requestor is not the owner of the Smart Wallet"
+        );        
+        
+        currentVersionHash = versionHash;
     }
 
     function verify(
@@ -66,7 +88,8 @@ contract SmartWallet is IForwarder {
         _verifyOwner(req);
         _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-        _updateNonce();
+        
+        nonce++;
 
         // solhint-disable-next-line avoid-low-level-calls
         (success, ret) = req.tokenContract.call(
@@ -134,43 +157,13 @@ contract SmartWallet is IForwarder {
         require(nonce == req.nonce, "nonce mismatch");
     }
 
-    function _updateNonce() internal {
-        nonce++;
-    }
 
-    function registerRequestType(
-        string calldata typeName,
-        string calldata typeSuffix
-    ) external override {
-        for (uint256 i = 0; i < bytes(typeName).length; i++) {
-            bytes1 c = bytes(typeName)[i];
-            require(c != "(" && c != ")", "invalid typename");
-        }
-
-        bytes memory suffixBytes = bytes(typeSuffix);
-
-        if (suffixBytes.length == 0) {
-            string memory requestType = string(
-                abi.encodePacked(typeName, "(", GENERIC_PARAMS, ")")
-            );
-            registerRequestTypeInternal(requestType);
-        } else {
-            string memory requestType = string(
-                abi.encodePacked(typeName, "(", GENERIC_PARAMS, ",", typeSuffix)
-            );
-            registerRequestTypeInternal(requestType);
+    function getChainID() internal pure returns (uint256 id) {
+        /* solhint-disable no-inline-assembly */
+        assembly {
+            id := chainid()
         }
     }
-
-    function registerRequestTypeInternal(string memory requestType) internal {
-        bytes32 requestTypehash = keccak256(bytes(requestType));
-        typeHashes[requestTypehash] = true;
-        emit RequestTypeRegistered(requestTypehash, string(requestType));
-    }
-
-    event DomainRegistered(bytes32 indexed domainSeparator, bytes domainValue);
-
-    event RequestTypeRegistered(bytes32 indexed typeHash, string typeStr);
 
     function _verifySig(
         ForwardRequest memory req,
@@ -179,16 +172,29 @@ contract SmartWallet is IForwarder {
         bytes memory suffixData,
         bytes memory sig
     ) internal view {
-        require(domains[domainSeparator], "unregistered domain separator");
-        require(typeHashes[requestTypeHash], "invalid request typehash");
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                domainSeparator,
-                keccak256(_getEncoded(req, requestTypeHash, suffixData))
-            )
+        require(
+            REQUEST_TYPE_HASH == requestTypeHash,
+            "Invalid request typehash"
         );
-        require(digest.recover(sig) == req.from, "signature mismatch");
+
+        require(
+            keccak256(abi.encode(
+                EIP712DOMAIN_TYPEHASH,
+                DOMAIN_NAME,
+                currentVersionHash,
+                getChainID(),
+                address(this))) == domainSeparator,
+            "Invalid domain separator"
+        );
+        
+        require(
+            RSKAddrValidator.safeEquals(
+                keccak256(abi.encodePacked(
+                    "\x19\x01",
+                    domainSeparator,
+                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                ).recover(sig), req.from), "signature mismatch"
+        );
     }
 
     function _getEncoded(
@@ -232,7 +238,6 @@ contract SmartWallet is IForwarder {
         }
     }
 
-
     /**
      * This Proxy will first charge for the deployment and then it will pass the
      * initialization scope to the wallet logic.
@@ -240,6 +245,7 @@ contract SmartWallet is IForwarder {
      * @param owner - The EOA that will own the smart wallet
      * @param logic - The address containing the custom logic where to delegate everything that is not payment-related
      * @param tokenAddr - The Token used for payment of the deploy
+     * @param versionHash - The version of the domain separator to be used
      * @param transferData - payment function and params to use when calling the Token.
      * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
      * @param initParams - Initialization data to pass to the custom logic's initialize(bytes) function
@@ -249,6 +255,7 @@ contract SmartWallet is IForwarder {
         address owner,
         address logic,
         address tokenAddr,
+        bytes32 versionHash,
         bytes memory initParams,
         bytes memory transferData
     ) external returns (bool) {
@@ -272,11 +279,7 @@ contract SmartWallet is IForwarder {
                 require(success, "Unable to pay for deployment");
             }
 
-            string memory requestType = string(
-                abi.encodePacked("RelayRequest(", GENERIC_PARAMS, ",", GENERIC_SUFFIX)
-            );
-            registerRequestTypeInternal(requestType);
-            registerDomainSeparator("GSN Relayed Transaction","2");
+            currentVersionHash = versionHash;
 
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
@@ -293,7 +296,7 @@ contract SmartWallet is IForwarder {
 
                 require(
                     success,
-                    "initialize(bytes) call in logic contract failed"
+                    "initialize call in logic failed"
                 );
 
                 bytes memory logicCell = abi.encodePacked(logic);
@@ -324,24 +327,6 @@ contract SmartWallet is IForwarder {
             return true;
         }
         return false;
-    }
-
-    function registerDomainSeparator(string memory name, string memory version) public override {
-        uint256 chainId;
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly { chainId := chainid() }
-
-        bytes memory domainValue = abi.encode(
-            keccak256(bytes(EIP712_DOMAIN_TYPE)),
-            keccak256(bytes(name)),
-            keccak256(bytes(version)),
-            chainId,
-            address(this));
-
-        bytes32 domainHash = keccak256(domainValue);
-
-        domains[domainHash] = true;
-        emit DomainRegistered(domainHash, domainValue);
     }
 
     /**

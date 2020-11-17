@@ -23,7 +23,6 @@ import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactor
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { bufferToHex } from 'ethereumjs-util'
 const { expect, assert } = chai.use(chaiAsPromised)
 
 const StakeManager = artifacts.require('StakeManager')
@@ -73,7 +72,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, chainId, bufferToHex(gaslessAccount.privateKey))
+    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
 

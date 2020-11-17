@@ -25,7 +25,6 @@ import HttpWrapper from '../relayclient/HttpWrapper'
 import { constants } from '../common/Constants'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
-import { registerContractForGsn } from '../common/EIP712/ForwarderUtil'
 
 interface RegisterOptions {
   from: Address
@@ -245,7 +244,8 @@ export default class CommandsLogic {
     const swtInstance = await this.getContractInstance(SmartWallet, {}, deployOptions.sWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pfInstance = await this.getContractInstance(ProxyFactory, {
       arguments: [
-        swtInstance.options.address
+        swtInstance.options.address,
+        '0xad7c5bef027816a800da1736444fb58a807ef4c9603b7848673f7e3a68eb14a5' // domain version hash (version=2)
       ]
     }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
@@ -277,9 +277,6 @@ export default class CommandsLogic {
       this.config.paymasterAddress = paymasterAddress
     }
     this.config.relayHubAddress = rInstance.options.address
-
-    await registerContractForGsn(swtInstance, options)
-    await registerContractForGsn(pfInstance, options)
 
     return {
       relayHubAddress: rInstance.options.address,

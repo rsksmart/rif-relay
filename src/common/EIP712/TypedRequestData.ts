@@ -54,7 +54,7 @@ interface Types extends EIP712Types {
 // use these values in registerDomainSeparator
 export const GsnDomainSeparatorType = {
   prefix: 'string name,string version',
-  name: 'GSN Relayed Transaction',
+  name: 'RSK Enveloping Transaction',
   version: '2'
 }
 
