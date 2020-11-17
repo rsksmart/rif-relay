@@ -43,7 +43,7 @@ module.exports = {
       provider: function () {
         return new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co')
       },
-      network_id: '*',
+      network_id: 31,
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     },
@@ -76,7 +76,7 @@ module.exports = {
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
       port: 4444,
-      network_id: '*',
+      network_id: 33,
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     }

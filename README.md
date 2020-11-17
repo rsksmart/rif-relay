@@ -12,7 +12,8 @@ System for users to pay for transactions in ERC-20 tokens.
 3. [Building project](#c03)<br>
   3.1 [Testing](#c03.1)<br>
   3.2 [Use Enveloping](#c03.2)<br>
-  3.3 [Create a Smart Wallet](#c03.3)
+  3.3 [Create a Smart Wallet](#c03.3)<br>
+  3.4 [Run a Javascript Client](#c03.4)
 4. [Use MetaCoin](#c04)
 5. [Documentation](#c05)
 6. [Troubleshooting](#c06)<br>
@@ -40,22 +41,31 @@ The core enveloping architecture is defined by the following components:
 
 ## 2.1 Testnet Contracts <a id="c02.1"></a>
 
-| Contract        | Address                                    |
-|-----------------|--------------------------------------------|
-| StakeManager    | 0x5D4aE8144bc5020526b31ee3744b038a847bBCF1 |
-| Penalizer       | 0x8BB74f5c904B2d29FFa8Feeb4eed9f933B5F1d14 |
-| RelayHub        | 0xF9214a2C007331022553eCeF5f239C9E223C3466 |
-| TestRecipient   | 0xB543a8516B299520C6b6Ae762f43aa9dbA137149 |
-| SmartWallet     | 0x5Aaf0feDc9aE43C43A0f92976CBa0DFB7D8C0e84 |
-| ProxyFactory    | 0x893F97d2d839977429Aa7CB93bC44E6d31f1bEB8 |
-| DeployPaymaster | 0xA0A6b4970C62A1155980AA8979EE3AC2caFd4Ebf |
-| RelayPaymaster  | 0x73F7d004E6E2ebb9863629fF747a929f4F6BE0f1 |
+| Contract          | Address                                    |
+|-------------------|--------------------------------------------|
+| [StakeManager]    | 0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D |
+| [Penalizer]       | 0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726 |
+| [RelayHub]        | 0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C |
+| [TestRecipient]   | 0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa |
+| [SmartWallet]     | 0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1 |
+| [ProxyFactory]    | 0xb7a5370F126d51138d60e20E3F332c81f1507Ce2 |
+| [DeployPaymaster] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
+| [RelayPaymaster]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
+
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726)
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C)
+[TestRecipient]:(https://explorer.testnet.rsk.co/address/0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xb7a5370F126d51138d60e20E3F332c81f1507Ce2)
+[DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
+[RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
 
 ## 3. Building project <a id="c03"></a>
 
 Clone the project. Then run the following from the project's root directory
 -  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
-- `./rsknode/rskj.sh` (local) or `./rsknode/run.sh` (with [docker](https://www.docker.com/) )
+- Move [here](rsknode/README.md)
 
 ### 3.1. Test <a id="c03.1"></a>
 
@@ -92,6 +102,23 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 * customLogic: An optional custom logic code (in bytes), that the wallet will proxy to (it can be address(0)).
 * walletIndex: Numeric value used to generatte different wallet insttances for the owner using the same parameters and factory.
 * logicInitParamsHash: If customLogic was defined in it need initialization parameters, they are passed as abi-encoded here, without include the function selector. If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero.
+
+### 3.4 Run a Javascript Client <a id="c03.4"></a>
+
+In order to run an Enveloping instance, clone the project then run the following from the project's root directory:
+
+1. `yarn install`
+2. On the jsrelay directory `npx webpack`
+3. `npm link`
+4. On the project's root directory, run `docker-compose build`
+5. Run `docker-compose up -d rskj`
+6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
+7. Create an account from an mnemonic, and store the mnemonic in a file, then found it.
+8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
+9. On the project's root directory, run `docker-compose up -d jsrelay`
+10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
+
+For checking if it's working, run `curl http://localhost:8090/getaddr`
 
 
 ## 4. Use MetaCoin <a id="c04"></a>
@@ -134,13 +161,6 @@ Stop the running node and delete the db used by the node.
 #### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-#### Changes to the RSKJ node or changes in the `run.sh` script
-
-If you are using Docker, you should delete the old image using `docker image rm rsknode`
-
-Then delete the directory `rsknode/home/` and finally run `rsknode/run.sh` again (before this step you must download all the new changes).
-
 
 ## 7. Gas Station Network <a id="c07"></a>
 
