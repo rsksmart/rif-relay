@@ -263,11 +263,13 @@ export async function createProxyFactory (template: IForwarderInstance, versionH
   return await ProxyFactory.new(template.address, versionHash)
 }
 
-export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = 33, logicAddr: string = constants.ZERO_ADDRESS,
+export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenRecipient: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
   const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
+  chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
+
   const rReq = {
     request: {
       from: ownerEOA,
