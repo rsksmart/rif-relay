@@ -1,7 +1,7 @@
 // @ts-ignore
 import { DataFrame } from 'dataframe-js'
 import { EventEmitter } from 'events'
-import { configureServer, ServerConfigParams } from '../ServerConfigParams'
+import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
 import { BlockTransactionObject } from 'web3-eth'
 import { Transaction } from 'web3-core'
 import Web3 from 'web3'
@@ -21,17 +21,13 @@ export interface FeesTable {
   blockNum: number
 }
 
-export interface NewBlockEventData {
-  blockNumber: number
-  pendingTx: string[]
-}
-
 export class FeeEstimator {
   allTxDf: DataFrame
   blockData: DataFrame
   config: ServerConfigParams
   currentBlock: number
   eventEmitter: EventEmitter
+  initialized: Boolean
   newBlockListener?: Timeout
   pendingTx: string[]
   feesTable: FeesTable
@@ -44,6 +40,7 @@ export class FeeEstimator {
     this.config = configureServer(config)
     this.currentBlock = 0
     this.eventEmitter = new EventEmitter()
+    this.initialized = false
     this.feesTable = { safeLow: 0, standard: 0, fast: 0, fastest: 0, blockNum: 0, blockTime: 0 }
     this.pendingTx = []
     this.web3 = web3
@@ -188,6 +185,7 @@ export class FeeEstimator {
     this.web3.eth.getBlockNumber().then((blockNumber) => {
       this.currentBlock = blockNumber
       this.processPastBlocks().then(async () => {
+        this.initialized = true
         this.worker = setInterval(() => {
           this.web3.eth.getBlockNumber().then((block) => {
             if (this.currentBlock < block) {
