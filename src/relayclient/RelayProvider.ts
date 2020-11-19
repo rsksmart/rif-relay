@@ -10,6 +10,7 @@ import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
+import { FeesTable } from './FeeEstimator'
 import { GsnEvent } from './GsnEvents'
 import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
@@ -57,6 +58,14 @@ export class RelayProvider implements HttpProvider {
     this.relayClient = relayClient ?? new RelayClient(origProvider, gsnConfig, overrideDependencies)
 
     this._delegateEventsApi(origProvider)
+  }
+
+  isFeeEstimatorInitialized (): Boolean {
+    return this.relayClient.isFeeEstimatorInitialized()
+  }
+
+  getFeesTable (): FeesTable {
+    return this.relayClient.getFeesTable()
   }
 
   registerEventListener (handler: (event: GsnEvent) => void): void {
