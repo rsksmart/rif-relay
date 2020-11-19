@@ -517,6 +517,15 @@ contract('RelayClient', function (accounts) {
     })
   })
 
+  describe('#getFeesTable()', function () {
+    it('should return calculated fees table', async function () {
+      const gsnConfig: Partial<GSNConfig> = { logLevel: 5 }
+      const relayClient = new RelayClient(underlyingProvider, gsnConfig)
+      const feesTable = await relayClient.getFeesTable()
+      assert.isOk(feesTable, 'feesTable is ok')
+    })
+  })
+
   describe('#_attemptRelay()', function () {
     const relayUrl = localhostOne
     const relayWorkerAddress = accounts[1]
