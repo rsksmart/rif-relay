@@ -3,7 +3,7 @@ import { DataFrame } from 'dataframe-js'
 import { EventEmitter } from 'events'
 import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
 import { BlockTransactionObject } from 'web3-eth'
-import { Transaction } from 'web3-core'
+import { HttpProvider, IpcProvider, Transaction, WebsocketProvider } from 'web3-core'
 import Web3 from 'web3'
 import Timeout = NodeJS.Timeout
 
@@ -11,6 +11,11 @@ const BLOCK_TIME = 20
 const SAFELOW = 35
 const STANDARD = 60
 const FAST = 90
+
+export type Web3Provider =
+  | HttpProvider
+  | IpcProvider
+  | WebsocketProvider
 
 export interface FeesTable {
   safeLow: number
@@ -34,7 +39,7 @@ export class FeeEstimator {
   worker?: Timeout
   readonly web3: Web3
 
-  constructor (config: Partial<ServerConfigParams>, web3: Web3) {
+  constructor (config: Partial<ServerConfigParams>, provider: Web3Provider) {
     this.allTxDf = new DataFrame({})
     this.blockData = new DataFrame({})
     this.config = configureServer(config)
@@ -43,7 +48,7 @@ export class FeeEstimator {
     this.initialized = false
     this.feesTable = { safeLow: 0, standard: 0, fast: 0, fastest: 0, blockNum: 0, blockTime: 0 }
     this.pendingTx = []
-    this.web3 = web3
+    this.web3 = new Web3(provider)
   }
 
   analyzeLast200Blocks=(): DataFrame => {
@@ -181,24 +186,20 @@ export class FeeEstimator {
     return gp
   }
 
-  start=(): void => {
-    this.web3.eth.getBlockNumber().then((blockNumber) => {
-      this.currentBlock = blockNumber
-      this.processPastBlocks().then(async () => {
-        this.initialized = true
-        this.worker = setInterval(() => {
-          this.web3.eth.getBlockNumber().then((block) => {
-            if (this.currentBlock < block) {
-              this.updateDataframes().then(() => {
-                this.currentBlock++
-              }).catch(e => { throw e })
-            }
-          }).catch(e => { throw e })
-        }, this.config.checkInterval)
-      }).catch(e => { throw e })
-    }).catch(e => {
-      console.error(e)
-    })
+  async start (): Promise<void> {
+    if (this.initialized === true) { return }
+    await this.web3.eth.net.isListening()
+    this.currentBlock = await this.web3.eth.getBlockNumber()
+    await this.processPastBlocks()
+    this.initialized = true
+    // eslint-disable-next-line
+    this.worker = setInterval(async () => {
+      const block = await this.web3.eth.getBlockNumber()
+      if (this.currentBlock < block) {
+        await this.updateDataframes()
+        this.currentBlock++
+      }
+    }, this.config.checkInterval)
   }
 
   async processBlockTx (blockNumber: number): Promise<any[]> {
@@ -215,13 +216,15 @@ export class FeeEstimator {
   }
 
   async processPastBlocks (): Promise<void> {
-    let pastBlock = (this.currentBlock < 100) ? 0 : this.currentBlock - 100
-    for (pastBlock; pastBlock < this.currentBlock; pastBlock++) {
-      const [minedBlockDf, blockObj] = await this.processBlockTx(pastBlock)
-      if (minedBlockDf.count() > 0) {
-        this.allTxDf = this.allTxDf.union(minedBlockDf)
-        const blockSumDf = this.processBlockData(minedBlockDf, blockObj)
-        this.blockData = this.blockData.union(blockSumDf)
+    if (this.currentBlock > 0) {
+      let pastBlock = (this.currentBlock < 100) ? 0 : this.currentBlock - 100
+      for (pastBlock; pastBlock < this.currentBlock; pastBlock++) {
+        const [minedBlockDf, blockObj] = await this.processBlockTx(pastBlock)
+        if (minedBlockDf.count() > 0) {
+          this.allTxDf = this.allTxDf.union(minedBlockDf)
+          const blockSumDf = this.processBlockData(minedBlockDf, blockObj)
+          this.blockData = this.blockData.union(blockSumDf)
+        }
       }
     }
   }

@@ -10,7 +10,7 @@ import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
-import { FeesTable } from './FeeEstimator'
+import { FeeEstimator, FeesTable } from './FeeEstimator'
 import { GsnEvent } from './GsnEvents'
 import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
@@ -34,6 +34,7 @@ export class RelayProvider implements HttpProvider {
   private readonly origProviderSend: any
   protected readonly config: GSNConfig
 
+  readonly feeEstimator: FeeEstimator
   readonly relayClient: RelayClient
 
   /**
@@ -55,17 +56,22 @@ export class RelayProvider implements HttpProvider {
     } else {
       this.origProviderSend = this.origProvider.send.bind(this.origProvider)
     }
+    this.feeEstimator = new FeeEstimator(config, origProvider)
     this.relayClient = relayClient ?? new RelayClient(origProvider, gsnConfig, overrideDependencies)
-
     this._delegateEventsApi(origProvider)
   }
 
   isFeeEstimatorInitialized (): Boolean {
-    return this.relayClient.isFeeEstimatorInitialized()
+    return this.feeEstimator.initialized
   }
 
-  getFeesTable (): FeesTable {
-    return this.relayClient.getFeesTable()
+  async getFeesTable (): Promise<FeesTable> {
+    if (this.isFeeEstimatorInitialized() === false) {
+      await this.feeEstimator.start()
+      return this.feeEstimator.feesTable
+    } else {
+      return this.feeEstimator.feesTable
+    }
   }
 
   registerEventListener (handler: (event: GsnEvent) => void): void {
