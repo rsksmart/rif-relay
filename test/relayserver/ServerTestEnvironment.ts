@@ -36,7 +36,6 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { bufferToHex } from 'ethereumjs-util'
 import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
 
 const StakeManager = artifacts.require('StakeManager')
@@ -177,27 +176,23 @@ export class ServerTestEnvironment {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
     const envelopingArbiter = new EnvelopingArbiter(config, this.web3.givenProvider)
-    envelopingArbiter.start().then(() => {
-      const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
-      const serverDependencies = {
-        contractInteractor: this.contractInteractor,
-        txStoreManager,
-        managerKeyManager,
-        workersKeyManager,
-        envelopingArbiter
-      }
-      const shared: Partial<ServerConfigParams> = {
-        relayHubAddress: this.relayHub.address,
-        checkInterval: 10,
-        logLevel: 5
-      }
-      const mergedConfig: Partial<ServerConfigParams> = Object.assign({}, shared, config)
-      this.relayServer = new RelayServer(mergedConfig, serverDependencies)
-      this.relayServer.on('error', (e) => {
-        console.log('newServer event', e.message)
-      })
-    }).catch(e => {
-      console.error(e)
+    const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
+    const serverDependencies = {
+      contractInteractor: this.contractInteractor,
+      txStoreManager,
+      managerKeyManager,
+      workersKeyManager,
+      envelopingArbiter
+    }
+    const shared: Partial<ServerConfigParams> = {
+      relayHubAddress: this.relayHub.address,
+      checkInterval: 10,
+      logLevel: 5
+    }
+    const mergedConfig: Partial<ServerConfigParams> = Object.assign({}, shared, config)
+    this.relayServer = new RelayServer(mergedConfig, serverDependencies)
+    this.relayServer.on('error', (e) => {
+      console.log('newServer event', e.message)
     })
   }
 
