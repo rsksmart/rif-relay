@@ -99,11 +99,11 @@ jobs: # a collection of steps
   
     steps: # a collection of executable commands
       - prepare
-      - node --version
-      - sudo npm cache clean -f
-      - sudo npm install -g n
-      - sudo n 12.18.3
-      - node --version
+      - run: node --version
+      - run: sudo npm cache clean -f
+      - run: sudo npm install -g n
+      - run: sudo n 12.18.3
+      - run: node --version
       - run_rskj_test:
           test: "test/relayclient/RelaySelectionManager.test.ts"
       - run_rskj_test:
