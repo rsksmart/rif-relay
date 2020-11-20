@@ -14,7 +14,6 @@ import RelaySelectionManager from './RelaySelectionManager'
 import { IKnownRelaysManager } from './KnownRelaysManager'
 import AccountManager from './AccountManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { FeeEstimator, FeesTable } from './FeeEstimator'
 import { configureGSN, getDependencies, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { RelayInfo } from './types/RelayInfo'
 import { decodeRevertReason } from '../common/Utils'
@@ -80,7 +79,6 @@ export class RelayClient {
   private readonly pingFilter: PingFilter
 
   public readonly accountManager: AccountManager
-  readonly feeEstimator: FeeEstimator
   private initialized = false
 
   /**
@@ -101,8 +99,6 @@ export class RelayClient {
     this.transactionValidator = dependencies.transactionValidator
     this.commitmentValidator = dependencies.commitmentValidator
     this.accountManager = dependencies.accountManager
-    this.feeEstimator = new FeeEstimator(config, this.contractInteractor.web3)
-    this.feeEstimator.start()
     this.pingFilter = dependencies.pingFilter
     this.asyncApprovalData = dependencies.asyncApprovalData
     this.asyncPaymasterData = dependencies.asyncPaymasterData
@@ -124,14 +120,6 @@ export class RelayClient {
    */
   unregisterEventListener (handler: (event: GsnEvent) => void): void {
     this.emitter.off('gsn', handler)
-  }
-
-  isFeeEstimatorInitialized (): Boolean {
-    return this.feeEstimator.initialized
-  }
-
-  getFeesTable (): FeesTable {
-    return this.feeEstimator.feesTable
   }
 
   private emit (event: GsnEvent): void {
