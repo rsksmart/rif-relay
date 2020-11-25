@@ -16,7 +16,8 @@ import {
   TestPaymasterEverythingAcceptedInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  TestTokenRecipientInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 
@@ -30,6 +31,7 @@ const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestPaymasterStoreContext = artifacts.require('TestPaymasterStoreContext')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 
@@ -50,6 +52,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
+  let testTokenRecipient: TestTokenRecipientInstance
   let paymasterContract: TestPaymasterEverythingAcceptedInstance
   let forwarderInstance: IForwarderInstance
   let target: string
@@ -75,6 +78,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
+    testTokenRecipient = await TestTokenRecipient.new()
 
     target = recipientContract.address
     paymaster = paymasterContract.address
@@ -392,6 +396,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         let signatureWithMisbehavingPaymaster: string
         let relayRequestMisbehavingPaymaster: RelayRequest
         const gas = 4e6
+        const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
 
         beforeEach(async function () {
           paymasterWithContext = await TestPaymasterStoreContext.new()
@@ -568,6 +573,40 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           })
         })
 
+        it('relayCall executes the transaction with an ERC20 recipient and increments sender nonce on hub', async function () {
+          await testTokenRecipient.mint('200', forwarder)
+
+          const nonceBefore = await forwarderInstance.getNonce()
+          const encodedFunction = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
+          const relayRequestTokenTransferData = cloneRelayRequest(relayRequest)
+          relayRequestTokenTransferData.request.data = encodedFunction
+          relayRequestTokenTransferData.request.to = testTokenRecipient.address
+          const dataToSign = new TypedRequestData(
+            chainId,
+            forwarder,
+            relayRequestTokenTransferData
+          )
+          signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
+          )
+
+          const { tx, logs } = await relayHubInstance.relayCall(10e6, relayRequestTokenTransferData, signature, '0x', gas, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+          const nonceAfter = await forwarderInstance.getNonce()
+          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
+          const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
+          chai.expect('5').to.be.bignumber.equal(balance)
+
+          await expectEvent.inTransaction(tx, TestTokenRecipient, 'Transfer')
+          expectEvent.inLogs(logs, 'TransactionRelayed', {
+            status: RelayCallStatusCodes.OK
+          })
+        })
+
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
           const { tx } = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
@@ -637,6 +676,40 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           expectEvent.inLogs(logs, 'TransactionRelayed', {
             status: RelayCallStatusCodes.RelayedCallFailed
           })
+        })
+
+        it('relayCall executes a transaction even if token recipient call reverts', async function () {
+          const encodedFunction = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
+          const relayRequestTokenTransferData = cloneRelayRequest(relayRequest)
+          relayRequestTokenTransferData.request.data = encodedFunction
+          relayRequestTokenTransferData.request.to = testTokenRecipient.address
+          const dataToSign = new TypedRequestData(
+            chainId,
+            forwarder,
+            relayRequestTokenTransferData
+          )
+          signature = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
+          )
+
+          const { logs } = await relayHubInstance.relayCall(10e6, relayRequestTokenTransferData, signature, '0x', gas, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+
+          const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'ERC20: transfer amount exceeds balance'))
+          expectEvent.inLogs(logs, 'TransactionResult', {
+            status: RelayCallStatusCodes.RelayedCallFailed,
+            returnValue: expectedReturnValue
+          })
+          expectEvent.inLogs(logs, 'TransactionRelayed', {
+            status: RelayCallStatusCodes.RelayedCallFailed
+          })
+
+          const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
+          chai.expect('0').to.be.bignumber.equal(balance)
         })
 
         it('postRelayedCall receives values returned in preRelayedCall', async function () {
