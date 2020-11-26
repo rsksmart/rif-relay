@@ -231,13 +231,13 @@ export default class ContractInteractor {
 
   async getSenderNonce (sWallet: Address): Promise<IntString> {
     const forwarder = await this._createForwarder(sWallet)
-    const nonce = await forwarder.getNonce()
+    const nonce = await forwarder.nonce()
     return nonce.toString()
   }
 
   async getFactoryNonce (factoryAddr: Address, from: Address): Promise<IntString> {
     const factory = await this._createFactory(factoryAddr)
-    const nonce = await factory.getNonce(from)
+    const nonce = await factory.nonce(from)
     return nonce.toString()
   }
 

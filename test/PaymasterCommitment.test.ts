@@ -45,7 +45,7 @@ Promise<{ req: RelayRequest, sig: PrefixedHexString }> {
   }
   // unless explicitly set, read nonce from network.
   if ((filledRequest.request.nonce ?? '0') === '0') {
-    filledRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
+    filledRequest.request.nonce = (await forwarderInstance.nonce()).toString()
   }
 
   const sig = getLocalEip712Signature(
@@ -96,7 +96,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
   const pctRelayFee = '0'
 
   before(async function () {
-    gaslessAccount = getGaslessAccount()
+    gaslessAccount = await getGaslessAccount()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)

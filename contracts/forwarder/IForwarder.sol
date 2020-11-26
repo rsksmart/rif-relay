@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 interface IForwarder {
@@ -19,7 +19,7 @@ interface IForwarder {
         uint256 index; // only used in SmartWallet deploy requests
     }
 
-    function getNonce()
+    function nonce()
     external view
     returns(uint256);
 
@@ -32,7 +32,7 @@ interface IForwarder {
         ForwardRequest calldata forwardRequest,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes calldata suffixData,
+        bytes32 suffixData,
         bytes calldata signature
     ) external view;
 
@@ -53,7 +53,7 @@ interface IForwarder {
         ForwardRequest calldata forwardRequest,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes calldata suffixData,
+        bytes32 suffixData,
         bytes calldata signature
     )
     external payable

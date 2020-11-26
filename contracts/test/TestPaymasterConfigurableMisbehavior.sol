@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "./TestPaymasterEverythingAccepted.sol";
@@ -70,7 +70,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
             withdrawAllBalance();
         }
         if (revertPreRelayCall) {
-            revert("You asked me to revert, remember?");
+            revert("revertPreRelayCall: Reverting");
         }
         return ("", trustRecipientRevert);
     }
@@ -90,7 +90,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
             withdrawAllBalance();
         }
         if (revertPostRelayCall) {
-            revert("You asked me to revert, remember?");
+            revert("revertPreRelayCall: Reverting");
         }
     }
 

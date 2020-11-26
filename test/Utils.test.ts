@@ -35,22 +35,24 @@ interface SplittedRelayRequest {
   encodedRelayData: string
 }
 
-const senderAccount: AccountKeypair = getGaslessAccount()
-
 contract('Utils', function (accounts) {
   // This test verifies signing typed data with a local implementation of signTypedData
   describe('#getLocalEip712Signature()', function () {
     // ganache always reports chainId as '1'
+    let senderAccount: AccountKeypair
     let chainId: number
     let forwarder: PrefixedHexString
     let relayRequest: RelayRequest
-    const senderAddress = senderAccount.address
-    const senderPrivateKey = senderAccount.privateKey
+    let senderAddress: string
+    let senderPrivateKey: Buffer
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
 
     let forwarderInstance: SmartWalletInstance
     before(async () => {
+      senderAccount = await getGaslessAccount()
+      senderAddress = senderAccount.address
+      senderPrivateKey = senderAccount.privateKey
       testUtil = await TestUtil.new()
       chainId = (await testUtil.libGetChainID()).toNumber()
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
@@ -155,7 +157,7 @@ contract('Utils', function (accounts) {
       })
       it('should call target', async function () {
         relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
-        relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
+        relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
 
         const sig = await getLocalEip712Signature(
           new TypedRequestData(

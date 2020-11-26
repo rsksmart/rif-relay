@@ -34,7 +34,7 @@ contract('GsnTestEnvironment', function () {
     })
 
     it('should relay using relayTransaction', async () => {
-      const sender = getGaslessAccount()
+      const sender = await getGaslessAccount()
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
@@ -76,7 +76,7 @@ contract('GsnTestEnvironment', function () {
     })
 
     it('should send relayed transaction through RelayProvider', async () => {
-      const sender = getGaslessAccount()
+      const sender = await getGaslessAccount()
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 

@@ -109,7 +109,7 @@ export class ServerTestEnvironment {
 
     this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
 
-    const gaslessAccount = getGaslessAccount()
+    const gaslessAccount = await getGaslessAccount()
     this.gasLess = gaslessAccount.address
 
     const sWalletTemplate = await SmartWallet.new()

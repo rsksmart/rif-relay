@@ -23,8 +23,8 @@ import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactor
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { keccak } from 'ethereumjs-util'
 const { expect, assert } = chai.use(chaiAsPromised)
-
 const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
@@ -68,7 +68,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
     paymasterContract = await TestPaymasterEverythingAccepted.new()
 
-    gaslessAccount = getGaslessAccount()
+    gaslessAccount = await getGaslessAccount()
 
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
@@ -332,7 +332,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
               {
                 gas
               }),
-            'relay worker cannot be a smart contract')
+            'RelayWorker cannot be a contract')
         })
       })
       context('with view functions only', function () {
@@ -445,15 +445,111 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           )
         })
 
+        it('gas estimation tests', async function () {
+          const nonceBefore = await forwarderInstance.nonce()
+          const TestToken = artifacts.require('TestToken')
+          const tokenInstance = await TestToken.new()
+          await tokenInstance.mint('1000000', forwarder)
+
+          const completeReq = {
+            request: {
+              ...relayRequest.request,
+              data: recipientContract.contract.methods.emitMessage2(message).encodeABI(),
+              nonce: nonceBefore.toString(),
+              tokenRecipient: senderAddress,
+              tokenContract: tokenInstance.address,
+              tokenAmount: '1'
+            },
+            relayData: {
+              ...relayRequest.relayData
+            }
+          }
+
+          const reqToSign = new TypedRequestData(
+            chainId,
+            forwarder,
+            completeReq
+          )
+
+          const sig = getLocalEip712Signature(
+            reqToSign,
+            gaslessAccount.privateKey
+          )
+
+          const { tx, logs } = await relayHubInstance.relayCall(10e6, completeReq, sig, '0x', gas, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+          const nonceAfter = await forwarderInstance.nonce()
+          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
+
+          const eventHash = keccak('GasUsed(uint256,uint256)')
+          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          console.log('---------------------------------------')
+
+          console.log(`Gas Used: ${txReceipt.gasUsed}`)
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
+
+          let previousGas: BigInt = BigInt(0)
+          let previousStep = null
+          for (var i = 0; i < txReceipt.logs.length; i++) {
+            const log = txReceipt.logs[i]
+            if (('0x' + eventHash.toString('hex')) === log.topics[0]) {
+              const step = log.data.substring(0, 66)
+              const gasUsed: BigInt = BigInt('0x' + log.data.substring(67, log.data.length))
+              console.log('---------------------------------------')
+              console.log('step :', BigInt(step).toString())
+              console.log('gasLeft :', gasUsed.toString())
+
+              if (previousStep != null) {
+                console.log(`Steps substraction ${BigInt(step).toString()} and ${BigInt(previousStep).toString()}`)
+                console.log((previousGas.valueOf() - gasUsed.valueOf()).toString())
+              }
+              console.log('---------------------------------------')
+
+              previousGas = BigInt(gasUsed)
+              previousStep = step
+            }
+          }
+
+          // const trxRespo = await recipientContract.emitMessage2.sendTransaction(message, {
+          // from: relayWorker,
+          // gas,
+          // gasPrice
+          // })
+
+          // console.log("ORIGINAL CALL")
+          // console.log(trxRespo)
+          // const txReceipt2 = await web3.eth.getTransactionReceipt(trxRespo)
+
+          // console.log(txReceipt2)
+
+          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
+            message,
+            msgSender: forwarder,
+            origin: relayWorker
+          })
+
+          const expectedReturnValue = web3.eth.abi.encodeParameter('string', 'emitMessage return value')
+          expectEvent.inLogs(logs, 'TransactionResult', {
+            status: RelayCallStatusCodes.OK,
+            returnValue: expectedReturnValue
+          })
+          expectEvent.inLogs(logs, 'TransactionRelayed', {
+            status: RelayCallStatusCodes.OK
+          })
+        })
+
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
-          const nonceBefore = await forwarderInstance.getNonce()
+          const nonceBefore = await forwarderInstance.nonce()
 
           const { tx, logs } = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
             gas,
             gasPrice
           })
-          const nonceAfter = await forwarderInstance.getNonce()
+          const nonceAfter = await forwarderInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
 
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
@@ -578,7 +674,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
               gasPrice,
               gas
             }),
-            'Not enough gas left for innerRelayCall to complete')
+            'Not enough gas left')
         })
 
         it('should not accept relay requests with gas price lower then user specified', async function () {
@@ -659,9 +755,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             toBlock: 'latest'
           })
           assert.equal(0, logsMessages.length)
-          // const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'You asked me to revert, remember?'))
+          // const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'revertPreRelayCall: Reverting'))
           expectEvent.inLogs(logs, 'TransactionRejectedByPaymaster', {
-            reason: encodeRevertReason('You asked me to revert, remember?')
+            reason: encodeRevertReason('revertPreRelayCall: Reverting')
           })
         })
 

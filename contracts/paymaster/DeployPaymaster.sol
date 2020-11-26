@@ -1,12 +1,12 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 import "../factory/ProxyFactory.sol";
 import "./BasePaymaster.sol";
+import "../utils/GsnUtils.sol";
 
 /**
  * A paymaster to be used on deploys.
@@ -41,7 +41,7 @@ contract DeployPaymaster is BasePaymaster {
     returns (bytes memory context, bool revertOnRecipientRevert) {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
     
-        require(relayRequest.request.factory == factory, "factory should be the trusted one!");
+        require(relayRequest.request.factory == factory, "Invalid factory");
 
         address contractAddr = ProxyFactory(relayRequest.request.factory)
             .getSmartWalletAddress(

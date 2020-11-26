@@ -1,6 +1,6 @@
 /* solhint-disable avoid-tx-origin */
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 
 import "../utils/GsnUtils.sol";
 import "./TestPaymasterConfigurableMisbehavior.sol";
@@ -38,6 +38,12 @@ contract TestRecipient {
         return "emitMessage return value";
     }
 
+    function emitMessage2(string memory message) public payable returns (string memory) {
+
+        emit SampleRecipientEmitted(message, msg.sender, tx.origin, msg.value, address(this).balance);
+        return "emitMessage return value";
+    }
+
     function withdrawAllBalance() public {
         TestPaymasterConfigurableMisbehavior(paymaster).withdrawAllBalance();
     }
@@ -65,6 +71,7 @@ contract TestRecipient {
     //function with no return value (also test revert with no msg.
     function checkNoReturnValues(bool doRevert) public view {
         (this);
+        /* solhint-disable-next-line reason-string */
         require(!doRevert);
     }
 

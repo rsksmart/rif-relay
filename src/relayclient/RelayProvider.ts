@@ -168,7 +168,7 @@ export class RelayProvider implements HttpProvider {
       { t: 'bytes32', v: bytecodeHash }
     ) ?? ''
 
-    return toChecksumAddress('0x' + _data.slice(26, _data.length))
+    return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
   }
 
   _ethGetTransactionReceipt (payload: JsonRpcPayload, callback: JsonRpcCallback): void {

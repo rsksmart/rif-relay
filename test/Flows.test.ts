@@ -47,7 +47,6 @@ options.forEach(params => {
     let sm: StakeManagerInstance
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<GSNConfig>
-
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
 

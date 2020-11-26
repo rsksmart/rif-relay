@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/math/SafeMath.sol";
@@ -28,7 +28,7 @@ contract StakeManager is IStakeManager {
     function stakeForAddress(address relayManager, uint256 unstakeDelay) external override payable {
         require(stakes[relayManager].owner == address(0) || stakes[relayManager].owner == msg.sender, "not owner");
         require(unstakeDelay >= stakes[relayManager].unstakeDelay, "unstakeDelay cannot be decreased");
-        require(msg.sender != relayManager, "relayManager cannot stake for itself");
+        require(msg.sender != relayManager, "caller is the relayManager");
         require(stakes[msg.sender].owner == address(0), "sender is a relayManager itself");
         stakes[relayManager].owner = msg.sender;
         stakes[relayManager].stake += msg.value;

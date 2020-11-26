@@ -43,7 +43,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   let expectedAddress: Address
 
   const ownerPrivateKey = toBuffer(bytes32(1))
-  const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
+  let ownerAddress: string
   const logicAddress = constants.ZERO_ADDRESS
   const initParams = '0x'
 
@@ -51,6 +51,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   const index = '0'
 
   beforeEach(async function () {
+    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), (await getTestingEnvironment()).chainId).toLowerCase()
     token = await TestToken.new()
     template = await SmartWallet.new()
 
@@ -181,7 +182,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
 
     await expectRevert.unspecified(
       testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
-      'factory should be the trusted one!'
+      'Invalid factory'
     )
   })
 })
@@ -196,11 +197,13 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
   let testPaymasters: TestPaymastersInstance
 
   const senderPrivateKey = toBuffer(bytes32(1))
-  const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
+  let senderAddress: string
 
   before(async function () {
     const env = await getTestingEnvironment()
     const chainId = env.chainId
+
+    senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
 
     token = await TestToken.new()
     template = await SmartWallet.new()

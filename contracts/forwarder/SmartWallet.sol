@@ -5,7 +5,6 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./IForwarder.sol";
-import "../utils/GsnUtils.sol";
 import "../utils/RSKAddrValidator.sol";
 
 /* solhint-disable no-inline-assembly */
@@ -13,45 +12,19 @@ import "../utils/RSKAddrValidator.sol";
 
 contract SmartWallet is IForwarder {
     using ECDSA for bytes32;
-       
-    bytes32 public constant DOMAIN_NAME = keccak256(
-        "RSK Enveloping Transaction"
-    );
-    bytes32 public constant REQUEST_TYPE_HASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)");
-    bytes32 public constant EIP712DOMAIN_TYPEHASH = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );    
 
     bytes32 public currentVersionHash;
-
-    mapping(bytes32 => bool) public typeHashes;
-    mapping(bytes32 => bool) public domains;
-
-
-    // Nonce of forwarder, used to prevent replay attacks
-    uint256 private nonce;
-
-    function getNonce() public view override returns (uint256) {
-        return nonce;
-    }
+    uint256 public override nonce;
+    
+    //event GasUsed(uint256 place, uint256 gasUsed);
 
 
     /**It will only work if called through Enveloping */
     function setVersion(bytes32 versionHash) external {
-        
-        bytes32 swalletOwner; //hash of owner address
-        
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly {
-            //First of all, verify the req.from is the owner of this smart wallet
-            swalletOwner := sload(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            )
-        }
-
+       
         require(
-            swalletOwner == keccak256(abi.encodePacked(msg.sender)),
-            "Requestor is not the owner of the Smart Wallet"
+            getOwner() == keccak256(abi.encodePacked(msg.sender)),
+            "Not the owner of the SmartWallet"
         );        
         
         currentVersionHash = versionHash;
@@ -61,19 +34,30 @@ contract SmartWallet is IForwarder {
         ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes calldata suffixData,
+        bytes32 suffixData,
         bytes calldata sig
     ) external override view {
-        _verifyOwner(req);
-        _verifyNonce(req);
+
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
     }
 
+    function getOwner() private view returns (bytes32 owner){
+        assembly {
+            owner := sload(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            )
+        }
+    }
+    
+    //TODO ADD a much simpler execute, intended to be called by the owner 
+    //msg.sender MUST be the smart wallet owner
+    //No signature is needed, only the data to call the final contract
+    
     function execute(
         ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes calldata suffixData,
+        bytes32 suffixData,
         bytes calldata sig
     )
         external
@@ -85,13 +69,10 @@ contract SmartWallet is IForwarder {
             bytes memory ret  
         )
     {
-        _verifyOwner(req);
-        _verifyNonce(req);
+
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-        
         nonce++;
 
-        // solhint-disable-next-line avoid-low-level-calls
         (success, ret) = req.tokenContract.call(
             abi.encodeWithSelector(
                 IERC20.transfer.selector,
@@ -104,24 +85,19 @@ contract SmartWallet is IForwarder {
             return (success, 0, ret);
         }
 
-        address logic;
-        /* solhint-disable-next-line no-inline-assembly */
+        bytes32 logicStrg;
         assembly {
-            logic := sload(
+            logicStrg := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
             )
         }
 
         // If there's no extra logic, then call the destination contract
-        if (logic == address(0)) {
-            /* solhint-disable-next-line avoid-low-level-calls */
-            (success, ret) = req.to.call{gas: req.gas, value: req.value}(
-                abi.encodePacked(req.data, req.from)
-            );
+        if (logicStrg == bytes32(0)) {
+            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
         } else {
             //If there's extra logic, delegate the execution
-            /* solhint-disable-next-line avoid-low-level-calls */
-            (success, ret) = logic.delegatecall(msg.data);
+            (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
         }
 
         //If any balance has been added then trasfer it to the owner EOA
@@ -137,29 +113,9 @@ contract SmartWallet is IForwarder {
         return (success, 2, ret);
     }
 
-    function _verifyOwner(ForwardRequest memory req) internal view {
-        bytes32 swalletOwner; //hash of owner address
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly {
-            //First of all, verify the req.from is the owner of this smart wallet
-            swalletOwner := sload(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            )
-        }
+   
 
-        require(
-            swalletOwner == keccak256(abi.encodePacked(req.from)),
-            "Requestor is not the owner of the Smart Wallet"
-        );
-    }
-
-    function _verifyNonce(ForwardRequest memory req) internal view {
-        require(nonce == req.nonce, "nonce mismatch");
-    }
-
-
-    function getChainID() internal pure returns (uint256 id) {
-        /* solhint-disable no-inline-assembly */
+    function getChainID() private pure returns (uint256 id) {
         assembly {
             id := chainid()
         }
@@ -169,18 +125,29 @@ contract SmartWallet is IForwarder {
         ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes memory suffixData,
+        bytes32 suffixData,
         bytes memory sig
-    ) internal view {
+    ) private view {
+
+        //Verify Owner
         require(
-            REQUEST_TYPE_HASH == requestTypeHash,
+            getOwner() == keccak256(abi.encodePacked(req.from)),
+            "Not the owner of the SmartWallet"
+        );
+
+        //Verify nonce
+        require(nonce == req.nonce, "nonce mismatch");
+
+
+        require(//REQUEST_TYPE_HASH
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)") == requestTypeHash,
             "Invalid request typehash"
         );
 
         require(
             keccak256(abi.encode(
-                EIP712DOMAIN_TYPEHASH,
-                DOMAIN_NAME,
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("RSK Enveloping Transaction"), //DOMAIN_NAME
                 currentVersionHash,
                 getChainID(),
                 address(this))) == domainSeparator,
@@ -200,7 +167,7 @@ contract SmartWallet is IForwarder {
     function _getEncoded(
         ForwardRequest memory req,
         bytes32 requestTypeHash,
-        bytes memory suffixData
+        bytes32 suffixData
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
@@ -224,14 +191,8 @@ contract SmartWallet is IForwarder {
     }
 
     function isInitialized() external view returns (bool) {
-        bytes32 swalletOwner;
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly {
-            swalletOwner := sload(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            )
-        }
-        if (swalletOwner == bytes32(0)) {
+        
+        if (getOwner() == bytes32(0)) {
             return false;
         } else {
             return true;
@@ -260,21 +221,9 @@ contract SmartWallet is IForwarder {
         bytes memory transferData
     ) external returns (bool) {
 
-        bytes32 swalletOwner;
-        /* solhint-disable-next-line no-inline-assembly */
-        assembly {
-            //This function can be called only if not initialized (i.e., owner not set)
-            //The slot used complies with EIP-1967-like, obtained as:
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            swalletOwner := sload(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            )
-        }
-
-        if (swalletOwner == bytes32(0)) {
+        if (getOwner() == bytes32(0)) {
             //we need to initialize the contract
             if (tokenAddr != address(0)) {
-                /* solhint-disable-next-line avoid-low-level-calls */
                 (bool success, ) = tokenAddr.call(transferData);
                 require(success, "Unable to pay for deployment");
             }
@@ -284,15 +233,12 @@ contract SmartWallet is IForwarder {
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
             if (address(0) != logic) {
-                //console.log("There is custom logic");
 
                 //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
-                bytes memory initP = abi.encodeWithSelector(
+                (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
                     hex"439fab91",
                     initParams
-                );
-                /* solhint-disable-next-line avoid-low-level-calls */
-                (bool success, ) = logic.delegatecall(initP);
+                ));
 
                 require(
                     success,
@@ -300,7 +246,7 @@ contract SmartWallet is IForwarder {
                 );
 
                 bytes memory logicCell = abi.encodePacked(logic);
-                /* solhint-disable-next-line no-inline-assembly */
+
                 assembly {
                     //The slot used complies with EIP-1967, obtained as:
                     //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
@@ -316,7 +262,7 @@ contract SmartWallet is IForwarder {
             //Set the owner of this Smart Wallet
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             bytes32 ownerCell = keccak256(abi.encodePacked(owner));
-            /* solhint-disable-next-line no-inline-assembly */
+
             assembly {
                 sstore(
                     0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
@@ -337,11 +283,10 @@ contract SmartWallet is IForwarder {
         _fallback();
     }
 
-    function _fallback() internal {
+    function _fallback() private {
         //Proxy code to the logic (if any)
 
         bytes32 logicStrg;
-        /* solhint-disable-next-line no-inline-assembly */
         assembly {
             logicStrg := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
@@ -352,7 +297,7 @@ contract SmartWallet is IForwarder {
             //If the storage cell is not empty
             
             address logic = address(uint160(uint256(logicStrg)));
-            /* solhint-disable-next-line no-inline-assembly */
+
             assembly {
                 let ptr := mload(0x40)
 

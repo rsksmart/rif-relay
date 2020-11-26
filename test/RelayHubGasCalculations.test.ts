@@ -69,7 +69,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   beforeEach(async function prepareForHub () {
     env = await getTestingEnvironment()
     chainId = env.chainId
-    gaslessAccount = getGaslessAccount()
+    gaslessAccount = await getGaslessAccount()
 
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
@@ -236,7 +236,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       await misbehavingPaymaster.deposit({ value: ether('0.1') })
       await misbehavingPaymaster.setOverspendAcceptGas(true)
 
-      const senderNonce = (await forwarderInstance.getNonce()).toString()
+      const senderNonce = (await forwarderInstance.nonce()).toString()
       const relayRequestMisbehaving = cloneRelayRequest(relayRequest)
       relayRequestMisbehaving.relayData.paymaster = misbehavingPaymaster.address
       relayRequestMisbehaving.request.nonce = senderNonce
@@ -320,7 +320,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
       .forEach(([doRevert, len, b]) => {
         it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
           const beforeBalances = getBalances()
-          const senderNonce = (await forwarderInstance.getNonce()).toString()
+          const senderNonce = (await forwarderInstance.nonce()).toString()
           let encodedFunction
           if (len === 0) {
             encodedFunction = recipient.contract.methods.checkNoReturnValues(doRevert).encodeABI()
@@ -375,7 +375,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             assert.notEqual(resultEvent, null, 'didn\'t get TrasnactionResult where it should.')
           }
 
-          const rskDiff: number = isRsk(env) ? 3135 : 0
+          const rskDiff: number = isRsk(env) ? 3160 : 0
           const gasUsed: number = res.receipt.gasUsed
           const diff = await diffBalances(await beforeBalances)
 
@@ -400,7 +400,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
             it(`should compensate relay with requested fee of ${requestedFee.toString()}% with ${messageLength.toString()} calldata size`, async function () {
               const beforeBalances = await getBalances()
               const pctRelayFee = requestedFee.toString()
-              const senderNonce = (await forwarderInstance.getNonce()).toString()
+              const senderNonce = (await forwarderInstance.nonce()).toString()
               const encodedFunction = recipient.contract.methods.emitMessage('a'.repeat(messageLength)).encodeABI()
               const baseRelayFee = '0'
 
