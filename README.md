@@ -43,21 +43,21 @@ The core enveloping architecture is defined by the following components:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [StakeManager]    | 0xaDAA5b083FAb96c910816Fac9354BF1FE1aA3aa1 |
-| [Penalizer]       | 0x339d8Ba23d314d2686037BB49acd4B3d6F27e5Cf |
-| [RelayHub]        | 0xA053F2903332b858f5DF6Ee4356A9540686969c5 |
-| [VersionRegistry] | 0x1F80268f35376a46F3B06E670cD2041593BF7Cd8 |
-| [SmartWallet]     | 0x97c689c8E8671d24Bfa4a6804016e0115a8D8F33 |
-| [ProxyFactory]    | 0x5F4F5573873E15C011Ce13e9eCAECB16b69b691A |
+| [RelayHub]        | 0x2f48284b8595345b89413E184BF423DA62958230 |
+| [StakeManager]    | 0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1 |
+| [Penalizer]       | 0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B |
+| [VersionRegistry] | 0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9 |
+| [SmartWallet]     | 0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25 |
+| [ProxyFactory]    | 0xa023d195BE9e2153A08a1eE87dfbE38039561563 |
 | [DeployPaymaster] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
 | [RelayPaymaster]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
 
-[StakeManager]:(https://explorer.testnet.rsk.co/address/0xaDAA5b083FAb96c910816Fac9354BF1FE1aA3aa1)
-[Penalizer]:(https://explorer.testnet.rsk.co/address/0x339d8Ba23d314d2686037BB49acd4B3d6F27e5Cf)
-[RelayHub]:(https://explorer.testnet.rsk.co/address/0xA053F2903332b858f5DF6Ee4356A9540686969c5)
-[VersionRegistry]:(https://explorer.testnet.rsk.co/address/0x1F80268f35376a46F3B06E670cD2041593BF7Cd8)
-[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x97c689c8E8671d24Bfa4a6804016e0115a8D8F33)
-[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0x5F4F5573873E15C011Ce13e9eCAECB16b69b691A)
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x2f48284b8595345b89413E184BF423DA62958230)
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B)
+[VersionRegistry]:(https://explorer.testnet.rsk.co/address/0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xa023d195BE9e2153A08a1eE87dfbE38039561563)
 [DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
 [RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
 
