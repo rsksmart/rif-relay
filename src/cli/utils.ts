@@ -14,7 +14,9 @@ export const networks = new Map<string, string>([
   ['rinkeby', 'https://rinkeby.infura.io/v3/' + cliInfuraId],
   ['kovan', 'https://kovan.infura.io/v3/' + cliInfuraId],
   ['mainnet', 'https://mainnet.infura.io/v3/' + cliInfuraId],
-  ['rsk-regtest', 'http://127.0.0.1:4444']
+  ['rsk-regtest', 'http://127.0.0.1:4444'],
+  ['rsk-testnet', 'https://public-node.testnet.rsk.co'],
+  ['rsk-mainnet', 'https://public-node.rsk.co']
 ])
 
 export function supportedNetworks (): string[] {
