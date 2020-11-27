@@ -147,10 +147,8 @@ options.forEach(params => {
 
     it(params.title + 'send normal transaction to an ERC20 contract', async () => {
       console.log('running transfer (should succeed)')
-      let res
       try {
-        const gas = await str.contract.methods.transfer(tokenReceiverAddress, '5').estimateGas()
-        res = await str.transfer(tokenReceiverAddress, '5', {from: from, gas: 1e6})
+        await str.transfer(tokenReceiverAddress, '5', { from: from, gas: 1e6 })
       } catch (e) {
         console.log('error is ', e.message)
         throw e
@@ -203,6 +201,7 @@ options.forEach(params => {
           relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig, { asyncApprovalData })
 
           TestRecipient.web3.setProvider(relayProvider)
+          TestTokenRecipient.web3.setProvider(relayProvider)
           TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
           TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
 
@@ -219,6 +218,30 @@ options.forEach(params => {
             })
 
             await sr.emitMessage('xxx', {
+              from: gaslessAccount.address,
+              paymaster: approvalPaymaster.address
+            })
+          } catch (e) {
+            console.log('error1: ', e)
+            throw e
+          } finally {
+            await approvalPaymaster.setExpectedApprovalData('0x', {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+          }
+        })
+
+        it(params.title + 'wait for specific approvalData using an ERC20 recipient contract', async () => {
+          try {
+            setRecipientProvider(async () => await Promise.resolve('0x414243'))
+
+            await approvalPaymaster.setExpectedApprovalData('0x414243', {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+
+            await str.transfer(tokenReceiverAddress, '5', {
               from: gaslessAccount.address,
               paymaster: approvalPaymaster.address
             })
@@ -254,6 +277,33 @@ options.forEach(params => {
               setRecipientProvider(async () => await Promise.resolve('0x'))
 
               await sr.emitMessage('xxx', {
+                from: gaslessAccount.address,
+                paymaster: approvalPaymaster.address
+              })
+            }, 'unexpected approvalData: \'\' instead of')
+          } catch (e) {
+            console.log('error3: ', e)
+            throw e
+          } finally {
+            // @ts-ignore
+            await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+          }
+        })
+
+        it(params.title + 'fail on no approval data using an ERC20 Contract recipient', async () => {
+          try {
+            // @ts-ignore
+            await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+            await asyncShouldThrow(async () => {
+              setRecipientProvider(async () => await Promise.resolve('0x'))
+
+              await str.transfer(tokenReceiverAddress, '5', {
                 from: gaslessAccount.address,
                 paymaster: approvalPaymaster.address
               })
