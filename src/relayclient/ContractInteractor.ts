@@ -21,7 +21,7 @@ import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
 import knowForwarderAddressAbi from '../common/interfaces/IKnowForwarderAddress.json'
-import proxyFactoryAbi from '../common/interfaces/IProxyFactory.json'
+import proxyFactoryAbi from '../common/interfaces/ISmartWalletFactory.json'
 
 import { event2topic } from '../common/Utils'
 import { constants } from '../common/Constants'
@@ -33,7 +33,7 @@ import {
   IPaymasterInstance,
   IRelayHubInstance,
   BaseRelayRecipientInstance,
-  IStakeManagerInstance, IProxyFactoryInstance
+  IStakeManagerInstance, ISmartWalletFactoryInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from './types/Aliases'
@@ -76,7 +76,7 @@ export default class ContractInteractor {
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
-  private readonly IProxyFactoryContract: Contract<IProxyFactoryInstance>
+  private readonly IProxyFactoryContract: Contract<ISmartWalletFactoryInstance>
 
   private paymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
@@ -126,7 +126,7 @@ export default class ContractInteractor {
     })
     // @ts-ignore
     this.IProxyFactoryContract = TruffleContract({
-      contractName: 'IProxyFactory',
+      contractName: 'ISmartWalletFactory',
       abi: proxyFactoryAbi
     })
     this.IStakeManager.setProvider(this.provider, undefined)
@@ -221,7 +221,7 @@ export default class ContractInteractor {
     return await this.IForwarderContract.at(address)
   }
 
-  async _createFactory (address: Address): Promise<IProxyFactoryInstance> {
+  async _createFactory (address: Address): Promise<ISmartWalletFactoryInstance> {
     return await this.IProxyFactoryContract.at(address)
   }
 

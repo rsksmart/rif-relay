@@ -17,6 +17,8 @@ import Penalizer from './compiled/Penalizer.json'
 import Paymaster from './compiled/TestPaymasterEverythingAccepted.json'
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
+import SimpleSmartWallet from './compiled/SimpleSmartWallet.json'
+import SimpleProxyFactory from './compiled/SimpleProxyFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
 import { Address, notNull } from '../relayclient/types/Aliases'
 import ContractInteractor from '../relayclient/ContractInteractor'
@@ -40,7 +42,9 @@ interface DeployOptions {
   gasPrice: string
   deployPaymaster?: boolean
   factoryAddress?: string
+  simpleFactoryAddress?: string
   sWalletTemplateAddress?: string
+  simpleSWalletTemplateAddress?: string
   relayHubAddress?: string
   stakeManagerAddress?: string
   penalizerAddress?: string
@@ -56,7 +60,9 @@ export interface DeploymentResult {
   stakeManagerAddress: Address
   penalizerAddress: Address
   sWalletTemplateAddress: Address
+  simpleSWalletTemplateAddress: Address
   factoryAddress: Address
+  simpleFactoryAddress: Address
   versionRegistryAddress: Address
   naivePaymasterAddress: Address
 }
@@ -250,6 +256,14 @@ export default class CommandsLogic {
       ]
     }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
+    const simpleSwtInstance = await this.getContractInstance(SimpleSmartWallet, {}, deployOptions.simpleSWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const simplePfInstance = await this.getContractInstance(SimpleProxyFactory, {
+      arguments: [
+        simpleSwtInstance.options.address,
+        '0xad7c5bef027816a800da1736444fb58a807ef4c9603b7848673f7e3a68eb14a5' // domain version hash (version=2)
+      ]
+    }, deployOptions.simpleFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     const rInstance = await this.getContractInstance(RelayHub, {
       arguments: [
         sInstance.options.address,
@@ -285,6 +299,8 @@ export default class CommandsLogic {
       penalizerAddress: pInstance.options.address,
       sWalletTemplateAddress: swtInstance.options.address,
       factoryAddress: pfInstance.options.address,
+      simpleSWalletTemplateAddress: simpleSwtInstance.options.address,
+      simpleFactoryAddress: simplePfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
       naivePaymasterAddress: paymasterAddress
     }

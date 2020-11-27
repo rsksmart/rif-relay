@@ -17,9 +17,10 @@ import {
   TestPaymasterConfigurableMisbehaviorInstance,
   SmartWalletInstance,
   ProxyFactoryInstance,
-  TestTokenRecipientInstance
+  SimpleSmartWalletInstance,
+  SimpleProxyFactoryInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
+import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../src/common/Constants'
@@ -52,7 +53,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
-  let testTokenRecipient: TestTokenRecipientInstance
   let paymasterContract: TestPaymasterEverythingAcceptedInstance
   let forwarderInstance: IForwarderInstance
   let target: string
@@ -78,7 +78,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
-    testTokenRecipient = await TestTokenRecipient.new()
 
     target = recipientContract.address
     paymaster = paymasterContract.address
@@ -450,6 +449,95 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           )
         })
 
+        it('gas estimation tests for Simple Smart Wallet', async function () {
+          const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
+          const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
+          const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
+          const sWalletInstance = await createSimpleSmartWallet(gaslessAccount.address, simpleFactory, gaslessAccount.privateKey, chainId)
+
+          const nonceBefore = await sWalletInstance.nonce()
+          const TestToken = artifacts.require('TestToken')
+          const tokenInstance = await TestToken.new()
+          await tokenInstance.mint('1000000', sWalletInstance.address)
+
+          const completeReq = {
+            request: {
+              ...relayRequest.request,
+              data: recipientContract.contract.methods.emitMessage2(message).encodeABI(),
+              nonce: nonceBefore.toString(),
+              tokenRecipient: senderAddress,
+              tokenContract: tokenInstance.address,
+              tokenAmount: '1'
+            },
+            relayData: {
+              ...relayRequest.relayData,
+              forwarder: sWalletInstance.address
+            }
+          }
+
+          const reqToSign = new TypedRequestData(
+            chainId,
+            sWalletInstance.address,
+            completeReq
+          )
+
+          const sig = getLocalEip712Signature(
+            reqToSign,
+            gaslessAccount.privateKey
+          )
+
+          const { tx, logs } = await relayHubInstance.relayCall(10e6, completeReq, sig, '0x', gas, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+          const nonceAfter = await sWalletInstance.nonce()
+          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber(), 'Incorrect nonce after execution')
+
+          const eventHash = keccak('GasUsed(uint256,uint256)')
+          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          console.log('---------------Simple SmartWallet------------------------')
+          console.log(`Gas Used: ${txReceipt.gasUsed}`)
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
+
+          let previousGas: BigInt = BigInt(0)
+          let previousStep = null
+          for (var i = 0; i < txReceipt.logs.length; i++) {
+            const log = txReceipt.logs[i]
+            if (('0x' + eventHash.toString('hex')) === log.topics[0]) {
+              const step = log.data.substring(0, 66)
+              const gasUsed: BigInt = BigInt('0x' + log.data.substring(67, log.data.length))
+              console.log('---------------------------------------')
+              console.log('step :', BigInt(step).toString())
+              console.log('gasLeft :', gasUsed.toString())
+
+              if (previousStep != null) {
+                console.log(`Steps substraction ${BigInt(step).toString()} and ${BigInt(previousStep).toString()}`)
+                console.log((previousGas.valueOf() - gasUsed.valueOf()).toString())
+              }
+              console.log('---------------------------------------')
+
+              previousGas = BigInt(gasUsed)
+              previousStep = step
+            }
+          }
+
+          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
+            message,
+            msgSender: sWalletInstance.address,
+            origin: relayWorker
+          })
+
+          const expectedReturnValue = web3.eth.abi.encodeParameter('string', 'emitMessage return value')
+          expectEvent.inLogs(logs, 'TransactionResult', {
+            status: RelayCallStatusCodes.OK,
+            returnValue: expectedReturnValue
+          })
+          expectEvent.inLogs(logs, 'TransactionRelayed', {
+            status: RelayCallStatusCodes.OK
+          })
+        })
+
         it('gas estimation tests', async function () {
           const nonceBefore = await forwarderInstance.nonce()
           const TestToken = artifacts.require('TestToken')
@@ -573,44 +661,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           })
         })
 
-        it('relayCall executes the transaction with an ERC20 recipient and increments sender nonce on hub', async function () {
-          const initialTokenBalance = 200
-          const tokenToTransfer = 5
-          await testTokenRecipient.mint(initialTokenBalance, forwarder)
-
-          const nonceBefore = await forwarderInstance.nonce()
-          const encodedFunction = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, tokenToTransfer.toString()).encodeABI()
-          const relayRequestTokenTransferData = cloneRelayRequest(relayRequest)
-          relayRequestTokenTransferData.request.data = encodedFunction
-          relayRequestTokenTransferData.request.to = testTokenRecipient.address
-          const dataToSign = new TypedRequestData(
-            chainId,
-            forwarder,
-            relayRequestTokenTransferData
-          )
-          signature = getLocalEip712Signature(
-            dataToSign,
-            gaslessAccount.privateKey
-          )
-
-          const { tx, logs } = await relayHubInstance.relayCall(10e6, relayRequestTokenTransferData, signature, '0x', gas, {
-            from: relayWorker,
-            gas,
-            gasPrice
-          })
-          const nonceAfter = await forwarderInstance.nonce()
-          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
-          const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
-          chai.expect(tokenToTransfer.toString()).to.be.bignumber.equal(balance)
-          const lastTokenBalance = await testTokenRecipient.balanceOf(forwarder)
-          assert.equal(lastTokenBalance.add(new BN(tokenToTransfer)).toString(), initialTokenBalance.toString())
-
-          await expectEvent.inTransaction(tx, TestTokenRecipient, 'Transfer')
-          expectEvent.inLogs(logs, 'TransactionRelayed', {
-            status: RelayCallStatusCodes.OK
-          })
-        })
-
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
           const { tx } = await relayHubInstance.relayCall(10e6, relayRequest, signatureWithPermissivePaymaster, '0x', gas, {
             from: relayWorker,
@@ -680,40 +730,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           expectEvent.inLogs(logs, 'TransactionRelayed', {
             status: RelayCallStatusCodes.RelayedCallFailed
           })
-        })
-
-        it('relayCall executes a transaction even if token recipient call reverts', async function () {
-          const encodedFunction = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
-          const relayRequestTokenTransferData = cloneRelayRequest(relayRequest)
-          relayRequestTokenTransferData.request.data = encodedFunction
-          relayRequestTokenTransferData.request.to = testTokenRecipient.address
-          const dataToSign = new TypedRequestData(
-            chainId,
-            forwarder,
-            relayRequestTokenTransferData
-          )
-          signature = getLocalEip712Signature(
-            dataToSign,
-            gaslessAccount.privateKey
-          )
-
-          const { logs } = await relayHubInstance.relayCall(10e6, relayRequestTokenTransferData, signature, '0x', gas, {
-            from: relayWorker,
-            gas,
-            gasPrice
-          })
-
-          const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'ERC20: transfer amount exceeds balance'))
-          expectEvent.inLogs(logs, 'TransactionResult', {
-            status: RelayCallStatusCodes.RelayedCallFailed,
-            returnValue: expectedReturnValue
-          })
-          expectEvent.inLogs(logs, 'TransactionRelayed', {
-            status: RelayCallStatusCodes.RelayedCallFailed
-          })
-
-          const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
-          chai.expect('0').to.be.bignumber.equal(balance)
         })
 
         it('postRelayedCall receives values returned in preRelayedCall', async function () {
