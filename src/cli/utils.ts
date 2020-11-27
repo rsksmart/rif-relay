@@ -59,6 +59,10 @@ export function getSmartWalletFactoryAddress (defaultAddress?: string): string |
   return getAddressFromFile('build/gsn/ProxyFactory.json', defaultAddress)
 }
 
+export function getSimpleSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
+  return getAddressFromFile('build/gsn/SimpleProxyFactory.json', defaultAddress)
+}
+
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
   if (defaultAddress == null) {
     if (fs.existsSync(path)) {
@@ -81,6 +85,8 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.naivePaymasterAddress, workdir, 'Paymaster.json')
   saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
+  saveContractToFile(deploymentResult.simpleSWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
+  saveContractToFile(deploymentResult.simpleFactoryAddress, workdir, 'SimpleProxyFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
@@ -109,6 +115,8 @@ export function loadDeployment (workdir: string): DeploymentResult {
     penalizerAddress: getAddress('Penalizer'),
     sWalletTemplateAddress: getAddress('SmartWallet'),
     factoryAddress: getAddress('ProxyFactory'),
+    simpleSWalletTemplateAddress: getAddress('SimpleSmartWallet'),
+    simpleFactoryAddress: getAddress('SimpleProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
     naivePaymasterAddress: getAddress('Paymaster')
   }

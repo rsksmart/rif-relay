@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../interfaces/GsnTypes.sol";
 import "../forwarder/IForwarder.sol";
-import "../factory/IProxyFactory.sol";
+import "../factory/ISmartWalletFactory.sol";
 import "./MinLibBytes.sol";
 /**
  * Bridge Library to map Enveloping RelayRequest into a call of a SmartWallet
@@ -89,7 +89,7 @@ library GsnEip712Library {
             //the relayClient
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess,) = forwardRequest.factory.call{gas: forwardRequest.gas}(
-                abi.encodeWithSelector(IProxyFactory.relayedUserSmartWalletCreation.selector,
+                abi.encodeWithSelector(ISmartWalletFactory.relayedUserSmartWalletCreation.selector,
                 forwardRequest, domainSeparator(forwardRequest.factory), RELAY_REQUEST_TYPEHASH, suffixData, signature
             ));
         }

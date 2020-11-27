@@ -2,7 +2,7 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
-import proxyFactoryAbi from '../../src/common/interfaces/IProxyFactory.json'
+import proxyFactoryAbi from '../../src/common/interfaces/ISmartWalletFactory.json'
 
 import chaiAsPromised from 'chai-as-promised'
 import Web3 from 'web3'

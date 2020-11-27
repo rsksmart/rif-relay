@@ -10,7 +10,7 @@ import "../utils/RSKAddrValidator.sol";
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
 
-contract SmartWallet is IForwarder {
+contract SimpleSmartWallet is IForwarder {
     using ECDSA for bytes32;
 
     bytes32 public currentVersionHash;
@@ -60,26 +60,14 @@ contract SmartWallet is IForwarder {
             "Not the owner of the SmartWallet"
         );
 
-       bytes32 logicStrg;
-        assembly {
-            logicStrg := sload(
-                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-            )
-        }
-
-        // If there's no extra logic, then call the destination contract
-        if (logicStrg == bytes32(0)) {
-            (success, ret) = to.call{value: msg.value}(data);
-        } else {
-            //If there's extra logic, delegate the execution
-            (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
-        }
+        (success, ret) = to.call{value: msg.value}(data);
 
         //If any balance has been added then trasfer it to the owner EOA
         if (address(this).balance > 0) {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(msg.sender).transfer(address(this).balance);
         }
+   
     }
     
     function execute(
@@ -114,20 +102,8 @@ contract SmartWallet is IForwarder {
             return (success, 0, ret);
         }
 
-        bytes32 logicStrg;
-        assembly {
-            logicStrg := sload(
-                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-            )
-        }
-
-        // If there's no extra logic, then call the destination contract
-        if (logicStrg == bytes32(0)) {
-            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
-        } else {
-            //If there's extra logic, delegate the execution
-            (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
-        }
+        (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
+     
 
         //If any balance has been added then trasfer it to the owner EOA
         if (address(this).balance > 0) {
@@ -233,20 +209,16 @@ contract SmartWallet is IForwarder {
      * initialization scope to the wallet logic.
      * This function can only be called once, and it is called by the Factory during deployment
      * @param owner - The EOA that will own the smart wallet
-     * @param logic - The address containing the custom logic where to delegate everything that is not payment-related
      * @param tokenAddr - The Token used for payment of the deploy
      * @param versionHash - The version of the domain separator to be used
      * @param transferData - payment function and params to use when calling the Token.
      * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
-     * @param initParams - Initialization data to pass to the custom logic's initialize(bytes) function
      */
 
     function initialize(
         address owner,
-        address logic,
         address tokenAddr,
         bytes32 versionHash,
-        bytes memory initParams,
         bytes memory transferData
     ) external returns (bool) {
 
@@ -259,35 +231,6 @@ contract SmartWallet is IForwarder {
 
             currentVersionHash = versionHash;
 
-            //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
-            //the initialize function can only be called once)
-            if (address(0) != logic) {
-
-                //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
-                (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
-                    hex"439fab91",
-                    initParams
-                ));
-
-                require(
-                    success,
-                    "initialize call in logic failed"
-                );
-
-                bytes memory logicCell = abi.encodePacked(logic);
-
-                assembly {
-                    //The slot used complies with EIP-1967, obtained as:
-                    //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-                    sstore(
-                        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                        logicCell
-                    )
-                }
-            }
-
-            //If it didnt revert it means success was true, we can then set this instance as initialized, by
-            //storing the logic address
             //Set the owner of this Smart Wallet
             //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
             bytes32 ownerCell = keccak256(abi.encodePacked(owner));
@@ -301,70 +244,12 @@ contract SmartWallet is IForwarder {
 
             return true;
         }
+
         return false;
     }
 
-
-    function _fallback() private {
-        //Proxy code to the logic (if any)
-
-        bytes32 logicStrg;
-        assembly {
-            logicStrg := sload(
-                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-            )
-        }
-
-        if (bytes32(0) != logicStrg) {
-            //If the storage cell is not empty
-            
-            address logic = address(uint160(uint256(logicStrg)));
-
-            assembly {
-                let ptr := mload(0x40)
-
-                // (1) copy incoming call data
-                calldatacopy(ptr, 0, calldatasize())
-
-                // (2) forward call to logic contract
-                let result := delegatecall(
-                    gas(),
-                    logic,
-                    ptr,
-                    calldatasize(),
-                    0,
-                    0
-                )
-                let size := returndatasize()
-
-                // (3) retrieve return data
-                returndatacopy(ptr, 0, size)
-
-                // (4) forward return data back to caller
-                switch result
-                    case 0 {
-                        revert(ptr, size)
-                    }
-                    default {
-                        return(ptr, size)
-                    }
-            }
-        }
-    }
-
-    /**
-     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
-     * is empty.
-     */
+/* solhint-disable no-empty-blocks */
     receive() external payable {
-        _fallback();
-    }
-
-    /**
-     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
-     * function in the contract matches the call data.
-     */
-    fallback() external payable {
-        _fallback();
+        
     }
 }

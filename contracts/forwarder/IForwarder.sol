@@ -58,5 +58,9 @@ interface IForwarder {
     )
     external payable
     returns (bool success, uint256 lastSuccTx, bytes memory ret);
-
+    
+    function directExecute(address to, bytes calldata data) external payable returns (
+        bool success,
+        bytes memory ret  
+    );
 }
