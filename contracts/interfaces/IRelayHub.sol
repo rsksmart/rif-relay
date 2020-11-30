@@ -15,14 +15,6 @@ interface IRelayHub {
         uint256 pctRelayFee,
         string relayUrl);
 
-    //TODO: New proposal for the registration
-    /*event RelayServerRegistered2(
-        address indexed relayManager,
-        uint256 baseRelayFee,
-        uint256 pctRelayFee,
-        string relayUrl,
-        address token);*/
-
     /// Emitted when relays are added by a relayManager
     event RelayWorkersAdded(
         address indexed relayManager,
@@ -39,42 +31,45 @@ interface IRelayHub {
 
     // Emitted when depositFor is called, including the amount and account that was funded.
     event Deposited(
-        address indexed paymaster,
+        address indexed verifier,
         address indexed from,
         uint256 amount
     );
-
-    /// Emitted when an attempt to relay a call fails and Paymaster does not accept the transaction.
-    /// The actual relayed call was not executed, and the recipient not charged.
-    /// @param reason contains a revert reason returned from preRelayedCall or forwarder.
-    event TransactionRejectedByPaymaster(
-        address indexed relayManager,
-        address indexed paymaster,
-        address indexed from,
-        address to,
-        address relayWorker,
-        bytes4 selector,
-        uint256 innerGasUsed,
-        bytes reason);
 
     // Emitted when a transaction is relayed. Note that the actual encoded function might be reverted: this will be
     // indicated in the status field.
     // Useful when monitoring a relay's operation and relayed calls to a contract.
     // Charge is the ether value deducted from the recipient's balance, paid to the relay's manager.
     event TransactionRelayed(
-        address indexed relayManager,
-        address indexed relayWorker,
-        address indexed from,
+        address  relayManager,
+        address  relayWorker,
+        address  from,
         address to,
-        address paymaster,
         bytes4 selector,
         RelayCallStatus status,
         uint256 charge);
 
+    event TransactionRelayedButRevertedByRecipient(
+        address  relayManager,
+        address  relayWorker,
+        address  from,
+        address to,
+        bytes4 selector,
+        bytes reason);
+
+    
     event TransactionResult(
         RelayCallStatus status,
         bytes returnValue
     );
+
+    event SWDeployRelayed(
+        address  relayManager,
+        address  relayWorker,
+        address  owner,
+        address  factory,
+        RelayCallStatus status,
+        uint256 charge);
 
     event Penalized(
         address indexed relayWorker,
@@ -84,20 +79,13 @@ interface IRelayHub {
 
     /// Reason error codes for the TransactionRelayed event
     /// @param OK - the transaction was successfully relayed and execution successful - never included in the event
-    /// @param RelayedCallFailed - the transaction was relayed, but the relayed call failed
-    /// @param RejectedByPreRelayed - the transaction was not relayed due to preRelatedCall reverting
     /// @param RejectedByForwarder - the transaction was not relayed due to forwarder check (signature,nonce)
-    /// @param PostRelayedFailed - the transaction was relayed and reverted due to postRelatedCall reverting
-    /// @param PaymasterBalanceChanged - the transaction was relayed and reverted due to the paymaster balance change
+
     enum RelayCallStatus {
         OK,
         RelayedCallFailed,
-        RejectedByPreRelayed,
-        RejectedByForwarder,
-        RejectedByRecipientRevert,
-        PostRelayedFailed,
-        PaymasterBalanceChanged
-    }
+        RejectedByForwarder    
+        }
 
     /// Add new worker addresses controlled by sender who must be a staked Relay Manager address.
     /// Emits a RelayWorkersAdded event.
@@ -122,38 +110,29 @@ interface IRelayHub {
 
 
     /// Relays a transaction. For this to succeed, multiple conditions must be met:
-    ///  - Paymaster's "acceptRelayCall" method must succeed and not revert
     ///  - the sender must be a registered Relay Worker that the user signed
     ///  - the transaction's gas price must be equal or larger than the one that was signed by the sender
     ///  - the transaction must have enough gas to run all internal transactions if they use all gas available to them
-    ///  - the Paymaster must have enough balance to pay the Relay Worker for the scenario when all gas is spent
     ///
     /// If all conditions are met, the call will be relayed and the recipient charged.
     ///
     /// Arguments:
     /// @param relayRequest - all details of the requested relayed call
     /// @param signature - client's EIP-712 signature over the relayRequest struct
-    /// @param approvalData: dapp-specific data forwarded to preRelayedCall.
-    ///        This value is *not* verified by the Hub. For example, it can be used to pass a signature to the Paymaster
-    /// @param externalGasLimit - the value passed as gasLimit to the transaction.
     ///
     /// Emits a TransactionRelayed event.
     function relayCall(
-        uint paymasterMaxAcceptanceBudget,
         GsnTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint externalGasLimit
+        bytes calldata signature
     )
-    external
-    returns (bool paymasterAccepted, bytes memory returnValue);
+    external;
 
     function penalize(address relayWorker, address payable beneficiary) external;
 
     /// The fee is expressed as a base fee in wei plus percentage on actual charge.
     /// E.g. a value of 40 stands for a 40% fee, so the recipient will be
     /// charged for 1.4 times the spent amount.
-    function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) external view returns (uint256);
+    // function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) external view returns (uint256);
 
     /* getters */
 
@@ -161,7 +140,7 @@ interface IRelayHub {
     function stakeManager() external view returns(IStakeManager);
     function penalizer() external view returns(address);
 
-    /// Returns an account's deposits. It can be either a deposit of a paymaster, or a revenue of a relay manager.
+    /// Returns an account's deposits.
     function balanceOf(address target) external view returns (uint256);
 
     // Minimum stake a relay can have. An attack to the network will never cost less than half this value.
@@ -172,12 +151,6 @@ interface IRelayHub {
 
     // Maximum funds that can be deposited at once. Prevents user error by disallowing large deposits.
     function maximumRecipientDeposit() external view returns (uint256);
-
-    //gas overhead to calculate gasUseWithoutPost
-    function postOverhead() external view returns (uint256);
-
-    // Gas set aside for all relayCall() instructions to prevent unexpected out-of-gas exceptions
-    function gasReserve() external view returns (uint256);
 
     // maximum number of worker account allowed per manager
     function maxWorkerCount() external view returns (uint256);

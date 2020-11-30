@@ -44,15 +44,14 @@ contract('GsnTestEnvironment', function () {
       const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
         from: sender.address,
         to: sr.address,
-        forwarder: wallet.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
-        paymasterData: '0x',
+        callForwarder: wallet.address,
+        callVerifier: testEnvironment.deploymentResult.relayVerifierAddress,
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
         tokenRecipient: constants.ZERO_ADDRESS,
         tokenAmount: '0x00',
         tokenContract: constants.ZERO_ADDRESS,
-        factory: constants.ZERO_ADDRESS,
+        isSmartWalletDeploy: false,
         clientId: '1'
       })
 
@@ -88,8 +87,8 @@ contract('GsnTestEnvironment', function () {
 
       const txDetails = {
         from: sender.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
-        forwarder: wallet.address
+        callVerifier: testEnvironment.deploymentResult.relayVerifierAddress,
+        callForwarder: wallet.address
       }
       const ret = await sr.emitMessage('hello', txDetails)
       expectEvent(ret, 'SampleRecipientEmitted', { msgSender: wallet.address })

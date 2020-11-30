@@ -1,12 +1,18 @@
 diff --git a/node_modules/@openeth/truffle-typings/index.d.ts b/node_modules/@openeth/truffle-typings/index.d.ts
-index 5de91fb..9135d46 100644
+index 5de91fb..24e93c3 100644
 --- a/node_modules/@openeth/truffle-typings/index.d.ts
 +++ b/node_modules/@openeth/truffle-typings/index.d.ts
-@@ -51,6 +51,7 @@ declare namespace Truffle {
-     forwarder?: string
+@@ -47,10 +47,11 @@ declare namespace Truffle {
+     gasPrice?: BN | number | string;
+     value?: BN | string;
+     /* GSN-specific transaction details */
+-    paymaster?: string
+-    forwarder?: string
++    callVerifier?: string
++    callForwarder?: string
      useGSN?: boolean
      forceGasPrice?: string
-+    factory?: string
++    isSmartWalletDeploy?: boolean
    }
  
    export interface TransactionLog {

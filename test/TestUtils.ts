@@ -67,6 +67,18 @@ export async function startRelay (
   if (options.baseRelayFee) {
     args.push('--baseRelayFee', options.baseRelayFee)
   }
+
+  if (options.deployVerifierAddress) {
+    args.push('--deployVerifierAddress', options.deployVerifierAddress)
+  }
+  if (options.relayVerifierAddress) {
+    args.push('--relayVerifierAddress', options.relayVerifierAddress)
+  }
+
+  if (options.trustedVerifiers) {
+    args.push('--trustedVerifiers', options.trustedVerifiers)
+  }
+
   const runServerPath = path.resolve(__dirname, '../src/relayserver/runServer.ts')
   const proc: ChildProcessWithoutNullStreams = childProcess.spawn('./node_modules/.bin/ts-node',
     [runServerPath, ...args])
@@ -252,8 +264,6 @@ export async function deployHub (
     stakeManager,
     penalizer,
     relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasReserve,
-    relayHubConfiguration.postOverhead,
     relayHubConfiguration.gasOverhead,
     relayHubConfiguration.maximumRecipientDeposit,
     relayHubConfiguration.minimumUnstakeDelay,
@@ -288,19 +298,17 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
       tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
-      factory: factory.address,
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
     relayData: {
       gasPrice: '10',
-      pctRelayFee: '10',
-      baseRelayFee: '10000',
+      clientId: '1',
+      domainSeparator: '0x',
+      isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
-      paymaster: constants.ZERO_ADDRESS,
-      forwarder: constants.ZERO_ADDRESS,
-      paymasterData: '0x',
-      clientId: '1'
+      callForwarder: constants.ZERO_ADDRESS,
+      callVerifier: constants.ZERO_ADDRESS
     }
   }
 
@@ -343,19 +351,17 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
       tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
-      factory: factory.address,
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
     relayData: {
       gasPrice: '10',
-      pctRelayFee: '10',
-      baseRelayFee: '10000',
+      clientId: '1',
+      domainSeparator: '0x',
+      isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
-      paymaster: constants.ZERO_ADDRESS,
-      forwarder: constants.ZERO_ADDRESS,
-      paymasterData: '0x',
-      clientId: '1'
+      callForwarder: constants.ZERO_ADDRESS,
+      callVerifier: constants.ZERO_ADDRESS
     }
   }
 
@@ -433,9 +439,9 @@ export function bufferToHexString (b: Buffer): string {
   return '0x' + b.toString('hex')
 }
 
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
-  const paymasterData = '0x'
+export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenRecipient: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const clientId = '1'
+  const chainId = (await getTestingEnvironment()).chainId
   const relayRequest: RelayRequest = {
     request: {
       to: testRecipient.address,
@@ -444,27 +450,25 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       nonce: nonce,
       value: '0',
       gas: '10000',
-      tokenRecipient: constants.ZERO_ADDRESS,
-      tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '0',
-      factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+      tokenRecipient: tokenRecipient,
+      tokenContract: tokenContract,
+      tokenAmount: tokenAmount,
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
     relayData: {
-      pctRelayFee: '1',
-      baseRelayFee: '1',
       gasPrice: '1',
-      paymaster,
-      paymasterData,
       clientId,
-      forwarder: swallet,
-      relayWorker
+      domainSeparator: getDomainSeparatorHash(swallet, chainId),
+      isSmartWalletDeploy: false,
+      relayWorker: relayWorker,
+      callForwarder: swallet,
+      callVerifier: verifier
     }
   }
 
   const dataToSign = new TypedRequestData(
-    (await getTestingEnvironment()).chainId,
+    chainId,
     swallet,
     relayRequest
   )

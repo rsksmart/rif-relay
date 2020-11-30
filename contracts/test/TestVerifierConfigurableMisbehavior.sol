@@ -2,9 +2,9 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./TestPaymasterEverythingAccepted.sol";
+import "./TestVerifierEverythingAccepted.sol";
 
-contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted {
+contract TestVerifierConfigurableMisbehavior is TestVerifierEverythingAccepted {
 
     bool public withdrawDuringPostRelayedCall;
     bool public withdrawDuringPreRelayedCall;
@@ -15,6 +15,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     bool public greedyAcceptanceBudget;
     bool public expensiveGasLimits;
     int public expensiveGasLimitsIterations;
+
 
     function setWithdrawDuringPostRelayedCall(bool val) public {
         withdrawDuringPostRelayedCall = val;
@@ -54,8 +55,7 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     )
     external
     override
-    relayHubOnly
-    returns (bytes memory, bool) {
+    returns (bytes memory) {
         (signature, approvalData, maxPossibleGas);
         if (overspendAcceptGas) {
             uint i = 0;
@@ -66,13 +66,10 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
 
         require(!returnInvalidErrorCode, "invalid code");
 
-        if (withdrawDuringPreRelayedCall) {
-            withdrawAllBalance();
-        }
         if (revertPreRelayCall) {
             revert("revertPreRelayCall: Reverting");
         }
-        return ("", trustRecipientRevert);
+        return ("");
     }
 
     function postRelayedCall(
@@ -83,58 +80,15 @@ contract TestPaymasterConfigurableMisbehavior is TestPaymasterEverythingAccepted
     )
     external
     override
-    relayHubOnly
     {
         (context, success, gasUseWithoutPost, relayData);
-        if (withdrawDuringPostRelayedCall) {
-            withdrawAllBalance();
-        }
+
         if (revertPostRelayCall) {
             revert("revertPreRelayCall: Reverting");
         }
     }
 
-    /// leaving withdrawal public and unprotected
-    function withdrawAllBalance() public returns (uint256) {
-        require(address(relayHub) != address(0), "relay hub address not set");
-        uint256 balance = relayHub.balanceOf(address(this));
-        relayHub.withdraw(balance, address(this));
-        return balance;
-    }
-
-    IPaymaster.GasLimits private limits = super.getGasLimits();
-
-    function getGasLimits()
-    public override view
-    returns (IPaymaster.GasLimits memory) {
-
-        if (expensiveGasLimits) {
-            uint sum;
-            //memory access is 700gas, so we waste ~50000
-            for ( int i=0; i<expensiveGasLimitsIterations; i+=1 ) {
-                sum  = sum + limits.acceptanceBudget;
-            }
-        }
-        if (greedyAcceptanceBudget) {
-            return IPaymaster.GasLimits(limits.acceptanceBudget * 9, limits.preRelayedCallGasLimit, limits.postRelayedCallGasLimit);
-        }
-        return limits;
-    }
-
-    bool private trustRecipientRevert;
-
-    function setGasLimits(uint acceptanceBudget, uint preRelayedCallGasLimit, uint postRelayedCallGasLimit) public {
-        limits = IPaymaster.GasLimits(
-            acceptanceBudget,
-            preRelayedCallGasLimit,
-            postRelayedCallGasLimit
-        );
-    }
-
-    function setTrustRecipientRevert(bool on) public {
-        trustRecipientRevert = on;
-    }
 
     // solhint-disable-next-line no-empty-blocks
-    receive() external override payable {}
+    receive() external payable {}
 }

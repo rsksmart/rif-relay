@@ -79,8 +79,8 @@ export class HttpServer {
     res.send(status)
   }
 
-  pingHandler (req: any, res: any): void {
-    const pingResponse = this.backend.pingHandler(req.query.paymaster)
+  async pingHandler (req: any, res: any): Promise<void> {
+    const pingResponse = await this.backend.pingHandler(req.query.verifier)
     res.send(pingResponse)
     console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
   }

@@ -12,10 +12,11 @@ import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
 import { ethers } from 'ethers'
 import chai from 'chai'
-import { addr, bytes32, getTestingEnvironment, stripHex } from './TestUtils'
+import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
+import RelayRequest from '../src/common/EIP712/RelayRequest'
 
 const keccak256 = web3.utils.keccak256
 
@@ -37,7 +38,7 @@ contract('ProxyFactory', ([from]) => {
 
   let env: Environment
 
-  const request = {
+  const request: RelayRequest = {
     request: {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
@@ -48,18 +49,16 @@ contract('ProxyFactory', ([from]) => {
       tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
-      factory: constants.ZERO_ADDRESS, // param only needed by RelayHub
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
     relayData: {
-      pctRelayFee: '1',
-      baseRelayFee: '1',
       gasPrice: '1',
       relayWorker: constants.ZERO_ADDRESS,
-      forwarder: constants.ZERO_ADDRESS,
-      paymaster: constants.ZERO_ADDRESS,
-      paymasterData: '0x',
+      callForwarder: constants.ZERO_ADDRESS,
+      callVerifier: constants.ZERO_ADDRESS,
+      isSmartWalletDeploy: true,
+      domainSeparator: '0x',
       clientId: '1'
     }
   }
@@ -77,6 +76,8 @@ contract('ProxyFactory', ([from]) => {
   beforeEach(async () => {
     // A new factory for new create2 addresses each
     factory = await ProxyFactory.new(fwd.address, versionHash)
+    request.relayData.callForwarder = factory.address
+    request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
 
   describe('#getCreationBytecode', () => {
@@ -489,7 +490,7 @@ contract('ProxyFactory', ([from]) => {
 
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
-      req.request.factory = addr(1) // change data after signature
+      req.request.tokenAmount = '9'
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 
@@ -666,7 +667,7 @@ contract('SimpleProxyFactory', ([from]) => {
   const SimpleProxyFactory = artifacts.require('SimpleProxyFactory')
   let env: Environment
 
-  const request = {
+  const request: RelayRequest = {
     request: {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
@@ -677,18 +678,16 @@ contract('SimpleProxyFactory', ([from]) => {
       tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
-      factory: constants.ZERO_ADDRESS, // param only needed by RelayHub
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
     relayData: {
-      pctRelayFee: '1',
-      baseRelayFee: '1',
       gasPrice: '1',
       relayWorker: constants.ZERO_ADDRESS,
-      forwarder: constants.ZERO_ADDRESS,
-      paymaster: constants.ZERO_ADDRESS,
-      paymasterData: '0x',
+      callForwarder: constants.ZERO_ADDRESS,
+      callVerifier: constants.ZERO_ADDRESS,
+      domainSeparator: '0x',
+      isSmartWalletDeploy: true,
       clientId: '1'
     }
   }
@@ -706,6 +705,8 @@ contract('SimpleProxyFactory', ([from]) => {
   beforeEach(async () => {
     // A new factory for new create2 addresses each
     factory = await SimpleProxyFactory.new(fwd.address, versionHash)
+    request.relayData.callForwarder = factory.address
+    request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
 
   describe('#getCreationBytecode', () => {
@@ -979,6 +980,7 @@ contract('SimpleProxyFactory', ([from]) => {
 
       // relayData information
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      console.log('SuffixData is: ', suffixData)
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
@@ -1071,7 +1073,7 @@ contract('SimpleProxyFactory', ([from]) => {
 
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
-      req.request.factory = addr(1) // change data after signature
+      req.request.tokenAmount = '8' // change data after signature
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 

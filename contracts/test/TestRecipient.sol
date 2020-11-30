@@ -3,25 +3,41 @@
 pragma solidity ^0.6.12;
 
 import "../utils/GsnUtils.sol";
-import "./TestPaymasterConfigurableMisbehavior.sol";
+import "./TestVerifierConfigurableMisbehavior.sol";
 
 
 contract TestRecipient {
 
     string public versionRecipient = "2.0.1+opengsn.test.irelayrecipient";
-
+    bool public nextRevert;
 
     event Reverting(string message);
+
+
+    function setNextRevert() public {
+        nextRevert = true;
+    }
 
     function testRevert() public {
         require(address(this) == address(0), "always fail");
         emit Reverting("if you see this revert failed...");
     }
 
-    address payable public paymaster;
+     function testNextRevert() public {
+        if(nextRevert){
+            require(address(this) == address(0), "always fail");
+            emit Reverting("if you see this revert failed...");
+        }
+        else{
+            nextRevert = true;
+        }
+        
+    }
 
-    function setWithdrawDuringRelayedCall(address payable _paymaster) public {
-        paymaster = _paymaster;
+    address payable public verifier;
+
+    function setWithdrawDuringRelayedCall(address payable _verifier) public {
+        verifier = _verifier;
     }
 
     // solhint-disable-next-line no-empty-blocks
@@ -30,10 +46,7 @@ contract TestRecipient {
     event SampleRecipientEmitted(string message, address msgSender, address origin, uint256 msgValue, uint256 balance);
 
     function emitMessage(string memory message) public payable returns (string memory) {
-        if (paymaster != address(0)) {
-            withdrawAllBalance();
-        }
-
+   
         emit SampleRecipientEmitted(message, msg.sender, tx.origin, msg.value, address(this).balance);
         return "emitMessage return value";
     }
@@ -44,9 +57,6 @@ contract TestRecipient {
         return "emitMessage return value";
     }
 
-    function withdrawAllBalance() public {
-        TestPaymasterConfigurableMisbehavior(paymaster).withdrawAllBalance();
-    }
 
     // solhint-disable-next-line no-empty-blocks
     function dontEmitMessage(string memory message) public {}

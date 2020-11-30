@@ -13,7 +13,7 @@ import { ether, sleep } from '../common/Utils'
 import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
-import Paymaster from './compiled/TestPaymasterEverythingAccepted.json'
+import Verifier from './compiled/TestVerifierEverythingAccepted.json'
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
 import SimpleSmartWallet from './compiled/SimpleSmartWallet.json'
@@ -24,7 +24,6 @@ import ContractInteractor from '../relayclient/ContractInteractor'
 import { GSNConfig } from '../relayclient/GSNConfigurator'
 import HttpClient from '../relayclient/HttpClient'
 import HttpWrapper from '../relayclient/HttpWrapper'
-import { constants } from '../common/Constants'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
 
@@ -39,7 +38,8 @@ interface RegisterOptions {
 interface DeployOptions {
   from: Address
   gasPrice: string
-  deployPaymaster?: boolean
+  deployVerifierAddress?: string
+  relayVerifierAddress?: string
   factoryAddress?: string
   simpleFactoryAddress?: string
   sWalletTemplateAddress?: string
@@ -63,7 +63,8 @@ export interface DeploymentResult {
   factoryAddress: Address
   simpleFactoryAddress: Address
   versionRegistryAddress: Address
-  naivePaymasterAddress: Address
+  deployVerifierAddress: Address
+  relayVerifierAddress: Address
 }
 
 interface RegistrationResult {
@@ -131,35 +132,9 @@ export default class CommandsLogic {
     throw Error(`Relay not ready after ${timeout}s`)
   }
 
-  async getPaymasterBalance (paymaster: Address): Promise<BN> {
+  async getVerifierBalance (verifier: Address): Promise<BN> {
     const relayHub = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
-    return await relayHub.balanceOf(paymaster)
-  }
-
-  /**
-   * Send enough ether from the {@param from} to the RelayHub to make {@param paymaster}'s gas deposit exactly {@param amount}.
-   * Does nothing if current paymaster balance exceeds amount.
-   * @param from
-   * @param paymaster
-   * @param amount
-   * @return deposit of the paymaster after
-   */
-  async fundPaymaster (
-    from: Address, paymaster: Address, amount: string | BN
-  ): Promise<BN> {
-    const relayHub = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
-    const targetAmount = new BN(amount)
-    const currentBalance = await relayHub.balanceOf(paymaster)
-    if (currentBalance.lt(targetAmount)) {
-      const value = targetAmount.sub(currentBalance)
-      await relayHub.depositFor(paymaster, {
-        value,
-        from
-      })
-      return targetAmount
-    } else {
-      return currentBalance
-    }
+    return await relayHub.balanceOf(verifier)
   }
 
   async registerRelay (options: RegisterOptions): Promise<RegistrationResult> {
@@ -268,8 +243,6 @@ export default class CommandsLogic {
         sInstance.options.address,
         pInstance.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
-        deployOptions.relayHubConfiguration.gasReserve,
-        deployOptions.relayHubConfiguration.postOverhead,
         deployOptions.relayHubConfiguration.gasOverhead,
         deployOptions.relayHubConfiguration.maximumRecipientDeposit,
         deployOptions.relayHubConfiguration.minimumUnstakeDelay,
@@ -282,14 +255,11 @@ export default class CommandsLogic {
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    let paymasterAddress = constants.ZERO_ADDRESS
-    if (deployOptions.deployPaymaster === true) {
-      const pmInstance = await this.deployPaymaster(Object.assign({}, options), rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
-      paymasterAddress = pmInstance.options.address
-
-      // Overriding saved configuration with newly deployed instances
-      this.config.paymasterAddress = paymasterAddress
-    }
+    const deployVerifierInstance = await this.getContractInstance(Verifier, {}, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const relayVerifierInstance = await this.getContractInstance(Verifier, {}, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    // Overriding saved configuration with newly deployed instances
+    this.config.deployVerifierAddress = deployVerifierInstance.options.address
+    this.config.relayVerifierAddress = relayVerifierInstance.options.address
     this.config.relayHubAddress = rInstance.options.address
 
     return {
@@ -301,7 +271,8 @@ export default class CommandsLogic {
       simpleSWalletTemplateAddress: simpleSwtInstance.options.address,
       simpleFactoryAddress: simplePfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
-      naivePaymasterAddress: paymasterAddress
+      relayVerifierAddress: relayVerifierInstance.options.address,
+      deployVerifierAddress: deployVerifierInstance.options.address
     }
   }
 
@@ -333,10 +304,9 @@ export default class CommandsLogic {
     return contractInstance
   }
 
-  async deployPaymaster (options: Required<SendOptions>, hub: Address, from: string, skipConfirmation: boolean | undefined): Promise<Contract> {
-    const pmInstance = await this.getContractInstance(Paymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
-    await pmInstance.methods.setRelayHub(hub).send(options)
-    return pmInstance
+  async deployVerifier (options: Required<SendOptions>, skipConfirmation: boolean | undefined): Promise<Contract> {
+    const verifierInstance = await this.getContractInstance(Verifier, {}, undefined, Object.assign({}, options), skipConfirmation)
+    return verifierInstance
   }
 
   async confirm (): Promise<void> {

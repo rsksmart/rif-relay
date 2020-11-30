@@ -11,6 +11,7 @@ import { register, stake } from './KnownRelaysManager.test'
 import PingResponse from '../../src/common/PingResponse'
 import { deployHub, getTestingEnvironment } from '../TestUtils'
 import { constants } from '../../src/common/Constants'
+import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -43,16 +44,16 @@ contract('RelaySelectionManager', async function (accounts) {
     pingResponse,
     relayInfo: eventInfo
   }
-  const transactionDetails = {
+  const transactionDetails: GsnTransactionDetails = {
     from: '',
     data: '',
     to: '',
-    forwarder: '',
-    paymaster: '',
+    callForwarder: '',
+    callVerifier: '',
     tokenRecipient: '',
     tokenAmount: '',
     tokenContract: '',
-    factory: ''
+    isSmartWalletDeploy: false
   }
 
   let stubPingResponse: SinonStub

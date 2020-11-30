@@ -9,7 +9,7 @@ pragma solidity ^0.6.12;
 contract BaseRelayRecipient {
 
 
-      function versionPaymaster() external view virtual returns (string memory){
+      function versionVerifier() external view virtual returns (string memory){
         return "2.0.1+opengsn.test-pea.baselerayrecipient";
     }
 }

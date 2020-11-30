@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./IForwarder.sol";
+import "../interfaces/IForwarder.sol";
 import "../utils/RSKAddrValidator.sol";
 
 /* solhint-disable no-inline-assembly */
@@ -17,17 +17,19 @@ contract SmartWallet is IForwarder {
     uint256 public override nonce;
     
 
+  
     /**It will only work if called through Enveloping */
-    function setVersion(bytes32 versionHash) external {
+    function setVersion(bytes32 versionHash) public {
        
         require(
-            getOwner() == keccak256(abi.encodePacked(msg.sender)),
-            "Not the owner of the SmartWallet"
+            address(this) == msg.sender,
+            "Caller must be the SmartWallet"
         );        
         
         currentVersionHash = versionHash;
     }
 
+    
     function verify(
         ForwardRequest memory req,
         bytes32 domainSeparator,
@@ -169,7 +171,7 @@ contract SmartWallet is IForwarder {
 
 
         require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 clientId,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -211,7 +213,6 @@ contract SmartWallet is IForwarder {
                     req.tokenRecipient,
                     req.tokenContract,
                     req.tokenAmount,
-                    req.factory,
                     req.recoverer,
                     req.index
                 ),

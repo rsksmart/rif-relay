@@ -43,8 +43,12 @@ export function getRelayHubConfiguration (configFile: string): RelayHubConfigura
   return JSON.parse(file)
 }
 
-export function getPaymasterAddress (paymaster?: string): string | undefined {
-  return getAddressFromFile('build/gsn/Paymaster.json', paymaster)
+export function getRelayVerifierAddress (verifier?: string): string | undefined {
+  return getAddressFromFile('build/gsn/RelayVerifier.json', verifier)
+}
+
+export function getDeployVerifierAddress (verifier?: string): string | undefined {
+  return getAddressFromFile('build/gsn/DeployVerifier.json', verifier)
 }
 
 export function getRelayHubAddress (defaultAddress?: string): string | undefined {
@@ -82,7 +86,8 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.stakeManagerAddress, workdir, 'StakeManager.json')
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
-  saveContractToFile(deploymentResult.naivePaymasterAddress, workdir, 'Paymaster.json')
+  saveContractToFile(deploymentResult.relayVerifierAddress, workdir, 'RelayVerifier.json')
+  saveContractToFile(deploymentResult.deployVerifierAddress, workdir, 'DeployVerifier.json')
   saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
   saveContractToFile(deploymentResult.simpleSWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
@@ -90,7 +95,7 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
-export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined, paymasterTitle: string | undefined = undefined): void {
+export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined): void {
   if (title != null) {
     console.log(title)
   }
@@ -101,7 +106,8 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
   SmartWallet Template: ${deploymentResult.sWalletTemplateAddress}
   SmartWallet Factory: ${deploymentResult.factoryAddress}
-  Paymaster ${paymasterTitle != null ? '(' + paymasterTitle + ')' : ''}: ${deploymentResult.naivePaymasterAddress}`)
+  Relay Verifier: ${deploymentResult.relayVerifierAddress}
+  Deploy Verifier: ${deploymentResult.deployVerifierAddress}`)
 }
 
 export function loadDeployment (workdir: string): DeploymentResult {
@@ -118,7 +124,8 @@ export function loadDeployment (workdir: string): DeploymentResult {
     simpleSWalletTemplateAddress: getAddress('SimpleSmartWallet'),
     simpleFactoryAddress: getAddress('SimpleProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
-    naivePaymasterAddress: getAddress('Paymaster')
+    relayVerifierAddress: getAddress('RelayVerifier'),
+    deployVerifierAddress: getAddress('DeployVerifier')
   }
 }
 

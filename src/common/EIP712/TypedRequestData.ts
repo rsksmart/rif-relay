@@ -16,13 +16,12 @@ export const EIP712DomainType = [
 
 const RelayDataType = [
   { name: 'gasPrice', type: 'uint256' },
-  { name: 'pctRelayFee', type: 'uint256' },
-  { name: 'baseRelayFee', type: 'uint256' },
+  { name: 'clientId', type: 'uint256' },
+  { name: 'domainSeparator', type: 'bytes32' },
+  { name: 'isSmartWalletDeploy', type: 'bool' },
   { name: 'relayWorker', type: 'address' },
-  { name: 'paymaster', type: 'address' },
-  { name: 'forwarder', type: 'address' },
-  { name: 'paymasterData', type: 'bytes' },
-  { name: 'clientId', type: 'uint256' }
+  { name: 'callForwarder', type: 'address' },
+  { name: 'callVerifier', type: 'address' }
 ]
 
 export const ForwardRequestType = [
@@ -35,7 +34,6 @@ export const ForwardRequestType = [
   { name: 'tokenRecipient', type: 'address' },
   { name: 'tokenContract', type: 'address' },
   { name: 'tokenAmount', type: 'uint256' },
-  { name: 'factory', type: 'address' },
   { name: 'recoverer', type: 'address' },
   { name: 'index', type: 'uint256' }
 ]
@@ -97,9 +95,9 @@ export default class TypedRequestData implements EIP712TypedData {
   }
 }
 
-export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index'
+export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index'
 
 export const GsnRequestType = {
   typeName: 'RelayRequest',
-  typeSuffix: 'RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)'
+  typeSuffix: 'RelayData relayData)RelayData(uint256 gasPrice,uint256 clientId,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)'
 }

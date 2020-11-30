@@ -3,19 +3,19 @@
 import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
 
-import { Transaction } from 'ethereumjs-tx'
+import { Transaction, TransactionOptions } from 'ethereumjs-tx'
 import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
 
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import { getLocalEip712Signature } from '../src/common/Utils'
-import TypedRequestData from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { isRsk, Environment } from '../src/common/Environments'
 import {
   PenalizerInstance,
   RelayHubInstance, StakeManagerInstance,
-  TestPaymasterEverythingAcceptedInstance,
+  TestVerifierEverythingAcceptedInstance,
   TestRecipientInstance,
   SmartWalletInstance,
   ProxyFactoryInstance
@@ -24,6 +24,7 @@ import {
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { getRawTxOptions } from '../src/relayclient/ContractInteractor'
 
 import TransactionResponse = Truffle.TransactionResponse
 
@@ -31,10 +32,8 @@ const RelayHub = artifacts.require('RelayHub')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
+const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
-
-const paymasterData = '0x'
 const clientId = '0'
 
 contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
@@ -44,9 +43,11 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
   let recipient: TestRecipientInstance
-  let paymaster: TestPaymasterEverythingAcceptedInstance
+  let verifier: TestVerifierEverythingAcceptedInstance
   let env: Environment
+  let transactionOptions: TransactionOptions
   let forwarder: string
+  let smartWallet: SmartWalletInstance
   let gaslessAccount: AccountKeypair
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
 
@@ -68,24 +69,22 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         to: recipient.address,
         data: txData,
         from: gaslessAccount.address,
-        nonce: '0',
+        nonce: (await smartWallet.nonce()).toString(),
         value: '0',
         gas: gasLimit.toString(),
         tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
         recoverer: constants.ZERO_ADDRESS,
         index: '0'
       },
       relayData: {
         gasPrice: gasPrice.toString(),
-        baseRelayFee: '300',
-        pctRelayFee: '10',
         relayWorker,
-        forwarder,
-        paymaster: paymaster.address,
-        paymasterData,
+        callForwarder: forwarder,
+        callVerifier: verifier.address,
+        domainSeparator: getDomainSeparatorHash(forwarder, chainId),
+        isSmartWalletDeploy: false,
         clientId
       }
     }
@@ -94,7 +93,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       forwarder,
       relayRequest
     )
-    const signature = await getLocalEip712Signature(
+    const signature = getLocalEip712Signature(
       dataToSign,
       gaslessAccount.privateKey
     )
@@ -159,21 +158,24 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       penalizer = await Penalizer.new()
       relayHub = await deployHub(stakeManager.address, penalizer.address)
       env = await getTestingEnvironment()
+      const networkId = await web3.eth.net.getId()
+      const chain = await web3.eth.net.getNetworkType()
+      transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
+
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
       const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
-      forwarder = forwarderInstance.address
+      smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+      forwarder = smartWallet.address
 
       recipient = await TestRecipient.new()
 
-      paymaster = await TestPaymasterEverythingAccepted.new()
+      verifier = await TestVerifierEverythingAccepted.new()
       await stakeManager.stakeForAddress(relayManager, 1000, {
         from: relayOwner,
         value: ether('1'),
         gasPrice: '1'
       })
       await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
-      await paymaster.setRelayHub(relayHub.address)
       await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
       // @ts-ignore
       Object.keys(StakeManager.events).forEach(function (topic) {
@@ -232,7 +234,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         gasPrice: 50,
         gasLimit: 1000000,
         nonce: 0,
-        paymaster: ''
+        callVerifier: constants.ZERO_ADDRESS
       }
 
       // RSK requires a different relay's private key, original was '6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c'
@@ -251,7 +253,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         // @ts-ignore
         expect('0x' + privateToAddress('0x' + relayCallArgs.privateKey).toString('hex')).to.equal(relayWorker.toLowerCase())
         // TODO: I don't want to refactor everything here, but this value is not available before 'before' is run :-(
-        encodedCallArgs.paymaster = paymaster.address
+        encodedCallArgs.callVerifier = verifier.address
       })
 
       beforeEach('staking for relay', async function () {
@@ -351,6 +353,25 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       })
 
       describe('illegal call', function () {
+        it('does not penalize legal relay transactions', async function () {
+          const env: Environment = await getTestingEnvironment()
+
+          // relayCall is a legal transaction
+          const { gasPrice, gasLimit, relayRequest, signature } = await prepareRelayCall()
+
+          const relayCallTx = await relayHub.relayCall(relayRequest, signature, {
+            from: relayWorker,
+            gas: gasLimit.add(new BN(1e6)),
+            gasPrice
+          })
+
+          const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
+          await expectRevert.unspecified(
+            penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, { from: reporterRelayManager, gasPrice: 1 }),
+            'Legal relay transaction'
+          )
+        })
+
         // TODO: this tests are excessive, and have a lot of tedious build-up
         it('penalizes relay transactions to addresses other than RelayHub', async function () {
           const env: Environment = await getTestingEnvironment()
@@ -382,16 +403,13 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(data, signature, relayHub.address, opts), rskDifference)
         })
 
-        it('should penalize relays for lying about transaction gas limit RelayHub', async function () {
+        // External Gas limit was removed from relayCall
+        it.skip('should penalize relays for lying about transaction gas limit RelayHub', async function () {
           const env: Environment = await getTestingEnvironment()
 
           const { gasPrice, gasLimit, relayRequest, signature } = await prepareRelayCall()
-          await relayHub.depositFor(paymaster.address, {
-            from: other,
-            value: ether('1'),
-            gasPrice: '1'
-          })
-          const relayCallTx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gasLimit.add(new BN(2e6)), {
+
+          const relayCallTx = await relayHub.relayCall(relayRequest, signature, {
             from: relayWorker,
             gas: gasLimit.add(new BN(1e6)),
             gasPrice
@@ -403,70 +421,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
-          )
-        })
-
-        it('does not penalize legal relay transactions', async function () {
-          const env: Environment = await getTestingEnvironment()
-
-          // relayCall is a legal transaction
-          const baseFee = new BN('300')
-          const fee = new BN('10')
-          const gasPrice = new BN('1')
-          const gasLimit = new BN('1000000')
-          const senderNonce = new BN('0')
-          const txData = recipient.contract.methods.emitMessage('').encodeABI()
-          const relayRequest: RelayRequest = {
-            request: {
-              to: recipient.address,
-              data: txData,
-              from: gaslessAccount.address,
-              nonce: senderNonce.toString(),
-              value: '0',
-              gas: gasLimit.toString(),
-              tokenRecipient: constants.ZERO_ADDRESS,
-              tokenContract: constants.ZERO_ADDRESS,
-              tokenAmount: '0',
-              factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
-              recoverer: constants.ZERO_ADDRESS,
-              index: '0'
-            },
-            relayData: {
-              gasPrice: gasPrice.toString(),
-              baseRelayFee: baseFee.toString(),
-              pctRelayFee: fee.toString(),
-              relayWorker,
-              forwarder,
-              paymaster: paymaster.address,
-              paymasterData,
-              clientId
-            }
-          }
-          const dataToSign = new TypedRequestData(
-            env.chainId,
-            forwarder,
-            relayRequest
-          )
-          const signature = await getLocalEip712Signature(
-            dataToSign,
-            gaslessAccount.privateKey
-          )
-          await relayHub.depositFor(paymaster.address, {
-            from: other,
-            value: ether('1'),
-            gasPrice: '1'
-          })
-          const externalGasLimit = gasLimit.add(new BN(1e6))
-          const relayCallTx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', externalGasLimit, {
-            from: relayWorker,
-            gas: externalGasLimit,
-            gasPrice
-          })
-
-          const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
-          await expectRevert.unspecified(
-            penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, { from: reporterRelayManager }),
-            'Legal relay transaction'
           )
         })
       })
@@ -509,9 +463,6 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
               value: ether('1'),
               gasPrice: '1'
             })
-          })
-
-          before(async function () {
             await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
             await relayHub.addRelayWorkers([thirdRelayWorker], { from: relayManager, gasPrice: '1' })
           })
@@ -549,22 +500,20 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             tokenRecipient: constants.ZERO_ADDRESS,
             tokenContract: constants.ZERO_ADDRESS,
             tokenAmount: '0',
-            factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
             recoverer: constants.ZERO_ADDRESS,
             index: '0'
           },
           relayData: {
-            baseRelayFee: encodedCallArgs.baseFee.toString(),
-            pctRelayFee: encodedCallArgs.fee.toString(),
             gasPrice: encodedCallArgs.gasPrice.toString(),
             relayWorker,
-            forwarder,
-            paymaster: encodedCallArgs.paymaster,
-            paymasterData,
+            isSmartWalletDeploy: false,
+            domainSeparator: getDomainSeparatorHash(forwarder, env.chainId),
+            callForwarder: forwarder,
+            callVerifier: encodedCallArgs.callVerifier,
             clientId
           }
         }
-      const encodedCall = relayHub.contract.methods.relayCall(10e6, relayRequest, '0xabcdef123456', '0x', 4e6).encodeABI()
+      const encodedCall = relayHub.contract.methods.relayCall(relayRequest, '0xabcdef123456').encodeABI()
 
       const transaction = new Transaction({
         nonce: relayCallArgs.nonce,
@@ -573,7 +522,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         to: relayHub.address,
         value: relayCallArgs.value,
         data: encodedCall
-      }, { chainId: env.chainId })
+      }, transactionOptions)
 
       transaction.sign(Buffer.from(relayCallArgs.privateKey, 'hex'))
       return transaction
@@ -607,7 +556,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         r: rpcTx.r,
         // @ts-ignore
         s: rpcTx.s
-      })
+      }, transactionOptions)
 
       return getDataAndSignature(tx, env.chainId)
     }
@@ -622,7 +571,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           stripZeros(toBuffer(0))
         )
       }
-      let v = tx.v[0]
+      let v = parseInt(tx.v.toString('hex'), 16)
       if (v > 28) {
         v -= chainId * 2 + 8
       }

@@ -8,7 +8,7 @@ import { RelayProvider } from '../src/relayclient/RelayProvider'
 import { Address, AsyncDataCallback } from '../src/relayclient/types/Aliases'
 import {
   RelayHubInstance, StakeManagerInstance,
-  TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
+  TestVerifierEverythingAcceptedInstance, TestVerifierPreconfiguredApprovalInstance,
   TestRecipientInstance,
   SmartWalletInstance,
   ProxyFactoryInstance
@@ -20,8 +20,8 @@ import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
-const TestPaymasterPreconfiguredApproval = artifacts.require('tests/TestPaymasterPreconfiguredApproval')
+const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
+const TestVerifierPreconfiguredApproval = artifacts.require('tests/TestVerifierPreconfiguredApproval')
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -42,16 +42,19 @@ options.forEach(params => {
   contract(params.title + 'Flow', function (accounts) {
     let from: Address
     let sr: TestRecipientInstance
-    let paymaster: TestPaymasterEverythingAcceptedInstance
+    let verifier: TestVerifierEverythingAcceptedInstance
     let rhub: RelayHubInstance
     let sm: StakeManagerInstance
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<GSNConfig>
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
+    let approvalVerifier: TestVerifierPreconfiguredApprovalInstance
 
     before(async () => {
       const gasPriceFactor = 1.2
+
+      approvalVerifier = await TestVerifierPreconfiguredApproval.new()
 
       // An accound already funded on RSK
       fundedAccount = {
@@ -64,6 +67,8 @@ options.forEach(params => {
 
       sm = await StakeManager.new()
       const p = await Penalizer.new()
+      verifier = await TestVerifierEverythingAccepted.new()
+
       rhub = await deployHub(sm.address, p.address)
       if (params.relay) {
         relayproc = await startRelay(rhub.address, sm, {
@@ -75,17 +80,17 @@ options.forEach(params => {
           // @ts-ignore
           ethereumNodeUrl: web3.currentProvider.host,
           gasPriceFactor,
-          relaylog: process.env.relaylog
+          relaylog: process.env.relaylog,
+          relayVerifierAddress: verifier.address,
+          deployVerifierAddress: verifier.address,
+          trustedVerifiers: JSON.stringify([approvalVerifier.address]) // extra verifiers to trust
         })
         console.log('relay started')
         from = gaslessAccount.address
       } else {
         from = fundedAccount.address
       }
-
       sr = await TestRecipient.new()
-      paymaster = await TestPaymasterEverythingAccepted.new()
-      await paymaster.setRelayHub(rhub.address)
     })
 
     after(async function () {
@@ -94,8 +99,6 @@ options.forEach(params => {
 
     if (params.relay) {
       before(params.title + 'enable relay', async function () {
-        await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
-
         const env = await getTestingEnvironment()
         const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
         const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
@@ -103,7 +106,8 @@ options.forEach(params => {
         relayClientConfig = {
           logLevel: 5,
           relayHubAddress: rhub.address,
-          paymasterAddress: paymaster.address,
+          relayVerifierAddress: verifier.address,
+          deployVerifierAddress: verifier.address,
           chainId: env.chainId,
           forwarderAddress: smartWalletInstance.address
         }
@@ -163,23 +167,19 @@ options.forEach(params => {
     })
 
     if (params.relay) {
-      let approvalPaymaster: TestPaymasterPreconfiguredApprovalInstance
       let relayProvider: RelayProvider
 
       describe('request with approvaldata', () => {
-        before(async function () {
-          approvalPaymaster = await TestPaymasterPreconfiguredApproval.new()
-          await approvalPaymaster.setRelayHub(rhub.address)
-          await rhub.depositFor(approvalPaymaster.address, { value: (1e18).toString() })
-        })
-
         const setRecipientProvider = function (asyncApprovalData: AsyncDataCallback): void {
           // @ts-ignore
-          relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig, { asyncApprovalData })
+          relayProvider = new RelayProvider(web3.currentProvider, Object.assign(relayClientConfig, {
+            relayVerifierAddress: approvalVerifier.address,
+            deployVerifierAddress: approvalVerifier.address
+          }), { asyncApprovalData })
 
           TestRecipient.web3.setProvider(relayProvider)
-          TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
-          TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
+          TestVerifierPreconfiguredApproval.web3.setProvider(relayProvider)
+          TestVerifierEverythingAccepted.web3.setProvider(relayProvider)
 
           relayProvider.addAccount(gaslessAccount)
         }
@@ -188,20 +188,20 @@ options.forEach(params => {
           try {
             setRecipientProvider(async () => await Promise.resolve('0x414243'))
 
-            await approvalPaymaster.setExpectedApprovalData('0x414243', {
+            await approvalVerifier.setExpectedApprovalData('0x414243', {
               from: fundedAccount.address,
               useGSN: false
             })
 
             await sr.emitMessage('xxx', {
               from: gaslessAccount.address,
-              paymaster: approvalPaymaster.address
+              callVerifier: approvalVerifier.address
             })
           } catch (e) {
             console.log('error1: ', e)
             throw e
           } finally {
-            await approvalPaymaster.setExpectedApprovalData('0x', {
+            await approvalVerifier.setExpectedApprovalData('0x', {
               from: fundedAccount.address,
               useGSN: false
             })
@@ -213,7 +213,7 @@ options.forEach(params => {
           await asyncShouldThrow(async () => {
             await sr.emitMessage('xxx', {
               from: gaslessAccount.address,
-              paymaster: approvalPaymaster.address
+              callVerifier: approvalVerifier.address
             })
           }, 'approval-exception')
         })
@@ -221,7 +221,7 @@ options.forEach(params => {
         it(params.title + 'fail on no approval data', async () => {
           try {
             // @ts-ignore
-            await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
+            await approvalVerifier.setExpectedApprovalData(Buffer.from('hello1'), {
               from: fundedAccount.address,
               useGSN: false
             })
@@ -230,15 +230,15 @@ options.forEach(params => {
 
               await sr.emitMessage('xxx', {
                 from: gaslessAccount.address,
-                paymaster: approvalPaymaster.address
+                callVerifier: approvalVerifier.address
               })
-            }, 'unexpected approvalData: \'\' instead of')
+            }, 'verifier rejected in local view call to \'relayCall()\'')
           } catch (e) {
             console.log('error3: ', e)
             throw e
           } finally {
             // @ts-ignore
-            await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
+            await approvalVerifier.setExpectedApprovalData(Buffer.from(''), {
               from: fundedAccount.address,
               useGSN: false
             })

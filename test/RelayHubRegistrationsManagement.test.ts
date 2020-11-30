@@ -4,14 +4,12 @@ import BN from 'bn.js'
 import {
   PenalizerInstance,
   RelayHubInstance,
-  StakeManagerInstance,
-  TestPaymasterEverythingAcceptedInstance
+  StakeManagerInstance
 } from '../types/truffle-contracts'
 import { deployHub } from './TestUtils'
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 
 contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, relayWorker1, relayWorker2, relayWorker3]) {
   const baseRelayFee = new BN('10')
@@ -19,7 +17,6 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   const relayUrl = 'http://new-relay.com'
 
   let relayHub: RelayHubInstance
-  let paymaster: TestPaymasterEverythingAcceptedInstance
   let stakeManager: StakeManagerInstance
   let penalizer: PenalizerInstance
 
@@ -27,8 +24,6 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
     relayHub = await deployHub(stakeManager.address, penalizer.address)
-    paymaster = await TestPaymasterEverythingAccepted.new()
-    await paymaster.setRelayHub(relayHub.address)
   })
 
   context('without stake for relayManager', function () {

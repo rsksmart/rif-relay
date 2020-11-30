@@ -2,9 +2,9 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./TestPaymasterEverythingAccepted.sol";
+import "./TestVerifierEverythingAccepted.sol";
 
-contract TestPaymasterPreconfiguredApproval is TestPaymasterEverythingAccepted {
+contract TestVerifierPreconfiguredApproval is TestVerifierEverythingAccepted {
 
     bytes public expectedApprovalData;
 
@@ -20,11 +20,11 @@ contract TestPaymasterPreconfiguredApproval is TestPaymasterEverythingAccepted {
     )
     external
     override
-    returns (bytes memory, bool) {
+    returns (bytes memory) {
         (relayRequest, signature, approvalData, maxPossibleGas);
         require(keccak256(expectedApprovalData) == keccak256(approvalData),
             string(abi.encodePacked(
                 "test: unexpected approvalData: '", approvalData, "' instead of '", expectedApprovalData, "'")));
-        return ("",false);
+        return ("");
     }
 }

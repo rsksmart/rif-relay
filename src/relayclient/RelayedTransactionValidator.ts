@@ -33,9 +33,7 @@ export default class RelayedTransactionValidator {
     log.info('returnedTx is', transaction.v, transaction.r, transaction.s, transaction.to, transaction.data, transaction.gasLimit, transaction.gasPrice, transaction.value)
 
     const signer = bufferToHex(transaction.getSenderAddress())
-
-    const externalGasLimit = bufferToHex(transaction.gasLimit)
-    const relayRequestAbiEncode = this.contractInteractor.encodeABI(maxAcceptanceBudget, request.relayRequest, request.metadata.signature, request.metadata.approvalData, externalGasLimit)
+    const relayRequestAbiEncode = this.contractInteractor.encodeABI(request.relayRequest, request.metadata.signature)
 
     if (
       isSameAddress(bufferToHex(transaction.to), this.config.relayHubAddress) &&

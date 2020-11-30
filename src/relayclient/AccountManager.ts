@@ -9,7 +9,6 @@ import { GSNConfig } from './GSNConfigurator'
 import { HttpProvider } from 'web3-core'
 import Web3 from 'web3'
 import TypedRequestData from '../common/EIP712/TypedRequestData'
-import { constants } from '../common/Constants'
 
 require('source-map-support').install({ errorFormatterForce: true })
 export interface AccountKeypair {
@@ -55,28 +54,17 @@ export default class AccountManager {
   }
 
   async sign (relayRequest: RelayRequest): Promise<PrefixedHexString> {
-    let signature
-    const forwarder = relayRequest.relayData.forwarder
-
     const cloneRequest = { ...relayRequest }
-    let signedData
 
-    if (relayRequest.request.factory === undefined || relayRequest.request.factory == null || relayRequest.request.factory === constants.ZERO_ADDRESS) {
-      signedData = new TypedRequestData(
-        this.chainId,
-        forwarder,
-        cloneRequest
-      )
-    } else {
-      signedData = new TypedRequestData(
-        this.chainId,
-        relayRequest.request.factory,
-        cloneRequest
-      )
-    }
+    const signedData = new TypedRequestData(
+      this.chainId,
+      relayRequest.relayData.callForwarder,
+      cloneRequest
+    )
 
     const keypair = this.accounts.find(account => isSameAddress(account.address, relayRequest.request.from))
     let rec: Address
+    let signature: string
 
     try {
       if (keypair != null) {

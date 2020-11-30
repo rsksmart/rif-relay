@@ -7,9 +7,9 @@ import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import {
   RelayHubInstance,
   StakeManagerInstance,
-  TestPaymasterConfigurableMisbehaviorInstance,
+  TestVerifierConfigurableMisbehaviorInstance,
   TestRecipientInstance,
-  SmartWalletInstance, ProxyFactoryInstance
+  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
@@ -18,9 +18,10 @@ import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegis
 import { Environment } from '../../src/common/Environments'
 import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
+import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
@@ -41,10 +42,10 @@ contract('KnownRelaysManager', function (
   [
     activeRelayWorkersAdded,
     activeRelayServerRegistered,
-    activePaymasterRejected,
+    activeVerifierRejected,
     activeTransactionRelayed,
     notActiveRelay,
-    workerPaymasterRejected,
+    workerVerifierRejected,
     workerTransactionRelayed,
     owner
   ]) {
@@ -56,7 +57,7 @@ contract('KnownRelaysManager', function (
     let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
     let testRecipient: TestRecipientInstance
-    let paymaster: TestPaymasterConfigurableMisbehaviorInstance
+    let verifier: TestVerifierConfigurableMisbehaviorInstance
     let workerRelayWorkersAdded
     let workerRelayServerRegistered
     let workerNotActive
@@ -65,6 +66,7 @@ contract('KnownRelaysManager', function (
     let sWalletTemplate: SmartWalletInstance
     let smartWallet: SmartWalletInstance
     let env: Environment
+    let token: TestTokenInstance
 
     before(async function () {
       env = await getTestingEnvironment()
@@ -78,6 +80,10 @@ contract('KnownRelaysManager', function (
         relayLookupWindowBlocks,
         chainId: env.chainId
       })
+
+      const tTokenArtifact = artifacts.require('TestToken')
+      token = await tTokenArtifact.new()
+
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       const senderAddress: AccountKeypair = await getGaslessAccount()
 
@@ -85,24 +91,21 @@ contract('KnownRelaysManager', function (
 
       testRecipient = await TestRecipient.new()
       sWalletTemplate = await SmartWallet.new()
+      await token.mint('1000', sWalletTemplate.address)
       factory = await createProxyFactory(sWalletTemplate)
       smartWallet = await createSmartWallet(senderAddress.address, factory, senderAddress.privateKey, env.chainId)
       // register hub's RelayRequest with forwarder, if not already done.
 
-      paymaster = await TestPaymasterConfigurableMisbehavior.new()
-      // await paymaster.setTrustedForwarder(smartWallet.address)//TODO REMOVE
-      await paymaster.setRelayHub(relayHub.address)
-      await paymaster.deposit({ value: ether('1') })
+      verifier = await TestVerifierConfigurableMisbehavior.new()
+      // await verifier.setTrustedForwarder(smartWallet.address)//TODO REMOVE
       await stake(stakeManager, relayHub, activeRelayWorkersAdded, owner)
       await stake(stakeManager, relayHub, activeRelayServerRegistered, owner)
-      await stake(stakeManager, relayHub, activePaymasterRejected, owner)
+      await stake(stakeManager, relayHub, activeVerifierRejected, owner)
       await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
       await stake(stakeManager, relayHub, notActiveRelay, owner)
 
-      const other = await getGaslessAccount()
-      const nextNonce = (await smartWallet.nonce()).toString()
-      const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
-      const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)
+      let nextNonce = (await smartWallet.nonce()).toString()
+      const txTransactionRelayed = await prepareTransaction(testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, workerRelayWorkersAdded, '1')
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {
@@ -114,11 +117,11 @@ contract('KnownRelaysManager', function (
       await relayHub.addRelayWorkers([workerTransactionRelayed], {
         from: activeTransactionRelayed
       })
-      await relayHub.addRelayWorkers([workerPaymasterRejected], {
-        from: activePaymasterRejected
+      await relayHub.addRelayWorkers([workerVerifierRejected], {
+        from: activeVerifierRejected
       })
       await relayHub.registerRelayServer('0', '0', '', { from: activeTransactionRelayed })
-      await relayHub.registerRelayServer('0', '0', '', { from: activePaymasterRejected })
+      await relayHub.registerRelayServer('0', '0', '', { from: activeVerifierRejected })
 
       await evmMineMany(relayLookupWindowBlocks)
       /** events that are supposed to be visible to the manager */
@@ -126,16 +129,20 @@ contract('KnownRelaysManager', function (
       await relayHub.addRelayWorkers([workerRelayWorkersAdded], {
         from: activeRelayWorkersAdded
       })
-      await relayHub.relayCall(10e6, txTransactionRelayed.relayRequest, txTransactionRelayed.signature, '0x', gas, {
+      await relayHub.relayCall(txTransactionRelayed.relayRequest, txTransactionRelayed.signature, {
         from: workerTransactionRelayed,
         gas,
         gasPrice: txTransactionRelayed.relayRequest.relayData.gasPrice
       })
-      await paymaster.setReturnInvalidErrorCode(true)
-      await relayHub.relayCall(10e6, txPaymasterRejected.relayRequest, txPaymasterRejected.signature, '0x', gas, {
-        from: workerPaymasterRejected,
+      await verifier.setReturnInvalidErrorCode(true)
+
+      nextNonce = (await smartWallet.nonce()).toString()
+      const txVerifierRejected = await prepareTransaction(testRecipient, senderAddress, workerVerifierRejected, verifier.address, nextNonce, smartWallet.address, token.address, workerRelayWorkersAdded, '1')
+
+      await relayHub.relayCall(txVerifierRejected.relayRequest, txVerifierRejected.signature, {
+        from: workerVerifierRejected,
         gas,
-        gasPrice: txPaymasterRejected.relayRequest.relayData.gasPrice
+        gasPrice: txVerifierRejected.relayRequest.relayData.gasPrice
       })
     })
 
@@ -148,25 +155,25 @@ contract('KnownRelaysManager', function (
         assert.equal(actual[0], activeRelayServerRegistered)
         assert.equal(actual[1], activeRelayWorkersAdded)
         assert.equal(actual[2], activeTransactionRelayed)
-        assert.equal(actual[3], activePaymasterRejected)
+        assert.equal(actual[3], activeVerifierRejected)
       })
   })
 })
 
 contract('KnownRelaysManager 2', function (accounts) {
   let contractInteractor: ContractInteractor
-  const transactionDetails = {
+  const transactionDetails: GsnTransactionDetails = {
     gas: '0x10000',
     gasPrice: '0x300000',
     from: '',
     data: '',
     to: '',
-    forwarder: '',
-    paymaster: '',
+    callForwarder: '',
+    callVerifier: '',
     tokenRecipient: '',
     tokenAmount: '',
     tokenContract: '',
-    factory: ''
+    isSmartWalletDeploy: false
   }
 
   before(async function () {

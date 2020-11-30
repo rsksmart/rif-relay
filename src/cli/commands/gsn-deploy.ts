@@ -15,6 +15,8 @@ gsnCommander(['n', 'f', 'm', 'g'])
   .option('-w, --workdir <directory>', 'relative work directory (defaults to build/gsn/)', 'build/gsn')
   .option('--factory <address>', 'address of the Smart Wallet factory deployed to the current network (optional; deploys new one by default)')
   .option('--sWalletTemplate <address>', 'address of the Smart Wallet template to be instantiated by the factory deployed to the current network (optional; deploys new one by default)')
+  .option('--deployVerifier <address>', 'address of the logic used to verify a deploy request (optional); deploys new one by default')
+  .option('--relayVerifier <address>', 'address of the logic used to verify a relay request (optional); deploys new one by default')
   .option('--stakeManager <address>', 'stakeManager')
   .option('--relayHub <address>', 'relayHub')
   .option('--penalizer <address>', 'penalizer')
@@ -45,7 +47,8 @@ gsnCommander(['n', 'f', 'm', 'g'])
     from,
     gasPrice,
     relayHubConfiguration,
-    deployPaymaster: true,
+    deployVerifierAddress: commander.deployVerifier,
+    relayVerifierAddress: commander.relayVerifier,
     verbose: true,
     skipConfirmation: commander.skipConfirmation,
     factoryAddress: commander.factory,
@@ -56,9 +59,8 @@ gsnCommander(['n', 'f', 'm', 'g'])
     registryAddress: commander.registry,
     registryHubId: commander.registryHubId
   })
-  const paymasterName = 'Default'
 
-  showDeployment(deploymentResult, `Deployed GSN to network: ${network}`, paymasterName)
+  showDeployment(deploymentResult, `Deployed GSN to network: ${network}`)
   saveDeployment(deploymentResult, commander.workdir)
   process.exit(0)
 })().catch(

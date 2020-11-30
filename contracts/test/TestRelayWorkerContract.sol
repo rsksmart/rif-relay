@@ -9,12 +9,10 @@ contract TestRelayWorkerContract {
 
     function relayCall(
         IRelayHub hub,
-        uint maxAcceptanceBudget,
         GsnTypes.RelayRequest memory relayRequest,
-        bytes memory signature,
-        uint externalGasLimit)
+        bytes memory signature)
     public
     {
-        hub.relayCall{gas:externalGasLimit}(maxAcceptanceBudget, relayRequest, signature, "", externalGasLimit);
+        hub.relayCall(relayRequest, signature);
     }
 }

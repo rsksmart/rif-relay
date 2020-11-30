@@ -2,7 +2,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../forwarder/IForwarder.sol";
+import "../interfaces/IForwarder.sol";
 
 interface ISmartWalletFactory {
 

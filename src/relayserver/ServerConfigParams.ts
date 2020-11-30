@@ -31,10 +31,11 @@ export interface ServerConfigParams {
   alertedBlockDelay: number
   minAlertedDelayMS: number
   maxAlertedDelayMS: number
-  trustedPaymasters: Address[]
+  trustedVerifiers: Address[]
   gasPriceFactor: number
   logLevel: LogLevelNumbers
-
+  deployVerifierAddress: Address
+  relayVerifierAddress: Address
   workerMinBalance: number
   workerTargetBalance: number
   managerMinBalance: number
@@ -64,7 +65,9 @@ const serverDefaultConfiguration: ServerConfigParams = {
   maxAlertedDelayMS: 0,
   maxAcceptanceBudget: 2e5,
   relayHubAddress: constants.ZERO_ADDRESS,
-  trustedPaymasters: [],
+  relayVerifierAddress: constants.ZERO_ADDRESS,
+  deployVerifierAddress: constants.ZERO_ADDRESS,
+  trustedVerifiers: [],
   gasPriceFactor: 1,
   registrationBlockRate: 0,
   workerMinBalance: 0.1e18,
@@ -121,7 +124,9 @@ const ConfigParamsTypes = {
   minHubWithdrawalBalance: 'number',
   defaultGasLimit: 'number',
 
-  trustedPaymasters: 'list'
+  trustedVerifiers: 'string',
+  relayVerifierAddress: 'string',
+  deployVerifierAddress: 'string'
 
 } as any
 

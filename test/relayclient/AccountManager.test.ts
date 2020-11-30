@@ -113,18 +113,16 @@ contract('AccountManager', function (accounts) {
         tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
         recoverer: constants.ZERO_ADDRESS,
         index: '0'
       },
       relayData: {
-        pctRelayFee: '1',
-        baseRelayFee: '1',
         gasPrice: '1',
         relayWorker: constants.ZERO_ADDRESS,
-        forwarder: constants.ZERO_ADDRESS,
-        paymaster: constants.ZERO_ADDRESS,
-        paymasterData: '0x',
+        callForwarder: constants.ZERO_ADDRESS,
+        callVerifier: constants.ZERO_ADDRESS,
+        isSmartWalletDeploy: false,
+        domainSeparator: '0x',
         clientId: '1'
       }
     }

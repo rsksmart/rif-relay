@@ -21,26 +21,24 @@ export const RelayTransactionRequestShape = {
     request: {
       from: ow.string,
       to: ow.string,
-      data: ow.string,
       value: ow.string,
-      nonce: ow.string,
       gas: ow.string,
+      nonce: ow.string,
+      data: ow.string,
       tokenRecipient: ow.string,
       tokenContract: ow.string,
       tokenAmount: ow.string,
-      factory: ow.string, // only set if this is a deploy request
-      recoverer: ow.string, // only used if factory is set
-      index: ow.string // only used if factory is set
+      recoverer: ow.string,
+      index: ow.string
     },
     relayData: {
       gasPrice: ow.string,
-      pctRelayFee: ow.string,
-      baseRelayFee: ow.string,
-      relayWorker: ow.string,
-      paymaster: ow.string,
-      paymasterData: ow.string,
       clientId: ow.string,
-      forwarder: ow.string
+      domainSeparator: ow.string,
+      isSmartWalletDeploy: ow.boolean,
+      relayWorker: ow.string,
+      callForwarder: ow.string,
+      callVerifier: ow.string
     }
   },
   metadata: {
