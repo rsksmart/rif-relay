@@ -9,7 +9,7 @@ import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IForwarderInstance,
   IRelayHubInstance,
-  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance
+  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance, SmartWalletInstance, TestTokenRecipientInstance
 } from '../../types/truffle-contracts'
 import {
   assertRelayAdded,
@@ -38,7 +38,7 @@ import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 
@@ -46,7 +46,7 @@ abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(StakeManagerABI)
 abiDecoder.addABI(PayMasterABI)
 // @ts-ignore
-abiDecoder.addABI(TestRecipient.abi)
+abiDecoder.addABI(TestTokenRecipient.abi)
 // @ts-ignore
 abiDecoder.addABI(TestPaymasterEverythingAccepted.abi)
 export const LocalhostOne = 'http://localhost:8090'
@@ -64,7 +64,7 @@ export class ServerTestEnvironment {
   relayHub!: IRelayHubInstance
   forwarder!: IForwarderInstance
   paymaster!: TestPaymasterEverythingAcceptedInstance
-  recipient!: TestRecipientInstance
+  tokenRecipient!: TestTokenRecipientInstance
 
   relayOwner!: Address
   gasLess!: Address
@@ -100,17 +100,18 @@ export class ServerTestEnvironment {
   async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
     this.stakeManager = await StakeManager.new()
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
-    this.recipient = await TestRecipient.new()
+    this.tokenRecipient = await TestTokenRecipient.new()
     this.paymaster = await TestPaymasterEverythingAccepted.new()
 
     // await this.paymaster.setTrustedForwarder(this.forwarder.address)
     await this.paymaster.setRelayHub(this.relayHub.address)
     await this.paymaster.deposit({ value: this.web3.utils.toWei('1', 'ether') })
 
-    this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
-
     const gaslessAccount = await getGaslessAccount()
     this.gasLess = gaslessAccount.address
+
+    // this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
+    this.encodedFunction = this.tokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
 
     const sWalletTemplate = await SmartWallet.new()
     const factory = await createProxyFactory(sWalletTemplate)
@@ -132,7 +133,7 @@ export class ServerTestEnvironment {
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
 
-    // Regisgter gasless account to avoid signing with RSKJ
+    // Register gasless account to avoid signing with RSKJ
     this.relayClient.accountManager.addAccount(gaslessAccount)
   }
 
@@ -211,7 +212,7 @@ export class ServerTestEnvironment {
 
     const gsnTransactionDetails: GsnTransactionDetails = {
       from: this.gasLess,
-      to: this.recipient.address,
+      to: this.tokenRecipient.address,
       data: this.encodedFunction,
       paymaster: this.paymaster.address,
       forwarder: this.forwarder.address,
@@ -230,6 +231,8 @@ export class ServerTestEnvironment {
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
   }> {
+    const toMint = overrideDetails.forwarder ?? this.forwarder.address
+    await this.tokenRecipient.mint('200', toMint)
     const req = await this.createRelayHttpRequest(overrideDetails)
     const signedTx = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
@@ -254,16 +257,20 @@ export class ServerTestEnvironment {
       throw new Error('Transaction Receipt not found')
     }
     const sender = overrideDetails.from ?? this.gasLess
+    const tokenPayer = overrideDetails.forwarder ?? this.forwarder.address
     const decodedLogs = abiDecoder.decodeLogs(receipt.logs).map(this.relayServer.registrationManager._parseEvent)
-    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'SampleRecipientEmitted')
-    assert.exists(event1, 'SampleRecipientEmitted not found, maybe transaction was not relayed successfully')
-    assert.equal(event1.args.message, 'hello world')
+    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'Transfer')
+    assert.exists(event1, 'Transfer not found, maybe transaction was not relayed successfully')
+    assert.equal(event1.args.value, '5')
+    assert.equal(event1.args.from.toLowerCase(), tokenPayer.toLowerCase())
+    assert.equal(event1.args.to.toLowerCase(), this.gasLess.toLowerCase())
+
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')
     assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
     assert.equal(event2.args.from.toLowerCase(), sender.toLowerCase())
-    assert.equal(event2.args.to.toLowerCase(), this.recipient.address.toLowerCase())
+    assert.equal(event2.args.to.toLowerCase(), this.tokenRecipient.address.toLowerCase())
     assert.equal(event2.args.paymaster.toLowerCase(), this.paymaster.address.toLowerCase())
   }
 }
