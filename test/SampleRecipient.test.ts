@@ -22,7 +22,7 @@ contract('SampleRecipient', function (accounts) {
   let gaslessAccount: AccountKeypair
 
   before(async function () {
-    gaslessAccount = getGaslessAccount()
+    gaslessAccount = await getGaslessAccount()
     const env = await getTestingEnvironment()
     const chainId = env.chainId
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()

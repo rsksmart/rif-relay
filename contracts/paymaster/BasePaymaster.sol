@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.10;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -51,7 +51,7 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
      * modifier to be used by recipients as access control protection for preRelayedCall & postRelayedCall
      */
     modifier relayHubOnly() {
-        require(msg.sender == getHubAddr(), "Function can only be called by RelayHub");
+        require(msg.sender == getHubAddr(), "Caller is not the RelayHub");
         _;
     }
 

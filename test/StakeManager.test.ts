@@ -85,7 +85,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
           value: initialStake,
           from: relayManager
         }),
-        'relayManager cannot stake for itself'
+        'caller is the relayManager'
       )
     })
 

@@ -74,30 +74,15 @@ PC | OPCODE|   Mnemonic     |   Stack [top, bottom]                       | Comm
 The Forwarder itself is a Template with portions delegated to a custom logic (it is also a proxy) */
 contract ProxyFactory is IProxyFactory {
     using ECDSA for bytes32;
-
-    bytes32 public constant DOMAIN_NAME = keccak256(
-        "RSK Enveloping Transaction"
-    );
-
-    bytes32 public constant REQUEST_TYPE_HASH = keccak256(
-        "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)"
-    );
-    bytes32 public constant EIP712DOMAIN_TYPEHASH = keccak256(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    );
-
-    bytes9 private constant CONSTR = hex"602D3D8160093D39F3";
+ 
     bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
     bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
-
     address public masterCopy; // this is the ForwarderProxy contract that will be proxied
     address public contractOwner;
+    bytes32 public currentVersionHash;
+
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
-
-    bytes32 public currentVersionHash;
-    bytes32 public runtimeCodeHash;
-    
 
     /**
      * @param forwarderTemplate It implements all the payment and execution needs,
@@ -108,10 +93,6 @@ contract ProxyFactory is IProxyFactory {
      */
     constructor(address forwarderTemplate, bytes32 versionHash) public {
         masterCopy = forwarderTemplate;
-
-        runtimeCodeHash = keccak256(
-            abi.encodePacked(RUNTIME_START, forwarderTemplate, RUNTIME_END)
-        );
         currentVersionHash = versionHash;
         contractOwner = msg.sender;
     }
@@ -121,11 +102,17 @@ contract ProxyFactory is IProxyFactory {
         _;
     }
 
+    function runtimeCodeHash() external view returns (bytes32){
+        return keccak256(
+            abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END)
+        );
+    }
+
     function setVersion(bytes32 versionHash) external onlyOwner {
         currentVersionHash = versionHash;
     }
 
-    function getNonce(address from) public override view returns (uint256) {
+    function nonce(address from) public override view returns (uint256) {
         return nonces[from];
     }
 
@@ -146,18 +133,7 @@ contract ProxyFactory is IProxyFactory {
             initParams
         );
 
-        bytes32 digest = keccak256(packed);
-        require(RSKAddrValidator.safeEquals(digest.recover(sig),owner), string(packed));
-
-        bytes32 salt = keccak256(
-            abi.encodePacked(
-                owner,
-                recoverer,
-                logic,
-                keccak256(initParams),
-                index
-            )
-        );
+        require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
 
         //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
         bytes memory initData = abi.encodeWithSelector(
@@ -170,21 +146,31 @@ contract ProxyFactory is IProxyFactory {
             hex"00"
         );
 
-        deploy(getCreationBytecode(), salt, initData);
+        deploy(getCreationBytecode(), keccak256(
+            abi.encodePacked(
+                owner,
+                recoverer,
+                logic,
+                keccak256(initParams),
+                index
+            )
+        ), initData);
     }
 
     function relayedUserSmartWalletCreation(
         IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes calldata suffixData,
+        bytes32 suffixData,
         bytes calldata sig
     ) external override {
-        _verifyNonce(req);
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonces[req.from]++;
 
-        bytes32 salt = keccak256(
+        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
+        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
+        //initParams (req.data) must not contain the function selector for the logic initialization function
+        deploy(getCreationBytecode(), keccak256(
             abi.encodePacked(
                 req.from,
                 req.recoverer,
@@ -192,12 +178,7 @@ contract ProxyFactory is IProxyFactory {
                 keccak256(req.data),
                 req.index
             )
-        );
-
-        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
-        //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
-        //initParams (req.data) must not contain the function selector for the logic initialization function
-        bytes memory initData = abi.encodeWithSelector(
+        ), abi.encodeWithSelector(
             hex"60654ec4",
             req.from,
             req.to,
@@ -209,9 +190,7 @@ contract ProxyFactory is IProxyFactory {
                 req.tokenRecipient,
                 req.tokenAmount
             )
-        );
-
-        deploy(getCreationBytecode(), salt, initData);
+        ));
     }
 
     /**
@@ -268,10 +247,12 @@ contract ProxyFactory is IProxyFactory {
         }
 
         //Since the init code determines the address of the smart wallet, any initialization
-        //require is done via the runtime code, to avoid the parameters impacting on the resulting address
+        //required is done via the runtime code, to avoid the parameters impacting on the resulting address
 
         /* solhint-disable-next-line avoid-low-level-calls */
         (bool success, ) = addr.call(initdata);
+
+        /* solhint-disable-next-line reason-string */
         require(success);
 
         //No info is returned, an event is emitted to inform the new deployment
@@ -280,14 +261,14 @@ contract ProxyFactory is IProxyFactory {
 
     // Returns the proxy code to that is deployed on every Smart Wallet creation
     function getCreationBytecode() public view returns (bytes memory) {
-        //The code to install
-        return abi.encodePacked(CONSTR, RUNTIME_START, masterCopy, RUNTIME_END);
+        //The code to install:  constructor, runtime start, master copy, runtime end
+        return abi.encodePacked(hex"602D3D8160093D39F3", RUNTIME_START, masterCopy, RUNTIME_END);
     }
 
     function _getEncoded(
         IForwarder.ForwardRequest memory req,
         bytes32 requestTypeHash,
-        bytes memory suffixData
+        bytes32 suffixData
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
@@ -321,13 +302,16 @@ contract ProxyFactory is IProxyFactory {
         IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
-        bytes memory suffixData,
+        bytes32 suffixData,
         bytes memory sig
     ) internal view {
 
+        //Verify nonce
+        require(nonces[req.from] == req.nonce, "nonce mismatch");
+
         //Verify Request type
         require(
-            REQUEST_TYPE_HASH == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -335,8 +319,8 @@ contract ProxyFactory is IProxyFactory {
         require(
             keccak256(
                 abi.encode(
-                    EIP712DOMAIN_TYPEHASH,
-                    DOMAIN_NAME,
+                    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),//EIP712DOMAIN_TYPEHASH
+                    keccak256("RSK Enveloping Transaction"),// DOMAIN_NAME
                     currentVersionHash,
                     getChainID(),
                     address(this)
@@ -353,10 +337,6 @@ contract ProxyFactory is IProxyFactory {
                     keccak256(_getEncoded(req, requestTypeHash, suffixData)))
                 ).recover(sig), req.from),"signature mismatch"
         );
-    }
-
-    function _verifyNonce(IForwarder.ForwardRequest memory req) internal view {
-        require(nonces[req.from] == req.nonce, "nonce mismatch");
     }
 
 }

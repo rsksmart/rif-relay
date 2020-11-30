@@ -40,7 +40,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
     })
 
     it('should broadcast multiple transactions at once', async function () {
-      const gaslessAccount: AccountKeypair = getGaslessAccount()
+      const gaslessAccount: AccountKeypair = await getGaslessAccount()
 
       const SmartWallet = artifacts.require('SmartWallet')
       const sWalletTemplate = await SmartWallet.new()

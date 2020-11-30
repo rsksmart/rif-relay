@@ -47,45 +47,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let paymaster: TestPaymasterEverythingAcceptedInstance
   let env: Environment
   let forwarder: string
-  const gaslessAccount: AccountKeypair = getGaslessAccount()
+  let gaslessAccount: AccountKeypair
   // TODO: 'before' is a bad thing in general. Use 'beforeEach', this tests all depend on each other!!!
-  before(async function () {
-    for (const addr of [relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker]) {
-      console.log(addr)
-    }
-
-    stakeManager = await StakeManager.new()
-    penalizer = await Penalizer.new()
-    relayHub = await deployHub(stakeManager.address, penalizer.address)
-    env = await getTestingEnvironment()
-    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
-    forwarder = forwarderInstance.address
-
-    recipient = await TestRecipient.new()
-
-    paymaster = await TestPaymasterEverythingAccepted.new()
-    await stakeManager.stakeForAddress(relayManager, 1000, {
-      from: relayOwner,
-      value: ether('1'),
-      gasPrice: '1'
-    })
-    await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
-    // await paymaster.setTrustedForwarder(forwarder)
-    await paymaster.setRelayHub(relayHub.address)
-    await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
-    // @ts-ignore
-    Object.keys(StakeManager.events).forEach(function (topic) {
-      // @ts-ignore
-      RelayHub.network.events[topic] = StakeManager.events[topic]
-    })
-    // @ts-ignore
-    Object.keys(StakeManager.events).forEach(function (topic) {
-      // @ts-ignore
-      Penalizer.network.events[topic] = StakeManager.events[topic]
-    })
-  })
 
   async function prepareRelayCall (): Promise<{
     gasPrice: BN
@@ -143,55 +106,92 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
     }
   }
 
+  // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
+  // emitted event and penalization reward transfer. Returns the transaction receipt.
+  async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
+    const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
+    const stakeManagerBalanceTracker = await balance.tracker(stakeManager.address)
+    const stakeInfo = await stakeManager.stakes(relayManager)
+    // @ts-ignore (names)
+    const stake = stakeInfo.stake
+    const expectedReward = stake.divn(2)
+
+    // A gas price of zero makes checking the balance difference simpler
+    // RSK: Setting gasPrice to 1 since the RSKJ node doesn't support transactions with a gas price lower than 0.06 gwei
+    const receipt = await penalizeWithOpts({
+      from: reporterRelayManager,
+      gasPrice: 1
+    })
+
+    expectEvent.inLogs(receipt.logs, 'StakePenalized', {
+      relayManager: relayManager,
+      beneficiary: reporterRelayManager,
+      reward: expectedReward
+    })
+
+    const delta = (await reporterBalanceTracker.delta())
+    const halfStake = stake.divn(2)
+    const difference = halfStake.sub(delta)
+
+    // The reporter gets half of the stake
+    // expect(delta).to.be.bignumber.aproximately(halfStake)
+
+    // Since RSKJ doesn't support a transaction gas price below 0.06 gwei we need to change the assert
+    expect(difference).to.be.bignumber.at.most(new BN(rskDifference))
+
+    // The other half is burned, so RelayHub's balance is decreased by the full stake
+    expect(await stakeManagerBalanceTracker.delta()).to.be.bignumber.equals(stake.neg())
+
+    return receipt
+  }
+
   describe('penalizations', function () {
     const stake = ether('1')
 
-    before('register reporter as relayer', async function () {
+    before(async function () {
+      gaslessAccount = await getGaslessAccount()
+
+      for (const addr of [relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker]) {
+        console.log(addr)
+      }
+
+      stakeManager = await StakeManager.new()
+      penalizer = await Penalizer.new()
+      relayHub = await deployHub(stakeManager.address, penalizer.address)
+      env = await getTestingEnvironment()
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+      const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+      forwarder = forwarderInstance.address
+
+      recipient = await TestRecipient.new()
+
+      paymaster = await TestPaymasterEverythingAccepted.new()
+      await stakeManager.stakeForAddress(relayManager, 1000, {
+        from: relayOwner,
+        value: ether('1'),
+        gasPrice: '1'
+      })
+      await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
+      await paymaster.setRelayHub(relayHub.address)
+      await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
+      // @ts-ignore
+      Object.keys(StakeManager.events).forEach(function (topic) {
+        // @ts-ignore
+        RelayHub.network.events[topic] = StakeManager.events[topic]
+      })
+      // @ts-ignore
+      Object.keys(StakeManager.events).forEach(function (topic) {
+        // @ts-ignore
+        Penalizer.network.events[topic] = StakeManager.events[topic]
+      })
+
       await stakeManager.stakeForAddress(reporterRelayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
       await stakeManager.authorizeHubByOwner(reporterRelayManager, relayHub.address, { from: relayOwner })
     })
-
-    // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
-    // emitted event and penalization reward transfer. Returns the transaction receipt.
-    async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
-      const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
-      const stakeManagerBalanceTracker = await balance.tracker(stakeManager.address)
-      const stakeInfo = await stakeManager.stakes(relayManager)
-      // @ts-ignore (names)
-      const stake = stakeInfo.stake
-      const expectedReward = stake.divn(2)
-
-      // A gas price of zero makes checking the balance difference simpler
-      // RSK: Setting gasPrice to 1 since the RSKJ node doesn't support transactions with a gas price lower than 0.06 gwei
-      const receipt = await penalizeWithOpts({
-        from: reporterRelayManager,
-        gasPrice: 1
-      })
-
-      expectEvent.inLogs(receipt.logs, 'StakePenalized', {
-        relayManager: relayManager,
-        beneficiary: reporterRelayManager,
-        reward: expectedReward
-      })
-
-      const delta = (await reporterBalanceTracker.delta())
-      const halfStake = stake.divn(2)
-      const difference = halfStake.sub(delta)
-
-      // The reporter gets half of the stake
-      // expect(delta).to.be.bignumber.aproximately(halfStake)
-
-      // Since RSKJ doesn't support a transaction gas price below 0.06 gwei we need to change the assert
-      expect(difference).to.be.bignumber.at.most(new BN(rskDifference))
-
-      // The other half is burned, so RelayHub's balance is decreased by the full stake
-      expect(await stakeManagerBalanceTracker.delta()).to.be.bignumber.equals(stake.neg())
-
-      return receipt
-    }
 
     describe('penalization access control (relay manager only)', function () {
       before(async function () {
@@ -207,6 +207,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
       let penalizableTxData: string
       let penalizableTxSignature: string
+
       it('penalizeIllegalTransaction', async function () {
         await expectRevert.unspecified(
           penalizer.penalizeIllegalTransaction(penalizableTxData, penalizableTxSignature, relayHub.address, { from: other }),
@@ -223,7 +224,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
     describe('penalizable behaviors', function () {
       const encodedCallArgs = {
-        sender: gaslessAccount.address,
+        sender: '',
         recipient: '0x1820b744B33945482C17Dc37218C01D858EBc714',
         data: '0x1234',
         baseFee: 1000,
@@ -243,6 +244,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       }
 
       before(async function () {
+        encodedCallArgs.sender = gaslessAccount.address
         // Pablo: This is not passing in RSK. Looks like the account's
         // private key is not what's defined in relayCallArgs.privateKey
         // in the RSK case.

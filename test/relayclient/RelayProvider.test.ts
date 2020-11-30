@@ -26,13 +26,10 @@ import {
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
-import { signTypedData_v4 } from 'eth-sig-util'
-import RelayRequest from '../../src/common/EIP712/RelayRequest'
-import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
@@ -48,52 +45,7 @@ const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterCon
 
 const underlyingProvider = web3.currentProvider as HttpProvider
 
-const paymasterData = '0x'
-const clientId = '1'
 abiDecoder.addABI(proxyFactoryAbi)
-
-// TODO: once Utils.js is translated to TypeScript, move to Utils.ts
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
-  const relayRequest: RelayRequest = {
-    request: {
-      to: testRecipient.address,
-      data: testRecipient.contract.methods.emitMessage('hello world').encodeABI(),
-      from: account.address,
-      nonce: nonce,
-      value: '0',
-      gas: '10000',
-      tokenRecipient: constants.ZERO_ADDRESS,
-      tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '0',
-      factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
-      recoverer: constants.ZERO_ADDRESS,
-      index: '0'
-    },
-    relayData: {
-      pctRelayFee: '1',
-      baseRelayFee: '1',
-      gasPrice: '1',
-      paymaster,
-      paymasterData,
-      clientId,
-      forwarder: swallet,
-      relayWorker
-    }
-  }
-
-  const dataToSign = new TypedRequestData(
-    (await getTestingEnvironment()).chainId,
-    swallet,
-    relayRequest
-  )
-
-  const signature = signTypedData_v4(account.privateKey, { data: dataToSign })
-
-  return {
-    relayRequest,
-    signature
-  }
-}
 
 contract('RelayProvider', function (accounts) {
   let web3: Web3
@@ -112,7 +64,7 @@ contract('RelayProvider', function (accounts) {
 
   before(async function () {
     sender = accounts[0]
-    gaslessAccount = getGaslessAccount()
+    gaslessAccount = await getGaslessAccount()
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
@@ -221,7 +173,7 @@ contract('RelayProvider', function (accounts) {
 
     it('should revert if the sender is not the owner of the smart wallet', async function () {
       try {
-        const differentSender = getGaslessAccount()
+        const differentSender = await getGaslessAccount()
         relayProvider.addAccount(differentSender)
         await testRecipient.emitMessage('hello world', {
           from: differentSender.address, // different sender
@@ -232,7 +184,7 @@ contract('RelayProvider', function (accounts) {
           factory: constants.ZERO_ADDRESS
         })
       } catch (error) {
-        const expectedText = 'Requestor is not the owner of the Smart Wallet'
+        const expectedText = 'Not the owner of the SmartWallet'
         const err: string = String(error)
         const index = err.search(expectedText)
         assert.isTrue(index >= 0)
@@ -261,7 +213,7 @@ contract('RelayProvider', function (accounts) {
     )
 
     it('should fail to deploy the smart wallet due to insufficient token balance', async function () {
-      const ownerEOA = getGaslessAccount()
+      const ownerEOA = await getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'
@@ -302,7 +254,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should correclty deploy the smart wallet', async function () {
-      const ownerEOA = getGaslessAccount()
+      const ownerEOA = await getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const logicData = '0x'
@@ -340,7 +292,7 @@ contract('RelayProvider', function (accounts) {
       const deployedEvent = logs.find((e: any) => e != null && e.name === 'Deployed')
       const event = deployedEvent.events[0]
       assert.equal(event.name, 'addr')
-      const generatedSWAddress = toChecksumAddress(event.value)
+      const generatedSWAddress = toChecksumAddress(event.value, env.chainId)
 
       assert.equal(generatedSWAddress, swAddress)
       const deployedCode = await web3.eth.getCode(generatedSWAddress)
@@ -505,7 +457,7 @@ contract('RelayProvider', function (accounts) {
       // await misbehavingPaymaster.setTrustedForwarder(forwarderAddress)
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
-      const nonceToUse = await smartWallet.getNonce()
+      const nonceToUse = await smartWallet.nonce()
       const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
       await misbehavingPaymaster.setReturnInvalidErrorCode(true)
 
@@ -526,7 +478,7 @@ contract('RelayProvider', function (accounts) {
         gasPrice: '1'
       })
       expectEvent.inLogs(innerTxFailedReceiptTruffle.logs, 'TransactionRejectedByPaymaster', {
-        reason: encodeRevertReason('You asked me to revert, remember?')
+        reason: encodeRevertReason('revertPreRelayCall: Reverting')
       })
       innerTxFailedReceipt = await web3.eth.getTransactionReceipt(innerTxFailedReceiptTruffle.tx)
 

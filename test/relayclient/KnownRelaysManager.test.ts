@@ -11,8 +11,7 @@ import {
   TestRecipientInstance,
   SmartWalletInstance, ProxyFactoryInstance
 } from '../../types/truffle-contracts'
-import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { prepareTransaction } from './RelayProvider.test'
+import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
@@ -80,7 +79,7 @@ contract('KnownRelaysManager', function (
         chainId: env.chainId
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
-      const senderAddress: AccountKeypair = getGaslessAccount()
+      const senderAddress: AccountKeypair = await getGaslessAccount()
 
       await contractInteractor.init()
 
@@ -100,8 +99,8 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
       await stake(stakeManager, relayHub, notActiveRelay, owner)
 
-      const other = getGaslessAccount()
-      const nextNonce = (await smartWallet.getNonce()).toString()
+      const other = await getGaslessAccount()
+      const nextNonce = (await smartWallet.nonce()).toString()
       const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
       const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)
 
@@ -245,9 +244,7 @@ contract('KnownRelaysManager 2', function (accounts) {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  describe('#getRelaysSortedForTransaction()', async function () {
-    const env = await getTestingEnvironment()
-
+  describe('#getRelaysSortedForTransaction()', function () {
     const relayInfoLowFee = {
       relayManager: accounts[0],
       relayUrl: 'lowFee',
@@ -261,12 +258,14 @@ contract('KnownRelaysManager 2', function (accounts) {
       pctRelayFee: '50'
     }
 
-    const knownRelaysManager = new KnownRelaysManager(
-      contractInteractor, configureGSN({ chainId: env.chainId }))
-
     describe('#_refreshFailures()', function () {
+      let knownRelaysManager: KnownRelaysManager
       let lastErrorTime: number
-      before(function () {
+
+      before(async function () {
+        const env = await getTestingEnvironment()
+        knownRelaysManager = new KnownRelaysManager(
+          contractInteractor, configureGSN({ chainId: env.chainId }))
         knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
         knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
         lastErrorTime = Date.now()
@@ -311,9 +310,7 @@ contract('KnownRelaysManager 2', function (accounts) {
   })
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  describe('getRelaysSortedForTransaction', async function () {
-    const env = await getTestingEnvironment()
-
+  describe('getRelaysSortedForTransaction', function () {
     const biasedRelayScore = async function (relay: RelayRegisteredEventInfo): Promise<number> {
       if (relay.relayUrl === 'alex') {
         return await Promise.resolve(1000)
@@ -321,9 +318,12 @@ contract('KnownRelaysManager 2', function (accounts) {
         return await Promise.resolve(100)
       }
     }
-    const knownRelaysManager = new KnownRelaysManager(
-      contractInteractor, configureGSN({ chainId: env.chainId }), undefined, biasedRelayScore)
-    before(function () {
+    let knownRelaysManager: KnownRelaysManager
+
+    before(async function () {
+      const env = await getTestingEnvironment()
+      knownRelaysManager = new KnownRelaysManager(
+        contractInteractor, configureGSN({ chainId: env.chainId }), undefined, biasedRelayScore)
       const activeRelays: RelayRegisteredEventInfo[][] = [[], [{
         relayManager: accounts[0],
         relayUrl: 'alex',

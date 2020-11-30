@@ -1,5 +1,5 @@
 // SPDX-License-Identifier:MIT
-pragma solidity ^0.6.2;
+pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "../SmartWallet.sol";
@@ -7,7 +7,7 @@ import "../SmartWallet.sol";
 // helper class for testing the forwarder.
 contract TestSmartWallet {
     function callExecute(SmartWallet sw, SmartWallet.ForwardRequest memory req,
-        bytes32 domainSeparator, bytes32 requestTypeHash, bytes memory suffixData, bytes memory sig) public payable {
+        bytes32 domainSeparator, bytes32 requestTypeHash, bytes32 suffixData, bytes memory sig) public payable {
          (bool success, uint256 lastSuccTx, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
        
         emit Result(success, success ? "" : this.decodeErrorMessage(ret), lastSuccTx);

@@ -7,6 +7,11 @@ const TestRSKAddressValidator = artifacts.require('TestRSKAddressValidator')
 
 contract('RSKAddressValidator', function (accounts) {
   let addressValidator: TestRSKAddressValidatorInstance
+  // let chainId: number
+
+  before(async () => {
+    // chainId = (await getTestingEnvironment()).chainId
+  })
   it('should return true on check with data signed with zero', async function () {
     const messageHash = '0xf7cf90057f86838e5efd677f4741003ab90910e4e2736ff4d7999519d162d1ed'
 
@@ -43,7 +48,6 @@ contract('RSKAddressValidator', function (accounts) {
 
   it('should return FALSE on check with small case address and TRUE on check with checksummed address', async function () {
     const messageHash = '0x4d3e45a3a5908513a10012e30a04fb2b438bab7da2acb93084e2f15a5eb55e8b'
-
     const v = 27
     const r = '90ef8cbc9ce5999887d32f3f5adf5292ada96b9506b51980f219d60271cf300c'
     const s = '3e59fb0088da48b32cb4d83f17af47dd7340cd0dab15ac214b7039b65ee8876d'
@@ -53,6 +57,7 @@ contract('RSKAddressValidator', function (accounts) {
     addressValidator = await TestRSKAddressValidator.new()
     const addr = await addressValidator.getAddress.call(messageHash, signature)
     expect(addr).to.be.not.equal('0xdcc703c0e500b653ca82273b7bfad8045d85a470')
+    console.log('WARN: In testnet or mainnet with EIP1191, the chainID must be added to toChecksumAddress in order to pass')
     expect(addr).to.be.equal(toChecksumAddress('0xdcc703c0e500b653ca82273b7bfad8045d85a470'))
   })
 

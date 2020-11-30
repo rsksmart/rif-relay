@@ -12,7 +12,7 @@ import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, addr } from '../TestUtils'
+import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType, ENVELOPING_PARAMS, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 
@@ -28,9 +28,9 @@ const TestSmartWallet = artifacts.require('TestSmartWallet')
 contract('SmartWallet', ([from]) => {
   const countParams = ForwardRequestType.length
   const senderPrivateKey = toBuffer(bytes32(1))
-  const senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)))
-  let template: SmartWalletInstance
   let chainId: number
+  let senderAddress: string
+  let template: SmartWalletInstance
   let factory: ProxyFactoryInstance
   let token: TestTokenInstance
   let sw: SmartWalletInstance
@@ -38,13 +38,13 @@ contract('SmartWallet', ([from]) => {
 
   const request = {
     request: {
-      from: senderAddress,
+      from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
       gas: '1000000',
       nonce: '0',
       data: '0x',
-      tokenRecipient: addr(1),
+      tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
       factory: constants.ZERO_ADDRESS,
@@ -64,11 +64,13 @@ contract('SmartWallet', ([from]) => {
   }
 
   before(async () => {
+    chainId = (await getTestingEnvironment()).chainId
+    senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+    request.request.from = senderAddress
     token = await TestToken.new()
     request.request.tokenContract = token.address
     template = await SmartWallet.new()
     factory = await createProxyFactory(template)
-    chainId = (await getTestingEnvironment()).chainId
     sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
     request.relayData.forwarder = sw.address
     domainSeparatorHash = getDomainSeparatorHash(sw.address, chainId)
@@ -132,11 +134,11 @@ contract('SmartWallet', ([from]) => {
     })
     describe('#verify success', () => {
       before(async () => {
-        request.request.nonce = (await sw.getNonce()).toString()
+        request.request.nonce = (await sw.nonce()).toString()
       })
 
       it('should verify valid signature', async () => {
-        request.request.nonce = (await sw.getNonce()).toString()
+        request.request.nonce = (await sw.nonce()).toString()
         const dataToSign = new TypedRequestData(
           chainId,
           sw.address,
@@ -170,7 +172,7 @@ contract('SmartWallet', ([from]) => {
       const req1 = { ...request }
       req1.request.to = recipient.address
       req1.request.data = func
-      req1.request.nonce = (await sw.getNonce()).toString()
+      req1.request.nonce = (await sw.nonce()).toString()
       req1.request.tokenAmount = '10000000000'
 
       const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
@@ -194,7 +196,7 @@ contract('SmartWallet', ([from]) => {
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialRecipientBalance = await token.balanceOf(recipient.address)
 
-      const initialNonce = (await sw.getNonce())
+      const initialNonce = (await sw.nonce())
 
       const req1 = { ...request }
       req1.request.data = func
@@ -218,7 +220,7 @@ contract('SmartWallet', ([from]) => {
       assert.equal(logs[0].args.origin, from, 'test "from" account is the tx.origin')
       assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
 
-      assert.equal((await sw.getNonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
+      assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
     })
 
     it('should return revert message of target revert', async () => {
@@ -228,7 +230,7 @@ contract('SmartWallet', ([from]) => {
       const req1 = { ...request }
       req1.request.data = func
       req1.request.to = recipient.address
-      req1.request.nonce = (await sw.getNonce()).toString()
+      req1.request.nonce = (await sw.nonce()).toString()
       req1.request.tokenAmount = '1'
 
       const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
@@ -255,7 +257,7 @@ contract('SmartWallet', ([from]) => {
       const req1 = { ...request }
       req1.request.data = func
       req1.request.to = recipient.address
-      req1.request.nonce = (await sw.getNonce()).toString()
+      req1.request.nonce = (await sw.nonce()).toString()
       req1.request.tokenAmount = '1'
 
       const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
@@ -302,7 +304,7 @@ contract('SmartWallet', ([from]) => {
         const req1 = { ...request }
         req1.request.data = func
         req1.request.to = recipient.address
-        req1.request.nonce = (await sw.getNonce()).toString()
+        req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '1'
         req1.request.value = value.toString()
         req1.request.tokenRecipient = recipient.address
@@ -329,7 +331,7 @@ contract('SmartWallet', ([from]) => {
         const req1 = { ...request }
         req1.request.data = func
         req1.request.to = recipient.address
-        req1.request.nonce = (await sw.getNonce()).toString()
+        req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '1'
         req1.request.value = ether('2').toString()
         req1.request.tokenRecipient = recipient.address
@@ -355,7 +357,7 @@ contract('SmartWallet', ([from]) => {
         const req1 = { ...request }
         req1.request.data = func
         req1.request.to = recipient.address
-        req1.request.nonce = (await sw.getNonce()).toString()
+        req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '1'
         req1.request.value = value.toString()
         req1.request.tokenRecipient = recipient.address
@@ -389,7 +391,7 @@ contract('SmartWallet', ([from]) => {
         const req1 = { ...request }
         req1.request.data = func
         req1.request.to = recipient.address
-        req1.request.nonce = (await sw.getNonce()).toString()
+        req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = tokensPaid.toString()
         req1.request.value = value.toString()
         req1.request.tokenRecipient = recipient.address

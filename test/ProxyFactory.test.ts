@@ -25,28 +25,28 @@ contract('ProxyFactory', ([from]) => {
   let fwd: SmartWalletInstance
   let token: TestTokenInstance
   let factory: ProxyFactoryInstance
-
+  let chainId: number
   const ownerPrivateKey = toBuffer(bytes32(1))
-  const ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)))
+  let ownerAddress: string
   const versionHash = keccak256('2')
   const recipientPrivateKey = toBuffer(bytes32(1))
-  const recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)))
+  let recipientAddress: string
   const typeHash = keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
 
   let env: Environment
 
   const request = {
     request: {
-      from: ownerAddress,
+      from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
       gas: '400000',
       nonce: '0',
       data: '0x',
-      tokenRecipient: recipientAddress,
+      tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
-      factory: addr(0), // param only needed by RelayHub
+      factory: constants.ZERO_ADDRESS, // param only needed by RelayHub
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -63,6 +63,11 @@ contract('ProxyFactory', ([from]) => {
   }
 
   before(async () => {
+    chainId = (await getTestingEnvironment()).chainId
+    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), chainId).toLowerCase()
+    recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
+    request.request.from = ownerAddress
+    request.request.tokenRecipient = recipientAddress
     env = await getTestingEnvironment()
     fwd = await SmartWallet.new()
   })
@@ -94,9 +99,9 @@ contract('ProxyFactory', ([from]) => {
 
   describe('#getSmartWalletAddress', () => {
     it('should create the correct create2 Address', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParamsHash = constants.SHA3_NULL_S
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
       const create2Address = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress, initParamsHash, index)
       const creationByteCode = await factory.getCreationBytecode()
@@ -120,16 +125,16 @@ contract('ProxyFactory', ([from]) => {
         { t: 'bytes32', v: bytecodeHash }
       ) ?? ''
 
-      const expectedAddress = toChecksumAddress('0x' + _data.slice(26, _data.length))
+      const expectedAddress = toChecksumAddress('0x' + _data.slice(26, _data.length), env.chainId)
       assert.equal(create2Address, expectedAddress)
     })
   })
 
   describe('#createUserSmartWallet', () => {
     it('should create the Smart Wallet in the expected address', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const toSign: string = web3.utils.soliditySha3(
@@ -169,9 +174,9 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
@@ -204,9 +209,9 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should revert for an invalid signature', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x00'
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const toSign: string = web3.utils.soliditySha3(
@@ -230,9 +235,9 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
@@ -324,7 +329,7 @@ contract('ProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, addr(0), versionHash, initParams, '0x00'])
+      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, versionHash, initParams, '0x00'])
 
       newTrx.data = initFunc
 
@@ -347,10 +352,10 @@ contract('ProxyFactory', ([from]) => {
 
   describe('#relayedUserSmartWalletCreation', () => {
     it('should create the Smart Wallet in the expected address', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
       const deployPrice = '0x01' // 1 token
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
@@ -408,10 +413,10 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
       const deployPrice = '0x01' // 1 token
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
@@ -452,10 +457,10 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should revert for an invalid signature', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
       const deployPrice = '0x01' // 1 token
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
@@ -493,10 +498,10 @@ contract('ProxyFactory', ([from]) => {
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
-      const logicAddress = addr(0)
+      const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
       const deployPrice = '0x01' // 1 token
-      const recoverer = addr(0)
+      const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,

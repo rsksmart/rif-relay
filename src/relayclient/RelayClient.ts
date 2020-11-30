@@ -185,11 +185,8 @@ export class RelayClient {
       { ...testInfo.relayRequest }
     )
 
-    const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
-    const typeHash = web3.utils.keccak256(typeName)
-    const encoded = TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types)
-    const countParams = ForwardRequestType.length
-    const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
+    const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
+    const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + ForwardRequestType.length) * 32))
     const domainHash = getDomainSeparatorHash(gsnTransactionDetails.factory ?? '', this.accountManager.chainId)
     const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest.request,
       domainHash, typeHash, suffixData, testInfo.metadata.signature)
@@ -293,32 +290,26 @@ export class RelayClient {
   async _prepareFactoryGasEstimationRequest (
     gsnTransactionDetails: GsnTransactionDetails
   ): Promise<RelayTransactionRequest> {
-    const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
-
     if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS || gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null) {
       throw new Error(`Invalid factory contract,a valid factory: ${gsnTransactionDetails.factory}`)
     }
+
     const senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
 
-    const paymaster = constants.ZERO_ADDRESS
-    const relayWorker = constants.ZERO_ADDRESS
-    const gasPriceHex = gsnTransactionDetails.gasPrice ?? '0x00'
-    const gasLimitHex = gsnTransactionDetails.gas ?? '0x00'
-
-    const gasLimit = parseInt(gasLimitHex, 16).toString()
-    const gasPrice = parseInt(gasPriceHex, 16).toString()
-    const value = gsnTransactionDetails.value ?? '0'
-
+    const gasLimit = BigInt(gsnTransactionDetails.gas ?? '0x00').toString()
+    const gasPrice = BigInt(gsnTransactionDetails.gasPrice ?? '0x00').toString()
+    const value = BigInt(gsnTransactionDetails.value ?? '0').toString()
+    const tokenAmount = BigInt(gsnTransactionDetails.tokenAmount ?? '0x00').toString()
     const relayRequest: RelayRequest = {
       request: {
+        from: gsnTransactionDetails.from, // owner EOA
         to: gsnTransactionDetails.to, // optional LogicAddr
         data: gsnTransactionDetails.data, // optional InitParams for LogicAddr
-        from: gsnTransactionDetails.from, // owner EOA
         value: value,
         nonce: senderNonce,
         gas: gasLimit, // Not used since RelayHub won't be involved
         tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
-        tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenAmount: tokenAmount,
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
@@ -328,11 +319,11 @@ export class RelayClient {
         pctRelayFee: '0',
         baseRelayFee: '0',
         gasPrice,
-        paymaster,
-        paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
-        clientId: this.config.clientId,
-        forwarder: forwarderAddress,
-        relayWorker
+        paymaster: gsnTransactionDetails.paymaster ?? constants.ZERO_ADDRESS,
+        paymasterData: gsnTransactionDetails.paymasterData ?? '0x',
+        clientId: gsnTransactionDetails.clientId ?? this.config.clientId,
+        forwarder: await this.resolveForwarder(gsnTransactionDetails),
+        relayWorker: constants.ZERO_ADDRESS
       }
     }
 

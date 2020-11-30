@@ -1,4 +1,4 @@
-import AccountManager from '../../src/relayclient/AccountManager'
+import AccountManager, { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { defaultEnvironment } from '../../src/common/Environments'
 import { HttpProvider } from 'web3-core'
 import RelayRequest from '../../src/common/EIP712/RelayRequest'
@@ -18,7 +18,7 @@ const { expect, assert } = chai.use(chaiAsPromised)
 chai.use(sinonChai)
 
 contract('AccountManager', function (accounts) {
-  const address = '0x982a8CbE734cb8c29A6a7E02a3B0e4512148F6F9'
+  const address: string = '0x982a8CbE734cb8c29A6a7E02a3B0e4512148F6F9'
   const keypair = {
     privateKey: Buffer.from('d353907ab062133759f149a3afcb951f0f746a65a60f351ba05a3ebf26b67f5c', 'hex'),
     address
@@ -28,22 +28,23 @@ contract('AccountManager', function (accounts) {
     jsonStringifyRequest: false
   })
 
-  const account = getGaslessAccount()
-  let shouldThrow = false
+  let shouldThrow: boolean = false
 
-  const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
-    async (signedData: any): Promise<string> => {
-      if (shouldThrow) {
-        throw new Error('Fail of testing')
-      }
-      // @ts-ignore
-      return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
-    }
-  )
-  // @ts-ignore
-  sinon.spy(accountManager)
   describe('#addAccount()', function () {
-    it('should save the provided keypair internally', function () {
+    it('should save the provided keypair internally', async function () {
+      const account = await getGaslessAccount()
+      const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
+        async (signedData: any): Promise<string> => {
+          if (shouldThrow) {
+            throw new Error('Fail of testing')
+          }
+          // @ts-ignore
+          return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
+        }
+      )
+      // @ts-ignore
+      sinon.spy(accountManager)
+
       accountManager.addAccount(keypair)
       // @ts-ignore
       assert.equal(accountManager.accounts[0].privateKey.toString(), keypair.privateKey.toString())
@@ -51,19 +52,44 @@ contract('AccountManager', function (accounts) {
       assert.equal(accountManager.accounts[0].address, keypair.address)
     })
 
-    it('should throw if the provided keypair is not valid', function () {
+    it('should throw if the provided keypair is not valid', async function () {
+      const account = await getGaslessAccount()
+      const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
+        async (signedData: any): Promise<string> => {
+          if (shouldThrow) {
+            throw new Error('Fail of testing')
+          }
+          // @ts-ignore
+          return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
+        }
+      )
+      // @ts-ignore
+      sinon.spy(accountManager)
+
       const keypair = {
         privateKey: Buffer.from('AAAAAAAAAAAAA6a65a842ce7c78d9aa706d3b113bce9c46f30d7d21715b23b1d', 'hex'),
         address
       }
+
       expect(() => {
         accountManager.addAccount(keypair)
       }).to.throw('invalid keypair')
     })
   })
   describe('#newAccount()', function () {
-    const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config)
-    it('should create a new keypair, return it and save it internally', function () {
+    it('should create a new keypair, return it and save it internally', async function () {
+      const account = await getGaslessAccount()
+      const accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
+        async (signedData: any): Promise<string> => {
+          if (shouldThrow) {
+            throw new Error('Fail of testing')
+          }
+          // @ts-ignore
+          return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
+        }
+      )
+      // @ts-ignore
+      sinon.spy(accountManager)
       const keypair = accountManager.newAccount()
       // @ts-ignore
       assert.equal(accountManager.accounts[0].privateKey.toString(), keypair.privateKey.toString())
@@ -72,7 +98,10 @@ contract('AccountManager', function (accounts) {
   })
 
   describe('#sign()', function () {
-    accountManager.addAccount(keypair)
+    let account: AccountKeypair
+    let accountManager: AccountManager
+    shouldThrow = false
+
     const relayRequest: RelayRequest = {
       request: {
         to: constants.ZERO_ADDRESS,
@@ -99,7 +128,20 @@ contract('AccountManager', function (accounts) {
         clientId: '1'
       }
     }
-    beforeEach(function () {
+    beforeEach(async function () {
+      account = await getGaslessAccount()
+      accountManager = new AccountManager(web3.currentProvider as HttpProvider, defaultEnvironment.chainId, config,
+        async (signedData: any): Promise<string> => {
+          if (shouldThrow) {
+            throw new Error('Fail of testing')
+          }
+          // @ts-ignore
+          return sigUtil.signTypedData_v4(account.privateKey, { data: signedData })
+        }
+      )
+      // @ts-ignore
+      sinon.spy(accountManager)
+      accountManager.addAccount(keypair)
       sinon.resetHistory()
     })
 
