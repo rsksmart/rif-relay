@@ -4,14 +4,13 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 export default interface ForwardRequest {
   from: Address
   to: Address
-  data: PrefixedHexString
   value: IntString
-  nonce: IntString
   gas: IntString
+  nonce: IntString
+  data: PrefixedHexString
   tokenRecipient: Address
   tokenContract: Address
   tokenAmount: IntString
-  factory: Address // only set if this is a deploy request,
   recoverer: Address // only used if factory is set
   index: IntString // only used if factory is set
 }

@@ -6,10 +6,10 @@ import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN, toHex } from 'web3-utils'
 
-import { IRelayHubInstance } from '../../types/truffle-contracts'
+import { IVerifierInstance, IRelayHubInstance } from '../../types/truffle-contracts'
 
-import ContractInteractor, { TransactionRejectedByPaymaster } from '../relayclient/ContractInteractor'
-import { IntString } from '../relayclient/types/Aliases'
+import ContractInteractor, { TransactionRejectedByRecipient } from '../relayclient/ContractInteractor'
+import { Address, IntString } from '../relayclient/types/Aliases'
 import { RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
 
 import PingResponse from '../common/PingResponse'
@@ -19,9 +19,7 @@ import { defaultEnvironment } from '../common/Environments'
 import {
   address2topic,
   calculateTransactionMaxPossibleGas,
-  decodeRevertReason,
   getLatestEventData,
-  PaymasterGasLimits,
   randomInRange,
   sleep
 } from '../common/Utils'
@@ -31,11 +29,11 @@ import { SendTransactionDetails, TransactionManager } from './TransactionManager
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
+import { constants } from '../common/Constants'
 
 import Timeout = NodeJS.Timeout
 
 const VERSION = '2.0.1'
-const GAS_RESERVE = 100000
 
 export class RelayServer extends EventEmitter {
   lastScannedBlock = 0
@@ -63,7 +61,7 @@ export class RelayServer extends EventEmitter {
   networkId!: number
   relayHubContract!: IRelayHubInstance
 
-  trustedPaymastersGasLimits: Map<String | undefined, PaymasterGasLimits> = new Map<String | undefined, PaymasterGasLimits>()
+  trustedVerifiers: Set<String | undefined> = new Set<String | undefined>()
 
   workerBalanceRequired: AmountRequired
 
@@ -92,13 +90,13 @@ export class RelayServer extends EventEmitter {
     return this.gasPrice
   }
 
-  pingHandler (paymaster?: string): PingResponse {
+  async pingHandler (verifier?: string): Promise<PingResponse> {
     return {
       relayWorkerAddress: this.workerAddress,
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
       minGasPrice: this.getMinGasPrice().toString(),
-      maxAcceptanceBudget: this._getPaymasterMaxAcceptanceBudget(paymaster),
+      maxAcceptanceBudget: await this._getVerifierMaxAcceptanceBudget(verifier),
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -131,16 +129,36 @@ export class RelayServer extends EventEmitter {
   }
 
   validateFees (req: RelayTransactionRequest): void {
-    // if trusted paymaster, we trust it to handle fees
-    if (this._isTrustedPaymaster(req.relayRequest.relayData.paymaster)) {
-      return
+    // if trusted verifier, we trust it to handle fee verification
+    if (this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+
+    } else {
+      throw new Error(`Invalid verifier: ${req.relayRequest.relayData.callVerifier}`)
     }
-    // Check that the fee is acceptable
-    if (parseInt(req.relayRequest.relayData.pctRelayFee) < this.config.pctRelayFee) {
-      throw new Error(`Unacceptable pctRelayFee: ${req.relayRequest.relayData.pctRelayFee} relayServer's pctRelayFee: ${this.config.pctRelayFee}`)
-    }
-    if (toBN(req.relayRequest.relayData.baseRelayFee).lt(toBN(this.config.baseRelayFee))) {
-      throw new Error(`Unacceptable baseRelayFee: ${req.relayRequest.relayData.baseRelayFee} relayServer's baseRelayFee: ${this.config.baseRelayFee}`)
+
+    // TODO: In case we want to support default configuration when a verifier is not defined, it would go here
+    // const tokenContract = req.relayRequest.request.tokenContract
+    // const tokenAmount = req.relayRequest.request.tokenAmount
+    // const tokenRecipient = req.relayRequest.request.tokenRecipient
+  }
+
+  async _getVerifierMaxAcceptanceBudget (verifier?: string): Promise<IntString> {
+    if (this.trustedVerifiers.has(verifier?.toLowerCase())) {
+      try {
+        const verifierContract = await this.contractInteractor._createVerifier(verifier ?? '')
+        return (await verifierContract.acceptanceBudget()).toString()
+      } catch (e) {
+        const error = e as Error
+        let message = `unknown verifier error: ${error.message}`
+        if (error.message.includes('Returned values aren\'t valid, did it run Out of Gas?')) {
+          message = `incompatible verifier contract: ${verifier}`
+        } else if (error.message.includes('no code at address')) {
+          message = `'non-existent verifier contract: ${verifier}`
+        }
+        throw new Error(message)
+      }
+    } else {
+      return this.config.maxAcceptanceBudget.toString()
     }
   }
 
@@ -152,88 +170,67 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validatePaymasterGasLimits (req: RelayTransactionRequest): Promise<{
-    maxPossibleGas: number
-    acceptanceBudget: number
-  }> {
-    const paymaster = req.relayRequest.relayData.paymaster
-    let gasLimits = this.trustedPaymastersGasLimits.get(paymaster)
-    let acceptanceBudget: number
-    if (gasLimits == null) {
-      try {
-        const paymasterContract = await this.contractInteractor._createPaymaster(paymaster)
-        gasLimits = await paymasterContract.getGasLimits()
-      } catch (e) {
-        const error = e as Error
-        let message = `unknown paymaster error: ${error.message}`
-        if (error.message.includes('Returned values aren\'t valid, did it run Out of Gas?')) {
-          message = `incompatible paymaster contract: ${paymaster}`
-        } else if (error.message.includes('no code at address')) {
-          message = `'non-existent paymaster contract: ${paymaster}`
-        }
-        throw new Error(message)
-      }
-      acceptanceBudget = this.config.maxAcceptanceBudget
-      const paymasterAcceptanceBudget = parseInt(gasLimits.acceptanceBudget)
-      if (paymasterAcceptanceBudget > acceptanceBudget) {
-        if (!this._isTrustedPaymaster(paymaster)) {
-          throw new Error(
-            `paymaster acceptance budget too high. given: ${paymasterAcceptanceBudget} max allowed: ${this.config.maxAcceptanceBudget}`)
-        }
-        log.debug(`Using trusted paymaster's higher than max acceptance budget: ${paymasterAcceptanceBudget}`)
-        acceptanceBudget = paymasterAcceptanceBudget
-      }
-    } else {
-      // its a trusted paymaster. just use its acceptance budget as-is
-      acceptanceBudget = parseInt(gasLimits.acceptanceBudget)
+  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest): Promise<{maxPossibleGas: number
+    acceptanceBudget: number}> {
+    if (!this._isTrustedVerifier(verifier)) {
+      throw new Error('Invalid verifier')
     }
 
+    let verifierContract: IVerifierInstance
+    let acceptanceBudget: number = this.config.maxAcceptanceBudget
+    let verifierAcceptanceBudget: number
+    try {
+      verifierContract = await this.contractInteractor._createVerifier(verifier)
+      verifierAcceptanceBudget = (await verifierContract.acceptanceBudget()).toNumber()
+    } catch (e) {
+      const error = e as Error
+      let message = `unknown verifier error: ${error.message}`
+      if (error.message.includes('Returned values aren\'t valid, did it run Out of Gas?')) {
+        message = `incompatible verifier contract: ${verifier}`
+      } else if (error.message.includes('no code at address')) {
+        message = `'non-existent verifier contract: ${verifier}`
+      }
+      throw new Error(message)
+    }
+    acceptanceBudget = verifierAcceptanceBudget > 0 ? verifierAcceptanceBudget : acceptanceBudget
+    if (verifierAcceptanceBudget <= 0) {
+      log.warn('Verifier acceptance budget not set, using defaults acceptance budget')
+    }
+
+    const gasAlreadyUsedBeforeDoingAnythingInRelayCall = 43782 // the hubOverhead needs a cushion, which is the gas used to just receive the parameters
+    // TODO , move the cushion to the gasOverhead once it is calculated properly
     const hubOverhead = (await this.relayHubContract.gasOverhead()).toNumber()
-    // TODO: Here, for deploy transactions, the hubOverhead includes the forwarder extra
-
-    const maxPossibleGas = GAS_RESERVE + calculateTransactionMaxPossibleGas({
-      gasLimits,
+    const maxPossibleGas = calculateTransactionMaxPossibleGas(
       hubOverhead,
-      relayCallGasLimit: req.relayRequest.request.gas
-    })
-    const maxCharge =
-      await this.relayHubContract.calculateCharge(maxPossibleGas, req.relayRequest.relayData)
-    const paymasterBalance = await this.relayHubContract.balanceOf(paymaster)
+      req.relayRequest.request.gas,
+      gasAlreadyUsedBeforeDoingAnythingInRelayCall
+    )
 
-    // TODO Enveloping: Remove when the paymaster no longer pays for the relay
-    if (paymasterBalance.lt(maxCharge)) {
-      throw new Error(`paymaster balance too low: ${paymasterBalance.toString()}, maxCharge: ${maxCharge.toString()}`)
+    try {
+      verifierContract.contract.methods.preRelayedCall(req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({
+        from: this.workerAddress
+      })
+    } catch (e) {
+      const error = e as Error
+      throw new Error(`Verification by verifier failed: ${error.message}`)
     }
-    log.debug(`paymaster balance: ${paymasterBalance.toString()}, maxCharge: ${maxCharge.toString()}`)
-    log.debug(`Estimated max charge of relayed tx: ${maxCharge.toString()}, GasLimit of relayed tx: ${maxPossibleGas}`)
 
-    return {
-      acceptanceBudget,
-      maxPossibleGas
-    }
+    return { maxPossibleGas, acceptanceBudget }
   }
 
-  async validateViewCallSucceeds (req: RelayTransactionRequest, acceptanceBudget: number, maxPossibleGas: number): Promise<void> {
+  async validateViewCallSucceeds (req: RelayTransactionRequest, maxPossibleGas: number): Promise<void> {
     const method = this.relayHubContract.contract.methods.relayCall(
-      acceptanceBudget, req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas)
-    let viewRelayCallRet: { paymasterAccepted: boolean, returnValue: string }
+      req.relayRequest, req.metadata.signature)
+    // const gasEstimated = await method.estimateGas({from: this.workerAddress,
+    // gasPrice:req.relayRequest.relayData.gasPrice})
     try {
-      viewRelayCallRet =
-        await method.call({
-          from: this.workerAddress,
-          gasPrice: req.relayRequest.relayData.gasPrice,
-          gasLimit: maxPossibleGas
-        })
+      await method.call({
+        from: this.workerAddress,
+        gasPrice: req.relayRequest.relayData.gasPrice,
+        gas: maxPossibleGas
+      })
     } catch (e) {
-      throw new Error(`relayCall reverted in server: ${(e as Error).message}`)
-    }
-    log.debug(`Result for view-only relay call:
-paymasterAccepted  | ${viewRelayCallRet.paymasterAccepted ? chalk.green('true') : chalk.red('false')}
-returnValue        | ${viewRelayCallRet.returnValue}
-`)
-    if (!viewRelayCallRet.paymasterAccepted) {
-      throw new Error(
-        `Paymaster rejected in server: ${decodeRevertReason(viewRelayCallRet.returnValue)} req=${JSON.stringify(req, null, 2)}`)
+      throw new Error(`relayCall (local call) reverted in server: ${(e as Error).message}`)
     }
   }
 
@@ -247,14 +244,20 @@ returnValue        | ${viewRelayCallRet.returnValue}
     this.validateFees(req)
     await this.validateMaxNonce(req.metadata.relayMaxNonce)
 
+    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+      throw new Error('Specified Verifier is not Trusted')
+    }
+    const { maxPossibleGas, acceptanceBudget } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
+
+    // TODO: relay server must decide wether the trx cost is too much to handle or not
+
     // Call relayCall as a view function to see if we'll get paid for relaying this tx
-    const { acceptanceBudget, maxPossibleGas } = await this.validatePaymasterGasLimits(req)
-    await this.validateViewCallSucceeds(req, acceptanceBudget, maxPossibleGas)
+    await this.validateViewCallSucceeds(req, maxPossibleGas)
     // Send relayed transaction
     log.debug('maxPossibleGas is', maxPossibleGas)
-
+    log.debug('acceptanceBudget is', acceptanceBudget) // TODO: Not used, plan to remove
     const method = this.relayHubContract.contract.methods.relayCall(
-      acceptanceBudget, req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas)
+      req.relayRequest, req.metadata.signature)
     const currentBlock = await this.contractInteractor.getBlockNumber()
     const details: SendTransactionDetails =
       {
@@ -332,33 +335,23 @@ returnValue        | ${viewRelayCallRet.returnValue}
   }
 
   /***
-   * initialize data from trusted paymasters.
-   * "Trusted" paymasters means that:
-   * - we trust their code not to alter the gas limits (getGasLimits returns constants)
+   * initialize data from trusted verifiers.
+   * "Trusted" verifiers means that:
    * - we trust preRelayedCall to be consistent: off-chain call and on-chain calls should either both succeed
    *    or both revert.
-   * - given that, we agree to give the requested acceptanceBudget (since breaking one of the above two "invariants"
-   *    is the only cases where the relayer will have to pay for this budget)
    *
-   * @param paymasters list of trusted paymaster addresses
+   * @param verifiers list of trusted verifiers addresses
    */
-  async _initTrustedPaymasters (paymasters: string[] = []): Promise<void> {
-    this.trustedPaymastersGasLimits.clear()
-    for (const paymasterAddress of paymasters) {
-      const paymaster = await this.contractInteractor._createPaymaster(paymasterAddress)
-      const gasLimits = await paymaster.getGasLimits().catch((e: Error) => {
-        throw new Error(`not a valid paymaster address in trustedPaymasters list: ${paymasterAddress}: ${e.message}`)
-      })
-      this.trustedPaymastersGasLimits.set(paymasterAddress.toLowerCase(), gasLimits)
+  async _initTrustedVerifiers (verifiers: string[] = []): Promise<void> {
+    this.trustedVerifiers.clear()
+    for (const verifierAddress of verifiers) {
+      this.trustedVerifiers.add(verifierAddress.toLowerCase())
     }
-  }
-
-  _getPaymasterMaxAcceptanceBudget (paymaster?: string): IntString {
-    const limits = this.trustedPaymastersGasLimits.get(paymaster?.toLocaleLowerCase())
-    if (limits != null) {
-      return limits.acceptanceBudget
-    } else {
-      return this.config.maxAcceptanceBudget.toString()
+    if (this.config.relayVerifierAddress !== constants.ZERO_ADDRESS && !this.trustedVerifiers.has(this.config.relayVerifierAddress.toLowerCase())) {
+      this.trustedVerifiers.add(this.config.relayVerifierAddress.toLowerCase())
+    }
+    if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS && !this.trustedVerifiers.has(this.config.deployVerifierAddress.toLowerCase())) {
+      this.trustedVerifiers.add(this.config.deployVerifierAddress.toLowerCase())
     }
   }
 
@@ -368,8 +361,8 @@ returnValue        | ${viewRelayCallRet.returnValue}
     }
 
     await this.transactionManager._init()
-    await this._initTrustedPaymasters(this.config.trustedPaymasters)
-    this.relayHubContract = await this.contractInteractor.relayHubInstance
+    await this._initTrustedVerifiers(this.config.trustedVerifiers)
+    this.relayHubContract = this.contractInteractor.relayHubInstance
 
     const relayHubAddress = this.relayHubContract.address
     const code = await this.contractInteractor.getCode(relayHubAddress)
@@ -388,8 +381,8 @@ returnValue        | ${viewRelayCallRet.returnValue}
     )
     await this.registrationManager.init()
 
-    this.chainId = await this.contractInteractor.getChainId()
-    this.networkId = await this.contractInteractor.getNetworkId()
+    this.chainId = this.contractInteractor.getChainId()
+    this.networkId = this.contractInteractor.getNetworkId()
 
     /* TODO CHECK against RSK ChainId
     if (this.config.devMode && (this.chainId < 1000 || this.networkId < 1000)) {
@@ -411,18 +404,41 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     this.registrationManager.printNotRegisteredMessage()
   }
 
+  /**
+   * It withdraws excess balance from the relayHub to the relayManager, and refills the relayWorker with
+   * balance if required.
+   * TODO: Since balance will be only for staking, this replenish mechanism WONT be enough in Enveloping 2.0, Where the
+   * RelayHub and Paymaster don't actively participate in the payment of the relay transaction to the relayManager
+   * @param workerIndex Not used so it can be any number
+   * @param currentBlock Where to place the replenish action
+   */
   async replenishServer (workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
     const transactionHashes: PrefixedHexString[] = []
+
+    // balance of this.managerAddress
     let managerEthBalance = await this.getManagerBalance()
+
+    // locked balance in relayHub of this.managerAddress
     const managerHubBalance = await this.relayHubContract.balanceOf(this.managerAddress)
+
+    // balance of this.workerAddress (workerIndex is not used)
     this.workerBalanceRequired.currentValue = await this.getWorkerBalance(workerIndex)
+
+    // if managerEthBalance >= the target balance  AND the worker has enough balance as well, do nothing
     if (managerEthBalance.gte(toBN(this.config.managerTargetBalance.toString())) && this.workerBalanceRequired.isSatisfied) {
       // all filled, nothing to do
       return transactionHashes
     }
+
+    // if the balance of the managerAddress < the target balance AND its balance in the hub > minHubWithdrawalBalance
+    // then it must withdraw the hub deposits
     const mustWithdrawHubDeposit = managerEthBalance.lt(toBN(this.config.managerTargetBalance.toString())) && managerHubBalance.gte(
       toBN(this.config.minHubWithdrawalBalance))
+
+    // Check if there's a withdrawal action pending
     const isWithdrawalPending = await this.txStoreManager.isActionPending(ServerAction.DEPOSIT_WITHDRAWAL)
+
+    // If withdrawal action is needed and there's no action pending then proceed to create one
     if (mustWithdrawHubDeposit && !isWithdrawalPending) {
       log.info(`withdrawing manager hub balance (${managerHubBalance.toString()}) to manager`)
       // Refill manager eth balance from hub balance
@@ -439,14 +455,23 @@ latestBlock timestamp   | ${latestBlock.timestamp}
       const { transactionHash } = await this.transactionManager.sendTransaction(details)
       transactionHashes.push(transactionHash)
     }
+
+    // Check the new balance of this.managerAddress
     managerEthBalance = await this.getManagerBalance()
     const mustReplenishWorker = !this.workerBalanceRequired.isSatisfied
+
+    // Check if there's a pending action to replenish the worker with balance
     const isReplenishPendingForWorker = await this.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, this.workerAddress)
+
+    // If the worker needs balance and there's no pending action, create one
     if (mustReplenishWorker && !isReplenishPendingForWorker) {
+      // The refill must be so it covers the worker's target balance
       const refill = toBN(this.config.workerTargetBalance.toString()).sub(this.workerBalanceRequired.currentValue)
       log.debug(
         `== replenishServer: mgr balance=${managerEthBalance.toString()}  manager hub balance=${managerHubBalance.toString()}
           \n${this.workerBalanceRequired.description}\n refill=${refill.toString()}`)
+
+      // The refile amount must not deplete the manager's minimum balance cushion
       if (refill.lt(managerEthBalance.sub(toBN(this.config.managerMinBalance)))) {
         log.debug('Replenishing worker balance by manager rbtc balance')
         const details: SendTransactionDetails = {
@@ -551,9 +576,9 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   async handlePastHubEvents (blockNumber: number, hubEventsSinceLastScan: EventData[]): Promise<void> {
     for (const event of hubEventsSinceLastScan) {
       switch (event.event) {
-        case TransactionRejectedByPaymaster:
-          log.debug('handle TransactionRejectedByPaymaster event', event)
-          await this._handleTransactionRejectedByPaymasterEvent(blockNumber)
+        case TransactionRejectedByRecipient:
+          log.debug('handle TransactionRelayedButRevertedByRecipient event', event)
+          await this._handleTransactionRejectedByRecipientEvent(blockNumber)
           break
       }
     }
@@ -569,7 +594,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     return events
   }
 
-  async _handleTransactionRejectedByPaymasterEvent (blockNumber: number): Promise<void> {
+  async _handleTransactionRejectedByRecipientEvent (blockNumber: number): Promise<void> {
     this.alerted = true
     this.alertedBlock = blockNumber
     log.error(`Relay entered alerted state. Block number: ${blockNumber}`)
@@ -622,8 +647,8 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     return await this.transactionManager.boostOldestPendingTransactionForSigner(signer, blockNumber)
   }
 
-  _isTrustedPaymaster (paymaster: string): boolean {
-    return this.trustedPaymastersGasLimits.get(paymaster.toLocaleLowerCase()) != null
+  _isTrustedVerifier (verifier: string): boolean {
+    return this.trustedVerifiers.has(verifier.toLowerCase())
   }
 
   isReady (): boolean {

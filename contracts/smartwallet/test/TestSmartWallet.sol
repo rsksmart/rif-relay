@@ -2,7 +2,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../IForwarder.sol";
+import "../../interfaces/IForwarder.sol";
 
 // helper class for testing the forwarder.
 contract TestSmartWallet {

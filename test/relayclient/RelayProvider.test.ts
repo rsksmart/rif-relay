@@ -16,8 +16,7 @@ import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import {
   RelayHubInstance,
   StakeManagerInstance,
-  TestPaymasterEverythingAcceptedInstance,
-  TestPaymasterConfigurableMisbehaviorInstance,
+  TestVerifierConfigurableMisbehaviorInstance,
   TestRecipientContract,
   TestRecipientInstance,
   ProxyFactoryInstance,
@@ -26,7 +25,7 @@ import {
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransactionRecipient } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
@@ -39,20 +38,19 @@ const { expect, assert } = require('chai').use(chaiAsPromised)
 const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
-
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
-const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
+const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 
 const underlyingProvider = web3.currentProvider as HttpProvider
-
+const revertReasonEnabled = false // Enable when the RSK node supports revert reason codes
 abiDecoder.addABI(proxyFactoryAbi)
 
 contract('RelayProvider', function (accounts) {
   let web3: Web3
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
-  let paymasterInstance: TestPaymasterEverythingAcceptedInstance
-  let paymaster: Address
+  let verifierInstance: TestVerifierConfigurableMisbehaviorInstance
+
+  let callVerifier: Address
   let relayProcess: ChildProcessWithoutNullStreams
   let relayProvider: RelayProvider
   let factory: ProxyFactoryInstance
@@ -74,17 +72,19 @@ contract('RelayProvider', function (accounts) {
     factory = await createProxyFactory(sWalletTemplate)
     smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     token = await TestToken.new()
+    await token.mint('1000', smartWallet.address)
 
-    paymasterInstance = await TestPaymasterEverythingAccepted.new()
-    paymaster = paymasterInstance.address
-    await paymasterInstance.setRelayHub(relayHub.address)
-    await paymasterInstance.deposit({ value: web3.utils.toWei('2', 'ether') })
+    verifierInstance = await TestVerifierConfigurableMisbehavior.new()
+
+    callVerifier = verifierInstance.address
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       relaylog: process.env.relaylog,
       stake: 1e18,
       url: 'asd',
       relayOwner: accounts[1],
-      rskNodeUrl: underlyingProvider.host
+      ethereumNodeUrl: underlyingProvider.host,
+      deployVerifierAddress: callVerifier,
+      relayVerifierAddress: callVerifier
     })
   })
 
@@ -103,10 +103,12 @@ contract('RelayProvider', function (accounts) {
       const gsnConfig = configureGSN({
         logLevel: 5,
         relayHubAddress: relayHub.address,
-        chainId: env.chainId
+        chainId: env.chainId,
+        forwarderAddress: smartWallet.address,
+        relayVerifierAddress: callVerifier,
+        deployVerifierAddress: callVerifier
       })
 
-      gsnConfig.forwarderAddress = smartWallet.address
       let websocketProvider: WebsocketProvider
 
       if (isRsk(await getTestingEnvironment())) {
@@ -131,9 +133,7 @@ contract('RelayProvider', function (accounts) {
         value: '0',
         // TODO: for some reason estimated values are crazy high!
         gas: '100000',
-        paymaster,
-        factory: constants.ZERO_ADDRESS
-
+        callVerifier
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -146,7 +146,7 @@ contract('RelayProvider', function (accounts) {
     it('should relay transparently with value', async function () {
       const value = 1e18.toString()
       // note: this test only validates we process the "value" parameter of the request properly.
-      // a real use-case should have a paymaster to transfer the value into the forwarder,
+      // a real use-case should have a verifier to transfer the value into the forwarder,
       // probably by swapping user's tokens into eth.
 
       await web3.eth.sendTransaction({
@@ -160,8 +160,7 @@ contract('RelayProvider', function (accounts) {
         forceGasPrice: '0x51f4d5c00',
         value,
         gas: '100000',
-        paymaster,
-        factory: constants.ZERO_ADDRESS
+        callVerifier
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -180,14 +179,12 @@ contract('RelayProvider', function (accounts) {
           forceGasPrice: '0x51f4d5c00',
           value: '0',
           gas: '100000',
-          paymaster,
-          factory: constants.ZERO_ADDRESS
+          callVerifier
         })
       } catch (error) {
-        const expectedText = 'Not the owner of the SmartWallet'
+        const expectedText = 'relayCall (local call) reverted in server'
         const err: string = String(error)
-        const index = err.search(expectedText)
-        assert.isTrue(index >= 0)
+        assert.isTrue(err.includes(expectedText))
         return
       }
       assert.fail('It should have thrown an exception')
@@ -196,7 +193,9 @@ contract('RelayProvider', function (accounts) {
     it('should calculate the correct smart wallet address', async function () {
       assert.isTrue(relayProvider != null)
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      const gsnConfig = configureGSN({
+        relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId
+      })
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
@@ -219,7 +218,7 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: callVerifier, deployVerifierAddress: callVerifier })
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
@@ -236,20 +235,21 @@ contract('RelayProvider', function (accounts) {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
-        tokenRecipient: paymaster,
+        tokenRecipient: callVerifier,
         tokenContract: token.address,
         tokenAmount: '10',
-        factory: factory.address,
         recoverer: recoverer,
+        callForwarder: factory.address,
         index: walletIndex.toString(),
-        paymaster: paymaster
+        isSmartWalletDeploy: true,
+        callVerifier
       }
 
       try {
         await rProvider.deploySmartWallet(trxData)
         assert.fail()
       } catch (error) {
-        assert.include(error.message, 'paymaster rejected in local view call to \'relayCall()\'')
+        assert.include(error.message, 'relayCall (local call) reverted in server')
       }
     })
 
@@ -260,7 +260,7 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: callVerifier, relayVerifierAddress: callVerifier })
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
@@ -276,13 +276,14 @@ contract('RelayProvider', function (accounts) {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
-        tokenRecipient: paymaster,
+        tokenRecipient: callVerifier,
         tokenContract: token.address,
         tokenAmount: '10',
-        factory: factory.address,
         recoverer: recoverer,
         index: walletIndex.toString(),
-        paymaster: paymaster
+        callVerifier,
+        callForwarder: factory.address,
+        isSmartWalletDeploy: true
       }
 
       const txHash = await rProvider.deploySmartWallet(trxData)
@@ -319,8 +320,7 @@ contract('RelayProvider', function (accounts) {
       await testRecipient2.emitMessage('hello again', {
         from: gaslessAccount.address,
         gas: '100000',
-        paymaster,
-        factory: constants.ZERO_ADDRESS
+        callVerifier
       })
       const log: any = await eventPromise
 
@@ -332,8 +332,7 @@ contract('RelayProvider', function (accounts) {
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
         from: gaslessAccount.address,
-        paymaster,
-        factory: constants.ZERO_ADDRESS
+        callVerifier
       }), 'always fail')
     })
   })
@@ -363,9 +362,7 @@ contract('RelayProvider', function (accounts) {
             gas: '0x186a0',
             gasPrice: '0x4a817c800',
             forceGasPrice: '0x51f4d5c00',
-            paymaster,
-            forwarder: smartWallet.address,
-            factory: constants.ZERO_ADDRESS,
+            callVerifier,
             to: testRecipient.address,
             data: testRecipient.contract.methods.emitMessage('hello world').encodeABI()
           }
@@ -396,7 +393,9 @@ contract('RelayProvider', function (accounts) {
       const gsnConfig = configureGSN({
         logLevel: 5,
         relayHubAddress: relayHub.address,
-        chainId: env.chainId
+        chainId: env.chainId,
+        relayVerifierAddress: callVerifier,
+        deployVerifierAddress: callVerifier
       })
       gsnConfig.forwarderAddress = smartWallet.address
 
@@ -420,19 +419,16 @@ contract('RelayProvider', function (accounts) {
   describe('_getTranslatedGsnResponseResult', function () {
     let relayProvider: RelayProvider
     let testRecipient: TestRecipientInstance
-    let paymasterRejectedTxReceipt: BaseTransactionReceipt
-    let innerTxFailedReceipt: BaseTransactionReceipt
     let innerTxSucceedReceipt: BaseTransactionReceipt
     let notRelayedTxReceipt: BaseTransactionReceipt
-    let misbehavingPaymaster: TestPaymasterConfigurableMisbehaviorInstance
     const gas = toBN(3e6).toString()
+
     // It is not strictly necessary to make this test against actual tx receipt, but I prefer to do it anyway
     before(async function () {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new()
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
-      gsnConfig.forwarderAddress = smartWallet.address
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: verifierInstance.address, forwarderAddress: smartWallet.address })
 
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
@@ -441,7 +437,8 @@ contract('RelayProvider', function (accounts) {
       })
       relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
       relayProvider.addAccount(gaslessAccount)
-
+      // @ts-ignore
+      TestRecipient.web3.setProvider(relayProvider)
       // add accounts[0], accounts[1] and accounts[2] as worker, manager and owner
       await stakeManager.stakeForAddress(accounts[1], 1000, {
         value: ether('1'),
@@ -453,37 +450,14 @@ contract('RelayProvider', function (accounts) {
       })
 
       // create desired transactions
-      misbehavingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-      // await misbehavingPaymaster.setTrustedForwarder(forwarderAddress)
-      await misbehavingPaymaster.setRelayHub(relayHub.address)
-      await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
       const nonceToUse = await smartWallet.nonce()
-      const { relayRequest, signature } = await prepareTransactionRecipient(testRecipient, gaslessAccount, accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
-      await misbehavingPaymaster.setReturnInvalidErrorCode(true)
+      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], verifierInstance.address, nonceToUse.toString(), smartWallet.address, token.address, verifierInstance.address, '1')
 
-      const paymasterRejectedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
-        from: accounts[0],
-        gas,
-        gasPrice: '1'
-      })
-      expectEvent.inLogs(paymasterRejectedReceiptTruffle.logs, 'TransactionRejectedByPaymaster')
-      paymasterRejectedTxReceipt = await web3.eth.getTransactionReceipt(paymasterRejectedReceiptTruffle.tx)
+      await verifierInstance.setReturnInvalidErrorCode(false)
+      await verifierInstance.setRevertPreRelayCall(false)
+      await verifierInstance.setOverspendAcceptGas(false)
 
-      await misbehavingPaymaster.setReturnInvalidErrorCode(false)
-      await misbehavingPaymaster.setRevertPreRelayCall(true)
-
-      const innerTxFailedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
-        from: accounts[0],
-        gas,
-        gasPrice: '1'
-      })
-      expectEvent.inLogs(innerTxFailedReceiptTruffle.logs, 'TransactionRejectedByPaymaster', {
-        reason: encodeRevertReason('revertPreRelayCall: Reverting')
-      })
-      innerTxFailedReceipt = await web3.eth.getTransactionReceipt(innerTxFailedReceiptTruffle.tx)
-
-      await misbehavingPaymaster.setRevertPreRelayCall(false)
-      const innerTxSuccessReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {
+      const innerTxSuccessReceiptTruffle = await relayHub.relayCall(relayRequest, signature, {
         from: accounts[0],
         gas,
         gasPrice: '1'
@@ -495,22 +469,63 @@ contract('RelayProvider', function (accounts) {
       expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'SampleRecipientEmitted')
       innerTxSucceedReceipt = await web3.eth.getTransactionReceipt(innerTxSuccessReceiptTruffle.tx)
 
-      const notRelayedTxReceiptTruffle = await testRecipient.emitMessage('hello world with gas')
+      const notRelayedTxReceiptTruffle = await testRecipient.emitMessage('hello world with gas', {
+        from: gaslessAccount.address,
+        gas: '100000',
+        gasPrice: '1',
+        callVerifier
+      })
       assert.equal(notRelayedTxReceiptTruffle.logs.length, 1)
       expectEvent.inLogs(notRelayedTxReceiptTruffle.logs, 'SampleRecipientEmitted')
       notRelayedTxReceipt = await web3.eth.getTransactionReceipt(notRelayedTxReceiptTruffle.tx)
     })
 
-    it('should convert relayed transactions receipt with paymaster rejection to be a failed transaction receipt', function () {
-      assert.equal(paymasterRejectedTxReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedGsnResponseResult(paymasterRejectedTxReceipt)
-      assert.equal(modifiedReceipt.status, false)
+    it('should fail to send transaction if verifier reverts in local execution', async function () {
+      await verifierInstance.setReturnInvalidErrorCode(false)
+      await verifierInstance.setRevertPreRelayCall(true)
+      await verifierInstance.setOverspendAcceptGas(false)
+
+      try {
+        await testRecipient.emitMessage('hello again', {
+          from: gaslessAccount.address,
+          gas: '100000',
+          gasPrice: '1',
+          callVerifier
+        })
+      } catch (error) {
+        const err: string = String(error)
+        if (revertReasonEnabled) {
+          assert.isTrue(err.includes("verifier rejected in local view call to 'relayCall()' : view call to 'relayCall' reverted in verifier"))
+          assert.isTrue(err.includes('revertPreRelayCall: Reverting'))
+        }
+        return
+      }
+
+      assert.fail('It should have thrown an exception')
     })
 
-    it('should convert relayed transactions receipt with failed internal transaction to be a failed transaction receipt', function () {
-      assert.equal(innerTxFailedReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedGsnResponseResult(innerTxFailedReceipt)
-      assert.equal(modifiedReceipt.status, false)
+    it('should fail to send transaction if verifier fails in local execution', async function () {
+      await verifierInstance.setReturnInvalidErrorCode(true)
+      await verifierInstance.setRevertPreRelayCall(false)
+      await verifierInstance.setOverspendAcceptGas(false)
+
+      try {
+        await testRecipient.emitMessage('hello again', {
+          from: gaslessAccount.address,
+          gas: '100000',
+          gasPrice: '1',
+          callVerifier
+        })
+      } catch (error) {
+        const err: string = String(error)
+        if (revertReasonEnabled) {
+          assert.isTrue(err.includes("verifier rejected in local view call to 'relayCall()' : view call to 'relayCall' reverted in verifier"))
+          assert.isTrue(err.includes('invalid code'))
+        }
+        return
+      }
+
+      assert.fail('It should have thrown an exception')
     })
 
     it('should not modify relayed transactions receipt with successful internal transaction', function () {

@@ -122,8 +122,8 @@ export class RelayProvider implements HttpProvider {
    * @returns The transaction hash
    */
   async deploySmartWallet (gsnTransactionDetails: GsnTransactionDetails): Promise<string> {
-    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
-      throw new Error('Invalid factory address')
+    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || !gsnTransactionDetails.isSmartWalletDeploy) {
+      throw new Error('Request is not for SmartWallet deploy')
     }
 
     try {
@@ -171,6 +171,23 @@ export class RelayProvider implements HttpProvider {
     return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
   }
 
+  calculateSimpleSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+    const salt: string = web3.utils.soliditySha3(
+      { t: 'address', v: ownerEOA },
+      { t: 'address', v: recoverer },
+      { t: 'uint256', v: walletIndex }
+    ) ?? ''
+
+    const _data: string = web3.utils.soliditySha3(
+      { t: 'bytes1', v: '0xff' },
+      { t: 'address', v: factory },
+      { t: 'bytes32', v: salt },
+      { t: 'bytes32', v: bytecodeHash }
+    ) ?? ''
+
+    return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
+  }
+
   _ethGetTransactionReceipt (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
     this.origProviderSend(payload, (error: Error | null, rpcResponse?: JsonRpcResponse): void => {
@@ -194,7 +211,11 @@ export class RelayProvider implements HttpProvider {
 
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
-    const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
+    let gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
+
+    if (gsnTransactionDetails.callForwarder === undefined || gsnTransactionDetails.callForwarder === null || gsnTransactionDetails.callForwarder === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
+    }
     this.relayClient.relayTransaction(gsnTransactionDetails)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
@@ -223,18 +244,19 @@ export class RelayProvider implements HttpProvider {
     }
   }
 
+  // TODO: Seems not used anymore, double check and remove
   _getTranslatedGsnResponseResult (respResult: BaseTransactionReceipt): BaseTransactionReceipt {
     const fixedTransactionReceipt = Object.assign({}, respResult)
     if (respResult.logs === null || respResult.logs.length === 0) {
       return fixedTransactionReceipt
     }
     const logs = abiDecoder.decodeLogs(respResult.logs)
-    const paymasterRejectedEvents = logs.find((e: any) => e != null && e.name === 'TransactionRejectedByPaymaster')
+    const recipientRejectedEvents = logs.find((e: any) => e != null && e.name === 'TransactionRelayedButRevertedByRecipient')
 
-    if (paymasterRejectedEvents !== null && paymasterRejectedEvents !== undefined) {
-      const paymasterRejectionReason: { value: string } = paymasterRejectedEvents.events.find((e: any) => e.name === 'reason')
-      if (paymasterRejectionReason !== undefined) {
-        log.info(`Paymaster rejected on-chain: ${paymasterRejectionReason.value}. changing status to zero`)
+    if (recipientRejectedEvents !== null && recipientRejectedEvents !== undefined) {
+      const recipientRejectionReason: { value: string } = recipientRejectedEvents.events.find((e: any) => e.name === 'reason')
+      if (recipientRejectionReason !== undefined) {
+        log.info(`Recipient rejected on-chain: ${recipientRejectionReason.value}. changing status to zero`)
         fixedTransactionReceipt.status = '0'
       }
       return fixedTransactionReceipt
@@ -303,7 +325,7 @@ export class RelayProvider implements HttpProvider {
     let p: JsonRpcPayload = payload
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('paymaster')) {
+    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('callVerifier')) {
       // Deep copy the payload to safely remove the useGSN property
       p = JSON.parse(JSON.stringify(payload))
 
@@ -313,8 +335,8 @@ export class RelayProvider implements HttpProvider {
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (payload.params[0]?.hasOwnProperty('paymaster')) {
-        delete p.params[0].paymaster
+      if (payload.params[0]?.hasOwnProperty('callVerifier')) {
+        delete p.params[0].callVerifier
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -323,8 +345,13 @@ export class RelayProvider implements HttpProvider {
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (payload.params[0]?.hasOwnProperty('factory')) {
-        delete p.params[0].factory
+      if (payload.params[0]?.hasOwnProperty('callForwarder')) {
+        delete p.params[0].callForwarder
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('isSmartWalletDeploy')) {
+        delete p.params[0].isSmartWalletDeploy
       }
     }
 

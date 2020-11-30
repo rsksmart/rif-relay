@@ -1,6 +1,5 @@
 import Common from 'ethereumjs-common'
 import Web3 from 'web3'
-import log from 'loglevel'
 import { BlockTransactionString } from 'web3-eth'
 import { EventData, PastEventOptions } from 'web3-eth-contract'
 import { PrefixedHexString, TransactionOptions } from 'ethereumjs-tx'
@@ -16,7 +15,7 @@ import {
 } from 'web3-core'
 
 import RelayRequest from '../common/EIP712/RelayRequest'
-import paymasterAbi from '../common/interfaces/IPaymaster.json'
+import verifierAbi from '../common/interfaces/IVerifier.json'
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
@@ -30,7 +29,7 @@ import VersionsManager from '../common/VersionsManager'
 import {
   IForwarderInstance,
   IKnowForwarderAddressInstance,
-  IPaymasterInstance,
+  IVerifierInstance,
   IRelayHubInstance,
   BaseRelayRecipientInstance,
   IStakeManagerInstance, ISmartWalletFactoryInstance
@@ -52,9 +51,9 @@ type EventName = string
 export const RelayServerRegistered: EventName = 'RelayServerRegistered'
 export const RelayWorkersAdded: EventName = 'RelayWorkersAdded'
 export const TransactionRelayed: EventName = 'TransactionRelayed'
-export const TransactionRejectedByPaymaster: EventName = 'TransactionRejectedByPaymaster'
+export const TransactionRejectedByRecipient: EventName = 'TransactionRelayedButRevertedByRecipient'
 
-const ActiveManagerEvents = [RelayServerRegistered, RelayWorkersAdded, TransactionRelayed, TransactionRejectedByPaymaster]
+const ActiveManagerEvents = [RelayServerRegistered, RelayWorkersAdded, TransactionRelayed, TransactionRejectedByRecipient]
 
 export const HubAuthorized: EventName = 'HubAuthorized'
 export const HubUnauthorized: EventName = 'HubUnauthorized'
@@ -71,14 +70,16 @@ export type Web3Provider =
 export default class ContractInteractor {
   private readonly VERSION = '2.0.1'
 
-  private readonly IPaymasterContract: Contract<IPaymasterInstance>
+  private readonly IVerifierContract: Contract<IVerifierInstance>
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
   private readonly IProxyFactoryContract: Contract<ISmartWalletFactoryInstance>
 
-  private paymasterInstance!: IPaymasterInstance
+  private relayVerifierInstance!: IVerifierInstance
+  private deployVerifierInstance!: IVerifierInstance
+
   relayHubInstance!: IRelayHubInstance
   private stakeManagerInstance!: IStakeManagerInstance
   private readonly relayRecipientInstance?: BaseRelayRecipientInstance
@@ -100,9 +101,9 @@ export default class ContractInteractor {
     this.config = config
     this.provider = provider
     // @ts-ignore
-    this.IPaymasterContract = TruffleContract({
-      contractName: 'IPaymaster',
-      abi: paymasterAbi
+    this.IVerifierContract = TruffleContract({
+      contractName: 'Verifier',
+      abi: verifierAbi
     })
     // @ts-ignore
     this.IRelayHubContract = TruffleContract({
@@ -131,7 +132,7 @@ export default class ContractInteractor {
     })
     this.IStakeManager.setProvider(this.provider, undefined)
     this.IRelayHubContract.setProvider(this.provider, undefined)
-    this.IPaymasterContract.setProvider(this.provider, undefined)
+    this.IVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
     this.IProxyFactoryContract.setProvider(this.provider, undefined)
@@ -188,8 +189,11 @@ export default class ContractInteractor {
       }
       this.stakeManagerInstance = await this._createStakeManager(hubStakeManagerAddress)
     }
-    if (this.config.paymasterAddress !== constants.ZERO_ADDRESS) {
-      this.paymasterInstance = await this._createPaymaster(this.config.paymasterAddress)
+    if (this.config.relayVerifierAddress !== constants.ZERO_ADDRESS) {
+      this.relayVerifierInstance = await this._createVerifier(this.config.relayVerifierAddress)
+    }
+    if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
+      this.deployVerifierInstance = await this._createVerifier(this.config.deployVerifierAddress)
     }
   }
 
@@ -209,8 +213,8 @@ export default class ContractInteractor {
     return this.knowForwarderAddressInstance
   }
 
-  async _createPaymaster (address: Address): Promise<IPaymasterInstance> {
-    return await this.IPaymasterContract.at(address)
+  async _createVerifier (address: Address): Promise<IVerifierInstance> {
+    return await this.IVerifierContract.at(address)
   }
 
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {
@@ -247,47 +251,64 @@ export default class ContractInteractor {
   }
 
   async validateAcceptRelayCall (
-    paymasterMaxAcceptanceBudget: number,
     relayRequest: RelayRequest,
     signature: PrefixedHexString,
-    approvalData: PrefixedHexString): Promise<{ paymasterAccepted: boolean, returnValue: string, reverted: boolean }> {
+    approvalData: string = '0x'): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
     const relayHub = this.relayHubInstance
-    try {
-      const externalGasLimit = await this._getBlockGasLimit()
+    const externalGasLimit = await this._getBlockGasLimit()
 
+    // First call the verifier
+    try {
+      if (relayRequest.relayData.isSmartWalletDeploy) {
+        await this.deployVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
+          from: relayRequest.relayData.relayWorker
+        })
+      } else {
+        await this.relayVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
+          from: relayRequest.relayData.relayWorker
+        })
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
+      return {
+        verifierAccepted: false,
+        reverted: false,
+        returnValue: `view call to 'relayCall' reverted in verifier: ${message}`
+      }
+    }
+
+    // If the verified passed, try relaying the transaction (in local view call)
+    try {
       const res = await relayHub.contract.methods.relayCall(
-        paymasterMaxAcceptanceBudget,
         relayRequest,
-        signature,
-        approvalData,
-        externalGasLimit
+        signature
       )
         .call({
           from: relayRequest.relayData.relayWorker,
           gasPrice: relayRequest.relayData.gasPrice,
           gas: externalGasLimit
         })
-      log.info(res)
+
       return {
-        returnValue: res.returnValue,
-        paymasterAccepted: res.paymasterAccepted,
-        reverted: false
+        verifierAccepted: true,
+        reverted: false,
+        returnValue: res.returnValue
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
-        paymasterAccepted: false,
+        verifierAccepted: true,
         reverted: true,
         returnValue: `view call to 'relayCall' reverted in client: ${message}`
       }
     }
   }
 
-  encodeABI (paymasterMaxAcceptanceBudget: number, relayRequest: RelayRequest, sig: PrefixedHexString, approvalData: PrefixedHexString, externalGasLimit: IntString): PrefixedHexString {
+  encodeABI (relayRequest: RelayRequest, sig: PrefixedHexString): PrefixedHexString {
     // TODO: check this works as expected
     // @ts-ignore
     const relayHub = new this.IRelayHubContract('')
-    return relayHub.contract.methods.relayCall(paymasterMaxAcceptanceBudget, relayRequest, sig, approvalData, externalGasLimit).encodeABI()
+    return relayHub.contract.methods.relayCall(relayRequest, sig).encodeABI()
   }
 
   async getPastEventsForHub (extraTopics: string[], options: PastEventOptions, names: EventName[] = ActiveManagerEvents): Promise<EventData[]> {
@@ -302,11 +323,15 @@ export default class ContractInteractor {
   // eslint-disable-next-line @typescript-eslint/require-await
   async _getPastEvents (contract: any, names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
     const topics: string[][] = []
-    const eventTopic = event2topic(contract, names)
-    topics.push(eventTopic)
+
+    let topicsToSubmit: string[] = event2topic(contract, names)
+
     if (extraTopics.length > 0) {
-      topics.push(extraTopics)
+      topicsToSubmit = topicsToSubmit.concat(extraTopics)
     }
+
+    topics.push(topicsToSubmit)
+
     return contract.getPastEvents('allEvents', Object.assign({}, options, { topics }))
   }
 
@@ -413,9 +438,9 @@ export default class ContractInteractor {
     }
   }
 
-  async proxyFactoryDeployEstimageGas (request: ForwardRequest, domainHash: string, requestTypeHash: string,
+  async proxyFactoryDeployEstimageGas (request: ForwardRequest, factory: Address, domainHash: string, requestTypeHash: string,
     suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
-    const pFactory = await this._createFactory(request.factory)
+    const pFactory = await this._createFactory(factory)
 
     const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request, domainHash, requestTypeHash,
       suffixData, signature)

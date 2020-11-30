@@ -31,7 +31,7 @@ export class GsnSignRequestEvent extends GsnEvent {
 }
 
 // before sending the request to the relayer, the client attempt to verify it will succeed.
-// validation may fail if the paymaster rejects the request
+// validation may fail if the verifier rejects the request
 export class GsnValidateRequestEvent extends GsnEvent {
   constructor () { super('validate-request', 6) }
 }

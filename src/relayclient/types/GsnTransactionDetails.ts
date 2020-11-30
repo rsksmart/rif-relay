@@ -9,7 +9,6 @@ export default interface GsnTransactionDetails {
   readonly tokenRecipient?: Address
   readonly tokenContract?: Address
   readonly tokenAmount?: IntString
-  readonly factory?: Address
   readonly recoverer?: Address
   readonly index?: IntString
   readonly value?: IntString
@@ -22,10 +21,10 @@ export default interface GsnTransactionDetails {
   gasPrice?: PrefixedHexString
 
   // Required parameters for GSN, but assigned later
-  readonly forwarder?: Address
-  readonly paymaster?: Address
+  readonly callForwarder?: Address
+  readonly callVerifier?: Address
+  readonly isSmartWalletDeploy?: boolean
 
-  readonly paymasterData?: PrefixedHexString
   readonly clientId?: IntString
 
   // Optional parameters for RelayProvider only:

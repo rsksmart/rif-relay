@@ -2,16 +2,14 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./TestPaymasterEverythingAccepted.sol";
+import "./TestVerifierEverythingAccepted.sol";
 
-contract TestPaymasterStoreContext is TestPaymasterEverythingAccepted {
+contract TestVerifierStoreContext is TestVerifierEverythingAccepted {
 
     event SampleRecipientPreCallWithValues(
         address relay,
         address from,
         bytes encodedFunction,
-        uint256 baseRelayFee,
-        uint256 pctRelayFee,
         uint256 gasPrice,
         uint256 gasLimit,
         bytes approvalData,
@@ -33,20 +31,18 @@ contract TestPaymasterStoreContext is TestPaymasterEverythingAccepted {
     )
     external
     override
-    returns (bytes memory, bool) {
+    returns (bytes memory) {
         (signature, approvalData, maxPossibleGas);
 
         emit SampleRecipientPreCallWithValues(
             relayRequest.relayData.relayWorker,
             relayRequest.request.from,
             relayRequest.request.data,
-            relayRequest.relayData.baseRelayFee,
-            relayRequest.relayData.pctRelayFee,
             relayRequest.relayData.gasPrice,
             relayRequest.request.gas,
             approvalData,
             maxPossibleGas);
-        return ("context passed from preRelayedCall to postRelayedCall",false);
+        return ("context passed from preRelayedCall to postRelayedCall");
     }
 
     function postRelayedCall(
@@ -57,7 +53,6 @@ contract TestPaymasterStoreContext is TestPaymasterEverythingAccepted {
     )
     external
     override
-    relayHubOnly
     {
         (context, success, gasUseWithoutPost, relayData);
         emit SampleRecipientPostCallWithValues(string(context));

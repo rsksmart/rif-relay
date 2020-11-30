@@ -11,7 +11,7 @@ import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
-import { TestPaymasterConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
+import { TestRecipientInstance, TestVerifierConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
@@ -24,8 +24,8 @@ import { ServerAction } from '../../src/relayserver/StoredTransaction'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
-const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
-
+const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
+const revertReasonSupported = false
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
   const baseRelayFee = '12'
@@ -136,47 +136,16 @@ contract('RelayServer', function (accounts) {
     describe('#validateFees()', function () {
       describe('with trusted forwarder', function () {
         before(async function () {
-          await env.relayServer._initTrustedPaymasters([env.paymaster.address])
+          await env.relayServer._initTrustedVerifiers([env.verifier.address])
         })
 
         after(async function () {
-          await env.relayServer._initTrustedPaymasters([])
+          await env.relayServer._initTrustedVerifiers([])
         })
 
         it('#_itTrustedForwarder', function () {
-          assert.isFalse(env.relayServer._isTrustedPaymaster(accounts[1]), 'identify untrusted paymaster')
-          assert.isTrue(env.relayServer._isTrustedPaymaster(env.paymaster.address), 'identify trusted paymaster')
-        })
-
-        it('should bypass fee checks and not throw if given trusted paymasters', async function () {
-          const req = await env.createRelayHttpRequest()
-          req.relayRequest.relayData.baseRelayFee = (parseInt(env.relayServer.config.baseRelayFee) - 1).toString()
-          env.relayServer.validateFees(req)
-        })
-      })
-
-      describe('without trusted forwarder', function () {
-        it('should fail to relay with wrong baseRelayFee', async function () {
-          const req = await env.createRelayHttpRequest()
-          req.relayRequest.relayData.baseRelayFee = (parseInt(env.relayServer.config.baseRelayFee) - 1).toString()
-          try {
-            env.relayServer.validateFees(req)
-            assert.fail()
-          } catch (e) {
-            assert.include(e.message, 'Unacceptable baseRelayFee:')
-          }
-        })
-
-        it('should fail to relay with wrong pctRelayFee', async function () {
-          const wrongPctRelayFee = (env.relayServer.config.pctRelayFee - 1).toString()
-          const req = await env.createRelayHttpRequest()
-          req.relayRequest.relayData.pctRelayFee = wrongPctRelayFee
-          try {
-            env.relayServer.validateFees(req)
-            assert.fail()
-          } catch (e) {
-            assert.include(e.message, 'Unacceptable pctRelayFee:')
-          }
+          assert.isFalse(env.relayServer._isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
+          assert.isTrue(env.relayServer._isTrustedVerifier(env.verifier.address), 'identify trusted verifier')
         })
       })
 
@@ -210,73 +179,38 @@ contract('RelayServer', function (accounts) {
       })
     })
 
-    describe('#validatePaymasterGasLimits()', function () {
-      it('should fail to relay with invalid paymaster', async function () {
+    describe('#validateVerifierGasLimits()', function () {
+      it('should fail to relay with invalid verifier', async function () {
         const req = await env.createRelayHttpRequest()
-        req.relayRequest.relayData.paymaster = accounts[1]
+        req.relayRequest.relayData.callVerifier = accounts[1]
         try {
-          await env.relayServer.validatePaymasterGasLimits(req)
+          env.relayServer.validateFees(req)
           assert.fail()
         } catch (e) {
-          assert.include(e.message, `non-existent paymaster contract: ${accounts[1]}`)
+          assert.include(e.message, `Invalid verifier: ${accounts[1]}`)
         }
       })
 
-      it('should fail to relay when paymaster\'s balance too low', async function () {
-        id = (await snapshot()).result
-        const req = await env.createRelayHttpRequest()
-        try {
-          await env.paymaster.withdrawAll(accounts[0])
-          await env.relayServer.validatePaymasterGasLimits(req)
-          assert.fail()
-        } catch (e) {
-          assert.include(e.message, 'paymaster balance too low')
-        } finally {
-          await revert(id)
-        }
-      })
-
-      describe('relay max exposure to paymaster rejections', function () {
-        const paymasterExpectedAcceptanceBudget = 150000
-        let rejectingPaymaster: TestPaymasterConfigurableMisbehaviorInstance
+      describe('relay max exposure to verifier rejections', function () {
+        let rejectingVerifier: TestVerifierConfigurableMisbehaviorInstance
         let req: RelayTransactionRequest
 
         before(async function () {
-          rejectingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-          // await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
-          await rejectingPaymaster.setRelayHub(env.relayHub.address)
-          await rejectingPaymaster.deposit({ value: env.web3.utils.toWei('1', 'ether') })
+          rejectingVerifier = await TestVerifierConfigurableMisbehavior.new()
           req = await env.createRelayHttpRequest()
-          req.relayRequest.relayData.paymaster = rejectingPaymaster.address
+          req.relayRequest.relayData.callVerifier = rejectingVerifier.address
         })
 
-        it('should reject a transaction from paymaster returning above configured max exposure', async function () {
-          await rejectingPaymaster.setGreedyAcceptanceBudget(true)
-          try {
-            await env.relayServer.validatePaymasterGasLimits(req)
-            assert.fail()
-          } catch (e) {
-            assert.include(e.message, 'paymaster acceptance budget too high')
-          }
-        })
-
-        it('should accept a transaction from paymaster returning below configured max exposure', async function () {
-          await rejectingPaymaster.setGreedyAcceptanceBudget(false)
-          const gasLimits = await rejectingPaymaster.getGasLimits()
-          assert.equal(parseInt(gasLimits.acceptanceBudget), paymasterExpectedAcceptanceBudget)
-          await env.relayServer.validatePaymasterGasLimits(req)
-        })
-
-        it('should accept a transaction from trusted paymaster returning above configured max exposure', async function () {
-          await rejectingPaymaster.setGreedyAcceptanceBudget(true)
+        it('should accept a transaction from trusted verifier returning above configured max exposure', async function () {
+          await rejectingVerifier.setGreedyAcceptanceBudget(true)
           const req = await env.createRelayHttpRequest()
           try {
-            await env.relayServer._initTrustedPaymasters([rejectingPaymaster.address])
-            const gasLimits = await rejectingPaymaster.getGasLimits()
-            assert.equal(parseInt(gasLimits.acceptanceBudget), paymasterExpectedAcceptanceBudget * 9)
-            await env.relayServer.validatePaymasterGasLimits(req)
+            await env.relayServer._initTrustedVerifiers([rejectingVerifier.address])
+            // const acceptanceBudget = await rejectingVerifier.acceptanceBudget()
+            // assert.equal(parseInt(acceptanceBudget.toString()), verifierExpectedAcceptanceBudget * 9)
+            env.relayServer.validateFees(req)
           } finally {
-            await env.relayServer._initTrustedPaymasters([])
+            await env.relayServer._initTrustedVerifiers([])
           }
         })
       })
@@ -287,10 +221,14 @@ contract('RelayServer', function (accounts) {
         const req = await env.createRelayHttpRequest()
         req.metadata.signature = INCORRECT_ECDSA_SIGNATURE
         try {
-          await env.relayServer.validateViewCallSucceeds(req, 150000, 2000000)
+          await env.relayServer.validateViewCallSucceeds(req, 2000000)
           assert.fail()
         } catch (e) {
-          assert.include(e.message, 'Paymaster rejected in server: signature mismatch')
+          if (revertReasonSupported) {
+            assert.include(e.message, 'Verifier rejected in server: signature mismatch')
+          } else {
+            assert.include(e.message, 'relayCall (local call) reverted in server: Returned error: VM execution error: transaction reverted')
+          }
         }
       })
     })
@@ -534,20 +472,23 @@ contract('RelayServer', function (accounts) {
   describe('alerted state as griefing mitigation', function () {
     const alertedBlockDelay = 100
     const refreshStateTimeoutBlocks = 1
-    let rejectingPaymaster: TestPaymasterConfigurableMisbehaviorInstance
+    let rejectingVerifier: TestVerifierConfigurableMisbehaviorInstance
     let newServer: RelayServer
+    const TestRecipient = artifacts.require('TestRecipient')
+    let recipient: TestRecipientInstance
 
-    beforeEach('should enter an alerted state for a configured blocks delay after paymaster rejecting an on-chain tx', async function () {
+    beforeEach('should enter an alerted state for a configured blocks delay after verifier rejecting an on-chain tx', async function () {
       id = (await snapshot()).result
+      rejectingVerifier = await TestVerifierConfigurableMisbehavior.new()
+      recipient = await TestRecipient.new()
+
       await env.newServerInstance({
         alertedBlockDelay,
-        refreshStateTimeoutBlocks
+        refreshStateTimeoutBlocks,
+        relayVerifierAddress: rejectingVerifier.address,
+        deployVerifierAddress: rejectingVerifier.address
       })
       newServer = env.relayServer
-      rejectingPaymaster = await TestPaymasterConfigurableMisbehavior.new()
-      // await rejectingPaymaster.setTrustedForwarder(env.forwarder.address)
-      await rejectingPaymaster.setRelayHub(env.relayHub.address)
-      await rejectingPaymaster.deposit({ value: env.web3.utils.toWei('1', 'ether') })
       await attackTheServer(newServer)
     })
     afterEach(async function () {
@@ -557,14 +498,20 @@ contract('RelayServer', function (accounts) {
 
     async function attackTheServer (server: RelayServer): Promise<void> {
       const _sendTransactionOrig = server.transactionManager.sendTransaction
+
       server.transactionManager.sendTransaction = async function ({ signer, method, destination, value = '0x', gasLimit, gasPrice }: SendTransactionDetails): Promise<SignedTransactionDetails> {
-        await rejectingPaymaster.setRevertPreRelayCall(true)
+        await recipient.setNextRevert()
         // @ts-ignore
         return (await _sendTransactionOrig.call(server.transactionManager, ...arguments))
       }
-      const req = await env.createRelayHttpRequest({ paymaster: rejectingPaymaster.address })
+      const req = await env.createRelayHttpRequest({
+        callVerifier: rejectingVerifier.address,
+        to: recipient.address,
+        data: recipient.contract.methods.testNextRevert().encodeABI()
+      })
+
       await env.relayServer.createRelayTransaction(req)
-      // await relayTransaction(relayTransactionParams2, options2, { paymaster: rejectingPaymaster.address }, false)
+      // await relayTransaction(relayTransactionParams2, options2, { verifier: rejectingVerifier.address }, false)
       const currentBlock = await env.web3.eth.getBlock('latest')
       await server._worker(currentBlock.number)
       assert.isTrue(server.alerted, 'server not alerted')

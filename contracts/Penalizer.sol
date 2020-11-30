@@ -92,9 +92,10 @@ contract Penalizer is IPenalizer{
         if (decodedTx.to == address(hub)) {
             bytes4 selector = GsnUtils.getMethodSig(decodedTx.data);
             bool isWrongMethodCall = selector != IRelayHub.relayCall.selector;
-            bool isGasLimitWrong = GsnUtils.getParam(decodedTx.data, 4) != decodedTx.gasLimit;
+            //External Gas limit is no longer sent in relayCall (not needed)
+            //bool isGasLimitWrong = GsnUtils.getParam(decodedTx.data, 4) != decodedTx.gasLimit;
             require(
-                isWrongMethodCall || isGasLimitWrong,
+                isWrongMethodCall, //|| isGasLimitWrong,
                 "Legal relay transaction");
         }
         address relay = keccak256(abi.encodePacked(unsignedTx)).recover(signature);

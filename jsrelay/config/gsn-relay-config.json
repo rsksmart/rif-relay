@@ -2,9 +2,9 @@
   "baseRelayFee": 70,
   "pctRelayFee": 0,
   "port": 8090,
-  "relayHubAddress": "0x2F48284b8595345b89413e184BF423Da62958230",
-  "gasPriceFactor": 10,
-  "rskNodeUrl": "http://rskj:4444",
+  "relayHubAddress": "0x73ec81da0C72DD112e06c09A6ec03B5544d26F05",
+  "gasPriceFactor": 1,
+  "ethereumNodeUrl": "http://rskj:4444",
   "devMode": true,
   "logLevel": 1
 }

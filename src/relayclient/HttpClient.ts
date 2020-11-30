@@ -15,9 +15,9 @@ export default class HttpClient {
     this.config = config
   }
 
-  async getPingResponse (relayUrl: string, paymaster?: string): Promise<PingResponse> {
-    const paymasterSuffix = paymaster == null ? '' : '?paymaster=' + paymaster
-    const pingResponse: PingResponse = await this.httpWrapper.sendPromise(relayUrl + '/getaddr' + paymasterSuffix)
+  async getPingResponse (relayUrl: string, verifier?: string): Promise<PingResponse> {
+    const verifierSuffix = verifier == null ? '' : '?verifier=' + verifier
+    const pingResponse: PingResponse = await this.httpWrapper.sendPromise(relayUrl + '/getaddr' + verifierSuffix)
     log.info('error, body', pingResponse)
     if (pingResponse == null) {
       throw new Error('Relay responded without a body')

@@ -29,13 +29,14 @@ export function padTo64 (hex: string): string {
   return hex
 }
 
-export function event2topic (contract: any, names: any): any {
+export function event2topic (contract: any, names: string[]): string[] {
   // for testing: don't crash on mockup..
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!contract.options || !contract.options.jsonInterface) { return names }
-  if (typeof names === 'string') {
+  /* if (typeof names === 'string') {
     return event2topic(contract, [names])[0]
-  }
+  } */
+
   return contract.options.jsonInterface
     .filter((e: any) => names.includes(e.name))
     // @ts-ignore
@@ -124,15 +125,13 @@ export async function getEip712Signature (
  * @returns maximum possible gas consumption by this relayed call
  */
 export function calculateTransactionMaxPossibleGas (
-  {
-    gasLimits,
-    hubOverhead,
-    relayCallGasLimit
-  }: TransactionGasComponents): number {
+
+  hubOverhead: number,
+  relayCallGasLimit: string,
+  cushion: number
+): number {
   return hubOverhead +
-    parseInt(relayCallGasLimit) +
-    parseInt(gasLimits.preRelayedCallGasLimit) +
-    parseInt(gasLimits.postRelayedCallGasLimit)
+    parseInt(relayCallGasLimit) + cushion
 }
 
 export function getEcRecoverMeta (message: PrefixedHexString, signature: string | Signature): PrefixedHexString {
@@ -219,12 +218,12 @@ export function isRegistrationValid (registerEvent: EventData | undefined, confi
  * @param gtxdatanonzero
  */
 interface TransactionGasComponents {
-  gasLimits: PaymasterGasLimits
+  gasLimits: VerifierGasLimits
   hubOverhead: number
   relayCallGasLimit: string
 }
 
-export interface PaymasterGasLimits {
+export interface VerifierGasLimits {
   acceptanceBudget: string
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string

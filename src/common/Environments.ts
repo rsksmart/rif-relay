@@ -12,9 +12,7 @@ export interface Environment {
 }
 
 const defaultRelayHubConfiguration: RelayHubConfiguration = {
-  gasOverhead: 35965,
-  postOverhead: 13950,
-  gasReserve: 100000,
+  gasOverhead: 190000, // TODO Calculate precise value
   maxWorkerCount: 10,
   minimumStake: 1e18.toString(),
   minimumUnstakeDelay: 1000,

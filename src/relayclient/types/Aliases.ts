@@ -8,6 +8,7 @@ import { RelayRegisteredEventInfo } from './RelayRegisteredEventInfo'
 
 export type Address = string
 export type IntString = string
+export type BoolString = string
 /**
  * For legacy reasons, to filter out the relay this filter has to throw.
  * TODO: make ping filtering sane!

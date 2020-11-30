@@ -46,7 +46,7 @@ The core Enveloping architecture is defined by the following components:
 
 - **Relay Request** - a structure that wraps the transaction sent by an end-user including the required data for the relay (e.g. address of the payer, address of the original requester, token payment data).
 - **Relay Hub** - a core contract on the blockchain which serves as the interface for the on-chain system. It manages the balances of the accounts involved and forwards Relay Requests to the rest of the contracts. 
-- **Paymaster** - an abstract contract that verifies relay requests. It also collects the payments in tokens from the users of the service.
+- **Verifier** - an abstract contract that authorizes a specific relay request.
 - **Smart Wallet** - a contract that verifies forwarded data and invokes the receipient contract of the transaction. The smart wallet is created *counterfactually* at the moment it is needed. This happens, for instance, when a user with some token balances wants to move those tokens without spending gas, i.e. using the enveloping system.
 - **Relay Server** - a relay service daemon, running as a  HTTP service.  Advertises itself (through the RelayHub) and waits for client requests.
 - **Relay Client** - a typescript library for a client to access the blockchain through a relay. Provides APIs to find a good relay, and to send transactions through it. The library hooks the local web3, so that any loade. Id contract API will go through the relay.
@@ -55,15 +55,23 @@ The core Enveloping architecture is defined by the following components:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [RelayHub](https://explorer.testnet.rsk.co/address/0x38bebd507abc3d76b10d61f5c95668e1240d087f)        | 0x38bebd507aBC3D76B10d61f5C95668e1240D087F |
-| [StakeManager](https://explorer.testnet.rsk.co/address/0xc9673765e7EcFAA091e025aB5f3559a5312735B2)   | 0xc9673765e7EcFAA091e025aB5f3559a5312735B2 |
-| [Penalizer](https://explorer.testnet.rsk.co/address/0xCe0624C8f4baa8a285cdc663480a59d7DCfA86Ea)   | 0xCe0624C8f4baa8a285cdc663480a59d7DCfA86Ea |
-| [VersionRegistry](https://explorer.testnet.rsk.co/address/0x45BE444a2C64E9FC135DF82F10232215976385db) | 0x45BE444a2C64E9FC135DF82F10232215976385db |
-| [SmartWallet](https://explorer.testnet.rsk.co/address/0xFe4511C3618e11BE8F0deacF9a274ebD8B461EDc)    | 0xFe4511C3618e11BE8F0deacF9a274ebD8B461EDc |
-| [ProxyFactory](https://explorer.testnet.rsk.co/address/0x73890478E6D9Cf789Bc582A1e5F95769672e4a06)    | 0x73890478E6D9Cf789Bc582A1e5F95769672e4a06 |
-| [DeployPaymaster](https://explorer.testnet.rsk.co/address/0xBA4f8B370469F321A9B9C812Bde1424722445576) | 0xBA4f8B370469F321A9B9C812Bde1424722445576 |
-| [RelayPaymaster](https://explorer.testnet.rsk.co/address/0xb4a86E32b39f86b203220D559A78ac68a0144b34)  | 0xb4A86E32B39f86b203220D559A78AC68A0144B34 |
-| [Token RIF ](https://explorer.testnet.rsk.co/address/0x19f64674d8a5b4e652319f5e239efd3bc969a1fe)  | 0x19f64674D8a5b4e652319F5e239EFd3bc969a1FE |
+| [StakeManager]    | 0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D |
+| [Penalizer]       | 0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726 |
+| [RelayHub]        | 0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C |
+| [TestRecipient]   | 0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa |
+| [SmartWallet]     | 0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1 |
+| [ProxyFactory]    | 0xb7a5370F126d51138d60e20E3F332c81f1507Ce2 |
+| [DeployVerifier] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
+| [RelayVerifier]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
+
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0x4aD91a4315b3C060F60B69Fd0d1eBaf16c14148D)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xd3021763366708d5FD07bD3A7Cd04F94Fc5e1726)
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x3f8e67A0aCc07ff2F4f46dcF173C652765a9CA6C)
+[TestRecipient]:(https://explorer.testnet.rsk.co/address/0xFBE5bF13F7533F00dF301e752b41c96965c10Bfa)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0xE7552f1FF31670aa36b08c17e3F1F582Af6302d1)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xb7a5370F126d51138d60e20E3F332c81f1507Ce2)
+[DeployVerifier]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
+[RelayVerifier]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
 
 ## 3. Building project <a id="c03"></a>
 
@@ -194,3 +202,11 @@ Stop the running node and delete the db used by the node.
 #### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
+
+## 7. Gas Station Network <a id="c07"></a>
+
+This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
+- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
+- Elimination of interaction with Uniswap: relay providers accumulate tokens on a Verifier under their control to later on decide what to do with funds.
+
+Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 

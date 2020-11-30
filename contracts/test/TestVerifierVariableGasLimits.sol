@@ -2,11 +2,11 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./TestPaymasterEverythingAccepted.sol";
+import "./TestVerifierEverythingAccepted.sol";
 
-contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
+contract TestVerifierVariableGasLimits is TestVerifierEverythingAccepted {
 
-    string public override versionPaymaster = "2.0.1+opengsn.test-vgl.ipaymaster";
+    string public override versionVerifier = "2.0.1+opengsn.test-vgl.iverifier";
 
     event SampleRecipientPreCallWithValues(
         uint256 gasleft,
@@ -27,11 +27,11 @@ contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
     )
     external
     override
-    returns (bytes memory, bool) {
+    returns (bytes memory) {
         (signature, approvalData);
         emit SampleRecipientPreCallWithValues(
             gasleft(), maxPossibleGas);
-        return ("", false);
+        return ("");
     }
 
     function postRelayedCall(
@@ -42,7 +42,6 @@ contract TestPaymasterVariableGasLimits is TestPaymasterEverythingAccepted {
     )
     external
     override
-    relayHubOnly
     {
         (context, success, gasUseWithoutPost, relayData);
         emit SampleRecipientPostCallWithValues(gasleft(), gasUseWithoutPost);

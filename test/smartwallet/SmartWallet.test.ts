@@ -18,6 +18,7 @@ import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, createSimpleProxyFactory, createSimpleSmartWallet } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType, ENVELOPING_PARAMS, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
+import RelayRequest from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -51,7 +52,7 @@ options.forEach(element => {
     let sw: SmartWalletInstance | SimpleSmartWalletInstance
     let domainSeparatorHash: string
 
-    const request = {
+    const request: RelayRequest = {
       request: {
         from: constants.ZERO_ADDRESS,
         to: constants.ZERO_ADDRESS,
@@ -62,18 +63,16 @@ options.forEach(element => {
         tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '1',
-        factory: constants.ZERO_ADDRESS,
         recoverer: constants.ZERO_ADDRESS,
         index: '0'
       },
       relayData: {
-        pctRelayFee: '1',
-        baseRelayFee: '1',
         gasPrice: '1',
+        isSmartWalletDeploy: false,
+        domainSeparator: '0x',
         relayWorker: constants.ZERO_ADDRESS,
-        forwarder: constants.ZERO_ADDRESS,
-        paymaster: constants.ZERO_ADDRESS,
-        paymasterData: '0x',
+        callForwarder: constants.ZERO_ADDRESS,
+        callVerifier: constants.ZERO_ADDRESS,
         clientId: '1'
       }
     }
@@ -97,8 +96,9 @@ options.forEach(element => {
         sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
       }
 
-      request.relayData.forwarder = sw.address
-      domainSeparatorHash = getDomainSeparatorHash(sw.address, chainId)
+      request.relayData.callForwarder = sw.address
+      request.relayData.domainSeparator = getDomainSeparatorHash(sw.address, chainId)
+      domainSeparatorHash = request.relayData.domainSeparator
     })
 
     describe('#verify', () => {
@@ -440,7 +440,7 @@ options.forEach(element => {
           assert.equal(ret.logs[0].args.lastSuccTx, 2)
 
           // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
-          // Ideally it should pay the relayWorker or paymaster
+          // Ideally it should pay the relayWorker or verifier
           const tknBalance = await token.balanceOf(recipient.address)
           assert.isTrue(BigInt(tokensPaid) === BigInt(tknBalance))
 

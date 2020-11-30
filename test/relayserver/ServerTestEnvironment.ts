@@ -9,7 +9,7 @@ import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IForwarderInstance,
   IRelayHubInstance,
-  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance, SmartWalletInstance, TestTokenRecipientInstance
+  IStakeManagerInstance, TestVerifierEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance
 } from '../../types/truffle-contracts'
 import {
   assertRelayAdded,
@@ -34,28 +34,28 @@ import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
-import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
+import VerifierABI from '../../src/common/interfaces/IVerifier.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ether } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestTokenRecipient = artifacts.require('TestTokenRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
+const TestRecipient = artifacts.require('TestRecipient')
+const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(StakeManagerABI)
-abiDecoder.addABI(PayMasterABI)
+abiDecoder.addABI(VerifierABI)
 // @ts-ignore
 abiDecoder.addABI(TestTokenRecipient.abi)
 // @ts-ignore
-abiDecoder.addABI(TestPaymasterEverythingAccepted.abi)
+abiDecoder.addABI(TestVerifierEverythingAccepted.abi)
 export const LocalhostOne = 'http://localhost:8090'
 
 export interface PrepareRelayRequestOption {
   to: string
   from: string
-  paymaster: string
+  verifier: string // TODO Change to relay and deploy verifierS
   pctRelayFee: number
   baseRelayFee: string
 }
@@ -64,15 +64,15 @@ export class ServerTestEnvironment {
   stakeManager!: IStakeManagerInstance
   relayHub!: IRelayHubInstance
   forwarder!: IForwarderInstance
-  paymaster!: TestPaymasterEverythingAcceptedInstance
-  tokenRecipient!: TestTokenRecipientInstance
+  verifier!: TestVerifierEverythingAcceptedInstance
+  recipient!: TestRecipientInstance
 
   relayOwner!: Address
   gasLess!: Address
 
   encodedFunction!: PrefixedHexString
 
-  paymasterData!: PrefixedHexString
+  verifierData!: PrefixedHexString
   clientId!: string
 
   options?: PrepareRelayRequestOption
@@ -101,12 +101,9 @@ export class ServerTestEnvironment {
   async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
     this.stakeManager = await StakeManager.new()
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
-    this.tokenRecipient = await TestTokenRecipient.new()
-    this.paymaster = await TestPaymasterEverythingAccepted.new()
-
-    // await this.paymaster.setTrustedForwarder(this.forwarder.address)
-    await this.paymaster.setRelayHub(this.relayHub.address)
-    await this.paymaster.deposit({ value: this.web3.utils.toWei('1', 'ether') })
+    this.recipient = await TestRecipient.new()
+    this.verifier = await TestVerifierEverythingAccepted.new()
+    this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
 
     const gaslessAccount = await getGaslessAccount()
     this.gasLess = gaslessAccount.address
@@ -124,7 +121,9 @@ export class ServerTestEnvironment {
 
     const shared: Partial<GSNConfig> = {
       logLevel: 5,
-      relayHubAddress: this.relayHub.address
+      relayHubAddress: this.relayHub.address,
+      relayVerifierAddress: this.verifier.address,
+      deployVerifierAddress: this.verifier.address
     }
     if (contractFactory == null) {
       this.contractInteractor = new ContractInteractor(this.provider, configureGSN(shared))
@@ -187,13 +186,16 @@ export class ServerTestEnvironment {
     const shared: Partial<ServerConfigParams> = {
       relayHubAddress: this.relayHub.address,
       checkInterval: 10,
-      logLevel: 5
+      logLevel: 5,
+      relayVerifierAddress: this.verifier.address,
+      deployVerifierAddress: this.verifier.address
     }
     const mergedConfig: Partial<ServerConfigParams> = Object.assign({}, shared, config)
     this.relayServer = new RelayServer(mergedConfig, serverDependencies)
     this.relayServer.on('error', (e) => {
       console.log('newServer event', e.message)
     })
+    this.relayServer.config.trustedVerifiers.push(this.verifier.address)
   }
 
   async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
@@ -216,14 +218,14 @@ export class ServerTestEnvironment {
       from: this.gasLess,
       to: this.tokenRecipient.address,
       data: this.encodedFunction,
-      paymaster: this.paymaster.address,
-      forwarder: this.forwarder.address,
+      callVerifier: this.verifier.address,
+      callForwarder: this.forwarder.address,
       gas: toHex(1000000),
       gasPrice: toHex(20000000000),
       tokenRecipient: constants.ZERO_ADDRESS,
       tokenAmount: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
-      factory: constants.ZERO_ADDRESS
+      isSmartWalletDeploy: false
     }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))
@@ -270,7 +272,6 @@ export class ServerTestEnvironment {
     assert.equal(event2.name, 'TransactionRelayed')
     assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
     assert.equal(event2.args.from.toLowerCase(), sender.toLowerCase())
-    assert.equal(event2.args.to.toLowerCase(), this.tokenRecipient.address.toLowerCase())
-    assert.equal(event2.args.paymaster.toLowerCase(), this.paymaster.address.toLowerCase())
+    assert.equal(event2.args.to.toLowerCase(), this.recipient.address.toLowerCase())
   }
 }
