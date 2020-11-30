@@ -113,7 +113,7 @@ In order to run an Enveloping instance, clone the project then run the following
 4. On the project's root directory, run `docker-compose build`
 5. Run `docker-compose up -d rskj`
 6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
-7. Create an account from an mnemonic, and store the mnemonic in a file, then found it.
+7. Create an account from an mnemonic, and store the mnemonic in a file, then fund it.
 8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
 9. On the project's root directory, run `docker-compose up -d jsrelay`
 10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
