@@ -20,6 +20,7 @@ async function run (): Promise<void> {
   console.log('Starting GSN Relay Server process...\n')
   try {
     const conf = await parseServerConfig(process.argv.slice(2), process.env)
+    console.log(conf)
     if (conf.ethereumNodeUrl == null) {
       error('missing ethereumNodeUrl')
     }
