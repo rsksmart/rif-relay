@@ -3,6 +3,7 @@ import { ether } from '../../common/Utils'
 import CommandsLogic from '../CommandsLogic'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
 import { getNetworkUrl, getRelayHubAddress, gsnCommander, getMnemonic } from '../utils'
+import { defaultEnvironment } from '../../common/Environments'
 
 const commander = gsnCommander(['n', 'f', 'h', 'm'])
   .option('--relayUrl <url>', 'url to advertise the relayer (defaults to localhost:8090)')
@@ -25,8 +26,8 @@ const commander = gsnCommander(['n', 'f', 'h', 'm'])
   const registerOptions = {
     hub,
     from: commander.from ?? await logic.findWealthyAccount(),
-    stake: commander.stake ?? ether('1'),
-    funds: commander.funds ?? ether('2'),
+    stake: commander.stake ?? defaultEnvironment.relayHubConfiguration.minimumStake,
+    funds: commander.funds ?? ether('0.01'),
     relayUrl: commander.relayUrl ?? 'http://localhost:8090',
     unstakeDelay: commander.unstakeDelay ?? 1000
   }
