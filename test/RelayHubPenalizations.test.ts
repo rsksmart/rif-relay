@@ -388,7 +388,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const { gasPrice, gasLimit, relayRequest, signature } = await prepareRelayCall()
           await relayHub.depositFor(paymaster.address, {
             from: other,
-            value: ether('1'),
+            value: ether('0.001'),
             gasPrice: '1'
           })
           const relayCallTx = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gasLimit.add(new BN(2e6)), {
@@ -453,7 +453,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           )
           await relayHub.depositFor(paymaster.address, {
             from: other,
-            value: ether('1'),
+            value: ether('0.001'),
             gasPrice: '1'
           })
           const externalGasLimit = gasLimit.add(new BN(1e6))

@@ -115,11 +115,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     }
 
     it('can deposit for self', async function () {
-      await testDeposit(other, other, ether('1'))
+      await testDeposit(other, other, ether('0.01'))
     })
 
     it('can deposit for others', async function () {
-      await testDeposit(other, target, ether('1'))
+      await testDeposit(other, target, ether('0.01'))
     })
 
     // TODO review gasPrice for RSK
@@ -138,25 +138,25 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     it('can deposit multiple times and have a total deposit larger than the limit', async function () {
       await relayHubInstance.depositFor(target, {
         from: other,
-        value: ether('1'),
+        value: ether('0.01'),
         gasPrice: 1
       })
       await relayHubInstance.depositFor(target, {
         from: other,
-        value: ether('1'),
+        value: ether('0.01'),
         gasPrice: 1
       })
       await relayHubInstance.depositFor(target, {
         from: other,
-        value: ether('1'),
+        value: ether('0.01'),
         gasPrice: 1
       })
 
-      expect(await relayHubInstance.balanceOf(target)).to.be.bignumber.equals(ether('3'))
+      expect(await relayHubInstance.balanceOf(target)).to.be.bignumber.equals(ether('0.03'))
     })
 
     it('accounts with deposits can withdraw partially', async function () {
-      const amount = ether('1')
+      const amount = ether('0.01')
       await testDeposit(other, other, amount)
 
       const { logs } = await relayHubInstance.withdraw(amount.divn(2), dest, { from: other })
@@ -168,7 +168,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     })
 
     it('accounts with deposits can withdraw all their balance', async function () {
-      const amount = ether('1')
+      const amount = ether('0.01')
       await testDeposit(other, other, amount)
 
       const { logs } = await relayHubInstance.withdraw(amount, dest, { from: other })
@@ -180,7 +180,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     })
 
     it('accounts cannot withdraw more than their balance', async function () {
-      const amount = ether('1')
+      const amount = ether('0.01')
       await testDeposit(other, other, amount)
 
       await expectRevert.unspecified(relayHubInstance.withdraw(amount.addn(1), dest, { from: other }), 'insufficient funds')
@@ -237,7 +237,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         relayRequest.request.data = '0xdeadbeef'
         await relayHubInstance.depositFor(paymaster, {
           from: other,
-          value: ether('1'),
+          value: ether('0.01'),
           gasPrice: 1
         })
       })
@@ -285,7 +285,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
       beforeEach(async function () {
         await stakeManager.stakeForAddress(relayManager, 1000, {
-          value: ether('2'),
+          value: ether('0.02'),
           from: relayOwner
         })
         await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
@@ -308,7 +308,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         )
 
         await relayHubInstance.depositFor(paymaster, {
-          value: ether('1'),
+          value: ether('0.01'),
           from: other
         })
       })
@@ -401,11 +401,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           await paymasterWithContext.setRelayHub(relayHub)
           await misbehavingPaymaster.setRelayHub(relayHub)
           await relayHubInstance.depositFor(paymasterWithContext.address, {
-            value: ether('1'),
+            value: ether('0.01'),
             from: other
           })
           await relayHubInstance.depositFor(misbehavingPaymaster.address, {
-            value: ether('1'),
+            value: ether('0.01'),
             from: other
           })
           let dataToSign = new TypedRequestData(
@@ -803,7 +803,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             // await misbehavingPaymaster.setTrustedForwarder(forwarder)
             await misbehavingPaymaster.setRelayHub(relayHub)
             await relayHubInstance.depositFor(misbehavingPaymaster.address, {
-              value: ether('1'),
+              value: ether('0.01'),
               from: other
             })
 
