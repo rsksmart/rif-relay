@@ -65,7 +65,7 @@ contract('GsnTestEnvironment', function () {
 
     it('should relay using relayTransaction invoking an ERC20 contract', async () => {
       const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
-      const sender = getGaslessAccount()
+      const sender = await getGaslessAccount()
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const str: TestTokenRecipientInstance = await TestTokenRecipient.new()
 
@@ -130,7 +130,7 @@ contract('GsnTestEnvironment', function () {
 
     it('should send relayed transaction invoking an ERC20 contract through RelayProvider', async () => {
       const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
-      const sender = getGaslessAccount()
+      const sender = await getGaslessAccount()
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const str: TestTokenRecipientInstance = await TestTokenRecipient.new()
 

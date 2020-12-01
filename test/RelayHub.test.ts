@@ -576,7 +576,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         it('relayCall executes the transaction with an ERC20 recipient and increments sender nonce on hub', async function () {
           await testTokenRecipient.mint('200', forwarder)
 
-          const nonceBefore = await forwarderInstance.getNonce()
+          const nonceBefore = await forwarderInstance.nonce()
           const encodedFunction = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
           const relayRequestTokenTransferData = cloneRelayRequest(relayRequest)
           relayRequestTokenTransferData.request.data = encodedFunction
@@ -596,7 +596,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gas,
             gasPrice
           })
-          const nonceAfter = await forwarderInstance.getNonce()
+          const nonceAfter = await forwarderInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
           const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
           chai.expect('5').to.be.bignumber.equal(balance)

@@ -10,7 +10,7 @@ import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/T
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance, TestTokenRecipientInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { bufferToHex } from 'ethereumjs-util'
+import { BN, bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
@@ -176,9 +176,9 @@ contract('Utils', function (accounts) {
     describe('#callForwarderVerifyAndCallInvokingTokenContract', () => {
       it('should return revert result because token payment without balance', async function () {
         relayRequest.request.to = testTokenRecipient.address
-        relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
+        relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
         relayRequest.request.data = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
-
+        const startPayerBalance = await testTokenRecipient.balanceOf(forwarder)
         const sig = await getLocalEip712Signature(
           new TypedRequestData(
             chainId,
@@ -193,13 +193,17 @@ contract('Utils', function (accounts) {
         })
         const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
         chai.expect('0').to.be.bignumber.equal(balance)
+        const lastPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        assert.equal(startPayerBalance.toString(), lastPayerBalance.toString())
       })
 
       it('should call token contract', async function () {
         await testTokenRecipient.mint('200', forwarder)
+        const tokenToTransfer = 5
+        const startPayerBalance = await testTokenRecipient.balanceOf(forwarder)
         relayRequest.request.to = testTokenRecipient.address
-        relayRequest.request.nonce = (await forwarderInstance.getNonce()).toString()
-        relayRequest.request.data = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
+        relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
+        relayRequest.request.data = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, tokenToTransfer.toString()).encodeABI()
         const sig = await getLocalEip712Signature(
           new TypedRequestData(
             chainId,
@@ -214,6 +218,8 @@ contract('Utils', function (accounts) {
         })
         const logs = await testTokenRecipient.contract.getPastEvents(null, { fromBlock: 1 })
         assert.equal(logs[0].event, 'Transfer')
+        const lastPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        assert.equal(startPayerBalance.sub(new BN(tokenToTransfer)).toString(), lastPayerBalance.toString())
       })
     })
   })
