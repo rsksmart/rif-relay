@@ -4,6 +4,7 @@ import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, ProxyFactoryInstance, TestTokenRecipientInstance } from '../types/truffle-contracts'
 import { getTestingEnvironment, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
+import { BN } from 'ethereumjs-util'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -70,7 +71,8 @@ contract('GsnTestEnvironment', function () {
       const str: TestTokenRecipientInstance = await TestTokenRecipient.new()
 
       const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
-      await str.mint('200', wallet.address)
+      const initialSenderBalance = 200
+      await str.mint(initialSenderBalance, wallet.address)
       testEnvironment.relayProvider.relayClient.accountManager.addAccount(sender)
 
       const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
@@ -92,7 +94,10 @@ contract('GsnTestEnvironment', function () {
       const events = await str.contract.getPastEvents()
       assert.equal(events[0].event, 'Transfer')
       const balance = await str.balanceOf(tokenReceiverAddress)
-      assert.equal(balance.toString(), '5')
+      const valueToSend = 5
+      assert.equal(balance.toString(), valueToSend.toString())
+      const lastSenderBalance = await str.balanceOf(wallet.address)
+      assert.equal(lastSenderBalance.add(new BN(valueToSend)).toString(), initialSenderBalance.toString())
     })
   })
 
@@ -136,7 +141,8 @@ contract('GsnTestEnvironment', function () {
 
       const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
       testEnvironment.relayProvider.addAccount(sender)
-      await str.mint('200', wallet.address)
+      const initialSenderBalance = 200
+      await str.mint(initialSenderBalance, wallet.address)
 
       // @ts-ignore
       TestTokenRecipient.web3.setProvider(testEnvironment.relayProvider)
@@ -146,10 +152,14 @@ contract('GsnTestEnvironment', function () {
         paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
         forwarder: wallet.address
       }
-      const ret = await str.transfer(tokenReceiverAddress, '5', txDetails)
+
+      const valueToSend = 5
+      const ret = await str.transfer(tokenReceiverAddress, valueToSend, txDetails)
       expectEvent(ret, 'Transfer')
       const balance = await str.balanceOf(tokenReceiverAddress)
       assert.equal(balance.toString(), '5')
+      const lastSenderBalance = await str.balanceOf(wallet.address)
+      assert.equal(lastSenderBalance.add(new BN(valueToSend)).toString(), initialSenderBalance.toString())
     })
   })
 })
