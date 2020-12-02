@@ -400,7 +400,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
 
-          const rskDifference: number = isRsk(env) ? 105000 : 0
+          const rskDifference: number = isRsk(env) ? 105525 : 0
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
