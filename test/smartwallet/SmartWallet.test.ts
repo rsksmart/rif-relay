@@ -3,7 +3,8 @@ import {
   TestSmartWalletInstance,
   TestForwarderTargetInstance,
   ProxyFactoryInstance,
-  TestTokenInstance
+  TestTokenInstance,
+  TestTokenRecipientInstance
 } from '../../types/truffle-contracts'
 
 // @ts-ignore
@@ -20,6 +21,7 @@ require('source-map-support').install({ errorFormatterForce: true })
 
 const keccak256 = web3.utils.keccak256
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestToken = artifacts.require('TestToken')
 const typeHash = keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
 const SmartWallet = artifacts.require('SmartWallet')
@@ -153,13 +155,15 @@ contract('SmartWallet', ([from]) => {
   })
 
   describe('#verifyAndCall', () => {
-    let recipient: TestForwarderTargetInstance
+    // let recipient: TestForwarderTargetInstance
+    let recipient: TestTokenRecipientInstance
     let testfwd: TestSmartWalletInstance
 
     before(async () => {
       await token.mint('1000', sw.address)
 
-      recipient = await TestForwarderTarget.new()
+      // recipient = await TestForwarderTarget.new()
+      recipient = await TestTokenRecipient.new()
       testfwd = await TestSmartWallet.new()
 
       request.request.tokenRecipient = recipient.address
@@ -167,7 +171,8 @@ contract('SmartWallet', ([from]) => {
     })
 
     it('should return revert message of token payment revert', async () => {
-      const func = recipient.contract.methods.testRevert().encodeABI()
+      // const func = recipient.contract.methods.testRevert().encodeABI()
+      const func = recipient.contract.methods.transfer(senderAddress, '1').encodeABI()
 
       const req1 = { ...request }
       req1.request.to = recipient.address
@@ -193,7 +198,11 @@ contract('SmartWallet', ([from]) => {
     })
 
     it('should call function', async () => {
-      const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+      // const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+      await recipient.mint('200', sw.address)
+      const initialSenderBalance = await recipient.balanceOf(sw.address)
+      const amountToSend = 5
+      const func = recipient.contract.methods.transfer(senderAddress, amountToSend).encodeABI()
       const initialRecipientBalance = await token.balanceOf(recipient.address)
 
       const initialNonce = (await sw.nonce())
@@ -215,16 +224,19 @@ contract('SmartWallet', ([from]) => {
       const tknBalance = await token.balanceOf(recipient.address)
       assert.equal(tknBalance.sub(initialRecipientBalance).toString(), new BN(1).toString())
       // @ts-ignore
-      const logs = await recipient.getPastEvents('TestForwarderMessage')
-      assert.equal(logs.length, 1, 'TestRecipient should emit')
-      assert.equal(logs[0].args.origin, from, 'test "from" account is the tx.origin')
-      assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
+      const logs = await recipient.getPastEvents('Transfer')
+      assert.equal(logs.length, 1, 'TestTokenRecipient should emit')
 
       assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
+
+      const balance = await recipient.balanceOf(senderAddress)
+      const lastSenderBalance = await recipient.balanceOf(sw.address)
+      assert.equal(balance.toString(), amountToSend.toString())
+      assert.isTrue(lastSenderBalance.add(new BN(amountToSend)).eq(initialSenderBalance))
     })
 
     it('should return revert message of target revert', async () => {
-      const func = recipient.contract.methods.testRevert().encodeABI()
+      const func = recipient.contract.methods.transfer(senderAddress, '10000').encodeABI()
       const initialRecipientBalance = await token.balanceOf(recipient.address)
 
       const req1 = { ...request }
@@ -242,7 +254,7 @@ contract('SmartWallet', ([from]) => {
 
       // the helper simply emits the method return values
       const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
-      assert.equal(ret.logs[0].args.error, 'always fail')
+      assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
       assert.equal(ret.logs[0].args.lastSuccTx, 1)
 
       // Payment must have happened regardless of the revert
@@ -251,7 +263,7 @@ contract('SmartWallet', ([from]) => {
     })
 
     it('should not be able to re-submit after revert (its repeated nonce)', async () => {
-      const func = recipient.contract.methods.testRevert().encodeABI()
+      const func = recipient.contract.methods.transfer(senderAddress, '10000').encodeABI()
       const initialRecipientBalance = await token.balanceOf(recipient.address)
 
       const req1 = { ...request }
@@ -269,7 +281,7 @@ contract('SmartWallet', ([from]) => {
 
       // the helper simply emits the method return values
       const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
-      assert.equal(ret.logs[0].args.error, 'always fail')
+      assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
       assert.equal(ret.logs[0].args.success, false)
       assert.equal(ret.logs[0].args.lastSuccTx, 1)
 
