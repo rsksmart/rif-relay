@@ -52,6 +52,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
       const overrideDetails = { from: gaslessAccount.address, forwarder: smartWallet.address }
+      await env.tokenRecipient.mint('200', smartWallet.address)
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)

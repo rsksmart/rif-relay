@@ -119,6 +119,7 @@ export class ServerTestEnvironment {
 
     const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
+    await this.tokenRecipient.mint('200', smartWallet.address)
 
     const shared: Partial<GSNConfig> = {
       logLevel: 5,
@@ -231,8 +232,6 @@ export class ServerTestEnvironment {
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
   }> {
-    const toMint = overrideDetails.forwarder ?? this.forwarder.address
-    await this.tokenRecipient.mint('200', toMint)
     const req = await this.createRelayHttpRequest(overrideDetails)
     const signedTx = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
