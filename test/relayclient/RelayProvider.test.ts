@@ -78,10 +78,10 @@ contract('RelayProvider', function (accounts) {
     paymasterInstance = await TestPaymasterEverythingAccepted.new()
     paymaster = paymasterInstance.address
     await paymasterInstance.setRelayHub(relayHub.address)
-    await paymasterInstance.deposit({ value: web3.utils.toWei('2', 'ether') })
+    await paymasterInstance.deposit({ value: web3.utils.toWei('0.02', 'ether') })
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       relaylog: process.env.relaylog,
-      stake: 1e18,
+      stake: 5e15,
       url: 'asd',
       relayOwner: accounts[1],
       ethereumNodeUrl: underlyingProvider.host

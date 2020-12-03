@@ -18,7 +18,7 @@ const defaultRelayHubConfiguration: RelayHubConfiguration = {
   maxWorkerCount: 10,
   minimumStake: 5e15.toString(),
   minimumUnstakeDelay: 1000,
-  maximumRecipientDeposit: 5e17.toString()
+  maximumRecipientDeposit: 3e18.toString()
 }
 
 export const environments: { [key: string]: Environment } = {

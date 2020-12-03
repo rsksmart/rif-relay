@@ -67,11 +67,11 @@ const serverDefaultConfiguration: ServerConfigParams = {
   trustedPaymasters: [],
   gasPriceFactor: 1,
   registrationBlockRate: 0,
-  workerMinBalance: 0.1e18,
-  workerTargetBalance: 0.3e18,
-  managerMinBalance: 0.1e18, // 0.1 eth
+  workerMinBalance: 0.01e18,
+  workerTargetBalance: 0.03e18,
+  managerMinBalance: 0.01e18, // 0.01 eth
   managerMinStake: '1', // 1 wei
-  managerTargetBalance: 0.3e18,
+  managerTargetBalance: 0.03e18,
   minHubWithdrawalBalance: 0.1e18,
   checkInterval: 10000,
   readyTimeout: 30000,

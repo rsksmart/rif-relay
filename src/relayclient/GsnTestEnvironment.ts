@@ -56,7 +56,7 @@ class GsnTestEnvironmentClass {
       relayHubConfiguration: environment.relayHubConfiguration
     })
     if (deployPaymaster) {
-      const balance = await commandsLogic.fundPaymaster(from, deploymentResult.naivePaymasterAddress, ether('1'))
+      const balance = await commandsLogic.fundPaymaster(from, deploymentResult.naivePaymasterAddress, ether('0.01'))
       console.log('Naive Paymaster successfully funded, balance:', Web3.utils.fromWei(balance))
     }
 
@@ -69,8 +69,8 @@ class GsnTestEnvironmentClass {
 
     const registerOptions = {
       from,
-      stake: ether('1'),
-      funds: ether('1'),
+      stake: environment.relayHubConfiguration.minimumStake,
+      funds: ether('0.03'),
       relayUrl: relayUrl,
       unstakeDelay: '2000'
     }

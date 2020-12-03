@@ -123,12 +123,12 @@ export async function startRelay (
   await web3.eth.sendTransaction({
     to: relayManagerAddress,
     from: options.relayOwner,
-    value: ether('2')
+    value: ether('0.02')
   })
 
   await stakeManager.stakeForAddress(relayManagerAddress, options.delay || 2000, {
     from: options.relayOwner,
-    value: options.stake || ether('1')
+    value: options.stake || ether('0.01')
   })
   await sleep(500)
   await stakeManager.authorizeHubByOwner(relayManagerAddress, relayHubAddress, {
