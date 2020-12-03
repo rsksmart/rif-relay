@@ -70,7 +70,7 @@ class GsnTestEnvironmentClass {
     const registerOptions = {
       from,
       stake: environment.relayHubConfiguration.minimumStake,
-      funds: ether('0.03'),
+      funds: ether('0.3'),
       relayUrl: relayUrl,
       unstakeDelay: '2000'
     }
