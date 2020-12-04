@@ -26,7 +26,7 @@ import {
 } from '../../types/truffle-contracts'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
+import { deployHub, encodeRevertReason, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransactionRecipient } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
@@ -458,7 +458,7 @@ contract('RelayProvider', function (accounts) {
       await misbehavingPaymaster.setRelayHub(relayHub.address)
       await misbehavingPaymaster.deposit({ value: web3.utils.toWei('2', 'ether') })
       const nonceToUse = await smartWallet.nonce()
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
+      const { relayRequest, signature } = await prepareTransactionRecipient(testRecipient, gaslessAccount, accounts[0], misbehavingPaymaster.address, web3, nonceToUse.toString(), smartWallet.address)
       await misbehavingPaymaster.setReturnInvalidErrorCode(true)
 
       const paymasterRejectedReceiptTruffle = await relayHub.relayCall(10e6, relayRequest, signature, '0x', gas, {

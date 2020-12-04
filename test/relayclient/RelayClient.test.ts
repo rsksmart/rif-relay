@@ -11,7 +11,7 @@ import axios from 'axios'
 import {
   RelayHubInstance,
   StakeManagerInstance,
-  TestRecipientInstance,
+  TestTokenRecipientInstance,
   TestEnvelopingPaymasterInstance, SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
 
@@ -46,7 +46,7 @@ import { bufferToHex } from 'ethereumjs-util'
 import { expectEvent } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestEnvelopingPaymaster = artifacts.require('TestEnvelopingPaymaster')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
@@ -79,7 +79,7 @@ contract('RelayClient', function (accounts) {
   let web3: Web3
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
-  let testRecipient: TestRecipientInstance
+  let testTokenRecipient: TestTokenRecipientInstance
   let paymaster: TestEnvelopingPaymasterInstance
   let relayProcess: ChildProcessWithoutNullStreams
 
@@ -100,7 +100,7 @@ contract('RelayClient', function (accounts) {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new()
     relayHub = await deployHub(stakeManager.address)
-    testRecipient = await TestRecipient.new()
+    testTokenRecipient = await TestTokenRecipient.new()
     sWalletTemplate = await SmartWallet.new()
     token = await TestToken.new()
     const env = (await getTestingEnvironment())
@@ -128,10 +128,10 @@ contract('RelayClient', function (accounts) {
     relayClient.accountManager.addAccount(gaslessAccount)
 
     from = gaslessAccount.address
-    to = testRecipient.address
+    to = testTokenRecipient.address
     await token.mint('1000', smartWallet.address)
-
-    data = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
+    await testTokenRecipient.mint('200', smartWallet.address)
+    data = testTokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
 
     options = {
       from,
@@ -167,7 +167,7 @@ contract('RelayClient', function (accounts) {
 
       // validate we've got the "SampleRecipientEmitted" event
       // TODO: use OZ test helpers
-      const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
+      const topic: string = web3.utils.sha3('Transfer(address,address,uint256)') ?? ''
       assert(res.logs.find(log => log.topics.includes(topic)))
 
       const destination: string = validTransaction.to.toString('hex')

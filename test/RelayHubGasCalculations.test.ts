@@ -8,13 +8,14 @@ import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayReque
 
 import {
   RelayHubInstance,
-  TestRecipientInstance,
   TestPaymasterVariableGasLimitsInstance,
   StakeManagerInstance,
   IForwarderInstance,
   PenalizerInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  TestTokenRecipientInstance,
+  TestRecipientInstance
 } from '../types/truffle-contracts'
 import { deployHub, createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
@@ -23,12 +24,12 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 const SmartWallet = artifacts.require('SmartWallet')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestPaymasterVariableGasLimits = artifacts.require('TestPaymasterVariableGasLimits')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 
 contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, relayManager, senderAddress, other]) {
-  const message = 'Gas Calculations'
   const unstakeDelay = 1000
   const baseFee = new BN('300')
   const fee = new BN('10')
@@ -53,6 +54,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
   let penalizer: PenalizerInstance
+  let tokenRecipient: TestTokenRecipientInstance
   let recipient: TestRecipientInstance
   let paymaster: TestPaymasterVariableGasLimitsInstance
   let forwarderInstance: IForwarderInstance
@@ -75,7 +77,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
     forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
-    recipient = await TestRecipient.new()
+    tokenRecipient = await TestTokenRecipient.new()
     paymaster = await TestPaymasterVariableGasLimits.new()
     stakeManager = await StakeManager.new()
     penalizer = await Penalizer.new()
@@ -95,11 +97,11 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
     await relayHub.registerRelayServer(0, fee, '', { from: relayManager })
-    encodedFunction = recipient.contract.methods.emitMessage(message).encodeABI()
+    encodedFunction = tokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
 
     relayRequest = {
       request: {
-        to: recipient.address,
+        to: tokenRecipient.address,
         data: encodedFunction,
         from: gaslessAccount.address,
         nonce: senderNonce.toString(),
@@ -319,6 +321,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
     [[true, 0], [true, 20], [false, 0], [false, 50]]
       .forEach(([doRevert, len, b]) => {
         it(`should calculate overhead regardless of return value len (${len}) or revert (${doRevert})`, async () => {
+          const recipient = await TestRecipient.new()
           const beforeBalances = getBalances()
           const senderNonce = (await forwarderInstance.nonce()).toString()
           let encodedFunction
@@ -387,6 +390,7 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
   describe('check calculation does not break for different fees', function () {
     before(async function () {
       await relayHub.depositFor(relayOwner, { value: (1).toString() })
+      recipient = await TestRecipient.new()
     });
 
     [0, 1000]

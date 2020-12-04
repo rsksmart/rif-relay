@@ -8,7 +8,7 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestPaymasterConfigurableMisbehaviorInstance,
-  TestRecipientInstance,
+  TestTokenRecipientInstance,
   SmartWalletInstance, ProxyFactoryInstance
 } from '../../types/truffle-contracts'
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
@@ -21,7 +21,7 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
-const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
 export async function stake (stakeManager: StakeManagerInstance, relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
@@ -55,7 +55,7 @@ contract('KnownRelaysManager', function (
     let contractInteractor: ContractInteractor
     let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
-    let testRecipient: TestRecipientInstance
+    let testRecipient: TestTokenRecipientInstance
     let paymaster: TestPaymasterConfigurableMisbehaviorInstance
     let workerRelayWorkersAdded
     let workerRelayServerRegistered
@@ -83,10 +83,11 @@ contract('KnownRelaysManager', function (
 
       await contractInteractor.init()
 
-      testRecipient = await TestRecipient.new()
+      testRecipient = await TestTokenRecipient.new()
       sWalletTemplate = await SmartWallet.new()
       factory = await createProxyFactory(sWalletTemplate)
       smartWallet = await createSmartWallet(senderAddress.address, factory, senderAddress.privateKey, env.chainId)
+      await testRecipient.mint('200', smartWallet.address)
       // register hub's RelayRequest with forwarder, if not already done.
 
       paymaster = await TestPaymasterConfigurableMisbehavior.new()
@@ -101,8 +102,8 @@ contract('KnownRelaysManager', function (
 
       const other = await getGaslessAccount()
       const nextNonce = (await smartWallet.nonce()).toString()
-      const txPaymasterRejected = await prepareTransaction(testRecipient, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
-      const txTransactionRelayed = await prepareTransaction(testRecipient, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)
+      const txPaymasterRejected = await prepareTransaction(testRecipient, 5, other, workerPaymasterRejected, paymaster.address, web3, nextNonce, smartWallet.address)
+      const txTransactionRelayed = await prepareTransaction(testRecipient, 5, other, workerTransactionRelayed, paymaster.address, web3, nextNonce, smartWallet.address)
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {

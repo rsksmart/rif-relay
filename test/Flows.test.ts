@@ -11,7 +11,8 @@ import {
   TestPaymasterEverythingAcceptedInstance, TestPaymasterPreconfiguredApprovalInstance,
   TestRecipientInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  TestTokenRecipientInstance
 } from '../types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
@@ -20,6 +21,7 @@ import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
+const TestTokenRecipient = artifacts.require('tests/TestTokenRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
 const TestPaymasterPreconfiguredApproval = artifacts.require('tests/TestPaymasterPreconfiguredApproval')
 
@@ -42,6 +44,7 @@ options.forEach(params => {
   contract(params.title + 'Flow', function (accounts) {
     let from: Address
     let sr: TestRecipientInstance
+    let str: TestTokenRecipientInstance
     let paymaster: TestPaymasterEverythingAcceptedInstance
     let rhub: RelayHubInstance
     let sm: StakeManagerInstance
@@ -49,6 +52,7 @@ options.forEach(params => {
     let relayClientConfig: Partial<GSNConfig>
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
+    const tokenReceiverAddress = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
     before(async () => {
       const gasPriceFactor = 1.2
@@ -84,8 +88,13 @@ options.forEach(params => {
       }
 
       sr = await TestRecipient.new()
+      str = await TestTokenRecipient.new()
       paymaster = await TestPaymasterEverythingAccepted.new()
       await paymaster.setRelayHub(rhub.address)
+
+      if (!params.relay) {
+        await str.mint('200', from)
+      }
     })
 
     after(async function () {
@@ -111,13 +120,15 @@ options.forEach(params => {
         // @ts-ignore
         const relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig)
         relayProvider.addAccount(gaslessAccount)
+        await str.mint('200', smartWalletInstance.address)
 
         // web3.setProvider(relayProvider)
 
         // NOTE: in real application its enough to set the provider in web3.
         // however, in Truffle, all contracts are built BEFORE the test have started, and COPIED the web3,
         // so changing the global one is not enough...
-        TestRecipient.web3.setProvider(relayProvider)
+        await TestTokenRecipient.web3.setProvider(relayProvider)
+        await TestRecipient.web3.setProvider(relayProvider)
       })
     }
 
@@ -134,13 +145,25 @@ options.forEach(params => {
       assert.equal('hello', res.logs[0].args.message)
     })
 
+    it(params.title + 'send normal transaction to an ERC20 contract', async () => {
+      console.log('running transfer (should succeed)')
+      try {
+        await str.transfer(tokenReceiverAddress, '5', { from: from, gas: 1e6 })
+      } catch (e) {
+        console.log('error is ', e.message)
+        throw e
+      }
+      const balance = await str.balanceOf(tokenReceiverAddress)
+      assert.equal(balance.toString(), '5')
+    })
+
     it(params.title + 'send gasless transaction', async () => {
       console.log('gasless=' + gaslessAccount.address)
 
-      console.log('running gasless-emitMessage (should fail for direct, succeed for relayed)')
+      console.log('running gasless-transfer (should fail for direct, succeed for relayed)')
       let ex: Error | undefined
       try {
-        const res = await sr.emitMessage('hello, from gasless', { from: gaslessAccount.address, gas: 1e6 })
+        const res = await str.transfer(tokenReceiverAddress, '5', { from: gaslessAccount.address, gas: 1e6 })
         console.log('res after gasless emit:', res.logs[0].args.message)
       } catch (e) {
         ex = e
@@ -178,6 +201,7 @@ options.forEach(params => {
           relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig, { asyncApprovalData })
 
           TestRecipient.web3.setProvider(relayProvider)
+          TestTokenRecipient.web3.setProvider(relayProvider)
           TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
           TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
 
@@ -194,6 +218,30 @@ options.forEach(params => {
             })
 
             await sr.emitMessage('xxx', {
+              from: gaslessAccount.address,
+              paymaster: approvalPaymaster.address
+            })
+          } catch (e) {
+            console.log('error1: ', e)
+            throw e
+          } finally {
+            await approvalPaymaster.setExpectedApprovalData('0x', {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+          }
+        })
+
+        it(params.title + 'wait for specific approvalData using an ERC20 recipient contract', async () => {
+          try {
+            setRecipientProvider(async () => await Promise.resolve('0x414243'))
+
+            await approvalPaymaster.setExpectedApprovalData('0x414243', {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+
+            await str.transfer(tokenReceiverAddress, '5', {
               from: gaslessAccount.address,
               paymaster: approvalPaymaster.address
             })
@@ -229,6 +277,33 @@ options.forEach(params => {
               setRecipientProvider(async () => await Promise.resolve('0x'))
 
               await sr.emitMessage('xxx', {
+                from: gaslessAccount.address,
+                paymaster: approvalPaymaster.address
+              })
+            }, 'unexpected approvalData: \'\' instead of')
+          } catch (e) {
+            console.log('error3: ', e)
+            throw e
+          } finally {
+            // @ts-ignore
+            await approvalPaymaster.setExpectedApprovalData(Buffer.from(''), {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+          }
+        })
+
+        it(params.title + 'fail on no approval data using an ERC20 Contract recipient', async () => {
+          try {
+            // @ts-ignore
+            await approvalPaymaster.setExpectedApprovalData(Buffer.from('hello1'), {
+              from: fundedAccount.address,
+              useGSN: false
+            })
+            await asyncShouldThrow(async () => {
+              setRecipientProvider(async () => await Promise.resolve('0x'))
+
+              await str.transfer(tokenReceiverAddress, '5', {
                 from: gaslessAccount.address,
                 paymaster: approvalPaymaster.address
               })

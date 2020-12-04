@@ -16,9 +16,9 @@ import {
   PenalizerInstance,
   RelayHubInstance, StakeManagerInstance,
   TestPaymasterEverythingAcceptedInstance,
-  TestRecipientInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  ProxyFactoryInstance,
+  TestTokenRecipientInstance
 } from '../types/truffle-contracts'
 
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
@@ -30,7 +30,7 @@ import TransactionResponse = Truffle.TransactionResponse
 const RelayHub = artifacts.require('RelayHub')
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
-const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 
@@ -43,7 +43,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
   let stakeManager: StakeManagerInstance
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
-  let recipient: TestRecipientInstance
+  let recipient: TestTokenRecipientInstance
   let paymaster: TestPaymasterEverythingAcceptedInstance
   let env: Environment
   let forwarder: string
@@ -61,7 +61,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
     const gasPrice = new BN('1')
     const gasLimit = new BN('5000000')
-    const txData = recipient.contract.methods.emitMessage('').encodeABI()
+    const txData = recipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
 
     const relayRequest: RelayRequest = {
       request: {
@@ -164,7 +164,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
       forwarder = forwarderInstance.address
 
-      recipient = await TestRecipient.new()
+      recipient = await TestTokenRecipient.new()
+      await recipient.mint('200', forwarder)
 
       paymaster = await TestPaymasterEverythingAccepted.new()
       await stakeManager.stakeForAddress(relayManager, 1000, {
@@ -399,7 +400,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
 
-          const rskDifference: number = isRsk(env) ? 105000 : 0
+          const rskDifference: number = isRsk(env) ? 105525 : 0
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference
@@ -415,7 +416,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
           const gasPrice = new BN('1')
           const gasLimit = new BN('1000000')
           const senderNonce = new BN('0')
-          const txData = recipient.contract.methods.emitMessage('').encodeABI()
+          const txData = recipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
           const relayRequest: RelayRequest = {
             request: {
               to: recipient.address,

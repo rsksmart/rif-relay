@@ -9,9 +9,8 @@ import {
   RelayHubInstance,
   PenalizerInstance,
   StakeManagerInstance,
-  TestRecipientInstance,
   IForwarderInstance,
-  TestPaymasterConfigurableMisbehaviorInstance, SmartWalletInstance, ProxyFactoryInstance
+  TestPaymasterConfigurableMisbehaviorInstance, SmartWalletInstance, ProxyFactoryInstance, TestTokenRecipientInstance
 } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import ForwardRequest from '../src/common/EIP712/ForwardRequest'
@@ -24,7 +23,7 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestUtil = artifacts.require('TestUtil')
-const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestPaymasterConfigurableMisbehavior = artifacts.require('TestPaymasterConfigurableMisbehavior')
 const SmartWallet = artifacts.require('SmartWallet')
 
@@ -85,7 +84,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
   let stakeManager: StakeManagerInstance
   let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
-  let recipientContract: TestRecipientInstance
+  let recipientContract: TestTokenRecipientInstance
   let paymasterContract: TestPaymasterConfigurableMisbehaviorInstance
   let forwarderInstance: IForwarderInstance
   let target: string
@@ -107,8 +106,8 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
     forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
     forwarder = forwarderInstance.address
-    recipientContract = await TestRecipient.new()
-
+    recipientContract = await TestTokenRecipient.new()
+    await recipientContract.mint('200', forwarder)
     target = recipientContract.address
     relayHub = relayHubInstance.address
 
@@ -179,7 +178,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const r = await makeRequest({
         request: {
           // nonce: '4',
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         },
         relayData: { paymaster }
 
@@ -216,7 +215,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const r = await makeRequest({
         request: {
           // nonce: '4',
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         },
         relayData: { paymaster }
 
@@ -249,7 +248,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
 
       const r = await makeRequest({
         request: {
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         }
       }, sharedRelayRequestData, chainId, forwarderInstance)
 
@@ -278,7 +277,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const r = await makeRequest({
         request: {
           // nonce: '4',
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         },
         relayData: { paymaster }
 
@@ -301,7 +300,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const r = await makeRequest({
         request: {
           nonce: '4',
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         },
         relayData: { paymaster }
 
@@ -328,7 +327,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       const r = await makeRequest({
         request: {
           nonce: '4',
-          data: recipientContract.contract.methods.emitMessage('').encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '5').encodeABI()
         },
         relayData: { paymaster }
 
@@ -347,7 +346,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       await paymasterContract.setTrustRecipientRevert(true)
       const r = await makeRequest({
         request: {
-          data: recipientContract.contract.methods.testRevert().encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '10000').encodeABI()
         },
         relayData: { paymaster }
 
@@ -359,7 +358,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
         gasPrice
       })
 
-      expectEvent(res, 'TransactionRejectedByPaymaster', { reason: encodeRevertReason('always fail') })
+      expectEvent(res, 'TransactionRejectedByPaymaster', { reason: encodeRevertReason('ERC20: transfer amount exceeds balance') })
 
       const paid = paymasterBalance.sub(await relayHubInstance.balanceOf(paymaster)).toNumber()
       assert.equal(paid, 0)
@@ -371,7 +370,7 @@ contract('Paymaster Commitment', function ([_, relayOwner, relayManager, relayWo
       await paymasterContract.setTrustRecipientRevert(true)
       const r = await makeRequest({
         request: {
-          data: recipientContract.contract.methods.testRevert().encodeABI()
+          data: recipientContract.contract.methods.transfer(forwarder, '10000').encodeABI()
         },
         relayData: { paymaster }
 

@@ -8,15 +8,14 @@ import { HttpProvider } from 'web3-core'
 import RelayRequest from '../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
+import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance, TestTokenRecipientInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { bufferToHex } from 'ethereumjs-util'
+import { BN, bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import CommandsLogic from '../src/cli/CommandsLogic'
 import { configureGSN, GSNConfig, resolveConfigurationGSN } from '../src/relayclient/GSNConfigurator'
 import { defaultEnvironment } from '../src/common/Environments'
 import { Web3Provider } from '../src/relayclient/ContractInteractor'
-import ForwardRequest from '../src/common/EIP712/ForwardRequest'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getLocalEip712Signature } from '../src/common/Utils'
@@ -28,12 +27,10 @@ const { expect, assert } = chai.use(chaiAsPromised)
 
 const TestUtil = artifacts.require('TestUtil')
 const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
-interface SplittedRelayRequest {
-  request: ForwardRequest
-  encodedRelayData: string
-}
+const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
 
 contract('Utils', function (accounts) {
   // This test verifies signing typed data with a local implementation of signTypedData
@@ -47,6 +44,7 @@ contract('Utils', function (accounts) {
     let senderPrivateKey: Buffer
     let testUtil: TestUtilInstance
     let recipient: TestRecipientInstance
+    let testTokenRecipient: TestTokenRecipientInstance
 
     let forwarderInstance: SmartWalletInstance
     before(async () => {
@@ -60,6 +58,7 @@ contract('Utils', function (accounts) {
       forwarderInstance = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new()
+      testTokenRecipient = await TestTokenRecipient.new()
 
       const senderNonce = '0'
       const target = recipient.address
@@ -171,6 +170,56 @@ contract('Utils', function (accounts) {
         })
         const logs = await recipient.contract.getPastEvents(null, { fromBlock: 1 })
         assert.equal(logs[0].event, 'SampleRecipientEmitted')
+      })
+    })
+
+    describe('#callForwarderVerifyAndCallInvokingTokenContract', () => {
+      it('should return revert result because token payment without balance', async function () {
+        relayRequest.request.to = testTokenRecipient.address
+        relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
+        relayRequest.request.data = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI()
+        const startPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        const sig = await getLocalEip712Signature(
+          new TypedRequestData(
+            chainId,
+            forwarder,
+            relayRequest
+          ), senderPrivateKey)
+        const ret = await testUtil.callForwarderVerifyAndCall(relayRequest, sig)
+        const expectedReturnValue = encodeRevertReason('ERC20: transfer amount exceeds balance')
+        expectEvent(ret, 'Called', {
+          success: false,
+          error: expectedReturnValue
+        })
+        const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
+        chai.expect('0').to.be.bignumber.equal(balance)
+        const lastPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        assert.equal(startPayerBalance.toString(), lastPayerBalance.toString())
+      })
+
+      it('should call token contract', async function () {
+        await testTokenRecipient.mint('200', forwarder)
+        const tokenToTransfer = 5
+        const startPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        relayRequest.request.to = testTokenRecipient.address
+        relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
+        relayRequest.request.data = await testTokenRecipient.contract.methods.transfer(tokenReceiverAddress, tokenToTransfer.toString()).encodeABI()
+        const sig = await getLocalEip712Signature(
+          new TypedRequestData(
+            chainId,
+            forwarder,
+            relayRequest
+          ), senderPrivateKey)
+        const ret = await testUtil.callForwarderVerifyAndCall(relayRequest, sig)
+        const balance = await testTokenRecipient.balanceOf(tokenReceiverAddress)
+        chai.expect('5').to.be.bignumber.equal(balance)
+        expectEvent(ret, 'Called', {
+          error: null
+        })
+        const logs = await testTokenRecipient.contract.getPastEvents(null, { fromBlock: 1 })
+        assert.equal(logs[0].event, 'Transfer')
+        const lastPayerBalance = await testTokenRecipient.balanceOf(forwarder)
+        assert.equal(startPayerBalance.sub(new BN(tokenToTransfer)).toString(), lastPayerBalance.toString())
       })
     })
   })

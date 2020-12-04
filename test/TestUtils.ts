@@ -5,7 +5,7 @@ import path from 'path'
 
 import { ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, IForwarderInstance, SmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, StakeManagerInstance, ProxyFactoryInstance, IForwarderInstance, SmartWalletInstance, TestTokenRecipientInstance, TestRecipientInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configureGSN } from '../src/relayclient/GSNConfigurator'
@@ -372,7 +372,51 @@ export function bufferToHexString (b: Buffer): string {
   return '0x' + b.toString('hex')
 }
 
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
+export async function prepareTransaction (testRecipient: TestTokenRecipientInstance, amountToSend: number, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
+  const paymasterData = '0x'
+  const clientId = '1'
+  const relayRequest: RelayRequest = {
+    request: {
+      to: testRecipient.address,
+      data: testRecipient.contract.methods.transfer(account.address, amountToSend.toString()).encodeABI(),
+      from: account.address,
+      nonce: nonce,
+      value: '0',
+      gas: '10000',
+      tokenRecipient: constants.ZERO_ADDRESS,
+      tokenContract: constants.ZERO_ADDRESS,
+      tokenAmount: '0',
+      factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
+      recoverer: constants.ZERO_ADDRESS,
+      index: '0'
+    },
+    relayData: {
+      pctRelayFee: '1',
+      baseRelayFee: '1',
+      gasPrice: '1',
+      paymaster,
+      paymasterData,
+      clientId,
+      forwarder: swallet,
+      relayWorker
+    }
+  }
+
+  const dataToSign = new TypedRequestData(
+    (await getTestingEnvironment()).chainId,
+    swallet,
+    relayRequest
+  )
+
+  const signature = signTypedData_v4(account.privateKey, { data: dataToSign })
+
+  return {
+    relayRequest,
+    signature
+  }
+}
+
+export async function prepareTransactionRecipient (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, paymaster: Address, web3: Web3, nonce: string, swallet: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const paymasterData = '0x'
   const clientId = '1'
   const relayRequest: RelayRequest = {
