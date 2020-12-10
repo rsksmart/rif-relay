@@ -26,7 +26,7 @@ const SmartWallet = artifacts.require('SmartWallet')
 
 export async function stake (stakeManager: StakeManagerInstance, relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
   await stakeManager.stakeForAddress(manager, 1000, {
-    value: ether('1'),
+    value: ether('0.1'),
     from: owner
   })
   await stakeManager.authorizeHubByOwner(manager, relayHub.address, { from: owner })
@@ -194,7 +194,7 @@ contract('KnownRelaysManager 2', function (accounts) {
         chainId: env.chainId
       })
       relayProcess = await startRelay(relayHub.address, stakeManager, {
-        stake: 1e18,
+        stake: 1e16,
         url: 'asd',
         relayOwner: accounts[1],
         ethereumNodeUrl: (web3.currentProvider as HttpProvider).host

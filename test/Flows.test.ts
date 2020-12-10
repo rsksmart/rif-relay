@@ -18,6 +18,8 @@ import { ChildProcessWithoutNullStreams } from 'child_process'
 import { GSNConfig } from '../src/relayclient/GSNConfigurator'
 import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { environments, defaultEnvironment } from '../src/common/Environments'
+import { ether } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
@@ -67,7 +69,7 @@ options.forEach(params => {
       rhub = await deployHub(sm.address, p.address)
       if (params.relay) {
         relayproc = await startRelay(rhub.address, sm, {
-          stake: 1e18,
+          stake: ether("0.01"),
           delay: 3600 * 24 * 7,
           pctRelayFee: 12,
           url: 'asd',
@@ -94,7 +96,7 @@ options.forEach(params => {
 
     if (params.relay) {
       before(params.title + 'enable relay', async function () {
-        await rhub.depositFor(paymaster.address, { value: (1e18).toString() })
+        await rhub.depositFor(paymaster.address, { value: (1e16).toString() })
 
         const env = await getTestingEnvironment()
         const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
