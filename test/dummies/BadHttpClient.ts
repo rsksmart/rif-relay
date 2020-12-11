@@ -3,7 +3,7 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
-import { CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 export default class BadHttpClient extends HttpClient {
   static readonly message = 'This is not the relay you are looking for'
@@ -42,10 +42,7 @@ export default class BadHttpClient extends HttpClient {
     if (this.timeoutRelay) {
       throw new Error('some error describing how timeout occurred somewhere')
     }
-    if (this.stubRelay != null && this.stubCommitment !== null) {
-      return { signedTx: this.stubRelay, signedReceipt: this.stubCommitment }
-    }
-    if (this.stubRelay != null && this.stubRelay !== '') {
+    if (this.stubRelay != null) {
       return { signedTx: this.stubRelay }
     }
     return await super.relayTransaction(relayUrl, request)

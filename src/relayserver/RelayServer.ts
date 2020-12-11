@@ -31,7 +31,9 @@ import { SendTransactionDetails, TransactionManager } from './TransactionManager
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
-import { EnvelopingArbiter } from './enveloping/EnvelopingArbiter'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
+import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
+import { ethers } from 'ethers'
 
 import Timeout = NodeJS.Timeout
 
@@ -256,7 +258,6 @@ returnValue        | ${viewRelayCallRet.returnValue}
   }
 
   async createRelayTransaction (req: RelayTransactionRequest): Promise<CommitmentResponse> {
-    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     log.debug('dump request params', arguments[0])
     if (!this.isReady()) {
       throw new Error('relay not ready')
@@ -285,12 +286,6 @@ returnValue        | ${viewRelayCallRet.returnValue}
         creationBlockNumber: currentBlock,
         gasPrice: req.relayRequest.relayData.gasPrice
       }
-    if (!this.envelopingArbiter.isValidTime(req.metadata.maxTime.toString())) {
-      throw new Error('Error: invalid maxTime.')
-    }
-    if (this.envelopingArbiter.getQueueWorker(this.workerAddress, req.metadata.maxTime.toString()) !== req.relayRequest.relayData.relayWorker) {
-      throw new Error('Error: invalid workerAddress/maxTime combination.')
-    }
     const commitment = new Commitment(
       req.metadata.maxTime,
       req.relayRequest.request.from,
@@ -304,7 +299,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
     const commitmentReceipt = {
       commitment: commitment,
       workerSignature: signature,
-      workerAddress: this.workerAddress[workerIndex]
+      workerAddress: this.workerAddress
     }
     if (!this.envelopingArbiter.validateCommitmentSig(commitmentReceipt)) {
       throw new Error('Error: Invalid receipt. Worker signature invalid.')

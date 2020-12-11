@@ -36,7 +36,8 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
+import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
+import { CommitmentReceipt } from '../../src/enveloping/Commitment'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -133,7 +134,9 @@ export class ServerTestEnvironment {
     } else {
       this.contractInteractor = await contractFactory(shared)
     }
-    this.envelopingArbiter = new EnvelopingArbiter(configureServer({}), this.web3.givenProvider)
+    this.envelopingArbiter = new EnvelopingArbiter(configureServer({
+      checkInterval: 10000
+    }), this.web3.givenProvider)
     await this.envelopingArbiter.start()
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
@@ -180,14 +183,13 @@ export class ServerTestEnvironment {
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
-    const envelopingArbiter = new EnvelopingArbiter(config, this.web3.givenProvider)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
       txStoreManager,
       managerKeyManager,
       workersKeyManager,
-      envelopingArbiter
+      envelopingArbiter: this.envelopingArbiter
     }
     const shared: Partial<ServerConfigParams> = {
       relayHubAddress: this.relayHub.address,
@@ -231,25 +233,7 @@ export class ServerTestEnvironment {
       factory: constants.ZERO_ADDRESS
     }
 
-    let maxTime, delay
-    if (useValidMaxDelay) {
-      if (workerIndex === 0) {
-        delay = 320
-      } else if (workerIndex === 1) {
-        delay = 140
-      } else if (workerIndex === 2) {
-        delay = 40
-      } else {
-        delay = 10
-      }
-      maxTime = Date.now() + (delay * 1000)
-    } else {
-      maxTime = Date.now()
-    }
-
-    if (!useValidWorker) {
-      pingResponse.relayWorkerAddress = this.relayServer.workerAddress[3]
-    }
+    const maxTime = Date.now() + 300
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails), maxTime)
   }
@@ -268,7 +252,7 @@ export class ServerTestEnvironment {
     txHash: PrefixedHexString
     signedReceipt: CommitmentReceipt | undefined
   }> {
-    const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
+    const req = await this.createRelayHttpRequest(overrideDetails)
     const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
 

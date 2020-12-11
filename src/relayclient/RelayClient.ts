@@ -29,7 +29,7 @@ import {
 } from './GsnEvents'
 import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS, ForwardRequestType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
-import { CommitmentValidator } from '../enveloping/CommitmentValidator'
+import { validateCommitmentSig } from '../enveloping/CommitmentValidator'
 import { CommitmentReceipt } from '../enveloping/Commitment'
 
 // generate "approvalData" and "paymasterData" for a request.
@@ -214,7 +214,8 @@ export class RelayClient {
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
-    const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config, maxTime).init()
+    const time = (typeof maxTime !== 'undefined') ? maxTime : Date.now() + 300
+    const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
     const relayingErrors = new Map<string, Error>()
     while (true) {
@@ -222,7 +223,7 @@ export class RelayClient {
       const activeRelay = await relaySelectionManager.selectNextRelay()
       if (activeRelay != null) {
         this.emit(new GsnNextRelayEvent(activeRelay.relayInfo.relayUrl))
-        relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails, activeRelay.pingResponse.maxDelay)
+        relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails, time)
           .catch(error => ({ error }))
         if (relayingAttempt.transaction == null) {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
@@ -283,12 +284,7 @@ export class RelayClient {
       return { error }
     }
     const transaction = new Transaction(hexTransaction, this.contractInteractor.getRawTxOptions())
-    if (!this.commitmentValidator.validateCommitmentSig(receipt)) {
-      this.emit(new GsnRelayerResponseEvent(false))
-      this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
-      return { error: new Error('Returned commitment did not pass validation') }
-    }
-    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction)) {
+    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction) || !validateCommitmentSig(receipt)) {
       this.emit(new GsnRelayerResponseEvent(false))
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned transaction did not pass validation') }
@@ -347,7 +343,7 @@ export class RelayClient {
       signature,
       approvalData: '',
       relayMaxNonce: 0,
-      maxTime: Date.now() + (300 * 1000)
+      maxTime: Date.now() + 300
     }
     const httpRequest: RelayTransactionRequest = {
       relayRequest,
