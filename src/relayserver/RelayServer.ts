@@ -31,7 +31,9 @@ import { SendTransactionDetails, TransactionManager } from './TransactionManager
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
-import { EnvelopingArbiter } from './enveloping/EnvelopingArbiter'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
+import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
+import { ethers } from 'ethers'
 
 import Timeout = NodeJS.Timeout
 
@@ -240,7 +242,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
     }
   }
 
-  async createRelayTransaction (req: RelayTransactionRequest): Promise<PrefixedHexString> {
+  async createRelayTransaction (req: RelayTransactionRequest): Promise<CommitmentResponse> {
     log.debug('dump request params', arguments[0])
     if (!this.isReady()) {
       throw new Error('relay not ready')
@@ -269,6 +271,24 @@ returnValue        | ${viewRelayCallRet.returnValue}
         creationBlockNumber: currentBlock,
         gasPrice: req.relayRequest.relayData.gasPrice
       }
+    const commitment = new Commitment(
+      req.metadata.maxTime,
+      req.relayRequest.request.from,
+      req.relayRequest.request.to,
+      req.relayRequest.request.data,
+      req.metadata.relayHubAddress,
+      req.relayRequest.relayData.relayWorker
+    )
+    const digest = ethers.utils.keccak256(commitment.encodeForSign(this.relayHubContract.address))
+    const signature = await this.envelopingArbiter.signCommitment(this.transactionManager, commitment.relayWorker, ethers.utils.arrayify(digest))
+    const commitmentReceipt = {
+      commitment: commitment,
+      workerSignature: signature,
+      workerAddress: this.workerAddress
+    }
+    if (!this.envelopingArbiter.validateCommitmentSig(commitmentReceipt)) {
+      throw new Error('Error: Invalid receipt. Worker signature invalid.')
+    }
     const { signedTx } = await this.transactionManager.sendTransaction(details)
     // after sending a transaction is a good time to check the worker's balance, and replenish it.
     await this.replenishServer(0, currentBlock)
@@ -276,7 +296,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
       log.error('Alerted state: slowing down traffic')
       await sleep(randomInRange(this.config.minAlertedDelayMS, this.config.maxAlertedDelayMS))
     }
-    return signedTx
+    return { signedTx: signedTx, signedReceipt: commitmentReceipt }
   }
 
   start (): void {

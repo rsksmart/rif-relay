@@ -25,7 +25,7 @@ import { RelayClient } from '../../src/relayclient/RelayClient'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { RelayServer } from '../../src/relayserver/RelayServer'
-import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
+import { configureServer, ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { constants } from '../../src/common/Constants'
@@ -36,7 +36,8 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
+import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
+import { CommitmentReceipt } from '../../src/enveloping/Commitment'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -81,6 +82,7 @@ export class ServerTestEnvironment {
    * Note: do not call methods of contract interactor inside Test Environment. It may affect Profiling Test.
    */
   contractInteractor!: ContractInteractor
+  envelopingArbiter!: EnvelopingArbiter
 
   relayClient!: RelayClient
   provider: HttpProvider
@@ -132,6 +134,10 @@ export class ServerTestEnvironment {
     } else {
       this.contractInteractor = await contractFactory(shared)
     }
+    this.envelopingArbiter = new EnvelopingArbiter(configureServer({
+      checkInterval: 10000
+    }), this.web3.givenProvider)
+    await this.envelopingArbiter.start()
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
 
@@ -177,14 +183,13 @@ export class ServerTestEnvironment {
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
-    const envelopingArbiter = new EnvelopingArbiter(config, this.web3.givenProvider)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
       txStoreManager,
       managerKeyManager,
       workersKeyManager,
-      envelopingArbiter
+      envelopingArbiter: this.envelopingArbiter
     }
     const shared: Partial<ServerConfigParams> = {
       relayHubAddress: this.relayHub.address,
@@ -228,15 +233,18 @@ export class ServerTestEnvironment {
       factory: constants.ZERO_ADDRESS
     }
 
-    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))
+    const maxTime = Date.now() + 300
+
+    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails), maxTime)
   }
 
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
+    signedReceipt: CommitmentReceipt | undefined
   }> {
     const req = await this.createRelayHttpRequest(overrideDetails)
-    const signedTx = await this.relayServer.createRelayTransaction(req)
+    const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
 
     if (assertRelayed) {
@@ -244,7 +252,8 @@ export class ServerTestEnvironment {
     }
     return {
       txHash,
-      signedTx
+      signedTx,
+      signedReceipt
     }
   }
 

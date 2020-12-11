@@ -29,6 +29,8 @@ import {
 } from './GsnEvents'
 import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS, ForwardRequestType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
+import { validateCommitmentSig } from '../enveloping/CommitmentValidator'
+import { CommitmentReceipt } from '../enveloping/Commitment'
 
 // generate "approvalData" and "paymasterData" for a request.
 // both are bytes arrays. paymasterData is part of the client request.
@@ -193,7 +195,7 @@ export class RelayClient {
     return estimatedGas
   }
 
-  async relayTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayingResult> {
+  async relayTransaction (gsnTransactionDetails: GsnTransactionDetails, maxTime?: number): Promise<RelayingResult> {
     await this._init()
     // TODO: should have a better strategy to decide how often to refresh known relays
     this.emit(new GsnRefreshRelaysEvent())
@@ -210,6 +212,7 @@ export class RelayClient {
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
+    const time = (typeof maxTime !== 'undefined') ? maxTime : Date.now() + 300
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
     const relayingErrors = new Map<string, Error>()
@@ -218,7 +221,7 @@ export class RelayClient {
       const activeRelay = await relaySelectionManager.selectNextRelay()
       if (activeRelay != null) {
         this.emit(new GsnNextRelayEvent(activeRelay.relayInfo.relayUrl))
-        relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails)
+        relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails, time)
           .catch(error => ({ error }))
         if (relayingAttempt.transaction == null) {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
@@ -245,11 +248,12 @@ export class RelayClient {
 
   async _attemptRelay (
     relayInfo: RelayInfo,
-    gsnTransactionDetails: GsnTransactionDetails
+    gsnTransactionDetails: GsnTransactionDetails,
+    maxTime: number
   ): Promise<RelayingAttempt> {
     log.info(`attempting relay: ${JSON.stringify(relayInfo)} transaction: ${JSON.stringify(gsnTransactionDetails)}`)
     const maxAcceptanceBudget = parseInt(relayInfo.pingResponse.maxAcceptanceBudget)
-    const httpRequest = await this._prepareRelayHttpRequest(relayInfo, gsnTransactionDetails)
+    const httpRequest = await this._prepareRelayHttpRequest(relayInfo, gsnTransactionDetails, maxTime)
 
     this.emit(new GsnValidateRequestEvent())
 
@@ -264,9 +268,12 @@ export class RelayClient {
       return { error: new Error(`${message}: ${decodeRevertReason(acceptRelayCallResult.returnValue)}`) }
     }
     let hexTransaction: PrefixedHexString
+    let receipt: CommitmentReceipt | undefined
     this.emit(new GsnSendToRelayerEvent(relayInfo.relayInfo.relayUrl))
     try {
-      hexTransaction = await this.httpClient.relayTransaction(relayInfo.relayInfo.relayUrl, httpRequest)
+      const response = await this.httpClient.relayTransaction(relayInfo.relayInfo.relayUrl, httpRequest)
+      hexTransaction = response.signedTx
+      receipt = response.signedReceipt
     } catch (error) {
       if (error?.message == null || error.message.indexOf('timeout') !== -1) {
         this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
@@ -275,7 +282,7 @@ export class RelayClient {
       return { error }
     }
     const transaction = new Transaction(hexTransaction, this.contractInteractor.getRawTxOptions())
-    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction)) {
+    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction) || !validateCommitmentSig(receipt)) {
       this.emit(new GsnRelayerResponseEvent(false))
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned transaction did not pass validation') }
@@ -333,7 +340,8 @@ export class RelayClient {
       relayHubAddress: this.config.relayHubAddress,
       signature,
       approvalData: '',
-      relayMaxNonce: 0
+      relayMaxNonce: 0,
+      maxTime: Date.now() + 300
     }
     const httpRequest: RelayTransactionRequest = {
       relayRequest,
@@ -344,7 +352,8 @@ export class RelayClient {
 
   async _prepareRelayHttpRequest (
     relayInfo: RelayInfo,
-    gsnTransactionDetails: GsnTransactionDetails
+    gsnTransactionDetails: GsnTransactionDetails,
+    maxTime: number
   ): Promise<RelayTransactionRequest> {
     let senderNonce: string
     const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
@@ -413,7 +422,8 @@ export class RelayClient {
       relayHubAddress: this.config.relayHubAddress,
       signature,
       approvalData,
-      relayMaxNonce
+      relayMaxNonce,
+      maxTime
     }
     const httpRequest: RelayTransactionRequest = {
       relayRequest,
