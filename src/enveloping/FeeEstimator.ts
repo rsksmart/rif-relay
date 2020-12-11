@@ -8,7 +8,7 @@ import Web3 from 'web3'
 import Timeout = NodeJS.Timeout
 
 const BLOCK_TIME = 20
-const SAFELOW = 35
+const SAFELOW = 30
 const STANDARD = 60
 const FAST = 90
 
@@ -35,7 +35,7 @@ export class FeeEstimator {
   initialized: Boolean
   newBlockListener?: Timeout
   pendingTx: string[]
-  feesTable: FeesTable
+  feesTable?: FeesTable
   worker?: Timeout
   readonly web3: Web3
 
@@ -46,14 +46,16 @@ export class FeeEstimator {
     this.currentBlock = 0
     this.eventEmitter = new EventEmitter()
     this.initialized = false
-    this.feesTable = { safeLow: 0, standard: 0, fast: 0, fastest: 0, blockNum: 0, blockTime: 0 }
     this.pendingTx = []
     this.web3 = new Web3(provider)
+    // this.web3 = new Web3('https://mainnet.infura.io/v3/dccb70ae29b5470ebe986a703204a3ec')
+    // this.web3 = new Web3('https://rsk.qubistry.co/')
   }
 
-  analyzeLast200Blocks=(): DataFrame => {
+  analyzeBlocks=(fromBlock: number, toBlock: number): DataFrame => {
+    fromBlock = (fromBlock < 0) ? 0 : fromBlock
     const recentBlocks = this.blockData.filter(
-      (row: { get: (arg0: string) => number }) => row.get('block_number') > (this.currentBlock - 200)
+      (row: { get: (arg0: string) => number }) => (row.get('block_number') >= fromBlock && (row.get('block_number') <= toBlock))
     ).drop('blockhash').drop('time_mined')
     let hashPower = recentBlocks.groupBy('mingasprice')
       .aggregate((group: { count: () => number }) => group.count())
@@ -148,17 +150,12 @@ export class FeeEstimator {
   }
 
   makePredictTable=(hashPower: DataFrame): DataFrame => {
-    const pTable1 = []
-    for (let x = 10; x < 1010; x = x + 10) {
-      pTable1.push(x)
-    }
-    let predictTable = new DataFrame({ gasprice: pTable1 }, ['gasprice'])
-    const pTable2 = new DataFrame({ gasprice: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] }, ['gasprice'])
-    predictTable = predictTable.union(pTable2).sortBy('gasprice')
-    predictTable = predictTable.withColumn('hashpower_accepting', (row: { get: (arg0: string) => any }) => {
-      const gasPrice = row.get('gasprice')
-      return this.getHPA(gasPrice, hashPower)
-    })
+    const predictTable = new DataFrame({ gasprice: hashPower.toArray('mingasprice') }, ['gasprice'])
+      .sortBy('gasprice')
+      .withColumn('hashpower_accepting', (row: { get: (arg0: string) => any }) => {
+        const gasPrice = row.get('gasprice')
+        return this.getHPA(gasPrice, hashPower)
+      })
     return predictTable
   }
 
@@ -187,24 +184,35 @@ export class FeeEstimator {
   }
 
   async start (): Promise<void> {
-    if (this.initialized === true) { return }
-    await this.web3.eth.net.isListening()
-    this.currentBlock = await this.web3.eth.getBlockNumber()
-    await this.processPastBlocks()
-    this.initialized = true
-    // eslint-disable-next-line
-    this.worker = setInterval(async () => {
-      const block = await this.web3.eth.getBlockNumber()
-      if (this.currentBlock < block) {
-        await this.updateDataframes()
-        this.currentBlock++
+    try {
+      if (this.initialized === true) { return }
+      this.initialized = true
+      await this.web3.eth.net.isListening()
+      this.currentBlock = await this.web3.eth.getBlockNumber()
+      const fromBlock = (this.currentBlock < 100) ? 0 : this.currentBlock - 100
+      await this.processBlocks(fromBlock, this.currentBlock)
+      this.worker = setInterval(() => this.workerJob(), this.config.checkInterval)
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  workerJob (): void {
+    this.web3.eth.getBlock('latest').then(async (latestBlock) => {
+      if (this.currentBlock < latestBlock.number) {
+        await this.processBlocks(this.currentBlock, latestBlock.number)
       }
-    }, this.config.checkInterval)
+    }).catch(e => {
+      console.error(e)
+    })
   }
 
   async processBlockTx (blockNumber: number): Promise<any[]> {
     let blockDf = new DataFrame({})
     const blockObj = await this.web3.eth.getBlock(blockNumber, true)
+    if (blockObj === null) {
+      return ([null, null, 'This block doesn\'t exist'])
+    }
     for (const transaction of blockObj.transactions) {
       if (transaction.gasPrice !== '0') {
         const cleanTx = this.cleanTx(transaction)
@@ -212,31 +220,26 @@ export class FeeEstimator {
       }
     }
     blockDf = blockDf.withColumn('time_mined', () => blockObj.timestamp)
-    return ([blockDf, blockObj])
+    return ([blockDf, blockObj, null])
   }
 
-  async processPastBlocks (): Promise<void> {
-    if (this.currentBlock > 0) {
-      let pastBlock = (this.currentBlock < 100) ? 0 : this.currentBlock - 100
-      for (pastBlock; pastBlock < this.currentBlock; pastBlock++) {
-        const [minedBlockDf, blockObj] = await this.processBlockTx(pastBlock)
+  async processBlocks (fromBlock: number, toBlock: number): Promise<void> {
+    for (let x = fromBlock; x < toBlock; x++) {
+      const [minedBlockDf, blockObj, error] = await this.processBlockTx(x)
+      if (error === null) {
         if (minedBlockDf.count() > 0) {
           this.allTxDf = this.allTxDf.union(minedBlockDf)
           const blockSumDf = this.processBlockData(minedBlockDf, blockObj)
           this.blockData = this.blockData.union(blockSumDf)
         }
+        this.currentBlock = x
       }
     }
+    this.updateFeesTable()
   }
 
-  async updateDataframes (): Promise<void> {
-    const [minedBlockDf, blockObj] = await this.processBlockTx(this.currentBlock)
-    if (minedBlockDf.count() > 0) {
-      this.allTxDf = this.allTxDf.union(minedBlockDf)
-      const blockSumDf = this.processBlockData(minedBlockDf, blockObj)
-      this.blockData = this.blockData.union(blockSumDf)
-    }
-    const hashPower = this.analyzeLast200Blocks()
+  updateFeesTable (): void {
+    const hashPower = this.analyzeBlocks(this.currentBlock - 100, this.currentBlock)
     const predictionDf = this.makePredictTable(hashPower)
     const gpRecs = this.getGasPriceRecs(predictionDf).toDict()
     this.feesTable = {

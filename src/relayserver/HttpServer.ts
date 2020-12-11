@@ -22,6 +22,7 @@ export class HttpServer {
     this.app.post('/getaddr', this.pingHandler.bind(this))
     this.app.get('/getaddr', this.pingHandler.bind(this))
     this.app.get('/status', this.statusHandler.bind(this))
+    this.app.get('/feestable', this.feeEstimatorHandler.bind(this))
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
@@ -92,11 +93,16 @@ export class HttpServer {
 
   async relayHandler (req: any, res: any): Promise<void> {
     try {
-      const signedTx = await this.backend.createRelayTransaction(req.body)
-      res.send({ signedTx })
+      const { signedTx, signedReceipt } = await this.backend.createRelayTransaction(req.body)
+      res.send({ signedTx, signedReceipt })
     } catch (e) {
       res.send({ error: e.message })
       console.log('tx failed:', e)
     }
+  }
+
+  async feeEstimatorHandler (req: any, res: any): Promise<void> {
+    const feesTable = await this.backend.envelopingArbiter.getFeesTable()
+    res.send(feesTable)
   }
 }

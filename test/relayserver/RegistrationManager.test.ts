@@ -6,7 +6,6 @@ import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
 import { RelayServer } from '../../src/relayserver/RelayServer'
-import { EnvelopingArbiter } from '../../src/relayserver/enveloping/EnvelopingArbiter'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { ServerConfigParams, ServerDependencies } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
@@ -109,14 +108,12 @@ contract('RegistrationManager', function (accounts) {
         gasPriceFactor: 1,
         checkInterval: 10
       }
-      const envelopingArbiter = new EnvelopingArbiter(params, serverWeb3provider)
-      await envelopingArbiter.start()
       const serverDependencies: ServerDependencies = {
         txStoreManager,
         managerKeyManager,
         workersKeyManager,
         contractInteractor,
-        envelopingArbiter
+        envelopingArbiter: env.envelopingArbiter
       }
       const newRelayServer = new RelayServer(params, serverDependencies)
       await newRelayServer.init()

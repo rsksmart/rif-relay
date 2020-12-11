@@ -1,9 +1,9 @@
-import { PrefixedHexString } from 'ethereumjs-tx'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 export default class BadHttpClient extends HttpClient {
   static readonly message = 'This is not the relay you are looking for'
@@ -33,7 +33,7 @@ export default class BadHttpClient extends HttpClient {
     return await super.getPingResponse(relayUrl, paymaster)
   }
 
-  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
+  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<CommitmentResponse> {
     if (this.failRelay) {
       throw new Error(BadHttpClient.message)
     }
@@ -41,7 +41,7 @@ export default class BadHttpClient extends HttpClient {
       throw new Error('some error describing how timeout occurred somewhere')
     }
     if (this.stubRelay != null) {
-      return this.stubRelay
+      return { signedTx: this.stubRelay }
     }
     return await super.relayTransaction(relayUrl, request)
   }

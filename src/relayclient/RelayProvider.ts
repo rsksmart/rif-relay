@@ -10,7 +10,6 @@ import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
-import { FeeEstimator, FeesTable } from './FeeEstimator'
 import { GsnEvent } from './GsnEvents'
 import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
@@ -34,7 +33,6 @@ export class RelayProvider implements HttpProvider {
   private readonly origProviderSend: any
   protected readonly config: GSNConfig
 
-  readonly feeEstimator: FeeEstimator
   readonly relayClient: RelayClient
 
   /**
@@ -56,23 +54,9 @@ export class RelayProvider implements HttpProvider {
     } else {
       this.origProviderSend = this.origProvider.send.bind(this.origProvider)
     }
-    this.feeEstimator = new FeeEstimator(config, origProvider)
     this.relayClient = relayClient ?? new RelayClient(origProvider, gsnConfig, overrideDependencies)
 
     this._delegateEventsApi(origProvider)
-  }
-
-  isFeeEstimatorInitialized (): Boolean {
-    return this.feeEstimator.initialized
-  }
-
-  async getFeesTable (): Promise<FeesTable> {
-    if (this.isFeeEstimatorInitialized() === false) {
-      await this.feeEstimator.start()
-      return this.feeEstimator.feesTable
-    } else {
-      return this.feeEstimator.feesTable
-    }
   }
 
   registerEventListener (handler: (event: GsnEvent) => void): void {
@@ -142,8 +126,10 @@ export class RelayProvider implements HttpProvider {
       throw new Error('Invalid factory address')
     }
 
+    const maxTime = Date.now() + 300
+
     try {
-      const relayingResult = await this.relayClient.relayTransaction(gsnTransactionDetails)
+      const relayingResult = await this.relayClient.relayTransaction(gsnTransactionDetails, maxTime)
       if (relayingResult.transaction != null) {
         const txHash: string = relayingResult.transaction.hash(true).toString('hex')
         const hash = `0x${txHash}`
@@ -211,7 +197,8 @@ export class RelayProvider implements HttpProvider {
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
     const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
-    this.relayClient.relayTransaction(gsnTransactionDetails)
+    const maxTime = (typeof payload.params[1] !== 'undefined') ? payload.params[1].maxTime : Date.now() + 300
+    this.relayClient.relayTransaction(gsnTransactionDetails, maxTime)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
           const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(relayingResult.transaction, payload)
@@ -341,6 +328,10 @@ export class RelayProvider implements HttpProvider {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (payload.params[0]?.hasOwnProperty('factory')) {
         delete p.params[0].factory
+      }
+
+      if (typeof payload.params[1] !== 'undefined') {
+        p.params.splice(1, 1)
       }
     }
 
