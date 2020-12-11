@@ -40,10 +40,6 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { soliditySha3Raw } from 'web3-utils'
-import { constants } from '../../src/common/Constants'
-import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
-import { bufferToHex } from 'ethereumjs-util'
-import { expectEvent } from '@openzeppelin/test-helpers'
 import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 const StakeManager = artifacts.require('StakeManager')

@@ -545,14 +545,6 @@ contract('RelayProvider', function (accounts) {
     })
   })
 
-  describe('getFeesTable', function () {
-    it('should return calculated fees table', async function () {
-      const relayProvider = new RelayProvider(underlyingProvider, { logLevel: 5 })
-      const feesTable = await relayProvider.getFeesTable()
-      assert.isOk(feesTable, 'feesTable is ok')
-    })
-  })
-
   describe('new contract deployment', function () {
     let TestRecipient: TestRecipientContract
     before(async function () {

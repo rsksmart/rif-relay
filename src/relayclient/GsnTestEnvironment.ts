@@ -14,8 +14,8 @@ import { RelayProvider } from './RelayProvider'
 import Web3 from 'web3'
 import ContractInteractor from './ContractInteractor'
 import { Environment, defaultEnvironment } from '../common/Environments'
-import { ServerConfigParams } from '../relayserver/ServerConfigParams'
-import { EnvelopingArbiter } from '../relayserver/enveloping/EnvelopingArbiter'
+import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 
 export interface TestEnvironment {
   deploymentResult: DeploymentResult
@@ -151,6 +151,10 @@ class GsnTestEnvironmentClass {
         chainId: environment.chainId
       }))
     await contractInteractor.init()
+    const envelopingArbiter = new EnvelopingArbiter(configureServer({
+      checkInterval: 10000
+    }), new Web3.providers.HttpProvider(host))
+    await envelopingArbiter.start()
     const relayServerParams: Partial<ServerConfigParams> = {
       devMode: true,
       url: relayUrl,
@@ -160,8 +164,6 @@ class GsnTestEnvironmentClass {
       pctRelayFee: 0,
       logLevel: 1
     }
-    const envelopingArbiter = new EnvelopingArbiter(relayServerParams, new Web3.providers.HttpProvider(host))
-    await envelopingArbiter.start()
     const relayServerDependencies = {
       contractInteractor,
       txStoreManager,
