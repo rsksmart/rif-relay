@@ -1,10 +1,10 @@
 import log from 'loglevel'
-import { PrefixedHexString } from 'ethereumjs-tx'
 
 import PingResponse from '../common/PingResponse'
 import HttpWrapper from './HttpWrapper'
 import { RelayTransactionRequest } from './types/RelayTransactionRequest'
 import { GSNConfig } from './GSNConfigurator'
+import { CommitmentReceipt, CommitmentResponse } from '../enveloping/Commitment'
 
 export default class HttpClient {
   private readonly httpWrapper: HttpWrapper
@@ -25,8 +25,8 @@ export default class HttpClient {
     return pingResponse
   }
 
-  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
-    const { signedTx, error }: { signedTx: string, error: string } = await this.httpWrapper.sendPromise(relayUrl + '/relay', request)
+  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<CommitmentResponse> {
+    const { signedTx, signedReceipt, error }: { signedTx: string, signedReceipt: CommitmentReceipt, error: string } = await this.httpWrapper.sendPromise(relayUrl + '/relay', request)
     log.info('relayTransaction response:', signedTx, error)
     if (error != null) {
       throw new Error(`Got error response from relay: ${error}`)
@@ -34,6 +34,9 @@ export default class HttpClient {
     if (signedTx == null) {
       throw new Error('body.signedTx field missing.')
     }
-    return signedTx
+    if (signedReceipt == null) {
+      throw new Error('body.signedReceipt field missing.')
+    }
+    return { signedTx, signedReceipt }
   }
 }

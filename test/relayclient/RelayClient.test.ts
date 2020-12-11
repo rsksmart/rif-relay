@@ -38,6 +38,7 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { soliditySha3Raw } from 'web3-utils'
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -56,7 +57,7 @@ class MockHttpClient extends HttpClient {
     super(httpWrapper, config)
   }
 
-  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
+  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<CommitmentResponse> {
     return await super.relayTransaction(this.mapUrl(relayUrl), request)
   }
 
@@ -448,6 +449,7 @@ contract('RelayClient', function (accounts) {
     let pingResponse: PingResponse
     let relayInfo: RelayInfo
     let optionsWithGas: GsnTransactionDetails
+    let maxTime: number
 
     before(async function () {
       await stakeManager.stakeForAddress(relayManager, 7 * 24 * 3600, {
@@ -480,6 +482,7 @@ contract('RelayClient', function (accounts) {
         gas: '0xf4240',
         gasPrice: '0x51f4d5c00'
       })
+      maxTime = Date.now() + 300
     })
 
     it('should return error if view call to \'relayCall()\' fails', async function () {
@@ -490,7 +493,7 @@ contract('RelayClient', function (accounts) {
 
       // register gasless account in RelayClient to avoid signing with RSKJ
       relayClient.accountManager.addAccount(gaslessAccount)
-      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
+      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       assert.isUndefined(transaction)
       assert.equal(error!.message, `local view call to 'relayCall()' reverted: ${BadContractInteractor.message}`)
     })
@@ -507,7 +510,7 @@ contract('RelayClient', function (accounts) {
 
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
-      const attempt = await relayClient._attemptRelay(relayInfo, optionsWithGas)
+      const attempt = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       assert.equal(attempt.error?.message, 'some error describing how timeout occurred somewhere')
       expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
     })
@@ -524,7 +527,7 @@ contract('RelayClient', function (accounts) {
 
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
-      await relayClient._attemptRelay(relayInfo, optionsWithGas)
+      await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.not.been.called
     })
 
@@ -546,7 +549,7 @@ contract('RelayClient', function (accounts) {
 
       // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
       sinon.spy(dependencyTree.knownRelaysManager)
-      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
+      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       assert.isUndefined(transaction)
       assert.equal(error!.message, 'Returned transaction did not pass validation')
       expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
@@ -569,8 +572,9 @@ contract('RelayClient', function (accounts) {
 
         // register gasless account in RelayClient to avoid signing with RSKJ
         relayClient.accountManager.addAccount(gaslessAccount)
+        const maxTime = Date.now() + 300
 
-        const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas)
+        const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas, maxTime)
         assert.equal(httpRequest.metadata.approvalData, '0x1234567890')
         assert.equal(httpRequest.relayRequest.relayData.paymasterData, '0xabcd')
       })
