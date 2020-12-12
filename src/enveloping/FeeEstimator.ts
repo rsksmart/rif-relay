@@ -36,8 +36,9 @@ export class FeeEstimator {
   newBlockListener?: Timeout
   pendingTx: string[]
   feesTable?: FeesTable
-  worker?: Timeout
   readonly web3: Web3
+  worker?: Timeout
+  workerSemaphore: Boolean
 
   constructor (config: Partial<ServerConfigParams>, provider: Web3Provider) {
     this.allTxDf = new DataFrame({})
@@ -48,8 +49,7 @@ export class FeeEstimator {
     this.initialized = false
     this.pendingTx = []
     this.web3 = new Web3(provider)
-    // this.web3 = new Web3('https://mainnet.infura.io/v3/dccb70ae29b5470ebe986a703204a3ec')
-    // this.web3 = new Web3('https://rsk.qubistry.co/')
+    this.workerSemaphore = false
   }
 
   analyzeBlocks=(fromBlock: number, toBlock: number): DataFrame => {
@@ -198,12 +198,16 @@ export class FeeEstimator {
   }
 
   workerJob (): void {
+    if (this.workerSemaphore === true) { return }
+    this.workerSemaphore = true
     this.web3.eth.getBlock('latest').then(async (latestBlock) => {
       if (this.currentBlock < latestBlock.number) {
         await this.processBlocks(this.currentBlock, latestBlock.number)
       }
+      this.workerSemaphore = false
     }).catch(e => {
       console.error(e)
+      this.workerSemaphore = false
     })
   }
 
