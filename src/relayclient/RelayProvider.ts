@@ -55,7 +55,6 @@ export class RelayProvider implements HttpProvider {
       this.origProviderSend = this.origProvider.send.bind(this.origProvider)
     }
     this.relayClient = relayClient ?? new RelayClient(origProvider, gsnConfig, overrideDependencies)
-
     this._delegateEventsApi(origProvider)
   }
 
