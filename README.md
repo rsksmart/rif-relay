@@ -43,14 +43,15 @@ The core enveloping architecture is defined by the following components:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [RelayHub]        | 0x2f48284b8595345b89413E184BF423DA62958230 |
-| [StakeManager]    | 0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1 |
-| [Penalizer]       | 0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B |
-| [VersionRegistry] | 0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9 |
-| [SmartWallet]     | 0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25 |
-| [ProxyFactory]    | 0xa023d195BE9e2153A08a1eE87dfbE38039561563 |
-| [DeployPaymaster] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
-| [RelayPaymaster]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
+| [RelayHub](https://explorer.testnet.rsk.co/address/0x2f48284b8595345b89413E184BF423DA62958230)        | 0x2f48284b8595345b89413E184BF423DA62958230 |
+| [StakeManager](https://explorer.testnet.rsk.co/address/0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1)   | 0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1 |
+| [Penalizer](https://explorer.testnet.rsk.co/address/0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B)   | 0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B |
+| [VersionRegistry](https://explorer.testnet.rsk.co/address/0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9) | 0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9 |
+| [SmartWallet](https://explorer.testnet.rsk.co/address/0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25)    | 0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25 |
+| [ProxyFactory](https://explorer.testnet.rsk.co/address/0xa023d195BE9e2153A08a1eE87dfbE38039561563)    | 0xa023d195BE9e2153A08a1eE87dfbE38039561563 |
+| [DeployPaymaster](https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC) | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
+| [RelayPaymaster](https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
+
 ## 3. Building project <a id="c03"></a>
 
 Clone the project. Then run the following from the project's root directory
@@ -163,13 +164,3 @@ This project is based on GSN and expands its capabilities and security model whi
 - Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
 
 Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
-
-
-[RelayHub]:(https://explorer.testnet.rsk.co/address/0x2f48284b8595345b89413E184BF423DA62958230)
-[StakeManager]:(https://explorer.testnet.rsk.co/address/0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1)
-[Penalizer]:(https://explorer.testnet.rsk.co/address/0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B)
-[VersionRegistry]:(https://explorer.testnet.rsk.co/address/0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9)
-[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25)
-[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xa023d195BE9e2153A08a1eE87dfbE38039561563)
-[DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
-[RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
