@@ -108,7 +108,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
   // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
   // emitted event and penalization reward transfer. Returns the transaction receipt.
-  async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
+  async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse<Truffle.AnyEvent>>, rskDifference: number = 0): Promise<TransactionResponse<Truffle.AnyEvent>> {
     const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
     const stakeManagerBalanceTracker = await balance.tracker(stakeManager.address)
     const stakeInfo = await stakeManager.stakes(relayManager)
@@ -493,7 +493,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         })
 
         // All of these tests use the same penalization function (we one we set up in the beforeEach block)
-        async function penalize (rskDifference: number = 0): Promise<TransactionResponse> {
+        async function penalize (rskDifference: number = 0): Promise<TransactionResponse<Truffle.AnyEvent>> {
           return await expectPenalization(async (opts) => await penalizer.penalizeIllegalTransaction(penalizableTxData, penalizableTxSignature, relayHub.address, opts), rskDifference)
         }
 

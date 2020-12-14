@@ -41,9 +41,7 @@ import { GSNConfig } from './GSNConfigurator'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
 import ForwardRequest from '../common/EIP712/ForwardRequest'
 
-// Truffle Contract typings seem to be completely out of their minds
-import TruffleContract = require('@truffle/contract')
-import Contract = Truffle.Contract
+import { Contract, TruffleContract } from '../common/LightTruffleContract'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -135,6 +133,7 @@ export default class ContractInteractor {
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
     this.IProxyFactoryContract.setProvider(this.provider, undefined)
+    web3.setProvider(this.provider)
   }
 
   getProvider (): provider { return this.provider }
@@ -380,9 +379,9 @@ export default class ContractInteractor {
   }
 
   async getStakeInfo (managerAddress: Address): Promise<{
-    stake: string
-    unstakeDelay: string
-    withdrawBlock: string
+    stake: BN
+    unstakeDelay: BN
+    withdrawBlock: BN
     owner: string
   }> {
     const stakeManager = await this.stakeManagerInstance

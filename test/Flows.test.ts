@@ -20,10 +20,10 @@ import { GSNConfig } from '../src/relayclient/GSNConfigurator'
 import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
-const TestRecipient = artifacts.require('tests/TestRecipient')
-const TestTokenRecipient = artifacts.require('tests/TestTokenRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('tests/TestPaymasterEverythingAccepted')
-const TestPaymasterPreconfiguredApproval = artifacts.require('tests/TestPaymasterPreconfiguredApproval')
+const TestRecipient = artifacts.require('TestRecipient')
+const TestTokenRecipient = artifacts.require('TestTokenRecipient')
+const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
+const TestPaymasterPreconfiguredApproval = artifacts.require('TestPaymasterPreconfiguredApproval')
 
 const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
@@ -122,13 +122,13 @@ options.forEach(params => {
         relayProvider.addAccount(gaslessAccount)
         await str.mint('200', smartWalletInstance.address)
 
-        // web3.setProvider(relayProvider)
+        web3.setProvider(relayProvider)
 
         // NOTE: in real application its enough to set the provider in web3.
         // however, in Truffle, all contracts are built BEFORE the test have started, and COPIED the web3,
-        // so changing the global one is not enough...
-        await TestTokenRecipient.web3.setProvider(relayProvider)
-        await TestRecipient.web3.setProvider(relayProvider)
+        // // so changing the global one is not enough...
+        // await TestTokenRecipient.web3.setProvider(relayProvider)
+        // await TestRecipient.web3.setProvider(relayProvider)
       })
     }
 
@@ -164,7 +164,7 @@ options.forEach(params => {
       let ex: Error | undefined
       try {
         const res = await str.transfer(tokenReceiverAddress, '5', { from: gaslessAccount.address, gas: 1e6 })
-        console.log('res after gasless emit:', res.logs[0].args.message)
+        console.log('res after gasless emit:', res.logs[0].event)
       } catch (e) {
         ex = e
       }
@@ -199,11 +199,11 @@ options.forEach(params => {
         const setRecipientProvider = function (asyncApprovalData: AsyncDataCallback): void {
           // @ts-ignore
           relayProvider = new RelayProvider(web3.currentProvider, relayClientConfig, { asyncApprovalData })
-
-          TestRecipient.web3.setProvider(relayProvider)
-          TestTokenRecipient.web3.setProvider(relayProvider)
-          TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
-          TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
+          web3.setProvider(relayProvider)
+          // TestRecipient.web3.setProvider(relayProvider)
+          // TestTokenRecipient.web3.setProvider(relayProvider)
+          // TestPaymasterPreconfiguredApproval.web3.setProvider(relayProvider)
+          // TestPaymasterEverythingAccepted.web3.setProvider(relayProvider)
 
           relayProvider.addAccount(gaslessAccount)
         }

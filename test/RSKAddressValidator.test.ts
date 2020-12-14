@@ -1,12 +1,12 @@
 import {
-  TestRSKAddressValidatorInstance
+  TestRskAddressValidatorInstance
 } from '../types/truffle-contracts'
 import { toChecksumAddress } from 'ethereumjs-util'
 
 const TestRSKAddressValidator = artifacts.require('TestRSKAddressValidator')
 
 contract('RSKAddressValidator', function (accounts) {
-  let addressValidator: TestRSKAddressValidatorInstance
+  let addressValidator: TestRskAddressValidatorInstance
   // let chainId: number
 
   before(async () => {

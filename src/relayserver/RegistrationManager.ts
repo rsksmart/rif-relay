@@ -30,6 +30,7 @@ import { ServerConfigParams } from './ServerConfigParams'
 import { TxStoreManager } from './TxStoreManager'
 import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'
+import { BN } from 'ethereumjs-util'
 
 export interface RelayServerRegistryInfo {
   baseRelayFee: IntString
@@ -272,13 +273,13 @@ export class RegistrationManager {
 
   async refreshStake (): Promise<void> {
     const stakeInfo = await this.contractInteractor.getStakeInfo(this.managerAddress)
-    const stake = toBN(stakeInfo.stake)
+    const stake = stakeInfo.stake
     if (stake.eq(toBN(0))) {
       return
     }
 
     // a locked stake does not have the 'withdrawBlock' field set
-    this.isStakeLocked = stakeInfo.withdrawBlock === '0'
+    this.isStakeLocked = stakeInfo.withdrawBlock === new BN('0')
     this.stakeRequired.currentValue = stake
 
     // first time getting stake, setting owner

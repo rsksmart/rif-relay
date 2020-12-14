@@ -21,6 +21,7 @@ import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransa
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
+import { BN } from 'ethereumjs-util'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -263,7 +264,7 @@ contract('RelayServer', function (accounts) {
         it('should accept a transaction from paymaster returning below configured max exposure', async function () {
           await rejectingPaymaster.setGreedyAcceptanceBudget(false)
           const gasLimits = await rejectingPaymaster.getGasLimits()
-          assert.equal(parseInt(gasLimits.acceptanceBudget), paymasterExpectedAcceptanceBudget)
+          assert.equal(gasLimits.acceptanceBudget, new BN(paymasterExpectedAcceptanceBudget))
           await env.relayServer.validatePaymasterGasLimits(req)
         })
 
@@ -273,7 +274,7 @@ contract('RelayServer', function (accounts) {
           try {
             await env.relayServer._initTrustedPaymasters([rejectingPaymaster.address])
             const gasLimits = await rejectingPaymaster.getGasLimits()
-            assert.equal(parseInt(gasLimits.acceptanceBudget), paymasterExpectedAcceptanceBudget * 9)
+            assert.equal(gasLimits.acceptanceBudget, new BN(paymasterExpectedAcceptanceBudget * 9))
             await env.relayServer.validatePaymasterGasLimits(req)
           } finally {
             await env.relayServer._initTrustedPaymasters([])

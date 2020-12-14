@@ -14,6 +14,7 @@ node_modules
 /src/common/interfaces/
 /ganache.pid
 /types/truffle-contracts/
+/types/ethers-contracts/
 /dist/
 cache
 /src/cli/compiled/

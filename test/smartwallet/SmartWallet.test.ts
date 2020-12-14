@@ -193,7 +193,7 @@ contract('SmartWallet', ([from]) => {
 
       assert.isTrue(new BN(0).eq(tknBalance))
       assert.equal(ret.logs[0].args.success, false)
-      assert.equal(ret.logs[0].args.lastSuccTx, 0)
+      assert.equal(ret.logs[0].args.lastSuccTx, new BN(0))
       assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
     })
 
@@ -255,7 +255,7 @@ contract('SmartWallet', ([from]) => {
       // the helper simply emits the method return values
       const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
       assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
-      assert.equal(ret.logs[0].args.lastSuccTx, 1)
+      assert.equal(ret.logs[0].args.lastSuccTx, new BN(1))
 
       // Payment must have happened regardless of the revert
       const tknBalance = await token.balanceOf(recipient.address)
@@ -283,7 +283,7 @@ contract('SmartWallet', ([from]) => {
       const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
       assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
       assert.equal(ret.logs[0].args.success, false)
-      assert.equal(ret.logs[0].args.lastSuccTx, 1)
+      assert.equal(ret.logs[0].args.lastSuccTx, new BN(1))
 
       const tknBalance = await token.balanceOf(recipient.address)
       assert.equal(tknBalance.toString(), initialRecipientBalance.add(new BN(1)).toString())
@@ -329,7 +329,7 @@ contract('SmartWallet', ([from]) => {
 
         const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value: '0' })
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastSuccTx, 1)
+        assert.equal(ret.logs[0].args.lastSuccTx, new BN(1))
         // Token transfer happens first
         const tknBalance = await token.balanceOf(recipient.address)
         assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
@@ -354,7 +354,7 @@ contract('SmartWallet', ([from]) => {
 
         const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value })
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastSuccTx, 1)
+        assert.equal(ret.logs[0].args.lastSuccTx, new BN(1))
         // Token transfer happens first
         const tknBalance = await token.balanceOf(recipient.address)
         assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
@@ -384,7 +384,7 @@ contract('SmartWallet', ([from]) => {
         const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value })
         assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
-        assert.equal(ret.logs[0].args.lastSuccTx, 2)
+        assert.equal(ret.logs[0].args.lastSuccTx, new BN(2))
 
         assert.equal(await web3.eth.getBalance(recipient.address), (new BN(initialRecipientEtherBalance).add(value)).toString())
 
@@ -423,7 +423,7 @@ contract('SmartWallet', ([from]) => {
         const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
         assert.equal(ret.logs[0].args.error, '')
         assert.equal(ret.logs[0].args.success, true)
-        assert.equal(ret.logs[0].args.lastSuccTx, 2)
+        assert.equal(ret.logs[0].args.lastSuccTx, new BN(2))
 
         // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
         // Ideally it should pay the relayWorker or paymaster

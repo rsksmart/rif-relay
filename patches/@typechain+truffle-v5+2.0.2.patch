@@ -1,0 +1,16 @@
+diff --git a/node_modules/@typechain/truffle-v5/static/types.d.ts b/node_modules/@typechain/truffle-v5/static/types.d.ts
+index fa987a9..87c9a4a 100644
+--- a/node_modules/@typechain/truffle-v5/static/types.d.ts
++++ b/node_modules/@typechain/truffle-v5/static/types.d.ts
+@@ -44,6 +44,11 @@ declare namespace Truffle {
+     gas?: BN | number | string
+     gasPrice?: BN | number | string
+     value?: BN | string
++    paymaster?: string
++    forwarder?: string
++    useGSN?: boolean
++    forceGasPrice?: string
++    factory?: string
+   }
+ 
+   export interface TransactionLog<EVENTS extends AnyEvent> {

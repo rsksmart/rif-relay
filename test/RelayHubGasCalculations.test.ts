@@ -182,12 +182,12 @@ contract('RelayHub gas calculations', function ([_, relayOwner, relayWorker, rel
         })
 
         await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPreCallWithValues', {
-          gasleft: (parseInt(gasLimits.preRelayedCallGasLimit) - magicCosts.pre).toString(),
+          gasleft: (gasLimits.preRelayedCallGasLimit.sub(new BN(magicCosts.pre))).toString(),
           maxPossibleGas: maxPossibleGas.toString()
         })
 
         await expectEvent.inTransaction(tx, TestPaymasterVariableGasLimits, 'SampleRecipientPostCallWithValues', {
-          gasleft: (parseInt(gasLimits.postRelayedCallGasLimit) - magicCosts.post).toString()
+          gasleft: (gasLimits.postRelayedCallGasLimit.sub(new BN(magicCosts.post))).toString()
         })
       })
 

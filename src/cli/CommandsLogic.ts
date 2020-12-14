@@ -171,8 +171,8 @@ export default class CommandsLogic {
       }
     }
 
-    let stakeTx: Truffle.TransactionResponse | undefined
-    let authorizeTx: Truffle.TransactionResponse | undefined
+    let stakeTx: Truffle.TransactionResponse<Truffle.AnyEvent> | undefined
+    let authorizeTx: Truffle.TransactionResponse<Truffle.AnyEvent> | undefined
     let fundTx: TransactionReceipt | undefined
     try {
       console.error(`Funding GSN relay at ${options.relayUrl}`)

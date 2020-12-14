@@ -132,8 +132,8 @@ export function calculateTransactionMaxPossibleGas (
   }: TransactionGasComponents): number {
   return hubOverhead +
     parseInt(relayCallGasLimit) +
-    parseInt(gasLimits.preRelayedCallGasLimit) +
-    parseInt(gasLimits.postRelayedCallGasLimit)
+    parseInt(gasLimits.preRelayedCallGasLimit.toString()) +
+    parseInt(gasLimits.postRelayedCallGasLimit.toString())
 }
 
 export function getEcRecoverMeta (message: PrefixedHexString, signature: string | Signature): PrefixedHexString {
@@ -228,9 +228,9 @@ interface TransactionGasComponents {
 }
 
 export interface PaymasterGasLimits {
-  acceptanceBudget: string
-  preRelayedCallGasLimit: string
-  postRelayedCallGasLimit: string
+  acceptanceBudget: BN
+  preRelayedCallGasLimit: BN
+  postRelayedCallGasLimit: BN
 }
 
 interface Signature {
