@@ -74,7 +74,7 @@ Once the project is built, we can test it with truffle
 As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). 
 
 1. **Use your address to deploy a Smart Wallet (SW)**
-```typescript=
+```typescript
       const trxData: GsnTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
@@ -92,7 +92,7 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 ```
 
 2. **Get your SW address**
-```typescript=
+```typescript
 const swAddress = rProvider.calculateSmartWalletAddress(
 factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
 //Using the same parameters as when SW was created.
