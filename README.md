@@ -13,18 +13,18 @@ System for users to pay for transactions in ERC-20 tokens.
   3.1 [Testing](#c03.1)<br>
   3.2 [Use Enveloping](#c03.2)<br>
   3.3 [Create a Smart Wallet](#c03.3)<br>
-  3.4 [Run a Javascript Client](#c03.4)
-4. [Use MetaCoin](#c04)
-5. [Documentation](#c05)
-6. [Troubleshooting](#c06)<br>
-  6.1 [Running on macOS](#c06.1)<br>
-  6.2 [Common errors when testing](#c06.2)
-7. [Gas Station Network](#c07)
+4. [Run a Javascript Client](#c04)
+5. [Use MetaCoin](#c05)
+6. [Documentation](#c06)
+7. [Troubleshooting](#c07)<br>
+  6.1 [Running on macOS](#c07.1)<br>
+  6.2 [Common errors when testing](#c07.2)
+8. [Gas Station Network](#c08)
 
 ## 1. Description <a id="c01"></a>
 
 
-The main objective of the Enveloping System is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to transact without RBTC. The system allows RSK users to pay transaction fees (gas) with tokens instead of RBTC, while maintaining their accounts as  transaction senders. This is enabled by service providers who use their accounts to pay gas costs for transactions sent by "gas-less" users.
+The main objective of the Enveloping System is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to transact without RBTC.
 
 ## 2. Technical Overview <a id="c02"></a>
 
@@ -51,61 +51,55 @@ The core enveloping architecture is defined by the following components:
 | [ProxyFactory]    | 0xa023d195BE9e2153A08a1eE87dfbE38039561563 |
 | [DeployPaymaster] | 0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC |
 | [RelayPaymaster]  | 0x053b4a77e9d5895920cBF505eB8108F99d929395 |
-
-[RelayHub]:(https://explorer.testnet.rsk.co/address/0x2f48284b8595345b89413E184BF423DA62958230)
-[StakeManager]:(https://explorer.testnet.rsk.co/address/0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1)
-[Penalizer]:(https://explorer.testnet.rsk.co/address/0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B)
-[VersionRegistry]:(https://explorer.testnet.rsk.co/address/0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9)
-[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25)
-[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xa023d195BE9e2153A08a1eE87dfbE38039561563)
-[DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
-[RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
-
 ## 3. Building project <a id="c03"></a>
 
 Clone the project. Then run the following from the project's root directory
 -  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
-- Move [here](rsknode/README.md)
+- Move [here](rsknode/README.md) (optional: it runs an RSK client)
 
-### 3.1. Test <a id="c03.1"></a>
-
-Once the project is built, we can test it with truffle
-- `yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
-
-### 3.2. Deploy <a id="c03.2"></a>
+### 3.1. Deploy <a id="c03.2"></a>
 
 We can deploy the project with
 - `npx truffle --network rsk migrate`
 - `yarn run dev`
 
+### 3.2. Test <a id="c03.1"></a>
+
+Once the project is built, we can test it with truffle
+- `yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
+
 ### 3.3 Create a Smart Wallet <a id="c03.3"></a>
 
-As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). For that, the `Relay Provider` exposes auxiliar function to create a Smart Wallet.
+As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). 
 
-`deploySmartWallet` -  This function receives a `GsnTransactionDetail` and returns a transaction hash. The latter is formmed by the next parameters:
-* from: Address of the SW Owner.
-* to: Address of the optional custom logic.
-* data: Parameters (in bytes) for the optional custom logic.
-* tokenRecipient: Address of the account that gets paid for the deploy.
-* tokenContract: Address of the token used to pay for the deployment (address(0) indicated the deploy is subsidized).
-* tokenAmount: Amount of tokens paid for the deployment (0 if the deploy is subsidized).
-* factory: Address of the factory used to deploy the SW.
-* recoverer: Address of an optional recoverer account/contract (address(0) if there is not).
-* index: Numeric value used to generate several SW instances using the same paramaters defined above.
-* value: Not used here, only used in other scenarios where the worker account of the relay server needs to replenish balance.
-** Any value put here wont be sent to the "to" property, it won't be moved at all.
+1. **Use your address to deploy a Smart Wallet (SW)**
+```typescript=
+      const trxData: GsnTransactionDetails = {
+        from: ownerEOA.address,
+        to: customLogic,
+        data: logicData,
+        tokenRecipient: paymaster,
+        tokenContract: token.address,
+        tokenAmount: '10',
+        factory: factory.address,
+        recoverer: recoverer,
+        index: walletIndex.toString(),
+        paymaster: paymaster
+      }
 
+      const txHash = relayProvider.deploySmartWallet(trxData)
+```
 
-`calculateSmartWalletAddress` - Given the next parameters, a user may know its SW address.
-* ownerEOA: Address of the SW owner.
-* recoverer: If there is, address of the recoverer account, otherwise address(0).
-* customLogic: An optional custom logic code (in bytes), that the wallet will proxy to (it can be address(0)).
-* walletIndex: Numeric value used to generatte different wallet insttances for the owner using the same parameters and factory.
-* logicInitParamsHash: If customLogic was defined in it need initialization parameters, they are passed as abi-encoded here, without include the function selector. If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero.
+2. **Get your SW address**
+```typescript=
+const swAddress = rProvider.calculateSmartWalletAddress(
+factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
+//Using the same parameters as when SW was created.
+```
 
-### 3.4 Run a Javascript Client <a id="c03.4"></a>
+### 4 Run a Relay Server <a id="c04"></a>
 
-In order to run an Enveloping instance, clone the project then run the following from the project's root directory:
+In order to run an Enveloping instance in Regtest, clone the project then run the following from the project's root directory:
 
 1. `yarn install`
 2. On the jsrelay directory `npx webpack`
@@ -116,24 +110,24 @@ In order to run an Enveloping instance, clone the project then run the following
 7. Create an account from a mnemonic, and store the mnemonic in a file. After that, add funds to the newly created account.
 8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
 9. On the project's root directory, run `docker-compose up -d jsrelay`
-10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 4>`
+10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 7>`
 
 For checking if it's working, run `curl http://localhost:8090/getaddr`
 
 
-## 4. Use MetaCoin <a id="c04"></a>
+## 5. Use MetaCoin <a id="c05"></a>
 
 Mint and send tokens without requiring RBTC for gas. Works on Regtest. 
 
 Try it: https://github.com/rsksmart/enveloping-metacoin
 
-## 5. Documentation <a id="c05"></a>
+## 6. Documentation <a id="c06"></a>
 
 For more detailed documentation, go [here](https://docs.google.com/document/d/1kan8xUFYgjWNozBfpkopn35P9E6IuRjC-PNhwcrQLN4/edit)
 
-## 6. Troubleshooting <a id="c06"></a>
+## 7. Troubleshooting <a id="c07"></a>
 
-### 6.1 Running on macOS <a id="c06.1"></a>
+### 7.1 Running on macOS <a id="c07.1"></a>
 To run the project using Docker on a Mac, you must follow these steps or the scripts and web apps won't work.
 
 - Patch `readlink`
@@ -147,7 +141,7 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
 
-### 6.2 Common errors when testing <a id="c06.2"></a>
+### 7.2 Common errors when testing <a id="c07.2"></a>
 
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
 
@@ -162,10 +156,20 @@ Stop the running node and delete the db used by the node.
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
 
-## 7. Gas Station Network <a id="c07"></a>
+## 8. Gas Station Network <a id="c08"></a>
 
 This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
 - Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
 - Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
 
 Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
+
+
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x2f48284b8595345b89413E184BF423DA62958230)
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0xf8EEd7DEaaDA745d181b5C385471825Fe9F6E9d1)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xfBA4a3fD8C0d682CC8bf268214c38Ad7223ad49B)
+[VersionRegistry]:(https://explorer.testnet.rsk.co/address/0x13efeff67D2fa7C7b06b852c3a809AD6e7C167D9)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x868eefB9738aAcDBBb931Fe5B21709A2c260Cd25)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xa023d195BE9e2153A08a1eE87dfbE38039561563)
+[DeployPaymaster]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
+[RelayPaymaster]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
