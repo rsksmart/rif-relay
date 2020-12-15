@@ -16,9 +16,10 @@ import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPaymaster.sol";
 import "./forwarder/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
-    //TODO Enveloping
-    //If req.token != address(0) then do not use the balances at all
-    //If req.token == 0, then the relayHub will pay the worker with balance
+import "./utils/RSKAddrValidator.sol";
+
+
+
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
@@ -61,9 +62,11 @@ contract RelayHub is IRelayHub {
         maximumRecipientDeposit = _maximumRecipientDeposit;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake =  _minimumStake;
+
+        contractOwner = msg.sender;
     }
 
-    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
+    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override whenNotPaused {
         address relayManager = msg.sender;
         require(
             isRelayManagerStaked(relayManager),
@@ -73,7 +76,7 @@ contract RelayHub is IRelayHub {
         emit RelayServerRegistered(relayManager, baseRelayFee, pctRelayFee, url);
     }
 
-    function addRelayWorkers(address[] calldata newRelayWorkers) external override {
+    function addRelayWorkers(address[] calldata newRelayWorkers) external override whenNotPaused {
         address relayManager = msg.sender;
         workerCount[relayManager] = workerCount[relayManager] + newRelayWorkers.length;
         require(workerCount[relayManager] <= maxWorkerCount, "too many workers");
@@ -91,11 +94,15 @@ contract RelayHub is IRelayHub {
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
     }
 
-    function depositFor(address target) public override payable {
+    function depositFor(address target) public override payable whenNotPaused {
         uint256 amount = msg.value;
-        require(amount <= maximumRecipientDeposit, "deposit too big");
+        // TODO uncomment when deposit limits are lifted
+        // require(amount <= maximumRecipientDeposit, "deposit too big");
 
         balances[target] = balances[target].add(amount);
+
+        // TODO remove next line when deposit limits are lifted 
+        require(balances[target] <= maximumRecipientDeposit, "deposit too big");
 
         emit Deposited(target, msg.sender, amount);
     }
@@ -191,7 +198,7 @@ contract RelayHub is IRelayHub {
         uint externalGasLimit
     )
     external
-    override
+    override whenNotPaused
     returns (bool paymasterAccepted, bytes memory returnValue)
     {
         (signature);
@@ -300,7 +307,7 @@ contract RelayHub is IRelayHub {
         uint256 totalInitialGas,
         uint256 maxPossibleGas
     )
-    external
+    external whenNotPaused
     returns (RelayCallStatus, bytes memory)
     {
         InnerRelayCallData memory vars;
@@ -405,7 +412,7 @@ contract RelayHub is IRelayHub {
         _;
     }
 
-    function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
+    function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly whenNotPaused {
         address relayManager = workerToManager[relayWorker];
         // The worker must be controlled by a manager with a locked stake
         require(relayManager != address(0), "Unknown relay worker");
@@ -415,5 +422,45 @@ contract RelayHub is IRelayHub {
         );
         IStakeManager.StakeInfo memory stakeInfo = stakeManager.getStakeInfo(relayManager);
         stakeManager.penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
+    }
+
+    // Support for destructable contracts
+    address public contractOwner;
+    bool public paused = false;
+
+    modifier onlyOwner() {
+        require(msg.sender == contractOwner, "Sender is not the owner");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is not paused");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(paused, "Contract is paused");
+        _;
+    }
+    
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
+        contractOwner = newOwner;
+    }
+
+    function kill(address payable recipient) external onlyOwner whenPaused {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+
+        // The recipient is not the owner of the contract's balance
+        require(address(this).balance == 0, "Contract has balance");
+        selfdestruct(recipient);
+    }
+
+    function pause() public onlyOwner {
+        paused = true;
+    }
+
+    function unpause() public onlyOwner {
+        paused = false;
     }
 }

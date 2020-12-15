@@ -106,4 +106,26 @@ contract Penalizer is IPenalizer{
     function penalize(address relayWorker, IRelayHub hub) private {
         hub.penalize(relayWorker, msg.sender);
     }
+
+    // Support for destructable contracts
+    address public contractOwner;
+
+    constructor() public {
+        contractOwner = msg.sender;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == contractOwner, "Sender is not the owner");
+        _;
+    }
+    
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
+        contractOwner = newOwner;
+    }
+
+    function kill(address payable recipient) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+        selfdestruct(recipient);
+    }
 }

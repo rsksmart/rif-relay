@@ -5,12 +5,15 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./interfaces/IStakeManager.sol";
+import "./utils/RSKAddrValidator.sol";
 
 contract StakeManager is IStakeManager {
+    // TODO remove constant when stake limits are lifted
+    uint256 constant public MAXIMUM_STAKE = 520000000000000;
+
     using SafeMath for uint256;
-
     string public override versionSM = "2.0.1+opengsn.stakemanager.istakemanager";
-
+    
     /// maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
     function getStakeInfo(address relayManager) external override view returns (StakeInfo memory stakeInfo) {
@@ -25,13 +28,17 @@ contract StakeManager is IStakeManager {
     /// If the entry already exists, only the owner can call this function.
     /// @param relayManager - address that represents a stake entry and controls relay registrations on relay hubs
     /// @param unstakeDelay - number of blocks to elapse before the owner can retrieve the stake after calling 'unlock'
-    function stakeForAddress(address relayManager, uint256 unstakeDelay) external override payable {
+    function stakeForAddress(address relayManager, uint256 unstakeDelay) external override payable whenNotPaused {
         require(stakes[relayManager].owner == address(0) || stakes[relayManager].owner == msg.sender, "not owner");
         require(unstakeDelay >= stakes[relayManager].unstakeDelay, "unstakeDelay cannot be decreased");
         require(msg.sender != relayManager, "caller is the relayManager");
         require(stakes[msg.sender].owner == address(0), "sender is a relayManager itself");
         stakes[relayManager].owner = msg.sender;
         stakes[relayManager].stake += msg.value;
+    
+        // TODO remove next line when stake limits are lifted
+        require(stakes[relayManager].stake <= MAXIMUM_STAKE, "stake too big");
+
         stakes[relayManager].unstakeDelay = unstakeDelay;
         emit StakeAdded(relayManager, stakes[relayManager].owner, stakes[relayManager].stake, stakes[relayManager].unstakeDelay);
     }
@@ -67,11 +74,11 @@ contract StakeManager is IStakeManager {
         _;
     }
 
-    function authorizeHubByOwner(address relayManager, address relayHub) external ownerOnly(relayManager) override {
+    function authorizeHubByOwner(address relayManager, address relayHub) external ownerOnly(relayManager) whenNotPaused override {
         _authorizeHub(relayManager, relayHub);
     }
 
-    function authorizeHubByManager(address relayHub) external managerOnly override {
+    function authorizeHubByManager(address relayHub) external managerOnly override whenNotPaused {
         _authorizeHub(msg.sender, relayHub);
     }
 
@@ -80,11 +87,11 @@ contract StakeManager is IStakeManager {
         emit HubAuthorized(relayManager, relayHub);
     }
 
-    function unauthorizeHubByOwner(address relayManager, address relayHub) external override ownerOnly(relayManager) {
+    function unauthorizeHubByOwner(address relayManager, address relayHub) external override ownerOnly(relayManager) whenNotPaused {
         _unauthorizeHub(relayManager, relayHub);
     }
 
-    function unauthorizeHubByManager(address relayHub) external override managerOnly {
+    function unauthorizeHubByManager(address relayHub) external override managerOnly whenNotPaused {
         _unauthorizeHub(msg.sender, relayHub);
     }
 
@@ -117,7 +124,7 @@ contract StakeManager is IStakeManager {
     /// @param relayManager - entry to penalize
     /// @param beneficiary - address that receives half of the penalty amount
     /// @param amount - amount to withdraw from stake
-    function penalizeRelayManager(address relayManager, address payable beneficiary, uint256 amount) external override {
+    function penalizeRelayManager(address relayManager, address payable beneficiary, uint256 amount) external override whenNotPaused {
         uint256 removalBlock =  authorizedHubs[relayManager][msg.sender].removalBlock;
         require(removalBlock != 0, "hub not authorized");
         require(removalBlock > block.number, "hub authorization expired");
@@ -133,5 +140,49 @@ contract StakeManager is IStakeManager {
         address(0).transfer(toBurn);
         beneficiary.transfer(reward);
         emit StakePenalized(relayManager, beneficiary, reward);
+    }
+
+    // Support for destructable contracts
+    address public contractOwner;
+    bool public paused = false;
+
+    constructor() public {
+        contractOwner = msg.sender;
+    }
+
+    modifier onlyContractOwner() {
+        require(msg.sender == contractOwner, "Sender is not the owner");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is not paused");
+        _;
+    }
+
+    modifier whenPaused() {
+        require(paused, "Contract is paused");
+        _;
+    }
+    
+    function transferOwnership(address newOwner) external onlyContractOwner {
+        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
+        contractOwner = newOwner;
+    }
+
+    function kill(address payable recipient) external onlyContractOwner whenPaused {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+
+        // The recipient is not the owner of the contract's balance
+        require(address(this).balance == 0, "Contract has balance");
+        selfdestruct(recipient);
+    }
+
+    function pause() public onlyContractOwner {
+        paused = true;
+    }
+
+    function unpause() public onlyContractOwner {
+        paused = false;
     }
 }

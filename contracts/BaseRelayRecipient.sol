@@ -7,8 +7,6 @@ pragma solidity ^0.6.12;
  * A subclass must use "_msgSender()" instead of "msg.sender"
  */
 contract BaseRelayRecipient {
-
-
       function versionPaymaster() external view virtual returns (string memory){
         return "2.0.1+opengsn.test-pea.baselerayrecipient";
     }

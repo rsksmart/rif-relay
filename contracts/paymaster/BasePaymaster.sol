@@ -8,6 +8,7 @@ import "../interfaces/GsnTypes.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IRelayHub.sol";
 import "../utils/GsnEip712Library.sol";
+import "../utils/RSKAddrValidator.sol";
 
 /**
  * Abstract base class to be inherited by a concrete Paymaster
@@ -81,5 +82,11 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     /// withdraw deposit from relayHub
     function withdrawRelayHubDepositTo(uint amount, address payable target) public onlyOwner {
         relayHub.withdraw(amount, target);
+    }
+
+    // Support for destructable contracts
+    function kill(address payable recipient) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+        selfdestruct(recipient);
     }
 }

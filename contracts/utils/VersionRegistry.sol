@@ -4,6 +4,7 @@ pragma solidity ^0.6.12;
 
 import "../interfaces/IVersionRegistry.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./RSKAddrValidator.sol";
 
 contract VersionRegistry is IVersionRegistry, Ownable {
 
@@ -15,5 +16,11 @@ contract VersionRegistry is IVersionRegistry, Ownable {
 
     function cancelVersion(bytes32 id, bytes32 version, string calldata reason) external override onlyOwner {
         emit VersionCanceled(id, version, reason);
+    }
+
+    // Support for destructable contracts
+    function kill(address payable recipient) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+        selfdestruct(recipient);
     }
 }

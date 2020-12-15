@@ -339,4 +339,14 @@ contract ProxyFactory is IProxyFactory {
         );
     }
 
+    // Support for destructable contracts
+    function transferOwnership(address newOwner) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
+        contractOwner = newOwner;
+    }
+
+    function kill(address payable recipient) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+        selfdestruct(recipient);
+    }
 }
