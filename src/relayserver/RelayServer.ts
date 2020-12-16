@@ -46,7 +46,7 @@ export class RelayServer extends EventEmitter {
   ready = false
   lastWorkerFinished = Date.now()
   readonly managerAddress: PrefixedHexString
-  readonly workerAddress: PrefixedHexString
+  readonly workerAddress: PrefixedHexString[]
   gasPrice: number = 0
   _workerSemaphoreOn = false
   alerted = false
@@ -80,7 +80,7 @@ export class RelayServer extends EventEmitter {
     this.envelopingArbiter = dependencies.envelopingArbiter
     this.transactionManager = new TransactionManager(dependencies, this.config)
     this.managerAddress = this.transactionManager.managerKeyManager.getAddress(0)
-    this.workerAddress = this.transactionManager.workersKeyManager.getAddress(0)
+    this.workerAddress = this.transactionManager.workersKeyManager.getAddresses()
     this.workerBalanceRequired = new AmountRequired('Worker Balance', toBN(this.config.workerMinBalance))
     this.printServerAddresses()
     log.setLevel(this.config.logLevel)
@@ -89,17 +89,28 @@ export class RelayServer extends EventEmitter {
   }
 
   printServerAddresses (): void {
-    log.info(`Server manager address  | ${this.managerAddress}`)
-    log.info(`Server worker  address  | ${this.workerAddress}`)
+    log.info(`Server manager address           | ${this.managerAddress}`)
+    log.info(`Server worker  address (Tier 1)  | ${this.workerAddress[0]} |`)
+    log.info(`Server worker  address (Tier 2)  | ${this.workerAddress[1]} |`)
+    log.info(`Server worker  address (Tier 3)  | ${this.workerAddress[2]} |`)
+    log.info(`Server worker  address (Tier 4)  | ${this.workerAddress[3]} |`)
   }
 
   getMinGasPrice (): number {
     return this.gasPrice
   }
 
-  pingHandler (paymaster?: string): PingResponse {
+  getQueueWorker (maxTime?: string): string {
+    return this.workerAddress[0]
+  }
+
+  getWorkerIndex (address: PrefixedHexString): number {
+    return this.workerAddress.indexOf(address)
+  }
+
+  pingHandler (paymaster?: string, maxTime?: string): PingResponse {
     return {
-      relayWorkerAddress: this.workerAddress,
+      relayWorkerAddress: this.getQueueWorker(maxTime),
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
       minGasPrice: this.getMinGasPrice().toString(),
@@ -115,7 +126,7 @@ export class RelayServer extends EventEmitter {
     ow(req, ow.object.exactShape(RelayTransactionRequestShape))
   }
 
-  validateInput (req: RelayTransactionRequest): void {
+  validateInput (req: RelayTransactionRequest, workerIndex: number): void {
     // Check that the relayHub is the correct one
     if (req.metadata.relayHubAddress !== this.relayHubContract.address) {
       throw new Error(
@@ -123,7 +134,7 @@ export class RelayServer extends EventEmitter {
     }
 
     // Check the relayWorker (todo: once migrated to multiple relays, check if exists)
-    if (req.relayRequest.relayData.relayWorker.toLowerCase() !== this.workerAddress.toLowerCase()) {
+    if (req.relayRequest.relayData.relayWorker.toLowerCase() !== this.workerAddress[workerIndex].toLowerCase()) {
       throw new Error(
         `Wrong worker address: ${req.relayRequest.relayData.relayWorker}\n`)
     }
@@ -149,9 +160,9 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validateMaxNonce (relayMaxNonce: number): Promise<void> {
+  async validateMaxNonce (relayMaxNonce: number, workerIndex: number): Promise<void> {
     // Check that max nonce is valid
-    const nonce = await this.transactionManager.pollNonce(this.workerAddress)
+    const nonce = await this.transactionManager.pollNonce(this.workerAddress[workerIndex])
     if (nonce > relayMaxNonce) {
       throw new Error(`Unacceptable relayMaxNonce: ${relayMaxNonce}. current nonce: ${nonce}`)
     }
@@ -219,13 +230,14 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateViewCallSucceeds (req: RelayTransactionRequest, acceptanceBudget: number, maxPossibleGas: number): Promise<void> {
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     const method = this.relayHubContract.contract.methods.relayCall(
       acceptanceBudget, req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas)
     let viewRelayCallRet: { paymasterAccepted: boolean, returnValue: string }
     try {
       viewRelayCallRet =
         await method.call({
-          from: this.workerAddress,
+          from: this.workerAddress[workerIndex],
           gasPrice: req.relayRequest.relayData.gasPrice,
           gasLimit: maxPossibleGas
         })
@@ -243,14 +255,15 @@ returnValue        | ${viewRelayCallRet.returnValue}
   }
 
   async createRelayTransaction (req: RelayTransactionRequest): Promise<CommitmentResponse> {
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     log.debug('dump request params', arguments[0])
     if (!this.isReady()) {
       throw new Error('relay not ready')
     }
     this.validateInputTypes(req)
-    this.validateInput(req)
+    this.validateInput(req, workerIndex)
     this.validateFees(req)
-    await this.validateMaxNonce(req.metadata.relayMaxNonce)
+    await this.validateMaxNonce(req.metadata.relayMaxNonce, workerIndex)
 
     // Call relayCall as a view function to see if we'll get paid for relaying this tx
     const { acceptanceBudget, maxPossibleGas } = await this.validatePaymasterGasLimits(req)
@@ -263,7 +276,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
     const currentBlock = await this.contractInteractor.getBlockNumber()
     const details: SendTransactionDetails =
       {
-        signer: this.workerAddress,
+        signer: this.workerAddress[workerIndex],
         serverAction: ServerAction.RELAY_CALL,
         method,
         destination: req.metadata.relayHubAddress,
@@ -284,14 +297,14 @@ returnValue        | ${viewRelayCallRet.returnValue}
     const commitmentReceipt = {
       commitment: commitment,
       workerSignature: signature,
-      workerAddress: this.workerAddress
+      workerAddress: this.workerAddress[workerIndex]
     }
     if (!this.envelopingArbiter.validateCommitmentSig(commitmentReceipt)) {
       throw new Error('Error: Invalid receipt. Worker signature invalid.')
     }
     const { signedTx } = await this.transactionManager.sendTransaction(details)
     // after sending a transaction is a good time to check the worker's balance, and replenish it.
-    await this.replenishServer(0, currentBlock)
+    await this.replenishServer(workerIndex, currentBlock)
     if (this.alerted) {
       log.error('Alerted state: slowing down traffic')
       await sleep(randomInRange(this.config.minAlertedDelayMS, this.config.maxAlertedDelayMS))
@@ -464,7 +477,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     }
     managerEthBalance = await this.getManagerBalance()
     const mustReplenishWorker = !this.workerBalanceRequired.isSatisfied
-    const isReplenishPendingForWorker = await this.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, this.workerAddress)
+    const isReplenishPendingForWorker = await this.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, this.workerAddress[workerIndex])
     if (mustReplenishWorker && !isReplenishPendingForWorker) {
       const refill = toBN(this.config.workerTargetBalance.toString()).sub(this.workerBalanceRequired.currentValue)
       log.debug(
@@ -475,7 +488,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
         const details: SendTransactionDetails = {
           signer: this.managerAddress,
           serverAction: ServerAction.VALUE_TRANSFER,
-          destination: this.workerAddress,
+          destination: this.workerAddress[workerIndex],
           value: toHex(refill),
           creationBlockNumber: currentBlock,
           gasLimit: defaultEnvironment.mintxgascost
@@ -533,12 +546,13 @@ latestBlock timestamp   | ${latestBlock.timestamp}
       return transactionHashes
     }
     await this.handlePastHubEvents(blockNumber, hubEventsSinceLastScan)
-    const workerIndex = 0
-    transactionHashes = transactionHashes.concat(await this.replenishServer(workerIndex, blockNumber))
-    const workerBalance = await this.getWorkerBalance(workerIndex)
-    if (workerBalance.lt(toBN(this.config.workerMinBalance))) {
-      this.setReadyState(false)
-      return transactionHashes
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      transactionHashes = transactionHashes.concat(await this.replenishServer(index, blockNumber))
+      const workerBalance = await this.getWorkerBalance(index)
+      if (workerBalance.lt(toBN(this.config.workerMinBalance))) {
+        this.setReadyState(false)
+        return transactionHashes
+      }
     }
     this.setReadyState(true)
     if (this.alerted && this.alertedBlock + this.config.alertedBlockDelay < blockNumber) {
@@ -553,7 +567,15 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   }
 
   async getWorkerBalance (workerIndex: number): Promise<BN> {
-    return toBN(await this.contractInteractor.getBalance(this.workerAddress, 'pending'))
+    return toBN(await this.contractInteractor.getBalance(this.workerAddress[workerIndex], 'pending'))
+  }
+
+  async getWorkersTotalBalance (): Promise<BN> {
+    let totalBalance: number = 0
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      totalBalance += parseInt(await this.contractInteractor.getBalance(this.workerAddress[index], 'pending'))
+    }
+    return toBN(totalBalance)
   }
 
   async _shouldRegisterAgain (currentBlock: number, hubEventsSinceLastScan: EventData[]): Promise<boolean> {
@@ -627,8 +649,8 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     if (signedTx != null) {
       transactionHashes.push(signedTx)
     }
-    for (const workerIndex of [0]) {
-      signedTx = await this._boostStuckTransactionsForWorker(blockNumber, workerIndex)
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      signedTx = await this._boostStuckTransactionsForWorker(blockNumber, index)
       if (signedTx != null) {
         transactionHashes.push(signedTx)
       }
@@ -641,7 +663,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   }
 
   async _boostStuckTransactionsForWorker (blockNumber: number, workerIndex: number): Promise<PrefixedHexString | null> {
-    const signer = this.workerAddress
+    const signer = this.workerAddress[workerIndex]
     return await this.transactionManager.boostOldestPendingTransactionForSigner(signer, blockNumber)
   }
 

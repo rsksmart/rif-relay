@@ -91,7 +91,7 @@ contract('RegistrationManager', function (accounts) {
 
     it('should start again after restarting process', async () => {
       const managerKeyManager = new KeyManager(1, serverWorkdirs.managerWorkdir)
-      const workersKeyManager = new KeyManager(1, serverWorkdirs.workersWorkdir)
+      const workersKeyManager = new KeyManager(4, serverWorkdirs.workersWorkdir)
       const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs.workdir })
       const serverWeb3provider = new Web3.providers.HttpProvider((web3.currentProvider as HttpProvider).host)
       const contractInteractor = new ContractInteractor(serverWeb3provider,
@@ -261,7 +261,7 @@ contract('RegistrationManager', function (accounts) {
       it('send balances to owner when all balances > tx costs', async function () {
         const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
-        const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
+        const workerBalanceBefore = await newServer.getWorkersTotalBalance()
         assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
@@ -269,7 +269,7 @@ contract('RegistrationManager', function (accounts) {
       })
 
       it('send balances to owner when manager hub balance < tx cost ', async function () {
-        const workerAddress = newServer.workerAddress
+        const workerAddress = newServer.workerAddress[workerIndex]
         const managerHubBalance = await env.relayHub.balanceOf(newServer.managerAddress)
         const method = env.relayHub.contract.methods.withdraw(toHex(managerHubBalance), workerAddress)
         const gasLimit = await newServer.transactionManager.attemptEstimateGas('Withdraw', method, newServer.managerAddress)
@@ -284,7 +284,7 @@ contract('RegistrationManager', function (accounts) {
         })
         const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
-        const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
+        const workerBalanceBefore = await newServer.getWorkersTotalBalance()
         assert.isTrue(managerHubBalanceBefore.eqn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
@@ -364,7 +364,7 @@ contract('RegistrationManager', function (accounts) {
 
         const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
-        const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
+        const workerBalanceBefore = await newServer.getWorkersTotalBalance()
         assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
@@ -376,12 +376,12 @@ contract('RegistrationManager', function (accounts) {
         assert.isFalse(newServer.registrationManager.isHubAuthorized, 'Hub should not be authorized in server')
         const gasPrice = await env.web3.eth.getGasPrice()
         // TODO: these two hard-coded indexes are dependent on the order of operations in 'withdrawAllFunds'
-        const workerEthTxCost = await getTotalTxCosts([receipts[1]], gasPrice)
+        const workerEthTxCost = await getTotalTxCosts([receipts[1], receipts[2], receipts[3], receipts[4]], gasPrice)
         const managerHubSendTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
         const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(relayOwner))
         const managerHubBalanceAfter = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceAfter = await newServer.getManagerBalance()
-        const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
+        const workerBalanceAfter = await newServer.getWorkersTotalBalance()
         assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
         assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.sub(managerHubSendTxCost).toString())

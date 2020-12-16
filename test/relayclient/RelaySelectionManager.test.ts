@@ -54,6 +54,7 @@ contract('RelaySelectionManager', async function (accounts) {
     tokenContract: '',
     factory: ''
   }
+  const maxTime = Date.now() + 300
 
   let stubPingResponse: SinonStub
   describe('#selectNextRelay()', function () {
@@ -63,7 +64,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
     before(async function () {
       stubGetRelaysSorted.returns(Promise.resolve([[eventInfo]]))
-      relaySelectionManager = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config).init()
+      relaySelectionManager = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config, maxTime).init()
       stubRaceToSuccess = sinon.stub(relaySelectionManager, '_raceToSuccess')
       stubGetNextSlice = sinon.stub(relaySelectionManager, '_getNextSlice')
       // unless this is stubbed, promises will not be handled and exception will be thrown somewhere
@@ -117,7 +118,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
         relaySelectionManager =
           await new RelaySelectionManager(
-            transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config).init()
+            transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config, maxTime).init()
         stubRaceToSuccess = sinon.stub(relaySelectionManager, '_raceToSuccess')
         stubGetNextSlice = sinon.stub(relaySelectionManager, '_getNextSlice')
       })
@@ -172,7 +173,7 @@ contract('RelaySelectionManager', async function (accounts) {
         const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
           sliceSize: i,
           chainId: (await getTestingEnvironment()).chainId
-        })).init()
+        }), maxTime).init()
         const returned = await rsm._getNextSlice()
         assert.equal(returned.length, i)
       }
@@ -184,7 +185,7 @@ contract('RelaySelectionManager', async function (accounts) {
       const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
         sliceSize: 7,
         chainId: (await getTestingEnvironment()).chainId
-      })).init()
+      }), maxTime).init()
       const returned = await rsm._getNextSlice()
       assert.deepEqual(returned, relaysLeft[0])
     })
@@ -203,7 +204,7 @@ contract('RelaySelectionManager', async function (accounts) {
       const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, configureGSN({
         sliceSize: 7,
         chainId: (await getTestingEnvironment()).chainId
-      })).init()
+      }), maxTime).init()
       // Initial request only returns the top preference relays
       const returned1 = await rsm._getNextSlice()
       assert.equal(returned1.length, 2)
@@ -229,7 +230,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
     it('should throw if the relay is not ready', async function () {
       stubPingResponse.returns(Promise.resolve(Object.assign({}, pingResponse, { ready: false })))
-      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, emptyFilter, config)
+      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, emptyFilter, config, maxTime)
       const promise = rsm._getRelayAddressPing(eventInfo)
       await expect(promise).to.be.eventually.rejectedWith('Relay not ready')
     })
@@ -239,14 +240,14 @@ contract('RelaySelectionManager', async function (accounts) {
       const message = 'Filter Error Message'
       const filter: PingFilter = (): void => { throw new Error(message) }
       stubPingResponse.returns(Promise.resolve(pingResponse))
-      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, filter, config)
+      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, filter, config, maxTime)
       const promise = rsm._getRelayAddressPing(eventInfo)
       await expect(promise).to.be.eventually.rejectedWith(message)
     })
 
     it('should return the relay info if it pinged as ready and passed filter successfully', async function () {
       stubPingResponse.returns(Promise.resolve(pingResponse))
-      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, emptyFilter, config)
+      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, emptyFilter, config, maxTime)
       const relayInfo = await rsm._getRelayAddressPing(eventInfo)
       assert.deepEqual(relayInfo, winner)
     })
@@ -304,7 +305,7 @@ contract('RelaySelectionManager', async function (accounts) {
         }
         throw new Error('Non test relay pinged')
       })
-      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config)
+      const rsm = new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config, maxTime)
       const raceResults = await rsm._raceToSuccess(relays)
       assert.equal(raceResults.winner?.relayInfo.relayUrl, 'fastRelay')
       assert.equal(raceResults.errors.size, 1)
@@ -326,7 +327,7 @@ contract('RelaySelectionManager', async function (accounts) {
     it('should remove all relays featured in race results', async function () {
       sinon.stub(dependencyTree.knownRelaysManager, 'refresh')
       stubGetRelaysSorted.returns(Promise.resolve([[winner.relayInfo, failureRelayEventInfo, otherRelayEventInfo]]))
-      const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config).init()
+      const rsm = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config, maxTime).init()
       // initialize 'remainingRelays' field by calling '_getNextSlice'
       await rsm._getNextSlice()
       const errors = new Map<string, Error>()

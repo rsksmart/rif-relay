@@ -38,7 +38,7 @@ async function run (): Promise<void> {
   }
 
   const managerKeyManager = new KeyManager(1, workdir + '/manager')
-  const workersKeyManager = new KeyManager(1, workdir + '/workers')
+  const workersKeyManager = new KeyManager(4, workdir + '/workers')
   const txStoreManager = new TxStoreManager({ workdir })
   const contractInteractor = new ContractInteractor(web3provider, configureGSN({ relayHubAddress: config.relayHubAddress }))
   await contractInteractor.init()

@@ -155,11 +155,11 @@ export class ServerTestEnvironment {
     await this.relayServer._worker(latestBlock.number + 1)
   }
 
-  _createKeyManager (workdir?: string): KeyManager {
+  _createKeyManager (accounts: number, workdir?: string): KeyManager {
     if (workdir != null) {
-      return new KeyManager(1, workdir)
+      return new KeyManager(accounts, workdir)
     } else {
-      return new KeyManager(1, undefined, crypto.randomBytes(32).toString())
+      return new KeyManager(accounts, undefined, crypto.randomBytes(32).toString())
     }
   }
 
@@ -181,8 +181,8 @@ export class ServerTestEnvironment {
   }
 
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
-    const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
-    const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
+    const managerKeyManager = this._createKeyManager(1, serverWorkdirs?.managerWorkdir)
+    const workersKeyManager = this._createKeyManager(4, serverWorkdirs?.workersWorkdir)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
@@ -206,7 +206,7 @@ export class ServerTestEnvironment {
   async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
     const pingResponse = {
       relayHubAddress: this.relayHub.address,
-      relayWorkerAddress: this.relayServer.workerAddress
+      relayWorkerAddress: this.relayServer.workerAddress[0]
     }
     const eventInfo: RelayRegisteredEventInfo = {
       baseRelayFee: this.relayServer.config.baseRelayFee,
@@ -277,9 +277,10 @@ export class ServerTestEnvironment {
     assert.equal(event1.args.to.toLowerCase(), this.gasLess.toLowerCase())
 
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
+    const workerIndex = this.relayServer.getWorkerIndex(event2.args.relayWorker)
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')
-    assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
+    assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress[workerIndex].toLowerCase())
     assert.equal(event2.args.from.toLowerCase(), sender.toLowerCase())
     assert.equal(event2.args.to.toLowerCase(), this.tokenRecipient.address.toLowerCase())
     assert.equal(event2.args.paymaster.toLowerCase(), this.paymaster.address.toLowerCase())

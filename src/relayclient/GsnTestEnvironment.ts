@@ -71,7 +71,7 @@ class GsnTestEnvironmentClass {
     const registerOptions = {
       from,
       stake: ether('1'),
-      funds: ether('1'),
+      funds: ether('2'),
       relayUrl: relayUrl,
       unstakeDelay: '2000'
     }
@@ -143,7 +143,7 @@ class GsnTestEnvironmentClass {
     }
 
     const managerKeyManager = new KeyManager(1)
-    const workersKeyManager = new KeyManager(1)
+    const workersKeyManager = new KeyManager(4)
     const txStoreManager = new TxStoreManager({ inMemory: true })
     const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host),
       configureGSN({
