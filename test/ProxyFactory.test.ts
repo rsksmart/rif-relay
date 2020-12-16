@@ -293,9 +293,8 @@ contract('ProxyFactory', ([from]) => {
         data: isInitializedFunc
       }
 
-      // Call the initialize function
+      // Call the isInitialized function
       let result = await web3.eth.call(newTrx)
-
       let resultStr = result as string
 
       // It should be initialized
@@ -334,14 +333,10 @@ contract('ProxyFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      result = await web3.eth.call(newTrx)
-      resultStr = result as string
 
-      // It should return false since it was already initialized
-      chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
-
       result = await web3.eth.call(newTrx)
       resultStr = result as string
 

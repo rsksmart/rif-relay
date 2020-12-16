@@ -41,7 +41,7 @@ contract('TransactionManager', function (accounts) {
      * This is not so much a test but a sanity check that RelayServer code produces two distinct transactions
      * unless mutex is implemented.
      */
-    it('should fail if nonce is not mutexed', async function () {
+    it.skip('should fail if nonce is not mutexed', async function () {
       nonceMutexOrig = relayServer.transactionManager.nonceMutex
       relayServer.transactionManager.nonceMutex = {
         // @ts-ignore

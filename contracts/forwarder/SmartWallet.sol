@@ -219,9 +219,24 @@ contract SmartWallet is IForwarder {
         bytes32 versionHash,
         bytes memory initParams,
         bytes memory transferData
-    ) external returns (bool) {
+    ) external {
 
-        if (getOwner() == bytes32(0)) {
+            require (getOwner() == bytes32(0), "Already initialized");
+
+            //Done before any external call to avoid re-entrancy attacks
+            //Set this instance as initialized, by
+            //storing the logic address
+            //Set the owner of this Smart Wallet
+            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
+
+            assembly {
+                sstore(
+                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                    ownerCell
+                )
+            }
+
             //we need to initialize the contract
             if (tokenAddr != address(0)) {
                 (bool success, ) = tokenAddr.call(transferData);
@@ -232,7 +247,7 @@ contract SmartWallet is IForwarder {
 
             //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
             //the initialize function can only be called once)
-            if (address(0) != logic) {
+            if ( logic!= address(0) ) {
 
                 //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
                 (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
@@ -257,22 +272,6 @@ contract SmartWallet is IForwarder {
                 }
             }
 
-            //If it didnt revert it means success was true, we can then set this instance as initialized, by
-            //storing the logic address
-            //Set the owner of this Smart Wallet
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
-
-            assembly {
-                sstore(
-                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                    ownerCell
-                )
-            }
-
-            return true;
-        }
-        return false;
     }
 
     /**
@@ -293,7 +292,7 @@ contract SmartWallet is IForwarder {
             )
         }
 
-        if (bytes32(0) != logicStrg) {
+        if (logicStrg != bytes32(0)  ) {
             //If the storage cell is not empty
             
             address logic = address(uint160(uint256(logicStrg)));
@@ -334,7 +333,7 @@ contract SmartWallet is IForwarder {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
      * is empty.
      */
-    receive() external payable {
+    receive() payable external  {
         _fallback();
     }
 }
