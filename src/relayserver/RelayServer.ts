@@ -100,24 +100,21 @@ export class RelayServer extends EventEmitter {
     return this.gasPrice
   }
 
-  getWorkerIndex (address: PrefixedHexString): number {
-    const workerIndex = this.workerAddress.indexOf(address)
-    if (workerIndex > -1) {
-      return workerIndex
-    } else {
-      throw new Error(
-        `Wrong worker address: ${address}\n`)
-    }
+  getQueueWorker (maxTime?: string): string {
+    return this.workerAddress[0]
   }
 
-  async pingHandler (paymaster?: string, maxTime?: string): Promise<PingResponse> {
+  getWorkerIndex (address: PrefixedHexString): number {
+    return this.workerAddress.indexOf(address)
+  }
+
+  pingHandler (paymaster?: string, maxTime?: string): PingResponse {
     return {
-      relayWorkerAddress: this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime),
+      relayWorkerAddress: this.getQueueWorker(maxTime),
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
-      minGasPrice: await this.envelopingArbiter.getQueueGasPrice(maxTime),
+      minGasPrice: this.getMinGasPrice().toString(),
       maxAcceptanceBudget: this._getPaymasterMaxAcceptanceBudget(paymaster),
-      maxDelay: this.envelopingArbiter.checkMaxDelayForResponse(maxTime),
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -258,6 +255,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
   }
 
   async createRelayTransaction (req: RelayTransactionRequest): Promise<CommitmentResponse> {
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     log.debug('dump request params', arguments[0])
     if (!this.isReady()) {
       throw new Error('relay not ready')
@@ -299,7 +297,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
     const commitmentReceipt = {
       commitment: commitment,
       workerSignature: signature,
-      workerAddress: this.workerAddress
+      workerAddress: this.workerAddress[workerIndex]
     }
     if (!this.envelopingArbiter.validateCommitmentSig(commitmentReceipt)) {
       throw new Error('Error: Invalid receipt. Worker signature invalid.')
@@ -338,7 +336,6 @@ returnValue        | ${viewRelayCallRet.returnValue}
       throw new Error('Server not started')
     }
     clearInterval(this.workerTask)
-    this.envelopingArbiter.feeEstimator.stop()
     log.info('Successfully stopped polling!!')
   }
 

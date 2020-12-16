@@ -36,7 +36,6 @@ contract('RelaySelectionManager', async function (accounts) {
     relayHubAddress: '',
     minGasPrice: '1',
     maxAcceptanceBudget: 1e10.toString(),
-    maxDelay: Date.now() + (300 * 1000),
     ready: true,
     version: '1'
   }
@@ -55,7 +54,7 @@ contract('RelaySelectionManager', async function (accounts) {
     tokenContract: '',
     factory: ''
   }
-  const maxTime = Date.now() + (300 * 1000)
+  const maxTime = Date.now() + 300
 
   let stubPingResponse: SinonStub
   describe('#selectNextRelay()', function () {
@@ -132,7 +131,6 @@ contract('RelaySelectionManager', async function (accounts) {
           relayHubAddress: relayManager,
           minGasPrice: '1',
           maxAcceptanceBudget: 1e10.toString(),
-          maxDelay: Date.now() + (300 * 1000),
           ready: true,
           version: ''
         }

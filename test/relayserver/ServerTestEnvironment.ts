@@ -181,8 +181,8 @@ export class ServerTestEnvironment {
   }
 
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
-    const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
-    const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
+    const managerKeyManager = this._createKeyManager(1, serverWorkdirs?.managerWorkdir)
+    const workersKeyManager = this._createKeyManager(4, serverWorkdirs?.workersWorkdir)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
@@ -203,10 +203,10 @@ export class ServerTestEnvironment {
     })
   }
 
-  async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}, useValidMaxDelay: boolean = true, useValidWorker: boolean = true, workerIndex = 1): Promise<RelayTransactionRequest> {
+  async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
     const pingResponse = {
       relayHubAddress: this.relayHub.address,
-      relayWorkerAddress: this.relayServer.workerAddress[workerIndex]
+      relayWorkerAddress: this.relayServer.workerAddress[0]
     }
     const eventInfo: RelayRegisteredEventInfo = {
       baseRelayFee: this.relayServer.config.baseRelayFee,
@@ -238,16 +238,7 @@ export class ServerTestEnvironment {
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails), maxTime)
   }
 
-  /**
-   * Relays a transaction through the Test Environment
-   * @param assertRelayed flag for asserting if the transaction has been relayed successfully
-   * @param overrideDetails custom GsnTransactionDetails data
-   * @param useValidMaxDelay flag for using a valid maxDelay value or not
-   * @param useValidWorker flag for using a valid relayWorkerAddress value or not
-   * @param workerIndex force the transaction to be sent using a specific worker
-   * @returns the hash of the Tx, the signed Tx and a signed commitment receipt
-   */
-  async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}, useValidMaxDelay = true, useValidWorker = true, workerIndex = 1): Promise<{
+  async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
     signedReceipt: CommitmentReceipt | undefined

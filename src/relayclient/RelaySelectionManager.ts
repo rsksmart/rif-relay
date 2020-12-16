@@ -19,14 +19,14 @@ export default class RelaySelectionManager {
   private readonly config: GSNConfig
   private readonly pingFilter: PingFilter
   private readonly gsnTransactionDetails: GsnTransactionDetails
-  private readonly maxTime?: number
+  private readonly maxTime: number
 
   private remainingRelays: RelayInfoUrl[][] = []
   private isInitialized = false
 
   public errors: Map<string, Error> = new Map<string, Error>()
 
-  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: IKnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig, maxTime?: number) {
+  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: IKnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig, maxTime: number) {
     this.gsnTransactionDetails = gsnTransactionDetails
     this.knownRelaysManager = knownRelaysManager
     this.httpClient = httpClient

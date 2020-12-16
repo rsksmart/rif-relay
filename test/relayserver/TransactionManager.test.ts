@@ -41,7 +41,7 @@ contract('TransactionManager', function (accounts) {
      * This is not so much a test but a sanity check that RelayServer code produces two distinct transactions
      * unless mutex is implemented.
      */
-    it.skip('should fail if nonce is not mutexed', async function () {
+    it('should fail if nonce is not mutexed', async function () {
       nonceMutexOrig = relayServer.transactionManager.nonceMutex
       relayServer.transactionManager.nonceMutex = {
         // @ts-ignore
@@ -57,9 +57,10 @@ contract('TransactionManager', function (accounts) {
         await Promise.all(promises)
         assert.fail()
       } catch (e) {
+        console.log(e)
         assert.include(e.message, 'violates the unique constraint')
         // there may be multiple fields marked as 'unique', this checks that 'nonceSigner' is the one that throws
-        assert.deepEqual(e.key, { nonce: 0, signer: env.relayServer.workerAddress[1] })
+        assert.deepEqual(e.key, { nonce: 0, signer: env.relayServer.workerAddress[0] })
         // since we forced the server to create an illegal tx with an already used nonce, we decrease the nonce
         relayServer.transactionManager.nonces[1]--
       } finally {
