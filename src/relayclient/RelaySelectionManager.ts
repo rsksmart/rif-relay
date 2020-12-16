@@ -19,18 +19,20 @@ export default class RelaySelectionManager {
   private readonly config: GSNConfig
   private readonly pingFilter: PingFilter
   private readonly gsnTransactionDetails: GsnTransactionDetails
+  private readonly maxTime: number
 
   private remainingRelays: RelayInfoUrl[][] = []
   private isInitialized = false
 
   public errors: Map<string, Error> = new Map<string, Error>()
 
-  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: IKnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig) {
+  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: IKnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig, maxTime: number) {
     this.gsnTransactionDetails = gsnTransactionDetails
     this.knownRelaysManager = knownRelaysManager
     this.httpClient = httpClient
     this.pingFilter = pingFilter
     this.config = config
+    this.maxTime = maxTime
   }
 
   /**
@@ -106,7 +108,7 @@ export default class RelaySelectionManager {
    */
   async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
     log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.paymaster)
+    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.paymaster, this.maxTime)
 
     if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)

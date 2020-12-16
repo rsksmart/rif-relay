@@ -15,9 +15,11 @@ export default class HttpClient {
     this.config = config
   }
 
-  async getPingResponse (relayUrl: string, paymaster?: string): Promise<PingResponse> {
+  async getPingResponse (relayUrl: string, paymaster?: string, maxTime?: number): Promise<PingResponse> {
     const paymasterSuffix = paymaster == null ? '' : '?paymaster=' + paymaster
-    const pingResponse: PingResponse = await this.httpWrapper.sendPromise(relayUrl + '/getaddr' + paymasterSuffix)
+    const symbol = (paymaster == null) ? '?' : '&'
+    const maxTimeSuffix = maxTime == null ? '' : symbol + 'maxTime=' + maxTime.toString()
+    const pingResponse: PingResponse = await this.httpWrapper.sendPromise(relayUrl + '/getaddr' + paymasterSuffix + maxTimeSuffix)
     log.info('error, body', pingResponse)
     if (pingResponse == null) {
       throw new Error('Relay responded without a body')

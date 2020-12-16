@@ -60,7 +60,7 @@ contract('TransactionManager', function (accounts) {
         console.log(e)
         assert.include(e.message, 'violates the unique constraint')
         // there may be multiple fields marked as 'unique', this checks that 'nonceSigner' is the one that throws
-        assert.deepEqual(e.key, { nonce: 0, signer: env.relayServer.workerAddress })
+        assert.deepEqual(e.key, { nonce: 0, signer: env.relayServer.workerAddress[0] })
         // since we forced the server to create an illegal tx with an already used nonce, we decrease the nonce
         relayServer.transactionManager.nonces[1]--
       } finally {
