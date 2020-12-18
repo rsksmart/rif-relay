@@ -100,20 +100,24 @@ export class RelayServer extends EventEmitter {
     return this.gasPrice
   }
 
+  async getQueueGasPrice (maxTime?: string): Promise<string> {
+    return await this.envelopingArbiter.getQueueGasPrice()
+  }
+
   getQueueWorker (maxTime?: string): string {
-    return this.workerAddress[0]
+    return this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime)
   }
 
   getWorkerIndex (address: PrefixedHexString): number {
     return this.workerAddress.indexOf(address)
   }
 
-  pingHandler (paymaster?: string, maxTime?: string): PingResponse {
+  async pingHandler (paymaster?: string, maxTime?: string): Promise<PingResponse> {
     return {
       relayWorkerAddress: this.getQueueWorker(maxTime),
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
-      minGasPrice: this.getMinGasPrice().toString(),
+      minGasPrice: await this.getQueueGasPrice(maxTime),
       maxAcceptanceBudget: this._getPaymasterMaxAcceptanceBudget(paymaster),
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),

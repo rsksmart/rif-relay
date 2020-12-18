@@ -80,8 +80,8 @@ export class HttpServer {
     res.send(status)
   }
 
-  pingHandler (req: any, res: any): void {
-    const pingResponse = this.backend.pingHandler(req.query.paymaster, req.query.maxTime)
+  async pingHandler (req: any, res: any): Promise<void> {
+    const pingResponse = await this.backend.pingHandler(req.query.paymaster, req.query.maxTime)
     res.send(pingResponse)
     console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
   }
