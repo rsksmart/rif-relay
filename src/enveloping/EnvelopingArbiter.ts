@@ -1,6 +1,5 @@
 import { Bytes } from 'ethers'
 import log from 'loglevel'
-import Web3 from 'web3'
 import { HttpProvider, IpcProvider, WebsocketProvider } from 'web3-core'
 import { Address } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
@@ -8,6 +7,7 @@ import { TransactionManager } from '../relayserver/TransactionManager'
 import { validateCommitmentSig } from './CommitmentValidator'
 import { CommitmentReceipt } from './Commitment'
 import { FeeEstimator, FeesTable } from './FeeEstimator'
+import { NonceQueueSelector } from './NonceQueueSelector'
 
 export type Web3Provider =
   | HttpProvider
@@ -15,12 +15,12 @@ export type Web3Provider =
   | WebsocketProvider
 
 export class EnvelopingArbiter {
-  readonly web3: Web3
   readonly feeEstimator: FeeEstimator
+  readonly nonceQueueSelector: NonceQueueSelector
 
   constructor (config: Partial<ServerConfigParams>, provider: Web3Provider) {
-    this.web3 = new Web3(provider)
     this.feeEstimator = new FeeEstimator(config, provider)
+    this.nonceQueueSelector = new NonceQueueSelector()
   }
 
   async delay (ms: number): Promise<void> {
@@ -33,13 +33,28 @@ export class EnvelopingArbiter {
     return this.feeEstimator.initialized
   }
 
+  isValidTime (maxTime: string): boolean {
+    if (parseInt(maxTime) <= Date.now()) { return false }
+    return true
+  }
+
   async getFeesTable (): Promise<FeesTable> {
     if (typeof this.feeEstimator.feesTable !== 'undefined') {
       return this.feeEstimator.feesTable
     } else {
-      await this.delay(5000)
+      await this.delay(1000)
       return await this.getFeesTable()
     }
+  }
+
+  async getQueueGasPrice (maxTime?: string): Promise<string> {
+    if (typeof maxTime === 'undefined' || !this.isValidTime(maxTime)) { maxTime = (Date.now() + 300).toString() }
+    return await this.nonceQueueSelector.getQueueGasPrice(parseInt(maxTime), await this.getFeesTable())
+  }
+
+  getQueueWorker (addresses: string[], maxTime?: string): string {
+    if (typeof maxTime === 'undefined') { maxTime = (Date.now() + 300).toString() }
+    return this.nonceQueueSelector.getQueueWorker(parseInt(maxTime), addresses)
   }
 
   async start (): Promise<void> {
