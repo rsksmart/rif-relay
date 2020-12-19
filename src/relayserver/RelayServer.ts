@@ -407,89 +407,14 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   /**
    * It withdraws excess balance from the relayHub to the relayManager, and refills the relayWorker with
    * balance if required.
-   * TODO: Since balance will be only for staking, this replenish mechanism WONT be enough in Enveloping 2.0, Where the
-   * RelayHub and Paymaster don't actively participate in the payment of the relay transaction to the relayManager
    * @param workerIndex Not used so it can be any number
    * @param currentBlock Where to place the replenish action
    */
+
   async replenishServer (workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
     const transactionHashes: PrefixedHexString[] = []
-
-    // balance of this.managerAddress
-    let managerEthBalance = await this.getManagerBalance()
-
-    // locked balance in relayHub of this.managerAddress
-    const managerHubBalance = await this.relayHubContract.balanceOf(this.managerAddress)
-
-    // balance of this.workerAddress (workerIndex is not used)
-    this.workerBalanceRequired.currentValue = await this.getWorkerBalance(workerIndex)
-
-    // if managerEthBalance >= the target balance  AND the worker has enough balance as well, do nothing
-    if (managerEthBalance.gte(toBN(this.config.managerTargetBalance.toString())) && this.workerBalanceRequired.isSatisfied) {
-      // all filled, nothing to do
-      return transactionHashes
-    }
-
-    // if the balance of the managerAddress < the target balance AND its balance in the hub > minHubWithdrawalBalance
-    // then it must withdraw the hub deposits
-    const mustWithdrawHubDeposit = managerEthBalance.lt(toBN(this.config.managerTargetBalance.toString())) && managerHubBalance.gte(
-      toBN(this.config.minHubWithdrawalBalance))
-
-    // Check if there's a withdrawal action pending
-    const isWithdrawalPending = await this.txStoreManager.isActionPending(ServerAction.DEPOSIT_WITHDRAWAL)
-
-    // If withdrawal action is needed and there's no action pending then proceed to create one
-    if (mustWithdrawHubDeposit && !isWithdrawalPending) {
-      log.info(`withdrawing manager hub balance (${managerHubBalance.toString()}) to manager`)
-      // Refill manager eth balance from hub balance
-      const method = this.relayHubContract?.contract.methods.withdraw(toHex(managerHubBalance), this.managerAddress)
-      const gasLimit = await this.transactionManager.attemptEstimateGas('Withdraw', method, this.managerAddress)
-      const details: SendTransactionDetails = {
-        signer: this.managerAddress,
-        serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
-        destination: this.relayHubContract.address,
-        creationBlockNumber: currentBlock,
-        gasLimit,
-        method
-      }
-      const { transactionHash } = await this.transactionManager.sendTransaction(details)
-      transactionHashes.push(transactionHash)
-    }
-
-    // Check the new balance of this.managerAddress
-    managerEthBalance = await this.getManagerBalance()
-    const mustReplenishWorker = !this.workerBalanceRequired.isSatisfied
-
-    // Check if there's a pending action to replenish the worker with balance
-    const isReplenishPendingForWorker = await this.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, this.workerAddress)
-
-    // If the worker needs balance and there's no pending action, create one
-    if (mustReplenishWorker && !isReplenishPendingForWorker) {
-      // The refill must be so it covers the worker's target balance
-      const refill = toBN(this.config.workerTargetBalance.toString()).sub(this.workerBalanceRequired.currentValue)
-      log.debug(
-        `== replenishServer: mgr balance=${managerEthBalance.toString()}  manager hub balance=${managerHubBalance.toString()}
-          \n${this.workerBalanceRequired.description}\n refill=${refill.toString()}`)
-
-      // The refile amount must not deplete the manager's minimum balance cushion
-      if (refill.lt(managerEthBalance.sub(toBN(this.config.managerMinBalance)))) {
-        log.debug('Replenishing worker balance by manager eth balance')
-        const details: SendTransactionDetails = {
-          signer: this.managerAddress,
-          serverAction: ServerAction.VALUE_TRANSFER,
-          destination: this.workerAddress,
-          value: toHex(refill),
-          creationBlockNumber: currentBlock,
-          gasLimit: defaultEnvironment.mintxgascost
-        }
-        const { transactionHash } = await this.transactionManager.sendTransaction(details)
-        transactionHashes.push(transactionHash)
-      } else {
-        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
-        this.emit('fundingNeeded', message)
-        log.error(message)
-      }
-    }
+    //TODO: Enveloping 2.0 Does not handle balances, we need to find another way to replenish the RelayManager's workers
+    // with native cryptocurrency
     return transactionHashes
   }
 

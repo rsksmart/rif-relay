@@ -70,8 +70,7 @@ options.forEach(element => {
         domainSeparator: '0x',
         relayWorker: constants.ZERO_ADDRESS,
         callForwarder: constants.ZERO_ADDRESS,
-        callVerifier: constants.ZERO_ADDRESS,
-        clientId: '1'
+        callVerifier: constants.ZERO_ADDRESS      
       }
     }
 

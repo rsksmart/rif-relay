@@ -17,7 +17,6 @@ contract SmartWallet is IForwarder {
     uint256 public override nonce;
     
 
-  
     /**It will only work if called through Enveloping */
     function setVersion(bytes32 versionHash) public {
        
@@ -29,7 +28,6 @@ contract SmartWallet is IForwarder {
         currentVersionHash = versionHash;
     }
 
-    
     function verify(
         ForwardRequest memory req,
         bytes32 domainSeparator,
@@ -82,6 +80,7 @@ contract SmartWallet is IForwarder {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
             payable(msg.sender).transfer(address(this).balance);
         }
+   
     }
     
     function execute(
@@ -95,12 +94,12 @@ contract SmartWallet is IForwarder {
         override
         payable
         returns (
-            bool success,
             uint256 lastTxSucc,
             bytes memory ret  
         )
     {
 
+        bool success;
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonce++;
 
@@ -113,35 +112,39 @@ contract SmartWallet is IForwarder {
         );
 
         if (!success) {
-            return (success, 0, ret);
+            lastTxSucc = 2;
+        }
+        else{
+            bytes32 logicStrg;
+            assembly {
+                logicStrg := sload(
+                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+                )
+            }
+
+            // If there's no extra logic, then call the destination contract
+            if (logicStrg == bytes32(0)) {
+                (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
+            } else {
+                //If there's extra logic, delegate the execution
+                (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
+            }
+     
+            //If any balance has been added then trasfer it to the owner EOA
+            if (address(this).balance > 0) {
+                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
+                payable(req.from).transfer(address(this).balance);
+            }
+
+            if (!success) {
+                lastTxSucc = 1;
+            }
+            else{
+                lastTxSucc = 0; // 0 == OK
+            }
         }
 
-        bytes32 logicStrg;
-        assembly {
-            logicStrg := sload(
-                0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
-            )
-        }
-
-        // If there's no extra logic, then call the destination contract
-        if (logicStrg == bytes32(0)) {
-            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
-        } else {
-            //If there's extra logic, delegate the execution
-            (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
-        }
-
-        //If any balance has been added then trasfer it to the owner EOA
-        if (address(this).balance > 0) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(req.from).transfer(address(this).balance);
-        }
-
-        if (!success) {
-            return (success, 1, ret);
-        }
-
-        return (success, 2, ret);
+  
     }
 
    
@@ -171,7 +174,7 @@ contract SmartWallet is IForwarder {
 
 
         require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 clientId,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -199,7 +202,7 @@ contract SmartWallet is IForwarder {
         ForwardRequest memory req,
         bytes32 requestTypeHash,
         bytes32 suffixData
-    ) public pure returns (bytes memory) {
+    ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
                 requestTypeHash,
@@ -249,60 +252,60 @@ contract SmartWallet is IForwarder {
         bytes32 versionHash,
         bytes memory initParams,
         bytes memory transferData
-    ) external returns (bool) {
+    ) external {
 
-        if (getOwner() == bytes32(0)) {
-            //we need to initialize the contract
-            if (tokenAddr != address(0)) {
-                (bool success, ) = tokenAddr.call(transferData);
-                require(success, "Unable to pay for deployment");
-            }
+        require(getOwner() == bytes32(0), "already initialized");
 
-            currentVersionHash = versionHash;
+        //To avoid re-entrancy attacks by external contracts, the first thing we do is set
+        //the variable that controls "is initialized"
+        //We set this instance as initialized, by
+        //storing the logic address
+        //Set the owner of this Smart Wallet
+        //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+        bytes32 ownerCell = keccak256(abi.encodePacked(owner));
 
-            //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
-            //the initialize function can only be called once)
-            if (address(0) != logic) {
+        assembly {
+            sstore(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                ownerCell
+            )
+        }
 
-                //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
-                (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
-                    hex"439fab91",
-                    initParams
-                ));
+        //we need to initialize the contract
+        if (tokenAddr != address(0)) {
+            (bool success, ) = tokenAddr.call(transferData);
+            require(success, "Unable to pay for deployment");
+        }
 
-                require(
-                    success,
-                    "initialize call in logic failed"
-                );
+        currentVersionHash = versionHash;
 
-                bytes memory logicCell = abi.encodePacked(logic);
+        //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
+        //the initialize function can only be called once)
+        if (logic != address(0) ) {
 
-                assembly {
-                    //The slot used complies with EIP-1967, obtained as:
-                    //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-                    sstore(
-                        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                        logicCell
-                    )
-                }
-            }
+            //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
+            (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
+                hex"439fab91",
+                initParams
+            ));
 
-            //If it didnt revert it means success was true, we can then set this instance as initialized, by
-            //storing the logic address
-            //Set the owner of this Smart Wallet
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
+            require(
+                success,
+                "initialize call in logic failed"
+            );
+
+            bytes memory logicCell = abi.encodePacked(logic);
 
             assembly {
+                //The slot used complies with EIP-1967, obtained as:
+                //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
                 sstore(
-                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                    ownerCell
+                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
+                    logicCell
                 )
             }
-
-            return true;
         }
-        return false;
+       
     }
 
 
@@ -357,7 +360,7 @@ contract SmartWallet is IForwarder {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
      * is empty.
      */
-    receive() external payable {
+    receive() payable external {
         _fallback();
     }
 
@@ -365,7 +368,7 @@ contract SmartWallet is IForwarder {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
      * function in the contract matches the call data.
      */
-    fallback() external payable {
+    fallback() payable external  {
         _fallback();
     }
 }

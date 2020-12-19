@@ -16,9 +16,7 @@ import "./interfaces/IRelayHub.sol";
 import "./interfaces/IVerifier.sol";
 import "./interfaces/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
-    //TODO Enveloping
-    //If req.token != address(0) then do not use the balances at all
-    //If req.token == 0, then the relayHub will pay the worker with balance
+ 
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
@@ -28,7 +26,7 @@ contract RelayHub is IRelayHub {
     uint256 public override gasOverhead;
     uint256 public override maxWorkerCount;
     address override public penalizer;
-    IStakeManager override public stakeManager;
+    address override public stakeManager;
     string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
 
     // maps relay worker's address to its manager's address
@@ -37,10 +35,8 @@ contract RelayHub is IRelayHub {
     // maps relay managers to the number of their workers
     mapping(address => uint256) public override workerCount;
 
-    mapping(address => uint256) private balances;
-
     constructor (
-        IStakeManager _stakeManager,
+        address _stakeManager,
         address _penalizer,
         uint256 _maxWorkerCount,
         uint256 _gasOverhead,
@@ -59,10 +55,12 @@ contract RelayHub is IRelayHub {
 
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
         address relayManager = msg.sender;
-        require(
-            isRelayManagerStaked(relayManager),
-            "relay manager not staked"
-        );
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                relayManager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+
         require(workerCount[relayManager] > 0, "no relay workers");
         emit RelayServerRegistered(relayManager, baseRelayFee, pctRelayFee, url);
     }
@@ -72,10 +70,12 @@ contract RelayHub is IRelayHub {
         workerCount[relayManager] = workerCount[relayManager] + newRelayWorkers.length;
         require(workerCount[relayManager] <= maxWorkerCount, "too many workers");
 
-        require(
-            isRelayManagerStaked(relayManager),
-            "relay manager not staked"
-        );
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                relayManager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+
 
         for (uint256 i = 0; i < newRelayWorkers.length; i++) {
             require(workerToManager[newRelayWorkers[i]] == address(0), "this worker has a manager");
@@ -85,36 +85,6 @@ contract RelayHub is IRelayHub {
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
     }
 
-    function depositFor(address target) public override payable {
-        uint256 amount = msg.value;
-        require(amount <= maximumRecipientDeposit, "deposit too big");
-
-        balances[target] = balances[target].add(amount);
-
-        emit Deposited(target, msg.sender, amount);
-    }
-
-    function balanceOf(address target) external override view returns (uint256) {
-        return balances[target];
-    }
-
-    function withdraw(uint256 amount, address payable dest) public override {
-        address payable account = msg.sender;
-        require(balances[account] >= amount, "insufficient funds");
-
-        balances[account] = balances[account].sub(amount);
-        dest.transfer(amount);
-
-        emit Withdrawn(account, dest, amount);
-    }
-
-    struct RelayCallData {
-        bool success;
-        //bytes4 functionSelector;
-        bytes relayedCallReturnValue;
-        RelayCallStatus status;
-        bytes retData;
-    }
 
     function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
@@ -123,60 +93,49 @@ contract RelayHub is IRelayHub {
     override
     {
         (signature);
-        RelayCallData memory vars;
+        bytes memory relayedCallReturnValue;
 
         require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
         require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
-        require(
-            isRelayManagerStaked(workerToManager[msg.sender]),
-            "relay manager not staked"
-        );
-        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+         /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                workerToManager[msg.sender],minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+        //  require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
-
         bool forwarderSuccess;
         uint256 lastSuccTrx;
-        (forwarderSuccess, vars.success, lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
-        if ( !forwarderSuccess ) {
-            revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
-        }
 
-        if (!vars.success) {
+        
+        (forwarderSuccess, lastSuccTrx, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
+        
+        if ( !forwarderSuccess ) {
+            revertWithStatus(RelayCallStatus.RejectedByForwarder, relayedCallReturnValue);
+        }
+       
+       if (lastSuccTrx == 0) {// 0 == OK
+                emit TransactionRelayed2(
+                    workerToManager[msg.sender],
+                    msg.sender,
+                    keccak256(signature)
+                );
+
+                if ( relayedCallReturnValue.length>0 ) {
+                    emit TransactionResult(relayedCallReturnValue);
+                }
+        }
+        else{ 
             emit TransactionRelayedButRevertedByRecipient(            
             workerToManager[msg.sender],
             msg.sender,
             relayRequest.request.from,
             relayRequest.request.to,
+            lastSuccTrx,
             relayRequest.relayData.isSmartWalletDeploy?bytes4(0):MinLibBytes.readBytes4(relayRequest.request.data, 0),
-            vars.relayedCallReturnValue);// TODO: debate if its neccesary to have lastSuccTrx
+            relayedCallReturnValue);// TODO: debate if its neccesary to have lastSuccTrx
         }
-        else if(relayRequest.relayData.isSmartWalletDeploy){
-            //In SmartWallet deploys the data attribute is used for initialization params of extra logic contract, 
-            //this extra logic contract is defined in the "to" paramete
-            emit SWDeployRelayed(
-            workerToManager[msg.sender],
-            msg.sender,
-            relayRequest.request.from,
-            relayRequest.relayData.callForwarder,
-            vars.status,
-            relayRequest.request.tokenAmount);
-         }
-         else{
-            emit TransactionRelayed(
-            workerToManager[msg.sender],
-            msg.sender,
-            relayRequest.request.from,
-            relayRequest.request.to,
-            MinLibBytes.readBytes4(relayRequest.request.data, 0),
-            vars.status,
-            relayRequest.request.tokenAmount);
-            
-            if ( vars.relayedCallReturnValue.length>0 ) {
-                emit TransactionResult(vars.status, vars.relayedCallReturnValue);
-            }
-         }
     }
 
 
@@ -192,13 +151,14 @@ contract RelayHub is IRelayHub {
         }
     }
 
-   /* function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) public override virtual view returns (uint256) {
-        //       relayData.baseRelayFee + (gasUsed * relayData.gasPrice * (100 + relayData.pctRelayFee)) / 100;
-        return relayData.baseRelayFee.add((gasUsed.mul(relayData.gasPrice).mul(relayData.pctRelayFee.add(100))).div(100));
-    } */
-
-    function isRelayManagerStaked(address relayManager) public override view returns (bool) {
-        return stakeManager.isRelayManagerStaked(relayManager, address(this), minimumStake, minimumUnstakeDelay);
+    function isRelayManagerStaked(address relayManager) public override returns (bool){
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                relayManager,minimumStake,minimumUnstakeDelay));
+        
+        //If no revert, then return true
+        require(succ, "relay manager not staked");
+       
     }
 
     modifier penalizerOnly () {
@@ -214,7 +174,7 @@ contract RelayHub is IRelayHub {
             isRelayManagerStaked(relayManager),
             "relay manager not staked"
         );
-        IStakeManager.StakeInfo memory stakeInfo = stakeManager.getStakeInfo(relayManager);
-        stakeManager.penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
+        IStakeManager.StakeInfo memory stakeInfo = IStakeManager(stakeManager).getStakeInfo(relayManager);
+        IStakeManager(stakeManager).penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
     }
 }

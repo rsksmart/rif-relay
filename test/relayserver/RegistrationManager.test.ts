@@ -208,7 +208,6 @@ contract('RegistrationManager', function (accounts) {
     describe('Withdrawn event', function () {
       async function assertSendBalancesToOwner (
         server: RelayServer,
-        managerHubBalanceBefore: BN,
         managerBalanceBefore: BN,
         workerBalanceBefore: BN): Promise<void> {
         const gasPrice = await env.web3.eth.getGasPrice()
@@ -223,15 +222,13 @@ contract('RegistrationManager', function (accounts) {
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
-          managerHubBalanceBefore.add(managerBalanceBefore).add(workerBalanceBefore)
+          managerBalanceBefore.add(workerBalanceBefore)
             .sub(totalTxCosts).toString(),
           `ownerBalanceAfter(${ownerBalanceAfter.toString()}) - ownerBalanceBefore(${ownerBalanceBefore.toString()}) !=
-         managerHubBalanceBefore(${managerHubBalanceBefore.toString()}) + managerBalanceBefore(${managerBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
+          + managerBalanceBefore(${managerBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
          - totalTxCosts(${totalTxCosts.toString()})`)
-        const managerHubBalanceAfter = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceAfter = await newServer.getManagerBalance()
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(managerBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
         // TODO
@@ -246,8 +243,6 @@ contract('RegistrationManager', function (accounts) {
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
         await newServer._worker(latestBlock.number + 1)
-
-        await env.relayHub.depositFor(newServer.managerAddress, { value: 1e18.toString() })
         await env.stakeManager.unlockStake(newServer.managerAddress, { from: relayOwner })
         await evmMineMany(unstakeDelay)
         await env.stakeManager.withdrawStake(newServer.managerAddress, { from: relayOwner })
@@ -258,36 +253,11 @@ contract('RegistrationManager', function (accounts) {
       })
 
       it('send balances to owner when all balances > tx costs', async function () {
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
-        await assertSendBalancesToOwner(newServer, managerHubBalanceBefore, managerBalanceBefore, workerBalanceBefore)
-      })
-
-      it('send balances to owner when manager hub balance < tx cost ', async function () {
-        const workerAddress = newServer.workerAddress
-        const managerHubBalance = await env.relayHub.balanceOf(newServer.managerAddress)
-        const method = env.relayHub.contract.methods.withdraw(toHex(managerHubBalance), workerAddress)
-        const gasLimit = await newServer.transactionManager.attemptEstimateGas('Withdraw', method, newServer.managerAddress)
-        await newServer.transactionManager.sendTransaction({
-          signer: newServer.managerAddress,
-          serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
-          destination: env.relayHub.address,
-          creationBlockNumber: 0,
-          // FIX for RSK: gas estimation works a bit different, requiring to increase estimated gas limit in a factor of 1.5
-          gasLimit: Math.round(gasLimit * 1.5),
-          method
-        })
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
-        const managerBalanceBefore = await newServer.getManagerBalance()
-        const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.eqn(0))
-        assert.isTrue(managerBalanceBefore.gtn(0))
-        assert.isTrue(workerBalanceBefore.gtn(0))
-        await assertSendBalancesToOwner(newServer, managerHubBalanceBefore, managerBalanceBefore, workerBalanceBefore)
+        await assertSendBalancesToOwner(newServer, managerBalanceBefore, workerBalanceBefore)
       })
     })
 
@@ -319,7 +289,6 @@ contract('RegistrationManager', function (accounts) {
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
         await newServer._worker(latestBlock.number + 1)
-        await env.relayHub.depositFor(newServer.managerAddress, { value: 1e18.toString() })
       })
 
       afterEach(async function () {
@@ -361,10 +330,8 @@ contract('RegistrationManager', function (accounts) {
       it('send only workers\' balances to owner (not manager hub,eth balance) - after unstake delay', async function () {
         await env.stakeManager.unauthorizeHubByOwner(newServer.managerAddress, env.relayHub.address, { from: relayOwner })
 
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
         const ownerBalanceBefore = toBN(await env.web3.eth.getBalance(relayOwner))
@@ -378,18 +345,16 @@ contract('RegistrationManager', function (accounts) {
         const workerEthTxCost = await getTotalTxCosts([receipts[1]], gasPrice)
         const managerHubSendTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
         const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(relayOwner))
-        const managerHubBalanceAfter = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceAfter = await newServer.getManagerBalance()
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
         assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.sub(managerHubSendTxCost).toString())
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
-          managerHubBalanceBefore.add(workerBalanceBefore).sub(workerEthTxCost).toString(),
+          workerBalanceBefore.sub(workerEthTxCost).toString(),
           `ownerBalanceAfter(${ownerBalanceAfter.toString()}) - ownerBalanceBefore(${ownerBalanceBefore.toString()}) != 
-         managerHubBalanceBefore(${managerHubBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
+          + workerBalanceBefore(${workerBalanceBefore.toString()})
          - workerEthTxCost(${workerEthTxCost.toString()})`)
       })
     })

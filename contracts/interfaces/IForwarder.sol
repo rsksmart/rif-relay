@@ -56,7 +56,7 @@ interface IForwarder {
         bytes calldata signature
     )
     external payable
-    returns (bool success, uint256 lastSuccTx, bytes memory ret);
+    returns (uint256 lastSuccTx, bytes memory ret);
     
     function directExecute(address to, bytes calldata data) external payable returns (
         bool success,

@@ -348,8 +348,7 @@ contract('RelayClient', function (accounts) {
           callForwarder: factory.address,
           callVerifier: verifier.address,
           isSmartWalletDeploy: true,
-          domainSeparator: getDomainSeparatorHash(swAddress, chainId),
-          clientId: '1'
+          domainSeparator: getDomainSeparatorHash(swAddress, chainId)
         }
       }
       const dataToSign = new TypedRequestData(
@@ -419,6 +418,7 @@ contract('RelayClient', function (accounts) {
       const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
       await token.mint('1000', swAddress)
 
+      //Note: 0x00 is returned by RSK, in Ethereum it is 0x
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
 
       const relayingResult = await relayClient.relayTransaction(deployOptions)

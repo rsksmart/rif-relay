@@ -122,8 +122,7 @@ contract('AccountManager', function (accounts) {
         callForwarder: constants.ZERO_ADDRESS,
         callVerifier: constants.ZERO_ADDRESS,
         isSmartWalletDeploy: false,
-        domainSeparator: '0x',
-        clientId: '1'
+        domainSeparator: '0x'
       }
     }
     beforeEach(async function () {

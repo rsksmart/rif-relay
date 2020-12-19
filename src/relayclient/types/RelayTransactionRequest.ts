@@ -33,7 +33,6 @@ export const RelayTransactionRequestShape = {
     },
     relayData: {
       gasPrice: ow.string,
-      clientId: ow.string,
       domainSeparator: ow.string,
       isSmartWalletDeploy: ow.boolean,
       relayWorker: ow.string,

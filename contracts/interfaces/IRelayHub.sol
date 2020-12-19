@@ -3,7 +3,6 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "./GsnTypes.sol";
-import "./IStakeManager.sol";
 
 interface IRelayHub {
 
@@ -22,19 +21,6 @@ interface IRelayHub {
         uint256 workersCount
     );
 
-    // Emitted when an account withdraws funds from RelayHub.
-    event Withdrawn(
-        address indexed account,
-        address indexed dest,
-        uint256 amount
-    );
-
-    // Emitted when depositFor is called, including the amount and account that was funded.
-    event Deposited(
-        address indexed verifier,
-        address indexed from,
-        uint256 amount
-    );
 
     // Emitted when a transaction is relayed. Note that the actual encoded function might be reverted: this will be
     // indicated in the status field.
@@ -46,20 +32,25 @@ interface IRelayHub {
         address  from,
         address to,
         bytes4 selector,
-        RelayCallStatus status,
         uint256 charge);
+
+  event TransactionRelayed2(
+        address  relayManager,
+        address  relayWorker,
+        bytes32 relayRequestHash);
+
 
     event TransactionRelayedButRevertedByRecipient(
         address  relayManager,
         address  relayWorker,
         address  from,
         address to,
+        uint256 lastSuccTrx,
         bytes4 selector,
         bytes reason);
 
     
     event TransactionResult(
-        RelayCallStatus status,
         bytes returnValue
     );
 
@@ -68,7 +59,6 @@ interface IRelayHub {
         address  relayWorker,
         address  owner,
         address  factory,
-        RelayCallStatus status,
         uint256 charge);
 
     event Penalized(
@@ -94,19 +84,6 @@ interface IRelayHub {
 
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external;
 
-    // Balance management
-
-    // Deposits ether for a contract, so that it can receive (and pay for) relayed transactions. Unused balance can only
-    // be withdrawn by the contract itself, by calling withdraw.
-    // Emits a Deposited event.
-    function depositFor(address target) external payable;
-
-    // Withdraws from an account's balance, sending it back to it. Relay managers call this to retrieve their revenue, and
-    // contracts can also use it to reduce their funding.
-    // Emits a Withdrawn event.
-    function withdraw(uint256 amount, address payable dest) external;
-
-    // Relaying
 
 
     /// Relays a transaction. For this to succeed, multiple conditions must be met:
@@ -137,11 +114,8 @@ interface IRelayHub {
     /* getters */
 
     /// Returns the stake manager of this RelayHub.
-    function stakeManager() external view returns(IStakeManager);
+    function stakeManager() external view returns(address);
     function penalizer() external view returns(address);
-
-    /// Returns an account's deposits.
-    function balanceOf(address target) external view returns (uint256);
 
     // Minimum stake a relay can have. An attack to the network will never cost less than half this value.
     function minimumStake() external view returns (uint256);
@@ -159,7 +133,7 @@ interface IRelayHub {
 
     function workerCount(address manager) external view returns(uint256);
 
-    function isRelayManagerStaked(address relayManager) external view returns(bool);
+    function isRelayManagerStaked(address relayManager) external returns(bool);
 
     /**
     * @dev the total gas overhead of relayCall(), before the first gasleft() and after the last gasleft().

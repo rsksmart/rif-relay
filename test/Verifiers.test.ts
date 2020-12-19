@@ -27,7 +27,6 @@ const TestVerifiers = artifacts.require('TestVerifiers')
 const gasPrice = '10'
 const gasLimit = '1000000'
 const senderNonce = '0'
-const clientId = '1'
 const tokensPaid = 1
 let relayRequestData: RelayRequest
 
@@ -81,8 +80,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
         callForwarder: constants.ZERO_ADDRESS,
         callVerifier: deployVerifier.address,
         isSmartWalletDeploy: false,
-        domainSeparator: '0x',
-        clientId
+        domainSeparator: '0x'
       }
     }
     // we mint tokens to the sender,
@@ -234,8 +232,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
         callForwarder: smartWallet,
         callVerifier: relayVerifier.address,
         isSmartWalletDeploy: false,
-        domainSeparator: getDomainSeparatorHash(smartWallet, chainId),
-        clientId
+        domainSeparator: getDomainSeparatorHash(smartWallet, chainId)
       }
     }
     // we mint tokens to the sender,

@@ -16,7 +16,6 @@ export const EIP712DomainType = [
 
 const RelayDataType = [
   { name: 'gasPrice', type: 'uint256' },
-  { name: 'clientId', type: 'uint256' },
   { name: 'domainSeparator', type: 'bytes32' },
   { name: 'isSmartWalletDeploy', type: 'bool' },
   { name: 'relayWorker', type: 'address' },
@@ -99,5 +98,5 @@ export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 
 
 export const GsnRequestType = {
   typeName: 'RelayRequest',
-  typeSuffix: 'RelayData relayData)RelayData(uint256 gasPrice,uint256 clientId,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)'
+  typeSuffix: 'RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)'
 }

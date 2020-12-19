@@ -113,6 +113,23 @@ contract StakeManager is IStakeManager {
         isHubAuthorized;
     }
 
+
+    function requireManagerStaked(address relayManager, uint256 minAmount, uint256 minUnstakeDelay)
+    external
+    override
+    view {
+        StakeInfo storage info = stakes[relayManager];
+        bool isAmountSufficient = info.stake >= minAmount;
+        bool isDelaySufficient = info.unstakeDelay >= minUnstakeDelay;
+        bool isStakeLocked = info.withdrawBlock == 0;
+        bool isHubAuthorized = authorizedHubs[relayManager][msg.sender].removalBlock == uint(-1);
+        require(
+        isAmountSufficient &&
+        isDelaySufficient &&
+        isStakeLocked &&
+        isHubAuthorized);
+    }
+
     /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.
     /// @param relayManager - entry to penalize
     /// @param beneficiary - address that receives half of the penalty amount

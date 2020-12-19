@@ -414,30 +414,6 @@ export default class ContractInteractor {
     return await stakeManager.getStakeInfo(managerAddress)
   }
 
-  async hubBalanceOf (managerAddress: Address): Promise<BN> {
-    const hub = this.relayHubInstance
-    return await hub.balanceOf(managerAddress)
-  }
-
-  async withdrawHubBalanceEstimateGas (amount: BN, destination: Address, managerAddress: Address, gasPrice: IntString): Promise<{
-    gasCost: BN
-    gasLimit: number
-    method: any
-  }> {
-    const hub = this.relayHubInstance
-    const method = hub.contract.methods.withdraw(amount.toString(), destination)
-    const withdrawTxGasLimit = await method.estimateGas(
-      {
-        from: managerAddress
-      })
-    const gasCost = toBN(withdrawTxGasLimit).mul(toBN(gasPrice))
-    return {
-      gasLimit: parseInt(withdrawTxGasLimit),
-      gasCost,
-      method
-    }
-  }
-
   async proxyFactoryDeployEstimageGas (request: ForwardRequest, factory: Address, domainHash: string, requestTypeHash: string,
     suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
     const pFactory = await this._createFactory(factory)

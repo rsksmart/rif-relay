@@ -6,7 +6,6 @@ import "../interfaces/IForwarder.sol";
 interface GsnTypes {
     struct RelayData {
         uint256 gasPrice;
-        uint256 clientId;
         bytes32 domainSeparator;
         bool isSmartWalletDeploy;
         address relayWorker;
