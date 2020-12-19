@@ -11,12 +11,13 @@ interface IForwarder {
         uint256 gas;
         uint256 nonce;
         bytes data;
-        address tokenRecipient;
         address tokenContract;
         uint256 tokenAmount;
         address recoverer; // only used in SmartWallet deploy requests
         uint256 index; // only used in SmartWallet deploy requests
     }
+
+    
 
     function nonce()
     external view

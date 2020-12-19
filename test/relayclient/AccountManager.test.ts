@@ -110,7 +110,6 @@ contract('AccountManager', function (accounts) {
         nonce: '1',
         value: '0',
         gas: '1',
-        tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
         recoverer: constants.ZERO_ADDRESS,

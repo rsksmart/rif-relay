@@ -86,7 +86,6 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 * from: Address of the SW Owner.
 * to: Address of the optional custom logic.
 * data: Parameters (in bytes) for the optional custom logic.
-* tokenRecipient: Address of the account that gets paid for the deploy.
 * tokenContract: Address of the token used to pay for the deployment (address(0) indicated the deploy is subsidized).
 * tokenAmount: Amount of tokens paid for the deployment (0 if the deploy is subsidized).
 * factory: Address of the factory used to deploy the SW.

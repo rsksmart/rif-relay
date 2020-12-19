@@ -173,7 +173,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
             currentVersionHash,
             abi.encodeWithSelector(
                 hex"a9059cbb",
-                req.tokenRecipient,
+                tx.origin,
                 req.tokenAmount
             )
         ));
@@ -260,7 +260,6 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
                     req.gas,
                     req.nonce,
                     keccak256(req.data),
-                    req.tokenRecipient,
                     req.tokenContract,
                     req.tokenAmount,
                     req.recoverer,
@@ -290,7 +289,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         //Verify Request type
         require(
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 

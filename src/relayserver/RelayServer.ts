@@ -139,7 +139,6 @@ export class RelayServer extends EventEmitter {
     // TODO: In case we want to support default configuration when a verifier is not defined, it would go here
     // const tokenContract = req.relayRequest.request.tokenContract
     // const tokenAmount = req.relayRequest.request.tokenAmount
-    // const tokenRecipient = req.relayRequest.request.tokenRecipient
   }
 
   async _getVerifierMaxAcceptanceBudget (verifier?: string): Promise<IntString> {

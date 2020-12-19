@@ -6,7 +6,6 @@ export default interface GsnTransactionDetails {
   readonly from: Address
   readonly data: PrefixedHexString
   readonly to: Address
-  readonly tokenRecipient?: Address
   readonly tokenContract?: Address
   readonly tokenAmount?: IntString
   readonly recoverer?: Address

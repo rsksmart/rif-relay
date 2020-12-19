@@ -25,7 +25,6 @@ export const RelayTransactionRequestShape = {
       gas: ow.string,
       nonce: ow.string,
       data: ow.string,
-      tokenRecipient: ow.string,
       tokenContract: ow.string,
       tokenAmount: ow.string,
       recoverer: ow.string,

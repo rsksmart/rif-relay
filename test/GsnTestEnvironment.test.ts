@@ -48,7 +48,6 @@ contract('GsnTestEnvironment', function () {
         callVerifier: testEnvironment.deploymentResult.relayVerifierAddress,
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
-        tokenRecipient: constants.ZERO_ADDRESS,
         tokenAmount: '0x00',
         tokenContract: constants.ZERO_ADDRESS,
         isSmartWalletDeploy: false,

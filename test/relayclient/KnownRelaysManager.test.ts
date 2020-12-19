@@ -105,7 +105,7 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, notActiveRelay, owner)
 
       let nextNonce = (await smartWallet.nonce()).toString()
-      const txTransactionRelayed = await prepareTransaction(testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, workerRelayWorkersAdded, '1')
+      const txTransactionRelayed = await prepareTransaction(testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, '1')
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {
@@ -137,7 +137,7 @@ contract('KnownRelaysManager', function (
       await verifier.setReturnInvalidErrorCode(true)
 
       nextNonce = (await smartWallet.nonce()).toString()
-      const txVerifierRejected = await prepareTransaction(testRecipient, senderAddress, workerVerifierRejected, verifier.address, nextNonce, smartWallet.address, token.address, workerRelayWorkersAdded, '1')
+      const txVerifierRejected = await prepareTransaction(testRecipient, senderAddress, workerVerifierRejected, verifier.address, nextNonce, smartWallet.address, token.address, '1')
 
       await relayHub.relayCall(txVerifierRejected.relayRequest, txVerifierRejected.signature, {
         from: workerVerifierRejected,
@@ -170,7 +170,6 @@ contract('KnownRelaysManager 2', function (accounts) {
     to: '',
     callForwarder: '',
     callVerifier: '',
-    tokenRecipient: '',
     tokenAmount: '',
     tokenContract: '',
     isSmartWalletDeploy: false

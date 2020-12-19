@@ -306,7 +306,6 @@ export class RelayClient {
         value: value,
         nonce: senderNonce,
         gas: gasLimit, // Not used since RelayHub won't be involved
-        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: tokenAmount,
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
@@ -373,7 +372,6 @@ export class RelayClient {
         value: value,
         nonce: senderNonce,
         gas: gasLimit,
-        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,

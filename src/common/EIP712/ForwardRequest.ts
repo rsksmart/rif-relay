@@ -8,7 +8,6 @@ export default interface ForwardRequest {
   gas: IntString
   nonce: IntString
   data: PrefixedHexString
-  tokenRecipient: Address
   tokenContract: Address
   tokenAmount: IntString
   recoverer: Address // only used if factory is set

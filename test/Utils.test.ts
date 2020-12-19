@@ -63,7 +63,6 @@ contract('Utils', function (accounts) {
           nonce: senderNonce,
           value: '0',
           gas: gasLimit,
-          tokenRecipient: constants.ZERO_ADDRESS,
           tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '0',
           recoverer: constants.ZERO_ADDRESS, // since we are calling a contract in this test, we cannot ommit it
@@ -80,18 +79,7 @@ contract('Utils', function (accounts) {
       }
     })
 
-    it('#_getEncoded should extract data exactly as local encoded data', async () => {
-      // @ts-ignore
-      const { forwardRequest, typeHash, suffixData } = await testUtil.splitRequest(relayRequest)
-      const getEncoded = await forwarderInstance._getEncoded(forwardRequest, typeHash, suffixData)
-      const dataToSign = new TypedRequestData(
-        chainId,
-        forwarder,
-        relayRequest
-      )
-      const localEncoded = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types))
-      assert.equal(getEncoded, localEncoded)
-    })
+
 
     it('should generate a valid EIP-712 compatible signature', async function () {
       const dataToSign = new TypedRequestData(

@@ -281,7 +281,7 @@ export async function createSimpleProxyFactory (template: IForwarderInstance, ve
 }
 
 export async function createSimpleSmartWallet (ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,
-  tokenContract: string = constants.ZERO_ADDRESS, tokenRecipient: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
+  tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SimpleSmartWalletInstance> {
   const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
@@ -295,7 +295,6 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
       gas: gas,
       nonce: '0',
       data: '0x',
-      tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       recoverer: constants.ZERO_ADDRESS,
@@ -333,7 +332,7 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
 }
 
 export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
-  initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenRecipient: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
+  initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
   const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
@@ -347,7 +346,6 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
       gas: gas,
       nonce: '0',
       data: initParams,
-      tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       recoverer: constants.ZERO_ADDRESS,
@@ -437,7 +435,7 @@ export function bufferToHexString (b: Buffer): string {
   return '0x' + b.toString('hex')
 }
 
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenRecipient: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
+export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const chainId = (await getTestingEnvironment()).chainId
   const relayRequest: RelayRequest = {
     request: {
@@ -447,7 +445,6 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       nonce: nonce,
       value: '0',
       gas: '10000',
-      tokenRecipient: tokenRecipient,
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       recoverer: constants.ZERO_ADDRESS,
