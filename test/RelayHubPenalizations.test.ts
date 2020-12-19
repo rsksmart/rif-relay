@@ -34,7 +34,6 @@ const Penalizer = artifacts.require('Penalizer')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
-const clientId = '0'
 
 contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
   // const chainId = defaultEnvironment.chainId
@@ -84,8 +83,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         callForwarder: forwarder,
         callVerifier: verifier.address,
         domainSeparator: getDomainSeparatorHash(forwarder, chainId),
-        isSmartWalletDeploy: false,
-        clientId
+        isSmartWalletDeploy: false
       }
     }
     const dataToSign = new TypedRequestData(
@@ -510,8 +508,8 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             isSmartWalletDeploy: false,
             domainSeparator: getDomainSeparatorHash(forwarder, env.chainId),
             callForwarder: forwarder,
-            callVerifier: encodedCallArgs.callVerifier,
-            clientId
+            callVerifier: encodedCallArgs.callVerifier
+            
           }
         }
       const encodedCall = relayHub.contract.methods.relayCall(relayRequest, '0xabcdef123456').encodeABI()

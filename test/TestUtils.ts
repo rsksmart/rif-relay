@@ -287,7 +287,7 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
   const typeHash = web3.utils.keccak256(typeName)
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
-  const rReq = {
+  const rReq:RelayRequest = {
     request: {
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
@@ -303,7 +303,6 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
     },
     relayData: {
       gasPrice: '10',
-      clientId: '1',
       domainSeparator: '0x',
       isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
@@ -340,7 +339,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
   const typeHash = web3.utils.keccak256(typeName)
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
-  const rReq = {
+  const rReq:RelayRequest = {
     request: {
       from: ownerEOA,
       to: logicAddr,
@@ -356,7 +355,6 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     },
     relayData: {
       gasPrice: '10',
-      clientId: '1',
       domainSeparator: '0x',
       isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
@@ -440,7 +438,6 @@ export function bufferToHexString (b: Buffer): string {
 }
 
 export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenRecipient: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
-  const clientId = '1'
   const chainId = (await getTestingEnvironment()).chainId
   const relayRequest: RelayRequest = {
     request: {
@@ -458,7 +455,6 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
     },
     relayData: {
       gasPrice: '1',
-      clientId,
       domainSeparator: getDomainSeparatorHash(swallet, chainId),
       isSmartWalletDeploy: false,
       relayWorker: relayWorker,

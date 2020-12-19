@@ -58,8 +58,7 @@ contract('ProxyFactory', ([from]) => {
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: true,
-      domainSeparator: '0x',
-      clientId: '1'
+      domainSeparator: '0x'
     }
   }
 
@@ -336,7 +335,6 @@ contract('ProxyFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-
       await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
@@ -571,7 +569,7 @@ contract('ProxyFactory', ([from]) => {
         data: isInitializedFunc
       }
 
-      // Call the initialize function
+      // Call the isInitialized function
       let result = await web3.eth.call(newTrx)
 
       let resultStr = result as string
@@ -628,11 +626,7 @@ contract('ProxyFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      result = await web3.eth.call(newTrx)
-      resultStr = result as string
-
-      // It should return false since it was already initialized
-      chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
 
@@ -682,8 +676,7 @@ contract('SimpleProxyFactory', ([from]) => {
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS,
       domainSeparator: '0x',
-      isSmartWalletDeploy: true,
-      clientId: '1'
+      isSmartWalletDeploy: true
     }
   }
 
@@ -892,7 +885,7 @@ contract('SimpleProxyFactory', ([from]) => {
         data: isInitializedFunc
       }
 
-      // Call the initialize function
+      // Call the isInitialized function
       let result = await web3.eth.call(newTrx)
 
       let resultStr = result as string
@@ -925,11 +918,7 @@ contract('SimpleProxyFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      result = await web3.eth.call(newTrx)
-      resultStr = result as string
-
-      // It should return false since it was already initialized
-      chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
 
@@ -975,7 +964,6 @@ contract('SimpleProxyFactory', ([from]) => {
 
       // relayData information
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
-      console.log('SuffixData is: ', suffixData)
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
@@ -1148,7 +1136,7 @@ contract('SimpleProxyFactory', ([from]) => {
         data: isInitializedFunc
       }
 
-      // Call the initialize function
+      // Call the isInitialized function
       let result = await web3.eth.call(newTrx)
 
       let resultStr = result as string
@@ -1197,11 +1185,7 @@ contract('SimpleProxyFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      result = await web3.eth.call(newTrx)
-      resultStr = result as string
-
-      // It should return false since it was already initialized
-      chai.expect(web3.utils.toBN(0)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
 

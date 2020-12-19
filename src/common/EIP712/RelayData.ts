@@ -3,7 +3,6 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 
 export default interface RelayData {
   gasPrice: IntString
-  clientId: IntString
   domainSeparator: PrefixedHexString
   isSmartWalletDeploy: boolean
   relayWorker: Address

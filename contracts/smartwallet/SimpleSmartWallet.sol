@@ -81,7 +81,6 @@ contract SimpleSmartWallet is IForwarder {
         override
         payable
         returns (
-            bool success,
             uint256 lastTxSucc,
             bytes memory ret  
         )
@@ -90,6 +89,7 @@ contract SimpleSmartWallet is IForwarder {
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonce++;
 
+        bool success;
         (success, ret) = req.tokenContract.call(
             abi.encodeWithSelector(
                 IERC20.transfer.selector,
@@ -99,23 +99,27 @@ contract SimpleSmartWallet is IForwarder {
         );
 
         if (!success) {
-            return (success, 0, ret);
+            lastTxSucc = 2;
         }
-
-        (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
+        else{
+            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
      
+            //If any balance has been added then trasfer it to the owner EOA
+            if (address(this).balance > 0) {
+                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
+                payable(req.from).transfer(address(this).balance);
+            }
 
-        //If any balance has been added then trasfer it to the owner EOA
-        if (address(this).balance > 0) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(req.from).transfer(address(this).balance);
+            if (!success) {
+                lastTxSucc = 1;
+            }
+            else{
+                lastTxSucc = 0; // 0 == OK
+            }
+            // No need for else lastTxSucc = 2, there's no other possible scenario if "success"
         }
 
-        if (!success) {
-            return (success, 1, ret);
-        }
-
-        return (success, 2, ret);
+  
     }
 
    
@@ -145,7 +149,7 @@ contract SimpleSmartWallet is IForwarder {
 
 
         require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 clientId,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -169,11 +173,12 @@ contract SimpleSmartWallet is IForwarder {
         );
     }
 
+
     function _getEncoded(
         ForwardRequest memory req,
         bytes32 requestTypeHash,
         bytes32 suffixData
-    ) public pure returns (bytes memory) {
+    ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
                 requestTypeHash,
@@ -219,36 +224,32 @@ contract SimpleSmartWallet is IForwarder {
         address tokenAddr,
         bytes32 versionHash,
         bytes memory transferData
-    ) external returns (bool) {
+    ) external  {
 
-        if (getOwner() == bytes32(0)) {
-            //we need to initialize the contract
-            if (tokenAddr != address(0)) {
-                (bool success, ) = tokenAddr.call(transferData);
-                require(success, "Unable to pay for deployment");
-            }
+        require(getOwner() == bytes32(0), "already initialized");
 
-            currentVersionHash = versionHash;
+        //Set the owner of this Smart Wallet
+        //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+        bytes32 ownerCell = keccak256(abi.encodePacked(owner));
 
-            //Set the owner of this Smart Wallet
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
-
-            assembly {
-                sstore(
-                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                    ownerCell
-                )
-            }
-
-            return true;
+        assembly {
+            sstore(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                ownerCell
+            )
         }
 
-        return false;
+        //we need to initialize the contract
+        if (tokenAddr != address(0)) {
+            (bool success, ) = tokenAddr.call(transferData);
+            require(success, "Unable to pay for deployment");
+        }
+
+        currentVersionHash = versionHash;
     }
 
 /* solhint-disable no-empty-blocks */
-    receive() external payable {
+    receive() payable external  {
         
     }
 }

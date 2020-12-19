@@ -8,6 +8,9 @@ import "../utils/GsnUtils.sol";
 
 contract TestUtil {
 
+
+     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)");
+
     /* function libRelayRequestName() public pure returns (string memory) {
         return "RelayRequest";
     } */
@@ -31,7 +34,18 @@ contract TestUtil {
     )
     external
     view {
-        GsnEip712Library.verifySignature(relayRequest, signature);
+
+            //(bool callSuccess,) = 
+           relayRequest.relayData.callForwarder.staticcall(
+            abi.encodeWithSelector(
+                IForwarder.verify.selector,
+                relayRequest.request,
+                relayRequest.relayData.domainSeparator,
+                RELAY_REQUEST_TYPEHASH,
+                GsnEip712Library.hashRelayData(relayRequest.relayData),
+                signature
+            )
+        );
     }
 
     function callForwarderVerifyAndCall(
@@ -45,17 +59,22 @@ contract TestUtil {
     ) {
         bool forwarderSuccess;
         uint256 lastSuccTx;
-        (forwarderSuccess, success, lastSuccTx, ret) = GsnEip712Library.execute(relayRequest, signature);
+
+        (forwarderSuccess, lastSuccTx, ret) = GsnEip712Library.execute(relayRequest, signature);
+        
         if ( !forwarderSuccess) {
             GsnUtils.revertWithData(ret);
         }
+        
+        success = lastSuccTx == 0?true:false;
         emit Called(success, success == false ? ret : bytes(""));
     }
 
     event Called(bool success, bytes error);
 
+
     function splitRequest(
-        GsnTypes.RelayRequest calldata relayRequest
+        GsnTypes.RelayRequest calldata req
     )
     external
     pure
@@ -64,9 +83,23 @@ contract TestUtil {
         bytes32 typeHash,
         bytes32 suffixData
     ) {
-        (forwardRequest, suffixData) = GsnEip712Library.splitRequest(relayRequest);
-        typeHash = GsnEip712Library.RELAY_REQUEST_TYPEHASH;
+        forwardRequest = IForwarder.ForwardRequest(
+            req.request.from,
+            req.request.to,
+            req.request.value,
+            req.request.gas,
+            req.request.nonce,
+            req.request.data,
+            req.request.tokenRecipient,
+            req.request.tokenContract,
+            req.request.tokenAmount,
+            req.request.recoverer,
+            req.request.index
+        );
+        suffixData = GsnEip712Library.hashRelayData(req.relayData);
+        typeHash = RELAY_REQUEST_TYPEHASH;
     }
+
 
     /* function libDomainSeparator(address forwarder) public pure returns (bytes32) {
         return GsnEip712Library.domainSeparator(forwarder);

@@ -316,7 +316,6 @@ export class RelayClient {
       relayData: {
         gasPrice,
         callVerifier: gsnTransactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
-        clientId: gsnTransactionDetails.clientId ?? this.config.clientId,
         callForwarder: callForwarder,
         domainSeparator: getDomainSeparatorHash(callForwarder, this.accountManager.chainId),
         isSmartWalletDeploy: gsnTransactionDetails.isSmartWalletDeploy ?? 'false',
@@ -386,7 +385,6 @@ export class RelayClient {
         callVerifier,
         domainSeparator: getDomainSeparatorHash(forwarderAddress, this.accountManager.chainId),
         isSmartWalletDeploy: gsnTransactionDetails.isSmartWalletDeploy ?? false,
-        clientId: this.config.clientId,
         callForwarder: forwarderAddress,
         relayWorker
       }

@@ -133,10 +133,6 @@ export default class CommandsLogic {
     throw Error(`Relay not ready after ${timeout}s`)
   }
 
-  async getVerifierBalance (verifier: Address): Promise<BN> {
-    const relayHub = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
-    return await relayHub.balanceOf(verifier)
-  }
 
   async registerRelay (options: RegisterOptions): Promise<RegistrationResult> {
     try {

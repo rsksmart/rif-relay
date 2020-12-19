@@ -463,9 +463,7 @@ contract('RelayProvider', function (accounts) {
         gasPrice: '1'
       })
 
-      expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'TransactionRelayed', {
-        status: '0'
-      })
+      expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'TransactionRelayed')
       expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'SampleRecipientEmitted')
       innerTxSucceedReceipt = await web3.eth.getTransactionReceipt(innerTxSuccessReceiptTruffle.tx)
 

@@ -255,7 +255,6 @@ export class RegistrationManager {
    */
   async withdrawAllFunds (withdrawManager: boolean, currentBlock: number): Promise<PrefixedHexString[]> {
     let transactionHashes: PrefixedHexString[] = []
-    transactionHashes = transactionHashes.concat(await this._sendManagerHubBalanceToOwner(currentBlock))
     transactionHashes = transactionHashes.concat(await this._sendWorkersEthBalancesToOwner(currentBlock))
     if (withdrawManager) {
       transactionHashes = transactionHashes.concat(await this._sendManagerEthBalanceToOwner(currentBlock))
@@ -319,7 +318,7 @@ export class RegistrationManager {
 
     let transactions: PrefixedHexString[] = []
     // add worker only if not already added
-    const workersAdded = await this._isWorkerValid()
+    const workersAdded = this._isWorkerValid()
     const addWorkersPending = await this.txStoreManager.isActionPending(ServerAction.ADD_WORKER)
     if (!(workersAdded || addWorkersPending)) {
       const txHash = await this.addRelayWorker(currentBlock)
@@ -397,33 +396,6 @@ export class RegistrationManager {
     return transactionHashes
   }
 
-  async _sendManagerHubBalanceToOwner (currentBlock: number): Promise<PrefixedHexString[]> {
-    if (this.ownerAddress == null) {
-      throw new Error('Owner address not initialized')
-    }
-    const transactionHashes: PrefixedHexString[] = []
-    const gasPrice = await this.contractInteractor.getGasPrice()
-    const managerHubBalance = await this.contractInteractor.hubBalanceOf(this.managerAddress)
-    const { gasLimit, gasCost, method } = await this.contractInteractor.withdrawHubBalanceEstimateGas(managerHubBalance, this.ownerAddress, this.managerAddress, gasPrice)
-    if (managerHubBalance.gte(gasCost)) {
-      log.info(`Sending manager hub balance ${managerHubBalance.toString()} to owner`)
-      const details: SendTransactionDetails = {
-        // FIX for RSK: gas estimation works a bit different, requiring to increase estimated gas limit in a given factor
-        gasLimit: Math.round(gasLimit * this.config.estimateGasFactor),
-        signer: this.managerAddress,
-        serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
-        destination: this.hubAddress,
-        creationBlockNumber: currentBlock,
-        method
-      }
-      const { transactionHash } = await this.transactionManager.sendTransaction(details)
-      transactionHashes.push(transactionHash)
-    } else {
-      log.error(`manager hub balance too low: ${managerHubBalance.toString()}, tx cost: ${gasCost.toString()}`)
-    }
-    return transactionHashes
-  }
-
   async _queryLatestWorkerAddedEvent (): Promise<EventData | undefined> {
     const workersAddedEvents = await this.contractInteractor.getPastEventsForHub([address2topic(this.managerAddress)],
       {
@@ -440,7 +412,7 @@ export class RegistrationManager {
   }
 
   async isRegistered (): Promise<boolean> {
-    const isRegistrationCorrect = await this._isRegistrationCorrect()
+    const isRegistrationCorrect = this._isRegistrationCorrect()
     return this.stakeRequired.isSatisfied &&
       this.isStakeLocked &&
       this.isHubAuthorized &&

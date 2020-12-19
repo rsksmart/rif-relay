@@ -8,8 +8,9 @@ import "../../interfaces/IForwarder.sol";
 contract TestSmartWallet {
     function callExecute(IForwarder sw, IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator, bytes32 requestTypeHash, bytes32 suffixData, bytes memory sig) public payable {
-         (bool success, uint256 lastSuccTx, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
+         (uint256 lastSuccTx, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
        
+        bool success = lastSuccTx==0?true:false;
         emit Result(success, success ? "" : this.decodeErrorMessage(ret), lastSuccTx);
     }
 

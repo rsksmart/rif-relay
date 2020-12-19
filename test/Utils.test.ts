@@ -57,7 +57,6 @@ contract('Utils', function (accounts) {
       const gasLimit = '500000'
       const verifier = accounts[7]
       const relayWorker = accounts[9]
-      const clientId = '0'
 
       relayRequest = {
         request: {
@@ -79,8 +78,7 @@ contract('Utils', function (accounts) {
           callForwarder: forwarder,
           isSmartWalletDeploy: false,
           callVerifier: verifier,
-          domainSeparator: getDomainSeparatorHash(forwarder, chainId),
-          clientId
+          domainSeparator: getDomainSeparatorHash(forwarder, chainId)
         }
       }
     })

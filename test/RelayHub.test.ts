@@ -18,7 +18,8 @@ import {
   SmartWalletInstance,
   ProxyFactoryInstance,
   SimpleSmartWalletInstance,
-  SimpleProxyFactoryInstance
+  SimpleProxyFactoryInstance,
+  TestTokenInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
 
@@ -32,7 +33,6 @@ const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestVerifierStoreContext = artifacts.require('TestVerifierStoreContext')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, senderAddress, other, dest, incorrectWorker]) { // eslint-disable-line no-unused-vars
@@ -60,9 +60,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   let gaslessAccount: AccountKeypair
   const gasLimit = '1000000'
   const gasPrice = '1'
-  const clientId = '1'
   let sharedRelayRequestData: RelayRequest
   let env: Environment
+  let token: TestTokenInstance
 
   beforeEach(async function () {
     env = await getTestingEnvironment()
@@ -81,7 +81,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
     forwarder = forwarderInstance.address
     recipientContract = await TestRecipient.new()
     const testToken = artifacts.require('TestToken')
-    const token = await testToken.new()
+    token = await testToken.new()
     await token.mint('1000', forwarder)
 
     target = recipientContract.address
@@ -108,8 +108,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         callForwarder: forwarder,
         callVerifier: verifier,
         isSmartWalletDeploy: false,
-        domainSeparator: getDomainSeparatorHash(forwarder, chainId),
-        clientId
+        domainSeparator: getDomainSeparatorHash(forwarder, chainId)
       }
     }
   })
@@ -117,106 +116,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
   it('should retrieve version number', async function () {
     const version = await relayHubInstance.versionHub()
     assert.match(version, /2\.\d*\.\d*-?.*\+opengsn\.hub\.irelayhub/)
-  })
-  describe('balances', function () {
-    async function testDeposit (sender: string, verifier: string, amount: BN): Promise<void> {
-      const senderBalanceTracker = await balance.tracker(sender)
-      const relayHubBalanceTracker = await balance.tracker(relayHub)
-
-      // TODO review gas price for RSK
-      const { logs } = await relayHubInstance.depositFor(verifier, {
-        from: sender,
-        value: amount,
-        gasPrice: 1
-      })
-      expectEvent.inLogs(logs, 'Deposited', {
-        verifier,
-        from: sender,
-        amount
-      })
-
-      expect(await relayHubInstance.balanceOf(verifier)).to.be.bignumber.equal(amount)
-
-      if (isRsk(env)) {
-        expect(await senderBalanceTracker.delta()).to.be.bignumber.closeTo(amount.neg(), new BN(50_000))
-      } else {
-        expect(await senderBalanceTracker.delta()).to.be.bignumber.equal(amount.neg())
-      }
-
-      expect(await relayHubBalanceTracker.delta()).to.be.bignumber.equal(amount)
-    }
-
-    it('can deposit for self', async function () {
-      await testDeposit(other, other, ether('1'))
-    })
-
-    it('can deposit for others', async function () {
-      await testDeposit(other, target, ether('1'))
-    })
-
-    // TODO review gasPrice for RSK
-    it('cannot deposit amounts larger than the limit', async function () {
-      await expectRevert.unspecified(
-        relayHubInstance.depositFor(target, {
-          from: other,
-          value: ether('3'),
-          gasPrice: 1
-        }),
-        'deposit too big'
-      )
-    })
-
-    // TODO review gasPrice for RSK
-    it('can deposit multiple times and have a total deposit larger than the limit', async function () {
-      await relayHubInstance.depositFor(target, {
-        from: other,
-        value: ether('1'),
-        gasPrice: 1
-      })
-      await relayHubInstance.depositFor(target, {
-        from: other,
-        value: ether('1'),
-        gasPrice: 1
-      })
-      await relayHubInstance.depositFor(target, {
-        from: other,
-        value: ether('1'),
-        gasPrice: 1
-      })
-
-      expect(await relayHubInstance.balanceOf(target)).to.be.bignumber.equals(ether('3'))
-    })
-
-    it('accounts with deposits can withdraw partially', async function () {
-      const amount = ether('1')
-      await testDeposit(other, other, amount)
-
-      const { logs } = await relayHubInstance.withdraw(amount.divn(2), dest, { from: other })
-      expectEvent.inLogs(logs, 'Withdrawn', {
-        account: other,
-        dest,
-        amount: amount.divn(2)
-      })
-    })
-
-    it('accounts with deposits can withdraw all their balance', async function () {
-      const amount = ether('1')
-      await testDeposit(other, other, amount)
-
-      const { logs } = await relayHubInstance.withdraw(amount, dest, { from: other })
-      expectEvent.inLogs(logs, 'Withdrawn', {
-        account: other,
-        dest,
-        amount
-      })
-    })
-
-    it('accounts cannot withdraw more than their balance', async function () {
-      const amount = ether('1')
-      await testDeposit(other, other, amount)
-
-      await expectRevert.unspecified(relayHubInstance.withdraw(amount.addn(1), dest, { from: other }), 'insufficient funds')
-    })
   })
 
   describe('relayCall', function () {
@@ -231,11 +130,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       beforeEach(async function () {
         relayRequest = cloneRelayRequest(sharedRelayRequestData)
         relayRequest.request.data = '0xdeadbeef'
-        await relayHubInstance.depositFor(verifier, {
-          from: other,
-          value: ether('1'),
-          gasPrice: 1
-        })
       })
 
       it('should not accept a relay call', async function () {
@@ -366,10 +260,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
       context('with funded verifier', function () {
         let signature
 
-        let verifierWithContext
         let misbehavingVerifier: TestVerifierConfigurableMisbehaviorInstance
-
-        let relayRequestVerifierWithContext: RelayRequest
 
         let signatureWithMisbehavingVerifier: string
         let relayRequestMisbehavingVerifier: RelayRequest
@@ -377,7 +268,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
 
         beforeEach(async function () {
-          verifierWithContext = await TestVerifierStoreContext.new()
           misbehavingVerifier = await TestVerifierConfigurableMisbehavior.new()
 
           let dataToSign = new TypedRequestData(
@@ -404,47 +294,23 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             gaslessAccount.privateKey
           )
 
-          relayRequestVerifierWithContext = cloneRelayRequest(relayRequest)
-          relayRequestVerifierWithContext.relayData.callVerifier = verifierWithContext.address
-
-          /* dataToSign = new TypedRequestData(
-            chainId,
-            forwarder,
-            relayRequestVerifierWithContext
-          )
-          signatureWithContextVerifier = getLocalEip712Signature(
-            dataToSign,
-            gaslessAccount.privateKey
-          ) */
         })
 
-        it('gas estimation tests for Simple Smart Wallet', async function () {
+        it.only('gas estimation tests for Simple Smart Wallet', async function () {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
           const sWalletInstance = await createSimpleSmartWallet(gaslessAccount.address, simpleFactory, gaslessAccount.privateKey, chainId)
 
           const nonceBefore = await sWalletInstance.nonce()
-          const TestToken = artifacts.require('TestToken')
-          const tokenInstance = await TestToken.new()
-          await tokenInstance.mint('1000000', sWalletInstance.address)
+          await token.mint('10000', sWalletInstance.address)
 
-          const completeReq: RelayRequest = {
-            request: {
-              ...relayRequest.request,
-              data: recipientContract.contract.methods.emitMessage2(message).encodeABI(),
-              nonce: nonceBefore.toString(),
-              tokenRecipient: senderAddress,
-              tokenContract: tokenInstance.address,
-              tokenAmount: '1'
-            },
-            relayData: {
-              ...relayRequest.relayData,
-              callForwarder: sWalletInstance.address,
-              domainSeparator: getDomainSeparatorHash(sWalletInstance.address, chainId)
-            }
-          }
-
+          const completeReq: RelayRequest =  cloneRelayRequest(sharedRelayRequestData)
+          completeReq.request.data = recipientContract.contract.methods.emitMessage2(message).encodeABI()
+          completeReq.request.nonce = nonceBefore.toString()
+          completeReq.relayData.callForwarder = sWalletInstance.address
+          completeReq.relayData.domainSeparator = getDomainSeparatorHash(sWalletInstance.address, chainId)
+    
           const reqToSign = new TypedRequestData(
             chainId,
             sWalletInstance.address,
@@ -466,8 +332,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
           const eventHash = keccak('GasUsed(uint256,uint256)')
           const txReceipt = await web3.eth.getTransactionReceipt(tx)
-          console.log('---------------Simple SmartWallet------------------------')
-          console.log(`Gas Used: ${txReceipt.gasUsed}`)
+          console.log('---------------Simple SmartWallet: RelayCall metrics------------------------')
           console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
 
           let previousGas: BigInt = BigInt(0)
@@ -500,9 +365,16 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
           web3.eth.abi.encodeParameter('string', 'emitMessage return value')
 
-          expectEvent.inLogs(logs, 'TransactionRelayed', {
-            status: RelayCallStatusCodes.OK
-          })
+          expectEvent.inLogs(logs, 'TransactionRelayed2')
+          const callWithoutRelay = await recipientContract.emitMessage2(message)
+          //const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
+          console.log('--------------- Destination Call Without enveloping------------------------')
+          console.log(`Cummulative Gas Used: ${callWithoutRelay.receipt.cumulativeGasUsed}`)
+          console.log('---------------------------------------')
+          console.log('--------------- Enveloping Overhead ------------------------')
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - callWithoutRelay.receipt.cumulativeGasUsed}`)
+          console.log('---------------------------------------')
+
         })
 
         it('gas estimation tests', async function () {
@@ -593,9 +465,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
           web3.eth.abi.encodeParameter('string', 'emitMessage return value')
 
-          expectEvent.inLogs(logs, 'TransactionRelayed', {
-            status: RelayCallStatusCodes.OK
-          })
+          expectEvent.inLogs(logs, 'TransactionRelayed')
         })
 
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
@@ -618,9 +488,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
           web3.eth.abi.encodeParameter('string', 'emitMessage return value')
 
-          expectEvent.inLogs(logs, 'TransactionRelayed', {
-            status: RelayCallStatusCodes.OK
-          })
+          expectEvent.inLogs(logs, 'TransactionRelayed')
         })
 
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
