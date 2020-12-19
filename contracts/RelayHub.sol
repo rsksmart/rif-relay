@@ -96,31 +96,35 @@ contract RelayHub is IRelayHub {
     {
         (signature);
         bytes memory relayedCallReturnValue;
-
+        address msgSender = msg.sender;
+        address manager = workerToManager[msgSender];
         require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
-        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
-        require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
-        require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
+        require(msgSender == tx.origin, "RelayWorker cannot be a contract");
+        require(manager != address(0), "Unknown relay worker");
+        require(relayRequest.relayData.relayWorker == msgSender, "Not a right worker");
          /* solhint-disable-next-line avoid-low-level-calls */
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                workerToManager[msg.sender],minimumStake,minimumUnstakeDelay));
+                manager,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
         //  require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         bool forwarderSuccess;
         uint256 lastSuccTrx;
 
-        
         (forwarderSuccess, lastSuccTrx, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
         
         if ( !forwarderSuccess ) {
-            revertWithStatus(RelayCallStatus.RejectedByForwarder, relayedCallReturnValue);
+            assembly {
+                let dataSize := mload(relayedCallReturnValue)
+                let dataPtr := add(relayedCallReturnValue, 32)
+                revert(dataPtr, dataSize)
+            }
         }
        
        if (lastSuccTrx == 0) {// 0 == OK
                 emit TransactionRelayed2(
-                    workerToManager[msg.sender],
-                    msg.sender,
+                    manager,
+                    msgSender,
                     keccak256(signature)
                 );
 
@@ -130,26 +134,13 @@ contract RelayHub is IRelayHub {
         }
         else{ 
             emit TransactionRelayedButRevertedByRecipient(            
-            workerToManager[msg.sender],
-            msg.sender,
+            manager,
+            msgSender,
             relayRequest.request.from,
             relayRequest.request.to,
             lastSuccTrx,
             relayRequest.relayData.isSmartWalletDeploy?bytes4(0):MinLibBytes.readBytes4(relayRequest.request.data, 0),
             relayedCallReturnValue);// TODO: debate if its neccesary to have lastSuccTrx
-        }
-    }
-
-
-    /**
-     * @dev Reverts the transaction with return data set to the ABI encoding of the status argument (and revert reason data)
-     */
-    function revertWithStatus(RelayCallStatus status, bytes memory ret) private pure {
-        bytes memory data = abi.encode(status, ret);
-       assembly {
-            let dataSize := mload(data)
-            let dataPtr := add(data, 32)
-            revert(dataPtr, dataSize)
         }
     }
 

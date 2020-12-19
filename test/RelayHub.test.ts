@@ -96,7 +96,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         nonce: (await forwarderInstance.nonce()).toString(),
         value: '0',
         gas: gasLimit,
-        tokenRecipient: other,
         tokenContract: token.address,
         tokenAmount: '1',
         recoverer: constants.ZERO_ADDRESS,
@@ -388,7 +387,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
               ...relayRequest.request,
               data: recipientContract.contract.methods.emitMessage2(message).encodeABI(),
               nonce: nonceBefore.toString(),
-              tokenRecipient: senderAddress,
               tokenContract: tokenInstance.address,
               tokenAmount: '1'
             },

@@ -109,7 +109,6 @@ export class RelayProvider implements HttpProvider {
    * from:address => EOA of the Smart Wallet owner
    * to:address => Optional custom logic address
    * data:bytes => init params for the optional custom logic
-   * tokenRecipient:address => Account that gets paid for the deploy
    * tokenContract:address => Token used to pay for the deployment, can be address(0) if the deploy is subsidized
    * tokenAmount:IntString => Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
    * factory:address => Address of the factory used to deploy the Smart Wallet

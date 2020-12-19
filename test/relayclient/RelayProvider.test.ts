@@ -235,7 +235,6 @@ contract('RelayProvider', function (accounts) {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
-        tokenRecipient: callVerifier,
         tokenContract: token.address,
         tokenAmount: '10',
         recoverer: recoverer,
@@ -276,7 +275,6 @@ contract('RelayProvider', function (accounts) {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
-        tokenRecipient: callVerifier,
         tokenContract: token.address,
         tokenAmount: '10',
         recoverer: recoverer,
@@ -451,7 +449,7 @@ contract('RelayProvider', function (accounts) {
 
       // create desired transactions
       const nonceToUse = await smartWallet.nonce()
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], verifierInstance.address, nonceToUse.toString(), smartWallet.address, token.address, verifierInstance.address, '1')
+      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], verifierInstance.address, nonceToUse.toString(), smartWallet.address, token.address, '1')
 
       await verifierInstance.setReturnInvalidErrorCode(false)
       await verifierInstance.setRevertPreRelayCall(false)

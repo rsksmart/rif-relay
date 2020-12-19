@@ -106,7 +106,7 @@ contract SmartWallet is IForwarder {
         (success, ret) = req.tokenContract.call(
             abi.encodeWithSelector(
                 IERC20.transfer.selector,
-                req.tokenRecipient,
+                tx.origin,
                 req.tokenAmount
             )
         );
@@ -174,7 +174,7 @@ contract SmartWallet is IForwarder {
 
 
         require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -213,7 +213,6 @@ contract SmartWallet is IForwarder {
                     req.gas,
                     req.nonce,
                     keccak256(req.data),
-                    req.tokenRecipient,
                     req.tokenContract,
                     req.tokenAmount,
                     req.recoverer,

@@ -50,7 +50,6 @@ contract('RelaySelectionManager', async function (accounts) {
     to: '',
     callForwarder: '',
     callVerifier: '',
-    tokenRecipient: '',
     tokenAmount: '',
     tokenContract: '',
     isSmartWalletDeploy: false

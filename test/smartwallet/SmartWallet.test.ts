@@ -60,7 +60,6 @@ options.forEach(element => {
         gas: '1000000',
         nonce: '0',
         data: '0x',
-        tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '1',
         recoverer: constants.ZERO_ADDRESS,
@@ -186,7 +185,6 @@ options.forEach(element => {
         recipient = await TestForwarderTarget.new()
         testfwd = await TestSmartWallet.new()
 
-        request.request.tokenRecipient = recipient.address
         request.request.tokenAmount = '0'
       })
 
@@ -331,7 +329,6 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = value.toString()
-          req1.request.tokenRecipient = recipient.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
@@ -358,7 +355,6 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = ether('2').toString()
-          req1.request.tokenRecipient = recipient.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
@@ -384,7 +380,6 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = value.toString()
-          req1.request.tokenRecipient = recipient.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
@@ -420,7 +415,6 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = tokensPaid.toString()
           req1.request.value = value.toString()
-          req1.request.tokenRecipient = recipient.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 

@@ -9,14 +9,14 @@ import "../utils/GsnUtils.sol";
 contract TestUtil {
 
 
-     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)");
+     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)");
 
     /* function libRelayRequestName() public pure returns (string memory) {
         return "RelayRequest";
     } */
 
    /* function libRelayRequestType() public pure returns (string memory) {
-        return "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address verifier,address forwarder,bytes verifierData,uint256 clientId)";
+        return "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address verifier,address forwarder,bytes verifierData,uint256 clientId)";
     }*/
 
    /* function libRelayRequestTypeHash() public pure returns (bytes32) {
@@ -90,7 +90,6 @@ contract TestUtil {
             req.request.gas,
             req.request.nonce,
             req.request.data,
-            req.request.tokenRecipient,
             req.request.tokenContract,
             req.request.tokenAmount,
             req.request.recoverer,

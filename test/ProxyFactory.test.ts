@@ -46,7 +46,6 @@ contract('ProxyFactory', ([from]) => {
       gas: '400000',
       nonce: '0',
       data: '0x',
-      tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
       recoverer: constants.ZERO_ADDRESS,
@@ -67,7 +66,6 @@ contract('ProxyFactory', ([from]) => {
     ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), chainId).toLowerCase()
     recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
     request.request.from = ownerAddress
-    request.request.tokenRecipient = recipientAddress
     env = await getTestingEnvironment()
     fwd = await SmartWallet.new()
   })
@@ -664,7 +662,6 @@ contract('SimpleProxyFactory', ([from]) => {
       gas: '400000',
       nonce: '0',
       data: '0x',
-      tokenRecipient: constants.ZERO_ADDRESS,
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
       recoverer: constants.ZERO_ADDRESS,
@@ -685,7 +682,6 @@ contract('SimpleProxyFactory', ([from]) => {
     ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), chainId).toLowerCase()
     recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
     request.request.from = ownerAddress
-    request.request.tokenRecipient = recipientAddress
     env = await getTestingEnvironment()
     fwd = await SimpleSmartWallet.new()
   })

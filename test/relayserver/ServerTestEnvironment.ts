@@ -222,7 +222,6 @@ export class ServerTestEnvironment {
       callForwarder: this.forwarder.address,
       gas: toHex(1000000),
       gasPrice: toHex(20000000000),
-      tokenRecipient: constants.ZERO_ADDRESS,
       tokenAmount: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: false
