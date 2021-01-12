@@ -84,7 +84,7 @@ export default class CommandsLogic {
     this.web3 = new Web3(provider)
   }
 
-  async findWealthyAccount (requiredBalance = ether('2')): Promise<string> {
+  async findWealthyAccount (requiredBalance = ether('0.001')): Promise<string> {
     let accounts: string[] = []
     try {
       accounts = await this.web3.eth.getAccounts()
