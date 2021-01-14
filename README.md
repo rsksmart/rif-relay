@@ -113,7 +113,7 @@ In order to run an Enveloping instance in Regtest, clone the project then run th
 8. Create an account from a mnemonic, and store the mnemonic in a file. After that, add funds to the newly created account.
 9. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
 10. On the project's root directory, run `docker-compose up -d jsrelay`
-11. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 7>`
+11. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 8>`
 
 For checking if it's working, run `curl http://localhost:8090/getaddr`
 
