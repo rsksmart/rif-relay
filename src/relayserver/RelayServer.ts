@@ -100,25 +100,24 @@ export class RelayServer extends EventEmitter {
     return this.gasPrice
   }
 
-  async getQueueGasPrice (maxTime?: string): Promise<string> {
-    return await this.envelopingArbiter.getQueueGasPrice()
-  }
-
-  getQueueWorker (maxTime?: string): string {
-    return this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime)
-  }
-
   getWorkerIndex (address: PrefixedHexString): number {
-    return this.workerAddress.indexOf(address)
+    const workerIndex = this.workerAddress.indexOf(address)
+    if (workerIndex > -1) {
+      return workerIndex
+    } else {
+      throw new Error(
+        `Wrong worker address: ${address}\n`)
+    }
   }
 
   async pingHandler (paymaster?: string, maxTime?: string): Promise<PingResponse> {
     return {
-      relayWorkerAddress: this.getQueueWorker(maxTime),
+      relayWorkerAddress: this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime),
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
-      minGasPrice: await this.getQueueGasPrice(maxTime),
+      minGasPrice: await this.envelopingArbiter.getQueueGasPrice(maxTime),
       maxAcceptanceBudget: this._getPaymasterMaxAcceptanceBudget(paymaster),
+      maxDelay: this.envelopingArbiter.checkMaxDelayForResponse(maxTime),
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -288,6 +287,12 @@ returnValue        | ${viewRelayCallRet.returnValue}
         creationBlockNumber: currentBlock,
         gasPrice: req.relayRequest.relayData.gasPrice
       }
+    if (!this.envelopingArbiter.isValidTime(req.metadata.maxTime.toString())) {
+      throw new Error('Error: invalid maxTime.')
+    }
+    if (this.envelopingArbiter.getQueueWorker(this.workerAddress, req.metadata.maxTime.toString()) !== req.relayRequest.relayData.relayWorker) {
+      throw new Error('Error: invalid workerAddress/maxTime combination.')
+    }
     const commitment = new Commitment(
       req.metadata.maxTime,
       req.relayRequest.request.from,
@@ -340,6 +345,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
       throw new Error('Server not started')
     }
     clearInterval(this.workerTask)
+    this.envelopingArbiter.feeEstimator.stop()
     log.info('Successfully stopped polling!!')
   }
 

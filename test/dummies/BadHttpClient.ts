@@ -3,7 +3,7 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
-import { CommitmentResponse } from '../../src/enveloping/Commitment'
+import { CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
 
 export default class BadHttpClient extends HttpClient {
   static readonly message = 'This is not the relay you are looking for'
@@ -13,14 +13,16 @@ export default class BadHttpClient extends HttpClient {
   private readonly timeoutRelay: boolean
   private readonly stubRelay: string | undefined
   private readonly stubPing: PingResponse | undefined
+  private readonly stubCommitment: CommitmentReceipt | undefined
 
-  constructor (config: GSNConfig, failPing: boolean, failRelay: boolean, timeoutRelay: boolean, stubPing?: PingResponse, stubRelay?: string) {
+  constructor (config: GSNConfig, failPing: boolean, failRelay: boolean, timeoutRelay: boolean, stubPing?: PingResponse, stubRelay?: string, stubCommitment?: CommitmentReceipt) {
     super(new HttpWrapper(), config)
     this.failPing = failPing
     this.failRelay = failRelay
     this.timeoutRelay = timeoutRelay
     this.stubRelay = stubRelay
     this.stubPing = stubPing
+    this.stubCommitment = stubCommitment
   }
 
   async getPingResponse (relayUrl: string, paymaster?: string): Promise<PingResponse> {
@@ -40,7 +42,10 @@ export default class BadHttpClient extends HttpClient {
     if (this.timeoutRelay) {
       throw new Error('some error describing how timeout occurred somewhere')
     }
-    if (this.stubRelay != null) {
+    if (this.stubRelay != null && this.stubCommitment !== null) {
+      return { signedTx: this.stubRelay, signedReceipt: this.stubCommitment }
+    }
+    if (this.stubRelay != null && this.stubRelay !== '') {
       return { signedTx: this.stubRelay }
     }
     return await super.relayTransaction(relayUrl, request)
