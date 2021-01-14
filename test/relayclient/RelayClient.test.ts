@@ -40,7 +40,12 @@ import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { soliditySha3Raw } from 'web3-utils'
-import { CommitmentResponse } from '../../src/enveloping/Commitment'
+import { constants } from '../../src/common/Constants'
+import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import { bufferToHex } from 'ethereumjs-util'
+import { expectEvent } from '@openzeppelin/test-helpers'
+import { Commitment, CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
+import { MockCommitmentValidator } from '../dummies/MockCommitmentValidator'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -521,6 +526,7 @@ contract('RelayClient', function (accounts) {
     let relayInfo: RelayInfo
     let optionsWithGas: GsnTransactionDetails
     let maxTime: number
+    let badCommitmentReceipt: CommitmentReceipt
 
     before(async function () {
       await stakeManager.stakeForAddress(relayManager, 7 * 24 * 3600, {
@@ -554,7 +560,19 @@ contract('RelayClient', function (accounts) {
         gas: '0xf4240',
         gasPrice: '0x51f4d5c00'
       })
-      maxTime = Date.now() + 300
+      const commitment = new Commitment(
+        pingResponse.maxDelay,
+        from,
+        to,
+        data,
+        relayHub.address,
+        relayWorkerAddress
+      )
+      badCommitmentReceipt = {
+        commitment: commitment,
+        workerSignature: INCORRECT_ECDSA_SIGNATURE,
+        workerAddress: relayWorkerAddress
+      }
     })
 
     it('should return error if view call to \'relayCall()\' fails', async function () {
@@ -666,7 +684,7 @@ contract('RelayClient', function (accounts) {
 
         // register gasless account in RelayClient to avoid signing with RSKJ
         relayClient.accountManager.addAccount(gaslessAccount)
-        const maxTime = Date.now() + 300
+        const maxTime = Date.now() + (300 * 1000)
 
         const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas, maxTime)
         assert.equal(httpRequest.metadata.approvalData, '0x1234567890')

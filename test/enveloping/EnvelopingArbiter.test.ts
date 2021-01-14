@@ -130,8 +130,7 @@ contract('EnvelopingArbiter', function (accounts) {
   describe('FeeEstimator', function () {
     it('should estimate gas prices correctly on Ethereum Mainnet based on deviation margin against other gas estimators APIs', async function () {
       const deviationMargin = 10
-      // FIXME: Set your own Infura API key
-      const ethMainnet = new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/<INFURA_API_KEY>')
+      const ethMainnet = new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
       const httpWrapper = new HttpWrapper()
       env.envelopingArbiter.feeEstimator.stop()
       env.envelopingArbiter = new EnvelopingArbiter(configureServer({
@@ -159,8 +158,7 @@ contract('EnvelopingArbiter', function (accounts) {
         Math.round(etherchainResponse.fast),
         Math.round(etherchainResponse.fastest)
       ])
-      // FIXME: Set your own EthGasStation API key
-      const ethgasstationResponse = await httpWrapper.sendPromise('https://ethgasstation.info/api/ethgasAPI.json?api-key=<ETH_GASSTATION_API_KEY>')
+      const ethgasstationResponse = await httpWrapper.sendPromise('https://ethgasstation.info/api/ethgasAPI.json?api-key=4936ca9f3ce0dd8554832c21849aa17fdc627e8083f895da2f333ff2b297')
       table.push([
         ethgasstationResponse.safeLow / 10,
         ethgasstationResponse.average / 10,

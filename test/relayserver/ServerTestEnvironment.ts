@@ -134,9 +134,7 @@ export class ServerTestEnvironment {
     } else {
       this.contractInteractor = await contractFactory(shared)
     }
-    this.envelopingArbiter = new EnvelopingArbiter(configureServer({
-      checkInterval: 10000
-    }), this.web3.givenProvider)
+    this.envelopingArbiter = new EnvelopingArbiter(configureServer({}), this.web3.givenProvider)
     await this.envelopingArbiter.start()
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
@@ -203,10 +201,10 @@ export class ServerTestEnvironment {
     })
   }
 
-  async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
+  async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}, useValidMaxDelay: boolean = true, useValidWorker: boolean = true, workerIndex = 1): Promise<RelayTransactionRequest> {
     const pingResponse = {
       relayHubAddress: this.relayHub.address,
-      relayWorkerAddress: this.relayServer.workerAddress[0]
+      relayWorkerAddress: this.relayServer.workerAddress[workerIndex]
     }
     const eventInfo: RelayRegisteredEventInfo = {
       baseRelayFee: this.relayServer.config.baseRelayFee,
@@ -233,17 +231,44 @@ export class ServerTestEnvironment {
       factory: constants.ZERO_ADDRESS
     }
 
-    const maxTime = Date.now() + 300
+    let maxTime, delay
+    if (useValidMaxDelay) {
+      if (workerIndex === 0) {
+        delay = 320
+      } else if (workerIndex === 1) {
+        delay = 140
+      } else if (workerIndex === 2) {
+        delay = 40
+      } else {
+        delay = 10
+      }
+      maxTime = Date.now() + (delay * 1000)
+    } else {
+      maxTime = Date.now()
+    }
+
+    if (!useValidWorker) {
+      pingResponse.relayWorkerAddress = this.relayServer.workerAddress[3]
+    }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails), maxTime)
   }
 
-  async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
+  /**
+   * Relays a transaction through the Test Environment
+   * @param assertRelayed flag for asserting if the transaction has been relayed successfully
+   * @param overrideDetails custom GsnTransactionDetails data
+   * @param useValidMaxDelay flag for using a valid maxDelay value or not
+   * @param useValidWorker flag for using a valid relayWorkerAddress value or not
+   * @param workerIndex force the transaction to be sent using a specific worker
+   * @returns the hash of the Tx, the signed Tx and a signed commitment receipt
+   */
+  async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}, useValidMaxDelay = true, useValidWorker = true, workerIndex = 1): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
     signedReceipt: CommitmentReceipt | undefined
   }> {
-    const req = await this.createRelayHttpRequest(overrideDetails)
+    const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
     const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
 
