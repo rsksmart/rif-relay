@@ -12,6 +12,7 @@ import KnownRelaysManager, { DefaultRelayScore, EmptyFilter, IKnownRelaysManager
 import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { Address, AsyncDataCallback, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
 import { EmptyDataCallback, GasPricePingFilter } from './RelayClient'
+import { CommitmentValidator } from '../enveloping/CommitmentValidator'
 
 const GAS_PRICE_PERCENT = 20
 const MAX_RELAY_NONCE_GAP = 3
@@ -125,6 +126,7 @@ export interface GSNDependencies {
   knownRelaysManager: IKnownRelaysManager
   accountManager: AccountManager
   transactionValidator: RelayedTransactionValidator
+  commitmentValidator: CommitmentValidator
   pingFilter: PingFilter
   relayFilter: RelayFilter
   asyncApprovalData: AsyncDataCallback
@@ -160,6 +162,7 @@ export function getDependencies (config: GSNConfig, provider?: HttpProvider, ove
   const scoreCalculator = overrideDependencies?.scoreCalculator ?? DefaultRelayScore
   const knownRelaysManager = overrideDependencies?.knownRelaysManager ?? new KnownRelaysManager(contractInteractor, config, relayFilter)
   const transactionValidator = overrideDependencies?.transactionValidator ?? new RelayedTransactionValidator(contractInteractor, config)
+  const commitmentValidator = overrideDependencies?.commitmentValidator ?? new CommitmentValidator()
 
   const ret = {
     httpClient,
@@ -167,6 +170,7 @@ export function getDependencies (config: GSNConfig, provider?: HttpProvider, ove
     knownRelaysManager,
     accountManager,
     transactionValidator,
+    commitmentValidator,
     pingFilter,
     relayFilter,
     asyncApprovalData,
