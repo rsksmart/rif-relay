@@ -99,7 +99,7 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 //Using the same parameters as when SW was created.
 ```
 
-### 4 Run a Relay Server <a id="c04"></a>
+### 4 Run a Relay Server on Regtest <a id="c04"></a>
 
 In order to run an Enveloping instance in Regtest, clone the project then run the following from the project's root directory:
 
@@ -109,13 +109,15 @@ In order to run an Enveloping instance in Regtest, clone the project then run th
 4. On the project's root directory, run `docker-compose build`
 5. Run `docker-compose up -d rskj`
 6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
-7. Create an account from a mnemonic, and store the mnemonic in a file. After that, add funds to the newly created account.
-8. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
-9. On the project's root directory, run `docker-compose up -d jsrelay`
-10. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 7>`
+7. Set the Relay Hub on the Paymaster contracts.
+8. Create an account from a mnemonic, and store the mnemonic in a file. After that, add funds to the newly created account.
+9. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
+10. On the project's root directory, run `docker-compose up -d jsrelay`
+11. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 7>`
 
 For checking if it's working, run `curl http://localhost:8090/getaddr`
 
+To run a jsrelay on Testnet visit [this](https://docs.google.com/document/d/1_4u7yNrMNjf7LoqpUf5GYaiKeRmqOQJtXoFlHSdn2C8/edit?usp=sharing)
 
 ## 5. Use MetaCoin <a id="c05"></a>
 
