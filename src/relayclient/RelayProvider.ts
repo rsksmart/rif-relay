@@ -125,7 +125,7 @@ export class RelayProvider implements HttpProvider {
       throw new Error('Invalid factory address')
     }
 
-    const maxTime = Date.now() + 300
+    const maxTime = Date.now() + (300 * 1000)
 
     try {
       const relayingResult = await this.relayClient.relayTransaction(gsnTransactionDetails, maxTime)
@@ -196,7 +196,7 @@ export class RelayProvider implements HttpProvider {
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
     const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
-    const maxTime = (typeof payload.params[1] !== 'undefined') ? payload.params[1].maxTime : Date.now() + 300
+    const maxTime = (typeof payload.params[1] !== 'undefined') ? payload.params[1].maxTime : Date.now() + (300 * 1000)
     this.relayClient.relayTransaction(gsnTransactionDetails, maxTime)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {

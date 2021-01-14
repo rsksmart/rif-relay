@@ -28,7 +28,7 @@ import { TypedDataUtils } from 'eth-sig-util'
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, INCORRECT_ECDSA_SIGNATURE, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { GsnEvent } from '../../src/relayclient/GsnEvents'
@@ -44,7 +44,8 @@ import { constants } from '../../src/common/Constants'
 import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { bufferToHex } from 'ethereumjs-util'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { CommitmentResponse } from '../../src/enveloping/Commitment'
+import { Commitment, CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
+import { MockCommitmentValidator } from '../dummies/MockCommitmentValidator'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -193,7 +194,7 @@ contract('RelayClient', function (accounts) {
         })
 
         await new Promise((resolve) => {
-          server = mockServer.listen(0, resolve)
+          server = mockServer.listen(0, () => resolve(true))
         })
         const mockServerPort = (server as any).address().port
 
@@ -525,6 +526,7 @@ contract('RelayClient', function (accounts) {
     let relayInfo: RelayInfo
     let optionsWithGas: GsnTransactionDetails
     let maxTime: number
+    let badCommitmentReceipt: CommitmentReceipt
 
     before(async function () {
       await stakeManager.stakeForAddress(relayManager, 7 * 24 * 3600, {
@@ -541,6 +543,7 @@ contract('RelayClient', function (accounts) {
         relayHubAddress: relayManager,
         minGasPrice: '',
         maxAcceptanceBudget: 1e10.toString(),
+        maxDelay: Date.now() + (300 * 1000),
         ready: true,
         version: ''
       }
@@ -557,7 +560,19 @@ contract('RelayClient', function (accounts) {
         gas: '0xf4240',
         gasPrice: '0x51f4d5c00'
       })
-      maxTime = Date.now() + 300
+      const commitment = new Commitment(
+        pingResponse.maxDelay,
+        from,
+        to,
+        data,
+        relayHub.address,
+        relayWorkerAddress
+      )
+      badCommitmentReceipt = {
+        commitment: commitment,
+        workerSignature: INCORRECT_ECDSA_SIGNATURE,
+        workerAddress: relayWorkerAddress
+      }
     })
 
     it('should return error if view call to \'relayCall()\' fails', async function () {
@@ -610,9 +625,11 @@ contract('RelayClient', function (accounts) {
       const badHttpClient = new BadHttpClient(configureGSN(gsnConfig), false, false, false, pingResponse, '0x123')
       let dependencyTree = getDependencies(configureGSN(gsnConfig), underlyingProvider)
       const badTransactionValidator = new BadRelayedTransactionValidator(true, dependencyTree.contractInteractor, configureGSN(gsnConfig))
+      const mockCommitmentValidator = new MockCommitmentValidator(true)
       dependencyTree = getDependencies(configureGSN(gsnConfig), underlyingProvider, {
         httpClient: badHttpClient,
-        transactionValidator: badTransactionValidator
+        transactionValidator: badTransactionValidator,
+        commitmentValidator: mockCommitmentValidator
       })
       const relayClient =
         new RelayClient(underlyingProvider, gsnConfig, dependencyTree)
@@ -627,6 +644,26 @@ contract('RelayClient', function (accounts) {
       const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       assert.isUndefined(transaction)
       assert.equal(error!.message, 'Returned transaction did not pass validation')
+      expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+    })
+
+    it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
+      const badHttpClient = new BadHttpClient(configureGSN(gsnConfig), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
+      let dependencyTree = getDependencies(configureGSN(gsnConfig), underlyingProvider)
+      dependencyTree = getDependencies(configureGSN(gsnConfig), underlyingProvider, {
+        httpClient: badHttpClient
+      })
+      const relayClient = new RelayClient(underlyingProvider, gsnConfig, dependencyTree)
+      await relayClient._init()
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
+      // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+      sinon.spy(dependencyTree.knownRelaysManager)
+      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+      assert.isUndefined(transaction)
+      assert.equal(error!.message, 'Returned commitment did not pass validation')
       expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
     })
 
@@ -647,7 +684,7 @@ contract('RelayClient', function (accounts) {
 
         // register gasless account in RelayClient to avoid signing with RSKJ
         relayClient.accountManager.addAccount(gaslessAccount)
-        const maxTime = Date.now() + 300
+        const maxTime = Date.now() + (300 * 1000)
 
         const httpRequest = await relayClient._prepareRelayHttpRequest(relayInfo, optionsWithGas, maxTime)
         assert.equal(httpRequest.metadata.approvalData, '0x1234567890')

@@ -110,7 +110,7 @@ class GsnTestEnvironmentClass {
   private async _resolveAvailablePort (): Promise<number> {
     const server = net.createServer()
     await new Promise(resolve => {
-      server.listen(0, resolve)
+      server.listen(0, () => resolve(true))
     })
     const address = server.address()
     if (address == null || typeof address === 'string') {
@@ -151,9 +151,7 @@ class GsnTestEnvironmentClass {
         chainId: environment.chainId
       }))
     await contractInteractor.init()
-    const envelopingArbiter = new EnvelopingArbiter(configureServer({
-      checkInterval: 10000
-    }), new Web3.providers.HttpProvider(host))
+    const envelopingArbiter = new EnvelopingArbiter(configureServer({}), new Web3.providers.HttpProvider(host))
     await envelopingArbiter.start()
     const relayServerParams: Partial<ServerConfigParams> = {
       devMode: true,
