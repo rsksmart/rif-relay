@@ -200,7 +200,7 @@ export class RelayClient {
     await this.knownRelaysManager.refresh()
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
 
-    if (gsnTransactionDetails.gas == null) {
+    if (gsnTransactionDetails.gas === undefined || gsnTransactionDetails.gas === null) {
       if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
         gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
         const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))

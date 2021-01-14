@@ -43,14 +43,15 @@ The core enveloping architecture is defined by the following components:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [RelayHub](https://explorer.testnet.rsk.co/address/0x74f8670fcbC2E4a7C7c751fEcC7FdaF5c9C8CdAd)        | 0x74f8670fcbC2E4a7C7c751fEcC7FdaF5c9C8CdAd |
+| [RelayHub](https://explorer.testnet.rsk.co/address/0x38bebd507abc3d76b10d61f5c95668e1240d087f)        | 0x38bebd507aBC3D76B10d61f5C95668e1240D087F |
 | [StakeManager](https://explorer.testnet.rsk.co/address/0xc9673765e7EcFAA091e025aB5f3559a5312735B2)   | 0xc9673765e7EcFAA091e025aB5f3559a5312735B2 |
 | [Penalizer](https://explorer.testnet.rsk.co/address/0xCe0624C8f4baa8a285cdc663480a59d7DCfA86Ea)   | 0xCe0624C8f4baa8a285cdc663480a59d7DCfA86Ea |
 | [VersionRegistry](https://explorer.testnet.rsk.co/address/0x45BE444a2C64E9FC135DF82F10232215976385db) | 0x45BE444a2C64E9FC135DF82F10232215976385db |
 | [SmartWallet](https://explorer.testnet.rsk.co/address/0xFe4511C3618e11BE8F0deacF9a274ebD8B461EDc)    | 0xFe4511C3618e11BE8F0deacF9a274ebD8B461EDc |
 | [ProxyFactory](https://explorer.testnet.rsk.co/address/0x73890478E6D9Cf789Bc582A1e5F95769672e4a06)    | 0x73890478E6D9Cf789Bc582A1e5F95769672e4a06 |
-| [DeployPaymaster](https://explorer.testnet.rsk.co/address/0x28b7fE08B82bc5D0364f39bF628a2BDBbee262C3) | 0x28b7fE08B82bc5D0364f39bF628a2BDBbee262C3 |
-| [RelayPaymaster](https://explorer.testnet.rsk.co/address/0xF12Ab3d0A4bdB101De910Fa0Eb85Ace3fcD301f9)  | 0xF12Ab3d0A4bdB101De910Fa0Eb85Ace3fcD301f9 |
+| [DeployPaymaster](https://explorer.testnet.rsk.co/address/0x690c8A864487C586dfbB63d2AAe9aF2a55A30336) | 0x690C8A864487c586DFBB63d2aae9aF2A55A30336 |
+| [RelayPaymaster](https://explorer.testnet.rsk.co/address/0xb4a86E32b39f86b203220D559A78ac68a0144b34)  | 0xb4A86E32B39f86b203220D559A78AC68A0144B34 |
+| [TRIF ](https://explorer.testnet.rsk.co/address/0x19f64674d8a5b4e652319f5e239efd3bc969a1fe)  | 0x19f64674D8a5b4e652319F5e239EFd3bc969a1FE |
 
 ## 3. Building project <a id="c03"></a>
 
