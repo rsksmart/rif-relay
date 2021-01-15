@@ -139,8 +139,6 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
 
-To run a jsrelay on Testnet visit [this](https://docs.google.com/document/d/1_4u7yNrMNjf7LoqpUf5GYaiKeRmqOQJtXoFlHSdn2C8/edit?usp=sharing)
-
 ## 5. Use MetaCoin <a id="c05"></a>
 
 Mint and send tokens without requiring RBTC for gas. Works on Regtest. 
