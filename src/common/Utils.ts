@@ -1,7 +1,6 @@
-import BN from 'bn.js'
 import abi from 'web3-eth-abi'
 import ethUtils from 'ethereumjs-util'
-import web3Utils, { toWei } from 'web3-utils'
+import web3Utils from 'web3-utils'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
 import { PrefixedHexString } from 'ethereumjs-tx'
