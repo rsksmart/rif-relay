@@ -1,4 +1,4 @@
-import { ether } from '../../common/Utils'
+import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic from '../CommandsLogic'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
 import { getMnemonic, getNetworkUrl, getPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'

@@ -177,10 +177,6 @@ export async function sleep (ms: number): Promise<void> {
   return await new Promise(resolve => setTimeout(resolve, ms))
 }
 
-export function ether (n: string): BN {
-  return new BN(toWei(n, 'ether'))
-}
-
 export function randomInRange (min: number, max: number): number {
   return Math.floor(Math.random() * (max - min) + min)
 }
