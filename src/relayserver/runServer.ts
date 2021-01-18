@@ -21,10 +21,10 @@ async function run (): Promise<void> {
   try {
     const conf = await parseServerConfig(process.argv.slice(2), process.env)
     console.log(conf)
-    if (conf.ethereumNodeUrl == null) {
-      error('missing ethereumNodeUrl')
+    if (conf.rskNodeUrl == null) {
+      error('missing rskNodeUrl')
     }
-    web3provider = new Web3.providers.HttpProvider(conf.ethereumNodeUrl)
+    web3provider = new Web3.providers.HttpProvider(conf.rskNodeUrl)
     config = await resolveServerConfig(conf, web3provider) as ServerConfigParams
   } catch (e) {
     error(e.message)

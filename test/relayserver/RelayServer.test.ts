@@ -366,7 +366,7 @@ contract('RelayServer', function (accounts) {
       assert.equal(currentBlockNumber, await env.web3.eth.getBlockNumber())
     })
 
-    it('should withdraw hub balance to manager first, then use eth balance to fund workers', async function () {
+    it('should withdraw hub balance to manager first, then use rbtc balance to fund workers', async function () {
       await env.relayHub.depositFor(relayServer.managerAddress, { value: 1e18.toString() })
       await relayServer.transactionManager.sendTransaction({
         signer: relayServer.managerAddress,
@@ -386,7 +386,7 @@ contract('RelayServer', function (accounts) {
       const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(workerBalanceBefore)
       assert.isTrue(managerHubBalanceBefore.gte(refill), 'manager hub balance should be sufficient to replenish worker')
       assert.isTrue(managerEthBalanceBefore.lt(toBN(relayServer.config.managerTargetBalance.toString())),
-        'manager eth balance should be lower than target to withdraw hub balance')
+        'manager rbtc balance should be lower than target to withdraw hub balance')
       const receipts = await relayServer.replenishServer(workerIndex, 0)
       const totalTxCosts = await getTotalTxCosts(receipts, await env.web3.eth.getGasPrice())
       const managerHubBalanceAfter = await env.relayHub.balanceOf(relayServer.managerAddress)
@@ -396,10 +396,10 @@ contract('RelayServer', function (accounts) {
         `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
       const managerEthBalanceAfter = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceAfter.eq(managerEthBalanceBefore.add(managerHubBalanceBefore).sub(refill).sub(totalTxCosts)),
-        'manager eth balance should increase by hub balance minus txs costs')
+        'manager rbtc balance should increase by hub balance minus txs costs')
     })
 
-    it('should fund from manager eth balance when sufficient without withdrawing from hub when balance too low', async function () {
+    it('should fund from manager rbtc balance when sufficient without withdrawing from hub when balance too low', async function () {
       await env.web3.eth.sendTransaction({
         from: accounts[0],
         to: relayServer.managerAddress,
@@ -410,14 +410,14 @@ contract('RelayServer', function (accounts) {
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)
       const refill = toBN(relayServer.config.workerTargetBalance).sub(workerBalanceBefore)
       assert.isTrue(managerHubBalanceBefore.lt(refill), 'manager hub balance should be insufficient to replenish worker')
-      assert.isTrue(managerEthBalance.gte(refill), 'manager eth balance should be sufficient to replenish worker')
+      assert.isTrue(managerEthBalance.gte(refill), 'manager rbtc balance should be sufficient to replenish worker')
       await relayServer.replenishServer(workerIndex, 0)
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
       assert.isTrue(workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
         `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
     })
 
-    it('should emit \'funding needed\' when both eth and hub balances are too low', async function () {
+    it('should emit \'funding needed\' when both rbtc and hub balances are too low', async function () {
       await relayServer.transactionManager.sendTransaction({
         signer: relayServer.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
@@ -432,7 +432,7 @@ contract('RelayServer', function (accounts) {
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)
       const refill = toBN(relayServer.config.workerTargetBalance).sub(workerBalanceBefore)
       assert.isTrue(managerHubBalanceBefore.lt(refill), 'manager hub balance should be insufficient to replenish worker')
-      assert.isTrue(managerEthBalance.lt(refill), 'manager eth balance should be insufficient to replenish worker')
+      assert.isTrue(managerEthBalance.lt(refill), 'manager rbtc balance should be insufficient to replenish worker')
       let fundingNeededEmitted = false
       relayServer.on('fundingNeeded', () => { fundingNeededEmitted = true })
       await relayServer.replenishServer(workerIndex, 0)

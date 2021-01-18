@@ -55,8 +55,8 @@ export async function startRelay (
   args.push('--relayHubAddress', relayHubAddress)
   const configFile = path.resolve(__dirname, './server-config.json')
   args.push('--config', configFile)
-  if (options.ethereumNodeUrl) {
-    args.push('--ethereumNodeUrl', options.ethereumNodeUrl)
+  if (options.rskNodeUrl) {
+    args.push('--rskNodeUrl', options.rskNodeUrl)
   }
   if (options.gasPriceFactor) {
     args.push('--gasPriceFactor', options.gasPriceFactor)

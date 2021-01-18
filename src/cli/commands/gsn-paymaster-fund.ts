@@ -6,7 +6,7 @@ import { getMnemonic, getNetworkUrl, getPaymasterAddress, getRelayHubAddress, gs
 const commander = gsnCommander(['n', 'f', 'h', 'm'])
   .option('--paymaster <address>',
     'address of the paymaster contract (defaults to address from build/gsn/Paymaster.json if exists')
-  .option('--amount <amount>', 'amount of funds to deposit for the paymaster contract, in wei (defaults to 1 Ether)')
+  .option('--amount <amount>', 'amount of funds to deposit for the paymaster contract, in wei (defaults to 0.01 RBTC)')
   .parse(process.argv);
 
 (async () => {
@@ -24,7 +24,7 @@ const commander = gsnCommander(['n', 'f', 'h', 'm'])
   const mnemonic = getMnemonic(commander.mnemonic)
   const logic = new CommandsLogic(nodeURL, configureGSN({ relayHubAddress: hub }), mnemonic)
   const from = commander.from ?? await logic.findWealthyAccount()
-  const amount = commander.amount ?? ether('1')
+  const amount = commander.amount ?? ether('0.01')
 
   const balance = await logic.fundPaymaster(from, paymaster, amount)
   console.log(`Paymaster ${paymaster} balance is now ${balance.toString()} wei`)

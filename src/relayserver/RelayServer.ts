@@ -448,7 +448,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
         `== replenishServer: mgr balance=${managerEthBalance.toString()}  manager hub balance=${managerHubBalance.toString()}
           \n${this.workerBalanceRequired.description}\n refill=${refill.toString()}`)
       if (refill.lt(managerEthBalance.sub(toBN(this.config.managerMinBalance)))) {
-        log.debug('Replenishing worker balance by manager eth balance')
+        log.debug('Replenishing worker balance by manager rbtc balance')
         const details: SendTransactionDetails = {
           signer: this.managerAddress,
           serverAction: ServerAction.VALUE_TRANSFER,
