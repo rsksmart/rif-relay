@@ -1,8 +1,8 @@
 diff --git a/node_modules/@openeth/truffle-typings/index.d.ts b/node_modules/@openeth/truffle-typings/index.d.ts
-index 5de91fb..24e93c3 100644
+index 5de91fb..7f48b5b 100644
 --- a/node_modules/@openeth/truffle-typings/index.d.ts
 +++ b/node_modules/@openeth/truffle-typings/index.d.ts
-@@ -47,10 +47,11 @@ declare namespace Truffle {
+@@ -47,8 +47,8 @@ declare namespace Truffle {
      gasPrice?: BN | number | string;
      value?: BN | string;
      /* GSN-specific transaction details */
@@ -13,5 +13,3 @@ index 5de91fb..24e93c3 100644
      useGSN?: boolean
      forceGasPrice?: string
    }
- 
-   export interface TransactionLog {
