@@ -1,6 +1,6 @@
 import Web3 from 'web3'
 import { HttpProvider } from 'web3-core'
-import { toBN, toHex } from 'web3-utils'
+import { toBN } from 'web3-utils'
 
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'

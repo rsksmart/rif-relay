@@ -8,7 +8,7 @@ import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
 
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getLocalEip712Signature } from '../src/common/Utils'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { isRsk, Environment } from '../src/common/Environments'
@@ -72,17 +72,14 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
         value: '0',
         gas: gasLimit.toString(),
         tokenContract: constants.ZERO_ADDRESS,
-        tokenAmount: '0',
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenAmount: '0'
       },
       relayData: {
         gasPrice: gasPrice.toString(),
         relayWorker,
         callForwarder: forwarder,
         callVerifier: verifier.address,
-        domainSeparator: getDomainSeparatorHash(forwarder, chainId),
-        isSmartWalletDeploy: false
+        domainSeparator: getDomainSeparatorHash(forwarder, chainId)
       }
     }
     const dataToSign = new TypedRequestData(
@@ -495,18 +492,15 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
             value: '0',
             gas: encodedCallArgs.gasLimit.toString(),
             tokenContract: constants.ZERO_ADDRESS,
-            tokenAmount: '0',
-            recoverer: constants.ZERO_ADDRESS,
-            index: '0'
+            tokenAmount: '0'
           },
           relayData: {
             gasPrice: encodedCallArgs.gasPrice.toString(),
             relayWorker,
-            isSmartWalletDeploy: false,
             domainSeparator: getDomainSeparatorHash(forwarder, env.chainId),
             callForwarder: forwarder,
             callVerifier: encodedCallArgs.callVerifier
-            
+
           }
         }
       const encodedCall = relayHub.contract.methods.relayCall(relayRequest, '0xabcdef123456').encodeABI()

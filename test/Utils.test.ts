@@ -1,14 +1,13 @@
 // @ts-ignore
-import { recoverTypedSignature_v4, TypedDataUtils } from 'eth-sig-util'
+import { recoverTypedSignature_v4 } from 'eth-sig-util'
 import chaiAsPromised from 'chai-as-promised'
 import chai from 'chai'
 
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { bufferToHex } from 'ethereumjs-util'
 import { encodeRevertReason, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
@@ -64,22 +63,17 @@ contract('Utils', function (accounts) {
           value: '0',
           gas: gasLimit,
           tokenContract: constants.ZERO_ADDRESS,
-          tokenAmount: '0',
-          recoverer: constants.ZERO_ADDRESS, // since we are calling a contract in this test, we cannot ommit it
-          index: '0' // since we are calling a contract in this test, we cannot ommit it
+          tokenAmount: '0'
         },
         relayData: {
           gasPrice,
           relayWorker,
           callForwarder: forwarder,
-          isSmartWalletDeploy: false,
           callVerifier: verifier,
           domainSeparator: getDomainSeparatorHash(forwarder, chainId)
         }
       }
     })
-
-
 
     it('should generate a valid EIP-712 compatible signature', async function () {
       const dataToSign = new TypedRequestData(

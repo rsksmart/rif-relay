@@ -206,11 +206,12 @@ export function getLatestEventData (events: EventData[]): EventData | undefined 
 }
 
 export function isRegistrationValid (registerEvent: EventData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
+  const portIncluded: boolean = config.url.indexOf(':') > 0
   return registerEvent != null &&
     isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
     registerEvent.returnValues.baseRelayFee.toString() === config.baseRelayFee.toString() &&
     registerEvent.returnValues.pctRelayFee.toString() === config.pctRelayFee.toString() &&
-    registerEvent.returnValues.relayUrl.toString() === config.url.toString()
+    registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }
 
 /**

@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../verifier/BaseVerifier.sol";
 
-contract TestVerifierEverythingAccepted is BaseVerifier {
+contract TestVerifierEverythingAccepted is BaseVerifier, IVerifier {
 
 
     uint public override acceptanceBudget;

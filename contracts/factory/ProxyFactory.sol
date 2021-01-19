@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IProxyFactory.sol";
 import "../utils/RSKAddrValidator.sol";
 
-//import "@nomiclabs/buidler/console.sol";
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
 
@@ -158,18 +157,20 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function relayedUserSmartWalletCreation(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes32 suffixData,
         bytes calldata sig
     ) external override {
+
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonces[req.from]++;
 
         //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         //initParams (req.data) must not contain the function selector for the logic initialization function
+        /* solhint-disable avoid-tx-origin */
         deploy(getCreationBytecode(), keccak256(
             abi.encodePacked(
                 req.from,
@@ -266,7 +267,7 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _getEncoded(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 requestTypeHash,
         bytes32 suffixData
     ) public pure returns (bytes memory) {
@@ -297,7 +298,7 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _verifySig(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes32 suffixData,
@@ -309,7 +310,7 @@ contract ProxyFactory is IProxyFactory {
 
         //Verify Request type
         require(
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 

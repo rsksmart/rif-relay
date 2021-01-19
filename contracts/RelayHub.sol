@@ -86,6 +86,38 @@ contract RelayHub is IRelayHub {
     }
 
 
+
+ function deployCall(
+        GsnTypes.DeployRequest calldata deployRequest,
+        bytes calldata signature    )
+    external
+    override
+    {
+        (signature);
+        address msgSender = msg.sender;
+        address manager = workerToManager[msgSender];
+        require(gasleft() >= gasOverhead.add(deployRequest.request.gas), "Not enough gas left");
+        require(msgSender == tx.origin, "RelayWorker cannot be a contract");
+        require(manager != address(0), "Unknown relay worker");
+        require(deployRequest.relayData.relayWorker == msgSender, "Not a right worker");
+         /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                manager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+        //  require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+      
+        
+        bool deploySuccess = GsnEip712Library.deploy(deployRequest, signature);          
+        
+        if ( deploySuccess ) {
+            assembly {
+                revert(0, 0)
+            }
+        }
+    }
+
+
+
     function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
         bytes calldata signature    )
@@ -137,7 +169,7 @@ contract RelayHub is IRelayHub {
             relayRequest.request.from,
             relayRequest.request.to,
             lastSuccTrx,
-            relayRequest.relayData.isSmartWalletDeploy?bytes4(0):MinLibBytes.readBytes4(relayRequest.request.data, 0),
+            MinLibBytes.readBytes4(relayRequest.request.data, 0),
             relayedCallReturnValue);// TODO: debate if its neccesary to have lastSuccTrx
         }
     }

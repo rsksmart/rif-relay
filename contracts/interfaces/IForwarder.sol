@@ -6,6 +6,17 @@ interface IForwarder {
 
     struct ForwardRequest {
         address from;
+        address to;
+        uint256 value;
+        uint256 gas;
+        uint256 nonce;
+        bytes data;
+        address tokenContract;
+        uint256 tokenAmount;
+    }
+
+    struct DeployRequest {
+        address from;
         address to; // In a deploy request, the to param inidicates an optional logic contract
         uint256 value;
         uint256 gas;

@@ -4,18 +4,17 @@ import ow from 'ow'
 import { EventData } from 'web3-eth-contract'
 import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { toBN, toHex } from 'web3-utils'
+import { toBN } from 'web3-utils'
 
 import { IVerifierInstance, IRelayHubInstance } from '../../types/truffle-contracts'
 
 import ContractInteractor, { TransactionRejectedByRecipient } from '../relayclient/ContractInteractor'
 import { Address, IntString } from '../relayclient/types/Aliases'
-import { RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
+import { DeployTransactionRequest, DeployTransactionRequestShape, RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
 
 import PingResponse from '../common/PingResponse'
 import VersionsManager from '../common/VersionsManager'
 import { AmountRequired } from '../common/AmountRequired'
-import { defaultEnvironment } from '../common/Environments'
 import {
   address2topic,
   calculateTransactionMaxPossibleGas,
@@ -104,11 +103,23 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  validateInputTypes (req: RelayTransactionRequest): void {
-    ow(req, ow.object.exactShape(RelayTransactionRequestShape))
+  isDeployRequest (req: any): boolean {
+    let isDeploy = false
+    if (req.relayRequest.request.recoverer !== undefined) {
+      isDeploy = true
+    }
+    return isDeploy
   }
 
-  validateInput (req: RelayTransactionRequest): void {
+  validateInputTypes (req: RelayTransactionRequest | DeployTransactionRequest): void {
+    if (this.isDeployRequest(req)) {
+      ow(req, ow.object.exactShape(RelayTransactionRequestShape))
+    } else {
+      ow(req, ow.object.exactShape(DeployTransactionRequestShape))
+    }
+  }
+
+  validateInput (req: RelayTransactionRequest | DeployTransactionRequest): void {
     // Check that the relayHub is the correct one
     if (req.metadata.relayHubAddress !== this.relayHubContract.address) {
       throw new Error(
@@ -128,7 +139,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  validateFees (req: RelayTransactionRequest): void {
+  validateFees (req: RelayTransactionRequest | DeployTransactionRequest): void {
     // if trusted verifier, we trust it to handle fee verification
     if (this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
 
@@ -169,7 +180,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest): Promise<{maxPossibleGas: number
+  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number
     acceptanceBudget: number}> {
     if (!this._isTrustedVerifier(verifier)) {
       throw new Error('Invalid verifier')
@@ -217,7 +228,7 @@ export class RelayServer extends EventEmitter {
     return { maxPossibleGas, acceptanceBudget }
   }
 
-  async validateViewCallSucceeds (req: RelayTransactionRequest, maxPossibleGas: number): Promise<void> {
+  async validateViewCallSucceeds (req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
     const method = this.relayHubContract.contract.methods.relayCall(
       req.relayRequest, req.metadata.signature)
     // const gasEstimated = await method.estimateGas({from: this.workerAddress,
@@ -233,7 +244,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async createRelayTransaction (req: RelayTransactionRequest): Promise<PrefixedHexString> {
+  async createRelayTransaction (req: RelayTransactionRequest | DeployTransactionRequest): Promise<PrefixedHexString> {
     log.debug('dump request params', arguments[0])
     if (!this.isReady()) {
       throw new Error('relay not ready')
@@ -255,7 +266,11 @@ export class RelayServer extends EventEmitter {
     // Send relayed transaction
     log.debug('maxPossibleGas is', maxPossibleGas)
     log.debug('acceptanceBudget is', acceptanceBudget) // TODO: Not used, plan to remove
-    const method = this.relayHubContract.contract.methods.relayCall(
+
+    const isDeploy = this.isDeployRequest(req)
+
+    const method = isDeploy ? this.relayHubContract.contract.methods.deployCall(
+      req.relayRequest, req.metadata.signature) : this.relayHubContract.contract.methods.relayCall(
       req.relayRequest, req.metadata.signature)
     const currentBlock = await this.contractInteractor.getBlockNumber()
     const details: SendTransactionDetails =
@@ -412,7 +427,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
 
   async replenishServer (workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
     const transactionHashes: PrefixedHexString[] = []
-    //TODO: Enveloping 2.0 Does not handle balances, we need to find another way to replenish the RelayManager's workers
+    // TODO: Enveloping 2.0 Does not handle balances, we need to find another way to replenish the RelayManager's workers
     // with native cryptocurrency
     return transactionHashes
   }

@@ -8,12 +8,14 @@ import "../factory/ProxyFactory.sol";
 import "./BaseVerifier.sol";
 import "../utils/GsnUtils.sol";
 
+import "../interfaces/IDeployVerifier.sol";
+
 /**
  * A Verifier to be used on deploys.
  * - We maintain the interface but not the functions, mainly to be
  * - GSN compatible
  */
-contract DeployVerifier is BaseVerifier {
+contract DeployVerifier is BaseVerifier, IDeployVerifier {
 
     address private factory;
     uint public override acceptanceBudget;
@@ -30,7 +32,7 @@ contract DeployVerifier is BaseVerifier {
 
     /* solhint-disable no-unused-vars */
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        GsnTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas

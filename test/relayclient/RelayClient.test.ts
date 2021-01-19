@@ -15,7 +15,7 @@ import {
   SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 
-import RelayRequest from '../../src/common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -326,7 +326,7 @@ contract('RelayClient', function (accounts) {
       const senderNonce = await factory.nonce(eoaWithoutSmartWalletAccount.address)
       const chainId = (await getTestingEnvironment()).chainId
 
-      const request: RelayRequest = {
+      const request: DeployRequest = {
         request: {
           from: eoaWithoutSmartWalletAccount.address,
           to: constants.ZERO_ADDRESS,
@@ -344,7 +344,6 @@ contract('RelayClient', function (accounts) {
           relayWorker: constants.ZERO_ADDRESS,
           callForwarder: factory.address,
           callVerifier: verifier.address,
-          isSmartWalletDeploy: true,
           domainSeparator: getDomainSeparatorHash(swAddress, chainId)
         }
       }
@@ -414,7 +413,7 @@ contract('RelayClient', function (accounts) {
       const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
       await token.mint('1000', swAddress)
 
-      //Note: 0x00 is returned by RSK, in Ethereum it is 0x
+      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
       assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
 
       const relayingResult = await relayClient.relayTransaction(deployOptions)

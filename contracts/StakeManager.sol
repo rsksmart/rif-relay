@@ -127,7 +127,7 @@ contract StakeManager is IStakeManager {
         isAmountSufficient &&
         isDelaySufficient &&
         isStakeLocked &&
-        isHubAuthorized);
+        isHubAuthorized, "RelayManager not staked");
     }
 
     /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.

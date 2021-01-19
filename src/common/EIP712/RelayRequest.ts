@@ -1,12 +1,17 @@
 import RelayData from './RelayData'
-import ForwardRequest from './ForwardRequest'
+import { ForwardRequest, DeployRequestStruct } from './ForwardRequest'
 
-export default interface RelayRequest {
+export interface RelayRequest {
   request: ForwardRequest
   relayData: RelayData
 }
 
-export function cloneRelayRequest (relayRequest: RelayRequest): RelayRequest {
+export interface DeployRequest {
+  request: DeployRequestStruct
+  relayData: RelayData
+}
+
+export function cloneRelayRequest (relayRequest: RelayRequest | DeployRequest): RelayRequest|DeployRequest {
   return {
     request: { ...relayRequest.request },
     relayData: { ...relayRequest.relayData }

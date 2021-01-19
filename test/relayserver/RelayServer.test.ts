@@ -109,7 +109,7 @@ contract('RelayServer', function (accounts) {
       it('should fail to relay with unacceptable gasPrice', async function () {
         const wrongGasPrice = isRsk(await getTestingEnvironment()) ? '0.5' : '100'
         const req = await env.createRelayHttpRequest()
-         req.relayRequest.relayData.gasPrice = wrongGasPrice
+        req.relayRequest.relayData.gasPrice = wrongGasPrice
         try {
           env.relayServer.validateInput(req)
           assert.fail()

@@ -148,7 +148,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     }
 
     function relayedUserSmartWalletCreation(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes32 suffixData,
@@ -160,6 +160,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         //61b44766  =>  initialize(address owner,address tokenAddr,bytes32 versionHash,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
+        /* solhint-disable avoid-tx-origin */
         deploy(getCreationBytecode(), keccak256(
             abi.encodePacked(
                 req.from,
@@ -246,7 +247,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     }
 
     function _getEncoded(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 requestTypeHash,
         bytes32 suffixData
     ) public pure returns (bytes memory) {
@@ -277,7 +278,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     }
 
     function _verifySig(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes32 suffixData,
@@ -289,7 +290,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         //Verify Request type
         require(
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
