@@ -133,7 +133,6 @@ export default class CommandsLogic {
     throw Error(`Relay not ready after ${timeout}s`)
   }
 
-
   async registerRelay (options: RegisterOptions): Promise<RegistrationResult> {
     try {
       if (await this.isRelayReady(options.relayUrl)) {

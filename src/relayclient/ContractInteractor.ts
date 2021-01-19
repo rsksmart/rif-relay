@@ -3,7 +3,6 @@ import Web3 from 'web3'
 import { BlockTransactionString } from 'web3-eth'
 import { EventData, PastEventOptions } from 'web3-eth-contract'
 import { PrefixedHexString, TransactionOptions } from 'ethereumjs-tx'
-import { toBN } from 'web3-utils'
 import {
   BlockNumber,
   HttpProvider,
@@ -14,7 +13,7 @@ import {
   WebsocketProvider
 } from 'web3-core'
 
-import RelayRequest from '../common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import verifierAbi from '../common/interfaces/IVerifier.json'
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
@@ -38,7 +37,7 @@ import {
 import { Address, IntString } from './types/Aliases'
 import { GSNConfig } from './GSNConfigurator'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
-import ForwardRequest from '../common/EIP712/ForwardRequest'
+import { ForwardRequest } from '../common/EIP712/ForwardRequest'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
@@ -259,15 +258,9 @@ export default class ContractInteractor {
 
     // First call the verifier
     try {
-      if (relayRequest.relayData.isSmartWalletDeploy) {
-        await this.deployVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
-          from: relayRequest.relayData.relayWorker
-        })
-      } else {
-        await this.relayVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
-          from: relayRequest.relayData.relayWorker
-        })
-      }
+      await this.relayVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
+        from: relayRequest.relayData.relayWorker
+      })
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
@@ -300,6 +293,54 @@ export default class ContractInteractor {
         verifierAccepted: true,
         reverted: true,
         returnValue: `view call to 'relayCall' reverted in client: ${message}`
+      }
+    }
+  }
+
+  async validateAcceptDeployCall (
+    relayRequest: DeployRequest,
+    signature: PrefixedHexString,
+    approvalData: string = '0x'): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
+    const relayHub = this.relayHubInstance
+    const externalGasLimit = await this._getBlockGasLimit()
+
+    // First call the verifier
+    try {
+      await this.deployVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
+        from: relayRequest.relayData.relayWorker
+      })
+    } catch (e) {
+      const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
+      return {
+        verifierAccepted: false,
+        reverted: false,
+        returnValue: `view call to 'deploy call' reverted in verifier: ${message}`
+      }
+    }
+
+    // If the verified passed, try relaying the transaction (in local view call)
+    try {
+      const res = await relayHub.contract.methods.deployCall(
+        relayRequest,
+        signature
+      )
+        .call({
+          from: relayRequest.relayData.relayWorker,
+          gasPrice: relayRequest.relayData.gasPrice,
+          gas: externalGasLimit
+        })
+
+      return {
+        verifierAccepted: true,
+        reverted: false,
+        returnValue: res.returnValue
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
+      return {
+        verifierAccepted: true,
+        reverted: true,
+        returnValue: `view call to 'deployCall' reverted in client: ${message}`
       }
     }
   }

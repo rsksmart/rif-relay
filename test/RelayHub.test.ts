@@ -1,10 +1,9 @@
-import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
-import BN from 'bn.js'
+import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import chai from 'chai'
 
 import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
-import RelayRequest, { cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
-import { isRsk, Environment } from '../src/common/Environments'
+import { RelayRequest, cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
+import { Environment } from '../src/common/Environments'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 
 import {
@@ -24,10 +23,9 @@ import {
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
-import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { keccak } from 'ethereumjs-util'
-const { expect, assert } = chai.use(chaiAsPromised)
+const { assert } = chai.use(chaiAsPromised)
 const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
@@ -35,17 +33,7 @@ const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverything
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, senderAddress, other, dest, incorrectWorker]) { // eslint-disable-line no-unused-vars
-  const RelayCallStatusCodes = {
-    OK: new BN('0'),
-    RelayedCallFailed: new BN('1'),
-    RejectedByPreRelayed: new BN('2'),
-    RejectedByForwarder: new BN('3'),
-    RejectedByRecipientRevert: new BN('4'),
-    PostRelayedFailed: new BN('5'),
-    VerifierBalanceChanged: new BN('6')
-  }
-
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker]) {
   let chainId: number
   let relayHub: string
   let stakeManager: StakeManagerInstance
@@ -97,16 +85,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
         value: '0',
         gas: gasLimit,
         tokenContract: token.address,
-        tokenAmount: '1',
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenAmount: '1'
       },
       relayData: {
         gasPrice,
         relayWorker,
         callForwarder: forwarder,
         callVerifier: verifier,
-        isSmartWalletDeploy: false,
         domainSeparator: getDomainSeparatorHash(forwarder, chainId)
       }
     }
@@ -292,7 +277,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             dataToSign,
             gaslessAccount.privateKey
           )
-
         })
 
         it.only('gas estimation tests for Simple Smart Wallet', async function () {
@@ -304,12 +288,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           const nonceBefore = await sWalletInstance.nonce()
           await token.mint('10000', sWalletInstance.address)
 
-          const completeReq: RelayRequest =  cloneRelayRequest(sharedRelayRequestData)
+          const completeReq: RelayRequest = cloneRelayRequest(sharedRelayRequestData)
           completeReq.request.data = recipientContract.contract.methods.emitMessage2(message).encodeABI()
           completeReq.request.nonce = nonceBefore.toString()
           completeReq.relayData.callForwarder = sWalletInstance.address
           completeReq.relayData.domainSeparator = getDomainSeparatorHash(sWalletInstance.address, chainId)
-    
+
           const reqToSign = new TypedRequestData(
             chainId,
             sWalletInstance.address,
@@ -366,14 +350,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
 
           expectEvent.inLogs(logs, 'TransactionRelayed2')
           const callWithoutRelay = await recipientContract.emitMessage2(message)
-          //const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
+          const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
+          // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
           console.log('--------------- Destination Call Without enveloping------------------------')
-          console.log(`Cummulative Gas Used: ${callWithoutRelay.receipt.cumulativeGasUsed}`)
+          console.log(`Cummulative Gas Used: ${gasUsed}`)
           console.log('---------------------------------------')
           console.log('--------------- Enveloping Overhead ------------------------')
-          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - callWithoutRelay.receipt.cumulativeGasUsed}`)
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
           console.log('---------------------------------------')
-
         })
 
         it('gas estimation tests', async function () {

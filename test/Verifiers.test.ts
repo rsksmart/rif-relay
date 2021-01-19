@@ -11,7 +11,7 @@ import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
 import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
@@ -69,16 +69,13 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
         value: '0',
         gas: gasLimit,
         tokenContract: token.address,
-        tokenAmount: tokensPaid.toString(),
-        recoverer,
-        index
+        tokenAmount: tokensPaid.toString()
       },
       relayData: {
         gasPrice,
         relayWorker,
         callForwarder: constants.ZERO_ADDRESS,
         callVerifier: deployVerifier.address,
-        isSmartWalletDeploy: false,
         domainSeparator: '0x'
       }
     }
@@ -220,16 +217,13 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
         value: '0',
         gas: gasLimit,
         tokenContract: token.address,
-        tokenAmount: tokensPaid.toString(),
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenAmount: tokensPaid.toString()
       },
       relayData: {
         gasPrice,
         relayWorker,
         callForwarder: smartWallet,
         callVerifier: relayVerifier.address,
-        isSmartWalletDeploy: false,
         domainSeparator: getDomainSeparatorHash(smartWallet, chainId)
       }
     }

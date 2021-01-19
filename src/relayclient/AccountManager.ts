@@ -1,6 +1,6 @@
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet'
-import RelayRequest from '../common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import sigUtil from 'eth-sig-util'
 import { getEip712Signature, isSameAddress } from '../common/Utils'
 import { Address } from './types/Aliases'
@@ -8,7 +8,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { GSNConfig } from './GSNConfigurator'
 import { HttpProvider } from 'web3-core'
 import Web3 from 'web3'
-import TypedRequestData from '../common/EIP712/TypedRequestData'
+import TypedRequestData, { TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
 
 require('source-map-support').install({ errorFormatterForce: true })
 export interface AccountKeypair {
@@ -53,13 +53,28 @@ export default class AccountManager {
     return keypair
   }
 
-  async sign (relayRequest: RelayRequest): Promise<PrefixedHexString> {
+  isDeployRequest (req: any): boolean {
+    let isDeploy = false
+    if (req.request.recoverer !== undefined) {
+      isDeploy = true
+    }
+
+    return isDeploy
+  }
+
+  async sign (relayRequest: RelayRequest | DeployRequest): Promise<PrefixedHexString> {
     const cloneRequest = { ...relayRequest }
 
-    const signedData = new TypedRequestData(
+    const isDeploy = this.isDeployRequest(relayRequest)
+
+    const signedData = isDeploy ? new TypedDeployRequestData(
       this.chainId,
       relayRequest.relayData.callForwarder,
-      cloneRequest
+      cloneRequest as DeployRequest
+    ) : new TypedRequestData(
+      this.chainId,
+      relayRequest.relayData.callForwarder,
+      cloneRequest as RelayRequest
     )
 
     const keypair = this.accounts.find(account => isSameAddress(account.address, relayRequest.request.from))
@@ -105,7 +120,7 @@ export default class AccountManager {
     )
   }
 
-  _signWithControlledKey (keypair: AccountKeypair, signedData: TypedRequestData): string {
+  _signWithControlledKey (keypair: AccountKeypair, signedData: TypedRequestData | TypedDeployRequestData): string {
     // @ts-ignore
     return sigUtil.signTypedData_v4(keypair.privateKey, { data: signedData })
   }

@@ -10,7 +10,7 @@ interface ISmartWalletFactory {
 
 
     function relayedUserSmartWalletCreation(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
         bytes32 requestTypeHash,
         bytes32 suffixData,

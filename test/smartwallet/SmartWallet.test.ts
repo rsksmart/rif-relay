@@ -18,7 +18,7 @@ import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, createSimpleProxyFactory, createSimpleSmartWallet } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType, ENVELOPING_PARAMS, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
-import RelayRequest from '../../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -61,17 +61,14 @@ options.forEach(element => {
         nonce: '0',
         data: '0x',
         tokenContract: constants.ZERO_ADDRESS,
-        tokenAmount: '1',
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenAmount: '1'
       },
       relayData: {
         gasPrice: '1',
-        isSmartWalletDeploy: false,
         domainSeparator: '0x',
         relayWorker: constants.ZERO_ADDRESS,
         callForwarder: constants.ZERO_ADDRESS,
-        callVerifier: constants.ZERO_ADDRESS      
+        callVerifier: constants.ZERO_ADDRESS
       }
     }
 

@@ -104,6 +104,12 @@ interface IRelayHub {
     )
     external;
 
+    function deployCall(
+        GsnTypes.DeployRequest calldata deployRequest,
+        bytes calldata signature    )
+    external;
+    
+
     function penalize(address relayWorker, address payable beneficiary) external;
 
     /// The fee is expressed as a base fee in wei plus percentage on actual charge.

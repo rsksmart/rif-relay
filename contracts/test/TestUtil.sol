@@ -9,7 +9,7 @@ import "../utils/GsnUtils.sol";
 contract TestUtil {
 
 
-     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,bool isSmartWalletDeploy,address relayWorker,address callForwarder,address callVerifier)");
+     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)");
 
     /* function libRelayRequestName() public pure returns (string memory) {
         return "RelayRequest";
@@ -91,9 +91,7 @@ contract TestUtil {
             req.request.nonce,
             req.request.data,
             req.request.tokenContract,
-            req.request.tokenAmount,
-            req.request.recoverer,
-            req.request.index
+            req.request.tokenAmount
         );
         suffixData = GsnEip712Library.hashRelayData(req.relayData);
         typeHash = RELAY_REQUEST_TYPEHASH;

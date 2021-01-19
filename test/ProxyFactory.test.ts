@@ -14,9 +14,9 @@ import { ethers } from 'ethers'
 import chai from 'chai'
 import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
-import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { DeployRequestDataType, ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { DeployRequest } from '../src/common/EIP712/RelayRequest'
 
 const keccak256 = web3.utils.keccak256
 
@@ -38,7 +38,7 @@ contract('ProxyFactory', ([from]) => {
 
   let env: Environment
 
-  const request: RelayRequest = {
+  const request: DeployRequest = {
     request: {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
@@ -56,7 +56,6 @@ contract('ProxyFactory', ([from]) => {
       relayWorker: constants.ZERO_ADDRESS,
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS,
-      isSmartWalletDeploy: true,
       domainSeparator: '0x'
     }
   }
@@ -360,7 +359,7 @@ contract('ProxyFactory', ([from]) => {
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -371,7 +370,7 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
@@ -380,7 +379,7 @@ contract('ProxyFactory', ([from]) => {
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
 
       // relayData information
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
@@ -419,7 +418,7 @@ contract('ProxyFactory', ([from]) => {
       token = await TestToken.new()
       await token.mint('200', expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -430,7 +429,7 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
@@ -442,7 +441,7 @@ contract('ProxyFactory', ([from]) => {
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
       const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
       const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
@@ -462,7 +461,7 @@ contract('ProxyFactory', ([from]) => {
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -473,7 +472,7 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
@@ -483,7 +482,7 @@ contract('ProxyFactory', ([from]) => {
 
       req.request.tokenAmount = '9'
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
       await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig))
 
@@ -507,7 +506,7 @@ contract('ProxyFactory', ([from]) => {
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -518,14 +517,14 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
       )
 
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
       const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), typeHash, suffixData, sig)
 
@@ -591,7 +590,7 @@ contract('ProxyFactory', ([from]) => {
         recipientAddress, deployPrice
       ])
 
-      const initFunc = await web3.eth.abi.encodeFunctionCall({
+      const initFunc = web3.eth.abi.encodeFunctionCall({
         name: 'initialize',
         type: 'function',
         inputs: [{
@@ -654,7 +653,7 @@ contract('SimpleProxyFactory', ([from]) => {
   const SimpleProxyFactory = artifacts.require('SimpleProxyFactory')
   let env: Environment
 
-  const request: RelayRequest = {
+  const request: DeployRequest = {
     request: {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
@@ -672,8 +671,7 @@ contract('SimpleProxyFactory', ([from]) => {
       relayWorker: constants.ZERO_ADDRESS,
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS,
-      domainSeparator: '0x',
-      isSmartWalletDeploy: true
+      domainSeparator: '0x'
     }
   }
 

@@ -7,7 +7,6 @@ interface GsnTypes {
     struct RelayData {
         uint256 gasPrice;
         bytes32 domainSeparator;
-        bool isSmartWalletDeploy;
         address relayWorker;
         address callForwarder; // only set if this is a SmartWallet deploy request
         address callVerifier;
@@ -16,6 +15,11 @@ interface GsnTypes {
     //note: must start with the ForwardRequest to be an extension of the generic forwarder
     struct RelayRequest {
         IForwarder.ForwardRequest request;
+        RelayData relayData;
+    }
+
+    struct DeployRequest {
+        IForwarder.DeployRequest request;
         RelayData relayData;
     }
 }

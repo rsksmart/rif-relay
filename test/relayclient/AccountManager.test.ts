@@ -1,7 +1,7 @@
 import AccountManager, { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { defaultEnvironment } from '../../src/common/Environments'
 import { HttpProvider } from 'web3-core'
-import RelayRequest from '../../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import sinon from 'sinon'
 import sigUtil from 'eth-sig-util'
 import { isSameAddress } from '../../src/common/Utils'
@@ -111,16 +111,13 @@ contract('AccountManager', function (accounts) {
         value: '0',
         gas: '1',
         tokenContract: constants.ZERO_ADDRESS,
-        tokenAmount: '0',
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenAmount: '0'
       },
       relayData: {
         gasPrice: '1',
         relayWorker: constants.ZERO_ADDRESS,
         callForwarder: constants.ZERO_ADDRESS,
         callVerifier: constants.ZERO_ADDRESS,
-        isSmartWalletDeploy: false,
         domainSeparator: '0x'
       }
     }

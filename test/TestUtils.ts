@@ -13,7 +13,7 @@ import { defaultEnvironment, Environment, environments } from '../src/common/Env
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { getLocalEip712Signature, sleep } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
-import TypedRequestData, { GsnRequestType, getDomainSeparatorHash, ENVELOPING_PARAMS, ForwardRequestType } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { GsnRequestType, getDomainSeparatorHash, ENVELOPING_PARAMS, TypedDeployRequestData, DeployRequestDataType, DEPLOY_PARAMS } from '../src/common/EIP712/TypedRequestData'
 import { soliditySha3Raw } from 'web3-utils'
 
 // @ts-ignore
@@ -26,7 +26,7 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet'
 import { Address } from '../src/relayclient/types/Aliases'
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -283,11 +283,11 @@ export async function createSimpleProxyFactory (template: IForwarderInstance, ve
 export async function createSimpleSmartWallet (ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SimpleSmartWalletInstance> {
-  const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
+  const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
-  const rReq:RelayRequest = {
+  const rReq: DeployRequest = {
     request: {
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
@@ -303,14 +303,13 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
     relayData: {
       gasPrice: '10',
       domainSeparator: '0x',
-      isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS
     }
   }
 
-  const createdataToSign = new TypedRequestData(
+  const createdataToSign = new TypedDeployRequestData(
     chainId,
     factory.address,
     rReq
@@ -318,7 +317,7 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
 
   const deploySignature = getLocalEip712Signature(createdataToSign, privKey)
   const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
-  const countParams = ForwardRequestType.length
+  const countParams = DeployRequestDataType.length
   const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
 
@@ -334,11 +333,11 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
 export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
-  const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`
+  const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
   const typeHash = web3.utils.keccak256(typeName)
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
-  const rReq:RelayRequest = {
+  const rReq: DeployRequest = {
     request: {
       from: ownerEOA,
       to: logicAddr,
@@ -354,14 +353,13 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
     relayData: {
       gasPrice: '10',
       domainSeparator: '0x',
-      isSmartWalletDeploy: false,
       relayWorker: constants.ZERO_ADDRESS,
       callForwarder: constants.ZERO_ADDRESS,
       callVerifier: constants.ZERO_ADDRESS
     }
   }
 
-  const createdataToSign = new TypedRequestData(
+  const createdataToSign = new TypedDeployRequestData(
     chainId,
     factory.address,
     rReq
@@ -369,7 +367,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
 
   const deploySignature = getLocalEip712Signature(createdataToSign, privKey)
   const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
-  const countParams = ForwardRequestType.length
+  const countParams = DeployRequestDataType.length
   const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
   console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
@@ -446,14 +444,11 @@ export async function prepareTransaction (testRecipient: TestRecipientInstance, 
       value: '0',
       gas: '10000',
       tokenContract: tokenContract,
-      tokenAmount: tokenAmount,
-      recoverer: constants.ZERO_ADDRESS,
-      index: '0'
+      tokenAmount: tokenAmount
     },
     relayData: {
       gasPrice: '1',
       domainSeparator: getDomainSeparatorHash(swallet, chainId),
-      isSmartWalletDeploy: false,
       relayWorker: relayWorker,
       callForwarder: swallet,
       callVerifier: verifier

@@ -14,7 +14,7 @@ import "../utils/GsnEip712Library.sol";
  *  - preRelayedCall
  *  - postRelayedCall
  */
-abstract contract BaseVerifier is IVerifier, Ownable {
+abstract contract BaseVerifier is Ownable {
 
     //overhead of forwarder verify+signature, plus hub overhead.
     uint256 constant public FORWARDER_HUB_OVERHEAD = 50000;

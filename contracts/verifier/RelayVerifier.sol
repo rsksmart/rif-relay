@@ -9,6 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../factory/ProxyFactory.sol";
 import "./BaseVerifier.sol";
 
+import "../interfaces/IVerifier.sol";
+
+
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
 
@@ -19,7 +22,7 @@ import "./BaseVerifier.sol";
  * - preRelayedCall - pre-pay the maximum possible price for the tx
  * - postRelayedCall - refund the caller for the unused gas
  */
-contract RelayVerifier is BaseVerifier{
+contract RelayVerifier is BaseVerifier, IVerifier{
     using SafeMath for uint256;
 
     address private factory;
