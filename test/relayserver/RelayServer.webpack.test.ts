@@ -17,7 +17,7 @@ describe('RelayServer-webpack', () => {
       childProcess.execSync('node ' + oneFileRelayer, { encoding: 'ascii', stdio: 'pipe' })
       assert.fail('should throw')
     } catch (e) {
-      assert.match(e.message.toString(), /missing ethereumNodeUrl/)
+      assert.match(e.message.toString(), /missing rskNodeUrl/)
     }
   })
 

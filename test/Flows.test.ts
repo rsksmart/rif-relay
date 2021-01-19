@@ -77,7 +77,7 @@ options.forEach(params => {
           url: 'asd',
           relayOwner: fundedAccount.address,
           // @ts-ignore
-          ethereumNodeUrl: web3.currentProvider.host,
+          rskNodeUrl: web3.currentProvider.host,
           gasPriceFactor,
           relaylog: process.env.relaylog
         })

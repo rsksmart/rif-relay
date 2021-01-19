@@ -358,7 +358,7 @@ contract('RegistrationManager', function (accounts) {
         assert.equal(workerBalanceBefore.toString(), workerBalanceAfter.toString())
       })
 
-      it('send only workers\' balances to owner (not manager hub,eth balance) - after unstake delay', async function () {
+      it('send only workers\' balances to owner (not manager hub, rbtc balance) - after unstake delay', async function () {
         await env.stakeManager.unauthorizeHubByOwner(newServer.managerAddress, env.relayHub.address, { from: relayOwner })
 
         const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)

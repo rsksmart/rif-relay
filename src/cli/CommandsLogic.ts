@@ -7,7 +7,8 @@ import { merge } from 'lodash'
 // @ts-ignore
 import io from 'console-read-write'
 
-import { ether, sleep } from '../common/Utils'
+import { sleep } from '../common/Utils'
+import { ether } from '@openzeppelin/test-helpers'
 
 // compiled folder populated by "prepublish"
 import StakeManager from './compiled/StakeManager.json'

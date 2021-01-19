@@ -4,7 +4,7 @@
   "port": 8090,
   "relayHubAddress": "0x2F48284b8595345b89413e184BF423Da62958230",
   "gasPriceFactor": 10,
-  "ethereumNodeUrl": "http://rskj:4444",
+  "rskNodeUrl": "http://rskj:4444",
   "devMode": true,
   "logLevel": 1
 }
