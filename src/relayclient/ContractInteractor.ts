@@ -364,15 +364,11 @@ export default class ContractInteractor {
   // eslint-disable-next-line @typescript-eslint/require-await
   async _getPastEvents (contract: any, names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
     const topics: string[][] = []
-
-    let topicsToSubmit: string[] = event2topic(contract, names)
-
+    const eventTopic = event2topic(contract, names)
+    topics.push(eventTopic)
     if (extraTopics.length > 0) {
-      topicsToSubmit = topicsToSubmit.concat(extraTopics)
+      topics.push(extraTopics)
     }
-
-    topics.push(topicsToSubmit)
-
     return contract.getPastEvents('allEvents', Object.assign({}, options, { topics }))
   }
 
