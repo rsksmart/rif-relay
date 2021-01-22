@@ -51,17 +51,15 @@ contract DeployPaymaster is BasePaymaster {
             keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
-        require(!GsnUtils._isContract(contractAddr), "Address already created!");
+        require(!GsnUtils._isContract(contractAddr), "Address already created");
 
         IERC20 token = IERC20(relayRequest.request.tokenContract);
         require(relayRequest.request.tokenAmount <= token.balanceOf(contractAddr), "balance too low");
 
-        //We dont do that here
-        //token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(contractAddr, relayRequest.request.tokenAmount, token), true);
+        return (abi.encode(contractAddr, relayRequest.request.tokenAmount, token), false);
     }
+    
     /* solhint-ensable no-unused-vars */
-
     /* solhint-disable no-empty-blocks */
     function postRelayedCall(
         bytes calldata context,
