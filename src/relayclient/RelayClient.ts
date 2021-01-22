@@ -210,13 +210,14 @@ export class RelayClient {
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
+
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
     const relayingErrors = new Map<string, Error>()
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
-      if (activeRelay != null) {
+      if (activeRelay !== null && activeRelay !== undefined) {
         this.emit(new GsnNextRelayEvent(activeRelay.relayInfo.relayUrl))
         relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails)
           .catch(error => ({ error }))

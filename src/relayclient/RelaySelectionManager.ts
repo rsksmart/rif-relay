@@ -38,16 +38,35 @@ export default class RelaySelectionManager {
    * @returns the first relay to respond to a ping message. Note: will never return the same relay twice.
    */
   async selectNextRelay (): Promise<RelayInfo | undefined> {
-    while (true) {
-      const slice = this._getNextSlice()
-      let relayInfo: RelayInfo | undefined
-      if (slice.length > 0) {
-        relayInfo = await this._nextRelayInternal(slice)
-        if (relayInfo == null) {
-          continue
+    if (this.gsnTransactionDetails.onlyPreferredRelays ?? false) {
+      log.info('Only using preferred relays')
+      let index: number = 0
+
+      while (true) {
+        let relayInfo: RelayInfo | undefined
+        const slice = this._getPreferredRelaysNextSlice(index)
+
+        if (slice.length > 0) {
+          relayInfo = await this._nextRelayInternal(slice)
+          if (relayInfo == null) {
+            index += slice.length
+            continue
+          }
         }
+        return relayInfo
       }
-      return relayInfo
+    } else {
+      while (true) {
+        const slice = this._getNextSlice()
+        let relayInfo: RelayInfo | undefined
+        if (slice.length > 0) {
+          relayInfo = await this._nextRelayInternal(slice)
+          if (relayInfo == null) {
+            continue
+          }
+        }
+        return relayInfo
+      }
     }
   }
 
@@ -99,6 +118,18 @@ export default class RelaySelectionManager {
       return slice
     }
     return []
+  }
+
+  _getPreferredRelaysNextSlice (index: number): RelayInfoUrl[] {
+    if (!this.isInitialized) { throw new Error('init() not called') }
+    let slice: RelayInfoUrl[] = []
+    if (this.remainingRelays[0].length >= index + 1) {
+      const relays = this.remainingRelays[0].slice(index, this.remainingRelays[0].length)
+      const bulkSize = Math.min(this.config.sliceSize, relays.length)
+      slice = relays.slice(0, bulkSize)
+    }
+
+    return slice
   }
 
   /**

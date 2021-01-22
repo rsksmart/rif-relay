@@ -225,7 +225,7 @@ export class RelayProvider implements HttpProvider {
 
   _getTranslatedGsnResponseResult (respResult: BaseTransactionReceipt): BaseTransactionReceipt {
     const fixedTransactionReceipt = Object.assign({}, respResult)
-    if (respResult.logs.length === 0) {
+    if (respResult.logs === null || respResult.logs.length === 0) {
       return fixedTransactionReceipt
     }
     const logs = abiDecoder.decodeLogs(respResult.logs)
