@@ -139,9 +139,8 @@ export default class KnownRelaysManager implements IKnownRelaysManager {
 
   async getRelaysSortedForTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayInfoUrl[][]> {
     const sortedRelays: RelayInfoUrl[][] = []
-    for (let i = 0; i < this.knownRelays.length; i++) {
-      sortedRelays[i] = await this._sortRelaysInternal(gsnTransactionDetails, this.knownRelays[i])
-    }
+    sortedRelays[0] = this.knownRelays[0] ?? []
+    sortedRelays[1] = await this._sortRelaysInternal(gsnTransactionDetails, this.knownRelays[1] ?? [])
     return sortedRelays
   }
 
