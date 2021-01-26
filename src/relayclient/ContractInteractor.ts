@@ -15,6 +15,9 @@ import {
 
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import verifierAbi from '../common/interfaces/IVerifier.json'
+import deployVerifierAbi from '../common/interfaces/IDeployVerifier.json'
+import baseVerifierAbi from '../common/interfaces/IBaseVerifier.json'
+
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import forwarderAbi from '../common/interfaces/IForwarder.json'
 import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
@@ -31,7 +34,7 @@ import {
   IVerifierInstance,
   IRelayHubInstance,
   BaseRelayRecipientInstance,
-  IStakeManagerInstance, ISmartWalletFactoryInstance
+  IStakeManagerInstance, ISmartWalletFactoryInstance, IDeployVerifierInstance, IBaseVerifierInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from './types/Aliases'
@@ -70,6 +73,9 @@ export default class ContractInteractor {
   private readonly VERSION = '2.0.1'
 
   private readonly IVerifierContract: Contract<IVerifierInstance>
+  private readonly IDeployVerifierContract: Contract<IDeployVerifierInstance>
+  private readonly IBaseVerifierContract: Contract<IBaseVerifierInstance>
+
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
@@ -77,7 +83,7 @@ export default class ContractInteractor {
   private readonly IProxyFactoryContract: Contract<ISmartWalletFactoryInstance>
 
   private relayVerifierInstance!: IVerifierInstance
-  private deployVerifierInstance!: IVerifierInstance
+  private deployVerifierInstance!: IDeployVerifierInstance
 
   relayHubInstance!: IRelayHubInstance
   private stakeManagerInstance!: IStakeManagerInstance
@@ -101,8 +107,18 @@ export default class ContractInteractor {
     this.provider = provider
     // @ts-ignore
     this.IVerifierContract = TruffleContract({
-      contractName: 'Verifier',
+      contractName: 'IVerifier',
       abi: verifierAbi
+    })
+    // @ts-ignore
+    this.IDeployVerifierContract = TruffleContract({
+      contractName: 'IDeployVerifier',
+      abi: deployVerifierAbi
+    })
+    // @ts-ignore
+    this.IBaseVerifierContract = TruffleContract({
+      contractName: 'IBaseVerifier',
+      abi: baseVerifierAbi
     })
     // @ts-ignore
     this.IRelayHubContract = TruffleContract({
@@ -132,6 +148,8 @@ export default class ContractInteractor {
     this.IStakeManager.setProvider(this.provider, undefined)
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IVerifierContract.setProvider(this.provider, undefined)
+    this.IDeployVerifierContract.setProvider(this.provider, undefined)
+    this.IBaseVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
     this.IProxyFactoryContract.setProvider(this.provider, undefined)
@@ -189,10 +207,10 @@ export default class ContractInteractor {
       this.stakeManagerInstance = await this._createStakeManager(hubStakeManagerAddress)
     }
     if (this.config.relayVerifierAddress !== constants.ZERO_ADDRESS) {
-      this.relayVerifierInstance = await this._createVerifier(this.config.relayVerifierAddress)
+      this.relayVerifierInstance = await this._createRelayVerifier(this.config.relayVerifierAddress)
     }
     if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
-      this.deployVerifierInstance = await this._createVerifier(this.config.deployVerifierAddress)
+      this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
     }
   }
 
@@ -212,8 +230,16 @@ export default class ContractInteractor {
     return this.knowForwarderAddressInstance
   }
 
-  async _createVerifier (address: Address): Promise<IVerifierInstance> {
+  async _createRelayVerifier (address: Address): Promise<IVerifierInstance> {
     return await this.IVerifierContract.at(address)
+  }
+
+  async _createDeployVerifier (address: Address): Promise<IDeployVerifierInstance> {
+    return await this.IDeployVerifierContract.at(address)
+  }
+
+  async _createBaseVerifier (address: Address): Promise<IBaseVerifierInstance> {
+    return await this.IBaseVerifierContract.at(address)
   }
 
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {

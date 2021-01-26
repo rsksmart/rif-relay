@@ -252,9 +252,9 @@ export class RelayProvider implements HttpProvider {
     const logs = abiDecoder.decodeLogs(respResult.logs)
     const recipientRejectedEvents = logs.find((e: any) => e != null && e.name === 'TransactionRelayedButRevertedByRecipient')
 
-    if (recipientRejectedEvents !== null && recipientRejectedEvents !== undefined) {
+    if (recipientRejectedEvents !== undefined && recipientRejectedEvents !== null) {
       const recipientRejectionReason: { value: string } = recipientRejectedEvents.events.find((e: any) => e.name === 'reason')
-      if (recipientRejectionReason !== undefined) {
+      if (recipientRejectionReason !== undefined && recipientRejectionReason !== null) {
         log.info(`Recipient rejected on-chain: ${recipientRejectionReason.value}. changing status to zero`)
         fixedTransactionReceipt.status = '0'
       }
@@ -262,9 +262,9 @@ export class RelayProvider implements HttpProvider {
     }
 
     const transactionRelayed = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
-    if (transactionRelayed != null) {
+    if (transactionRelayed !== undefined && transactionRelayed !== null) {
       const transactionRelayedStatus = transactionRelayed.events.find((e: any) => e.name === 'status')
-      if (transactionRelayedStatus !== undefined) { // status was removed
+      if (transactionRelayedStatus !== undefined && transactionRelayedStatus !== null) { // status was removed
         const status: string = transactionRelayedStatus.value.toString()
         // 0 signifies success
         if (status !== '0') {

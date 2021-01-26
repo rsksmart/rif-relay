@@ -312,7 +312,7 @@ export class RegistrationManager {
       this.stakeRequired.isSatisfied &&
       this.balanceRequired.isSatisfied
     if (!allPrerequisitesOk) {
-      log.info('Not all prerequisites for registration are met, registration cancelled')
+      log.info('Not all prerequisites for registration are met yet. Registration attempt cancelled')
       return []
     }
 

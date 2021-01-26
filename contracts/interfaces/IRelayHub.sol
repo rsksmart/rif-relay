@@ -26,22 +26,15 @@ interface IRelayHub {
     // indicated in the status field.
     // Useful when monitoring a relay's operation and relayed calls to a contract.
     // Charge is the ether value deducted from the recipient's balance, paid to the relay's manager.
-    event TransactionRelayed(
-        address  relayManager,
-        address  relayWorker,
-        address  from,
-        address to,
-        bytes4 selector,
-        uint256 charge);
 
-  event TransactionRelayed2(
-        address  relayManager,
-        address  relayWorker,
+  event TransactionRelayed(
+        address indexed relayManager,
+        address relayWorker,
         bytes32 relayRequestHash);
 
-
+        
     event TransactionRelayedButRevertedByRecipient(
-        address  relayManager,
+        address indexed relayManager,
         address  relayWorker,
         address  from,
         address to,
@@ -54,12 +47,6 @@ interface IRelayHub {
         bytes returnValue
     );
 
-    event SWDeployRelayed(
-        address  relayManager,
-        address  relayWorker,
-        address  owner,
-        address  factory,
-        uint256 charge);
 
     event Penalized(
         address indexed relayWorker,

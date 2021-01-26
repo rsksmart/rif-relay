@@ -18,10 +18,11 @@ export default class HttpClient {
   async getPingResponse (relayUrl: string, verifier?: string): Promise<PingResponse> {
     const verifierSuffix = verifier == null ? '' : '?verifier=' + verifier
     const pingResponse: PingResponse = await this.httpWrapper.sendPromise(relayUrl + '/getaddr' + verifierSuffix)
-    log.info('error, body', pingResponse)
     if (pingResponse == null) {
       throw new Error('Relay responded without a body')
     }
+    log.info(`pingResponse: ${JSON.stringify(pingResponse)}`)
+
     return pingResponse
   }
 

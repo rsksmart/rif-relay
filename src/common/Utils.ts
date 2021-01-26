@@ -29,14 +29,13 @@ export function padTo64 (hex: string): string {
   return hex
 }
 
-export function event2topic (contract: any, names: string[]): string[] {
+export function event2topic (contract: any, names: string[]): any {
   // for testing: don't crash on mockup..
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!contract.options || !contract.options.jsonInterface) { return names }
-  /* if (typeof names === 'string') {
+  if (typeof names === 'string') {
     return event2topic(contract, [names])[0]
-  } */
-
+  }
   return contract.options.jsonInterface
     .filter((e: any) => names.includes(e.name))
     // @ts-ignore

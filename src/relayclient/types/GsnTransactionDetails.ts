@@ -37,5 +37,8 @@ export default interface GsnTransactionDetails {
    */
   readonly forceGasPrice?: PrefixedHexString
 
+  /**
+   * Use this to force the RelayClient to use only the preferred relays when searching for a suitable relay server
+   */
   readonly onlyPreferredRelays?: boolean
 }

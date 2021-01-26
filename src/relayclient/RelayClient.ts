@@ -214,11 +214,11 @@ export class RelayClient {
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
-      if (activeRelay !== null && activeRelay !== undefined) {
+      if (activeRelay !== undefined && activeRelay !== null) {
         this.emit(new GsnNextRelayEvent(activeRelay.relayInfo.relayUrl))
         relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails)
           .catch(error => ({ error }))
-        if (relayingAttempt.transaction == null) {
+        if (relayingAttempt.transaction === undefined || relayingAttempt.transaction === null) {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
           continue
         }

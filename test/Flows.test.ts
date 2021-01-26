@@ -12,7 +12,7 @@ import {
   TestRecipientInstance,
   SmartWalletInstance,
   ProxyFactoryInstance,
-  TestTokenRecipientInstance
+  TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
@@ -22,6 +22,7 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
+const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeployVerifierEverythingAccepted')
 const TestVerifierPreconfiguredApproval = artifacts.require('tests/TestVerifierPreconfiguredApproval')
 
 const StakeManager = artifacts.require('StakeManager')
@@ -44,6 +45,7 @@ options.forEach(params => {
     let from: Address
     let sr: TestRecipientInstance
     let verifier: TestVerifierEverythingAcceptedInstance
+    let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
     let rhub: RelayHubInstance
     let sm: StakeManagerInstance
     let relayproc: ChildProcessWithoutNullStreams
@@ -69,9 +71,12 @@ options.forEach(params => {
       sm = await StakeManager.new()
       const p = await Penalizer.new()
       verifier = await TestVerifierEverythingAccepted.new()
+      deployVerifier = await TestDeployVerifierEverythingAccepted.new()
 
       rhub = await deployHub(sm.address, p.address)
       if (params.relay) {
+        process.env.relaylog = 'true'
+
         relayproc = await startRelay(rhub.address, sm, {
           stake: 1e18,
           delay: 3600 * 24 * 7,
@@ -83,7 +88,7 @@ options.forEach(params => {
           gasPriceFactor,
           relaylog: process.env.relaylog,
           relayVerifierAddress: verifier.address,
-          deployVerifierAddress: verifier.address,
+          deployVerifierAddress: deployVerifier.address,
           trustedVerifiers: JSON.stringify([approvalVerifier.address]) // extra verifiers to trust
         })
         console.log('relay started')
@@ -108,7 +113,7 @@ options.forEach(params => {
           logLevel: 5,
           relayHubAddress: rhub.address,
           relayVerifierAddress: verifier.address,
-          deployVerifierAddress: verifier.address,
+          deployVerifierAddress: deployVerifier.address,
           chainId: env.chainId,
           forwarderAddress: smartWalletInstance.address
         }
@@ -189,7 +194,7 @@ options.forEach(params => {
           // @ts-ignore
           relayProvider = new RelayProvider(web3.currentProvider, Object.assign(relayClientConfig, {
             relayVerifierAddress: approvalVerifier.address,
-            deployVerifierAddress: approvalVerifier.address
+            deployVerifierAddress: deployVerifier.address
           }), { asyncApprovalData })
 
           TestRecipient.web3.setProvider(relayProvider)

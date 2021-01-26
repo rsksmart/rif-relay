@@ -4,6 +4,8 @@ import { TransactionReceipt } from 'web3-core'
 import { toBN } from 'web3-utils'
 
 import VerifierABI from '../../src/common/interfaces/IVerifier.json'
+import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
+
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
 import { RelayServer } from '../../src/relayserver/RelayServer'
@@ -11,14 +13,19 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
+const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(StakeManagerABI)
 abiDecoder.addABI(VerifierABI)
+abiDecoder.addABI(DeployVerifierABI)
+
 // @ts-ignore
 abiDecoder.addABI(TestRecipient.abi)
 // @ts-ignore
 abiDecoder.addABI(TestVerifierEverythingAccepted.abi)
+// @ts-ignore
+abiDecoder.addABI(TestDeployVerifierEverythingAccepted.abi)
 
 async function resolveAllReceipts (transactionHashes: PrefixedHexString[]): Promise<TransactionReceipt[]> {
   // actually returns promise for '.all'

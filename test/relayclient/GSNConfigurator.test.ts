@@ -41,9 +41,9 @@ contract('client-configuration', () => {
         // since resolveConfigurationGSN creates its own ContractInteractor, we have to hook the class to modify the version
         // after it is created...
 
-        const saveCPM = ContractInteractor.prototype._createVerifier
+        const saveCPM = ContractInteractor.prototype._createBaseVerifier
         try {
-          ContractInteractor.prototype._createVerifier = async function (addr) {
+          ContractInteractor.prototype._createBaseVerifier = async function (addr) {
             (this as any).versionManager.componentVersion = '1.0.0-old-client'
             console.log('hooked _createVerifier with version')
             return await saveCPM.call(this, addr)
@@ -52,7 +52,7 @@ contract('client-configuration', () => {
           await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayVerifierAddress, deployVerifierAddress }))
             .to.eventually.rejectedWith(/Provided.*version.*is not supported/)
         } finally {
-          ContractInteractor.prototype._createVerifier = saveCPM
+          ContractInteractor.prototype._createBaseVerifier = saveCPM
         }
       })
     })

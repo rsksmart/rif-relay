@@ -70,6 +70,18 @@ export default class RelaySelectionManager {
     }
   }
 
+  _getPreferredRelaysNextSlice (index: number): RelayInfoUrl[] {
+    if (!this.isInitialized) { throw new Error('init() not called') }
+    let slice: RelayInfoUrl[] = []
+    if (this.remainingRelays[0].length >= index + 1) {
+      const relays = this.remainingRelays[0].slice(index, this.remainingRelays[0].length)
+      const bulkSize = Math.min(this.config.sliceSize, relays.length)
+      slice = relays.slice(0, bulkSize)
+    }
+
+    return slice
+  }
+
   async _nextRelayInternal (relays: RelayInfoUrl[]): Promise<RelayInfo | undefined> {
     log.info('nextRelay: find fastest relay from: ' + JSON.stringify(relays))
     const raceResult = await this._raceToSuccess(relays)
