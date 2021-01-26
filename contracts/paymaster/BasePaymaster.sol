@@ -82,4 +82,14 @@ abstract contract BasePaymaster is IPaymaster, Ownable {
     function withdrawRelayHubDepositTo(uint amount, address payable target) public onlyOwner {
         relayHub.withdraw(amount, target);
     }
+
+    // V1 ONLY: Support for destructable contracts
+    // For v1 deployment only to support kill, pause and unpause behavior
+    // This functionality is temporary and will be removed in v2
+    /*
+    function kill(address payable recipient) external onlyOwner {
+        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
+        selfdestruct(recipient);
+    }
+    */
 }
