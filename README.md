@@ -1,6 +1,6 @@
-# RSK Enveloping
+# RIF Enveloping
 
-System for users to pay for transactions in ERC-20 tokens.
+Secure sponsored transaction system to enable users to pay fees using ERC-20 tokens.
 
 [![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 
@@ -21,22 +21,32 @@ System for users to pay for transactions in ERC-20 tokens.
 7. [Troubleshooting](#c07)<br>
   7.1 [Running on macOS](#c07.1)<br>
   7.2 [Common errors when testing](#c07.2)
-8. [Gas Station Network](#c08)
 
 ## 1. Description <a id="c01"></a>
 
+The following information discribes the version 1 of RIF Enveloping. This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
 
-The main objective of the Enveloping System is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to transact without RBTC.
+RIF Enveloping expands the GSN capabilities and security model while reducing gas costs by:
+
+- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
+- Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
+- Reducing gas costs by optimizing the existing GSN architecture.
+
+Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, removing the need get RBTC.
+
+The RIF Enveloping team is working on a new architecture to further reduce gas costs while simplifying the entire design of the solution. This changes will be part of the upcoming version 2.
+
+It is important to mention that in version 1 the contracts deployed on Mainnet have as security measure **kill()**, **pause()** and **unpause()** functions and limits to the amount of RBTC that can be staked. These functions and limits will be removed in the upcoming version 2.
 
 ## 2. Technical Overview <a id="c02"></a>
 
-The system is designed to achieve deployments at low cost. The cost of the relay provided by "sponsors" is agreed among the parties off-chain. The low cost of transactions on RSK contributes to keeping overall service costs low as well.
+The system is designed to achieve deployments and transaction sponsorship at low cost. The cost of the relay service provided by "sponsors" is agreed among the parties off-chain. The low cost of transactions on RSK contributes to keeping overall service costs low as well.
 
-The core enveloping architecture is defined by the following components:
+The core Enveloping architecture is defined by the following components:
 
 - **Relay Request** - a structure that wraps the transaction sent by an end-user including the required data for the relay (e.g. address of the payer, address of the original requester, token payment data).
 - **Relay Hub** - a core contract on the blockchain which serves as the interface for the on-chain system. It manages the balances of the accounts involved and forwards Relay Requests to the rest of the contracts. 
-- **Paymaster** - an abstract contract that authorizes a specific relay request.
+- **Paymaster** - an abstract contract that verifies relay requests. It also collects the payments in tokens from the users of the service.
 - **Smart Wallet** - a contract that verifies forwarded data and invokes the receipient contract of the transaction. The smart wallet is created *counterfactually* at the moment it is needed. This happens, for instance, when a user with some token balances wants to move those tokens without spending gas, i.e. using the enveloping system.
 - **Relay Server** - a relay service daemon, running as a  HTTP service.  Advertises itself (through the RelayHub) and waits for client requests.
 - **Relay Client** - a typescript library for a client to access the blockchain through a relay. Provides APIs to find a good relay, and to send transactions through it. The library hooks the local web3, so that any loade. Id contract API will go through the relay.
@@ -53,7 +63,7 @@ The core enveloping architecture is defined by the following components:
 | [ProxyFactory](https://explorer.testnet.rsk.co/address/0x73890478E6D9Cf789Bc582A1e5F95769672e4a06)    | 0x73890478E6D9Cf789Bc582A1e5F95769672e4a06 |
 | [DeployPaymaster](https://explorer.testnet.rsk.co/address/0x690c8A864487C586dfbB63d2AAe9aF2a55A30336) | 0x690C8A864487c586DFBB63d2aae9aF2A55A30336 |
 | [RelayPaymaster](https://explorer.testnet.rsk.co/address/0xb4a86E32b39f86b203220D559A78ac68a0144b34)  | 0xb4A86E32B39f86b203220D559A78AC68A0144B34 |
-| [TRIF ](https://explorer.testnet.rsk.co/address/0x19f64674d8a5b4e652319f5e239efd3bc969a1fe)  | 0x19f64674D8a5b4e652319F5e239EFd3bc969a1FE |
+| [Token RIF ](https://explorer.testnet.rsk.co/address/0x19f64674d8a5b4e652319f5e239efd3bc969a1fe)  | 0x19f64674D8a5b4e652319F5e239EFd3bc969a1FE |
 
 ## 3. Building project <a id="c03"></a>
 
@@ -138,7 +148,6 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 6. Once both addresses have been funded, run `node dist/src/cli/commands/gsn.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds 1e17 --stake 3e17 --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
 7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
-
 ## 5. Use MetaCoin <a id="c05"></a>
 
 Mint and send tokens without requiring RBTC for gas. Works on Regtest. 
@@ -164,13 +173,11 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
-
 ### 7.2. Common errors when testing <a id="c07.2"></a>
 
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
 
 Ensure that you are in the project's root directory and that the test's name has no typos
-
 
 #### Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
 
@@ -179,11 +186,3 @@ Stop the running node and delete the db used by the node.
 #### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-## 8. Gas Station Network <a id="c08"></a>
-
-This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
-- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
-- Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
-
-Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
