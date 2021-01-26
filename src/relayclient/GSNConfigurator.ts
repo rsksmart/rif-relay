@@ -22,7 +22,7 @@ const defaultGsnConfig: GSNConfig = {
   preferredRelays: [],
   relayLookupWindowBlocks: DEFAULT_LOOKUP_WINDOW_BLOCKS,
   gasPriceFactorPercent: GAS_PRICE_PERCENT,
-  minGasPrice: 0,
+  minGasPrice: 1e09,
   maxRelayNonceGap: MAX_RELAY_NONCE_GAP,
   sliceSize: 3,
   relayTimeoutGrace: DEFAULT_RELAY_TIMEOUT_GRACE_SEC,

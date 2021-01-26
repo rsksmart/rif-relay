@@ -64,7 +64,7 @@ export class RelayServer extends EventEmitter {
 
   workerBalanceRequired: AmountRequired
 
-  private replenishStrategy?: (workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>
+  private replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>
 
   constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies) {
     super()
@@ -345,9 +345,11 @@ export class RelayServer extends EventEmitter {
       return
     }
     this._workerSemaphoreOn = true
+
     await this._worker(blockNumber)
       .then((transactions) => {
         this.lastSuccessfulRounds++
+
         if (transactions.length !== 0) {
           log.debug(`Done handling block #${blockNumber}. Created ${transactions.length} transactions.`)
         }
@@ -383,7 +385,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async init (replenishStrategy?: (workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): Promise<void> {
+  async init (replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): Promise<void> {
     if (this.initialized) {
       throw new Error('_init was already called')
     }
@@ -444,8 +446,9 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     const transactionHashes: PrefixedHexString[] = []
     // Custom rebalancing logic to fund workers with native crypto currency can be added here
     if (this.replenishStrategy !== undefined) {
-      return await this.replenishStrategy(workerIndex, currentBlock)
+      return await this.replenishStrategy(this, workerIndex, currentBlock)
     }
+
     return transactionHashes
   }
 

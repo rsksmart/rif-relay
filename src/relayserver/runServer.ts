@@ -67,7 +67,7 @@ async function run (): Promise<void> {
 
   const relayServer = new RelayServer(config, dependencies)
 
-  const replenishFunction: (workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]> = async (workerIndex: number, currentBlock: number) => {
+  const replenishFunction: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]> = async (relayServer: RelayServer, workerIndex: number, currentBlock: number) => {
     const transactionHashes: PrefixedHexString[] = []
     let managerEthBalance = await relayServer.getManagerBalance()
     relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)

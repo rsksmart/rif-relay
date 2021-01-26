@@ -95,7 +95,7 @@ const serverDefaultConfiguration: ServerConfigParams = {
   retryGasPriceFactor: 1.2,
   defaultGasLimit: 500000,
   maxGasPrice: 100e9.toString(),
-  estimateGasFactor: 1.5
+  estimateGasFactor: 1.2
 }
 
 const ConfigParamsTypes = {
