@@ -11,7 +11,7 @@ import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
-import { TestRecipientInstance, TestVerifierConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
+import { TestDeployVerifierConfigurableMisbehaviorInstance, TestRecipientInstance, TestVerifierConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
@@ -25,6 +25,8 @@ import { ServerAction } from '../../src/relayserver/StoredTransaction'
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
+const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
+
 const revertReasonSupported = false
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
@@ -136,7 +138,7 @@ contract('RelayServer', function (accounts) {
     describe('#validateFees()', function () {
       describe('with trusted forwarder', function () {
         before(async function () {
-          await env.relayServer._initTrustedVerifiers([env.verifier.address])
+          await env.relayServer._initTrustedVerifiers([env.relayVerifier.address, env.deployVerifier.address])
         })
 
         after(async function () {
@@ -145,7 +147,8 @@ contract('RelayServer', function (accounts) {
 
         it('#_itTrustedForwarder', function () {
           assert.isFalse(env.relayServer._isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.verifier.address), 'identify trusted verifier')
+          assert.isTrue(env.relayServer._isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
+          assert.isTrue(env.relayServer._isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
         })
       })
 
@@ -155,6 +158,9 @@ contract('RelayServer', function (accounts) {
           const latestBlock = (await env.web3.eth.getBlock('latest')).number
           await env.relayServer._worker(latestBlock)
           const signer = env.relayServer.workerAddress
+
+          console.log(`THE BALANCE OF THE WORKER ${signer} is`)
+          console.log(await web3.eth.getBalance(signer))
           await env.relayServer.transactionManager.sendTransaction({
             signer,
             serverAction: ServerAction.VALUE_TRANSFER,
@@ -225,7 +231,7 @@ contract('RelayServer', function (accounts) {
           assert.fail()
         } catch (e) {
           if (revertReasonSupported) {
-            assert.include(e.message, 'Verifier rejected in server: signature mismatch')
+            assert.include(e.message, 'signature mismatch')
           } else {
             assert.include(e.message, 'relayCall (local call) reverted in server: Returned error: VM execution error: transaction reverted')
           }
@@ -315,18 +321,19 @@ contract('RelayServer', function (accounts) {
         value: toHex((await relayServer.getManagerBalance()).sub(txCost))
       })
       assert.equal((await relayServer.getManagerBalance()).toString(), '0')
-      await env.web3.eth.sendTransaction(
-        { from: accounts[0], to: relayServer.managerAddress, value: relayServer.config.managerTargetBalance - 1e7, gasPrice: 1 })
-      const managerEthBalanceBefore = await relayServer.getManagerBalance()
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)
       const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(workerBalanceBefore)
-      assert.isTrue(managerEthBalanceBefore.lt(toBN(relayServer.config.managerTargetBalance.toString())),
-        'manager eth balance should be lower than target to withdraw hub balance')
+
+      await env.web3.eth.sendTransaction(
+        { from: accounts[0], to: relayServer.managerAddress, value: toBN(relayServer.config.managerTargetBalance).add(refill), gasPrice: 1 })
+      const managerEthBalanceBefore = await relayServer.getManagerBalance()
+      assert.isTrue(managerEthBalanceBefore.gt(toBN(relayServer.config.managerTargetBalance.toString())),
+        'manager eth balance should be greater than target')
       const receipts = await relayServer.replenishServer(workerIndex, 0)
       const totalTxCosts = await getTotalTxCosts(receipts, await env.web3.eth.getGasPrice())
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
       assert.isTrue(workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
-        `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
+        `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()})`)
       const managerEthBalanceAfter = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceAfter.eq(managerEthBalanceBefore.sub(refill).sub(totalTxCosts)),
         'manager eth balance should increase by hub balance minus txs costs')
@@ -449,6 +456,7 @@ contract('RelayServer', function (accounts) {
           return []
         }
         const latestBlock = await env.web3.eth.getBlock('latest')
+        // eslint-disable-next-line
         relayServer._workerSemaphore(latestBlock.number)
         assert.isTrue(relayServer._workerSemaphoreOn, '_workerSemaphoreOn should be true after')
         shouldRun = false
@@ -464,6 +472,7 @@ contract('RelayServer', function (accounts) {
     const alertedBlockDelay = 100
     const refreshStateTimeoutBlocks = 1
     let rejectingVerifier: TestVerifierConfigurableMisbehaviorInstance
+    let rejectingDeployVerifier: TestDeployVerifierConfigurableMisbehaviorInstance
     let newServer: RelayServer
     const TestRecipient = artifacts.require('TestRecipient')
     let recipient: TestRecipientInstance
@@ -471,13 +480,14 @@ contract('RelayServer', function (accounts) {
     beforeEach('should enter an alerted state for a configured blocks delay after verifier rejecting an on-chain tx', async function () {
       id = (await snapshot()).result
       rejectingVerifier = await TestVerifierConfigurableMisbehavior.new()
+      rejectingDeployVerifier = await TestDeployVerifierConfigurableMisbehavior.new()
       recipient = await TestRecipient.new()
 
       await env.newServerInstance({
         alertedBlockDelay,
         refreshStateTimeoutBlocks,
         relayVerifierAddress: rejectingVerifier.address,
-        deployVerifierAddress: rejectingVerifier.address
+        deployVerifierAddress: rejectingDeployVerifier.address
       })
       newServer = env.relayServer
       await attackTheServer(newServer)
@@ -490,11 +500,11 @@ contract('RelayServer', function (accounts) {
     async function attackTheServer (server: RelayServer): Promise<void> {
       const _sendTransactionOrig = server.transactionManager.sendTransaction
 
-      server.transactionManager.sendTransaction = async function ({ signer, method, destination, value = '0x', gasLimit, gasPrice }: SendTransactionDetails): Promise<SignedTransactionDetails> {
+      server.transactionManager.sendTransaction = async function ({ signer, method, destination, value = '0x', gasLimit, gasPrice, creationBlockNumber, serverAction }: SendTransactionDetails): Promise<SignedTransactionDetails> {
         await recipient.setNextRevert()
-        // @ts-ignore
-        return (await _sendTransactionOrig.call(server.transactionManager, ...arguments))
+        return (await _sendTransactionOrig.call(server.transactionManager, { signer, method, destination, value, gasLimit, gasPrice, creationBlockNumber, serverAction }))
       }
+
       const req = await env.createRelayHttpRequest({
         callVerifier: rejectingVerifier.address,
         to: recipient.address,
@@ -502,8 +512,8 @@ contract('RelayServer', function (accounts) {
       })
 
       await env.relayServer.createRelayTransaction(req)
-      // await relayTransaction(relayTransactionParams2, options2, { verifier: rejectingVerifier.address }, false)
       const currentBlock = await env.web3.eth.getBlock('latest')
+
       await server._worker(currentBlock.number)
       assert.isTrue(server.alerted, 'server not alerted')
       assert.equal(server.alertedBlock, currentBlock.number, 'server alerted block incorrect')

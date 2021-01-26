@@ -3,8 +3,9 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "./GsnTypes.sol";
+import "./IBaseVerifier.sol";
 
-interface IVerifier {
+interface IVerifier is IBaseVerifier {
 
 
     /**
@@ -68,8 +69,4 @@ interface IVerifier {
         GsnTypes.RelayData calldata relayData
     ) external;
 
-    function versionVerifier() external view returns (string memory);
-
-
-    function acceptanceBudget() external view returns (uint256);
 }

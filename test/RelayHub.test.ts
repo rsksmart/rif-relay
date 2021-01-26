@@ -48,6 +48,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   let gaslessAccount: AccountKeypair
   const gasLimit = '1000000'
   const gasPrice = '1'
+  const parametersGasOverhead = BigInt(40921)
   let sharedRelayRequestData: RelayRequest
   let env: Environment
   let token: TestTokenInstance
@@ -278,7 +279,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           )
         })
 
-        it.only('gas estimation tests for Simple Smart Wallet', async function () {
+        it('gas estimation tests for Simple Smart Wallet', async function () {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -347,7 +348,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
           web3.eth.abi.encodeParameter('string', 'emitMessage return value')
 
-          expectEvent.inLogs(logs, 'TransactionRelayed2')
+          expectEvent.inLogs(logs, 'TransactionRelayed')
           const callWithoutRelay = await recipientContract.emitMessage2(message)
           const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
           // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
@@ -394,6 +395,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gas,
             gasPrice
           })
+
           const nonceAfter = await forwarderInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
 
@@ -426,27 +428,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }
           }
 
-          // const trxRespo = await recipientContract.emitMessage2.sendTransaction(message, {
-          // from: relayWorker,
-          // gas,
-          // gasPrice
-          // })
-
-          // console.log("ORIGINAL CALL")
-          // console.log(trxRespo)
-          // const txReceipt2 = await web3.eth.getTransactionReceipt(trxRespo)
-
-          // console.log(txReceipt2)
+          expectEvent.inLogs(logs, 'TransactionRelayed')
 
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message,
             msgSender: forwarder,
             origin: relayWorker
           })
-
-          web3.eth.abi.encodeParameter('string', 'emitMessage return value')
-
-          expectEvent.inLogs(logs, 'TransactionRelayed')
         })
 
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
@@ -543,13 +531,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
         it('should not accept relay requests if passed gas is too low for a relayed transaction', async function () {
           const gasOverhead = (await relayHubInstance.gasOverhead()).toNumber()
-          const gasAlreadyUsedBeforeDoingAnythingInRelayCall = BigInt(43782)// Just by calling and sending the parameters
+          const gasAlreadyUsedBeforeDoingAnythingInRelayCall = parametersGasOverhead// Just by calling and sending the parameters
           const gasToSend = gasAlreadyUsedBeforeDoingAnythingInRelayCall + BigInt(gasOverhead) + BigInt(relayRequestMisbehavingVerifier.request.gas)
           await expectRevert.unspecified(
             relayHubInstance.relayCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gasPrice,
-              gas: (gasToSend - BigInt(1000)).toString()
+              gas: (gasToSend - BigInt(10000)).toString()
             }),
             'Not enough gas left')
         })

@@ -13,7 +13,9 @@ import { ether, sleep } from '../common/Utils'
 import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
-import Verifier from './compiled/TestVerifierEverythingAccepted.json'
+import DeployVerifier from './compiled/TestDeployVerifierEverythingAccepted.json'
+import RelayVerifier from './compiled/TestVerifierEverythingAccepted.json'
+
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
 import SimpleSmartWallet from './compiled/SimpleSmartWallet.json'
@@ -91,7 +93,7 @@ export default class CommandsLogic {
     this.web3 = new Web3(provider)
   }
 
-  async findWealthyAccount (requiredBalance = ether('0.001')): Promise<string> {
+  async findWealthyAccount (requiredBalance = ether('2')): Promise<string> {
     let accounts: string[] = []
     try {
       accounts = await this.web3.eth.getAccounts()
@@ -250,8 +252,8 @@ export default class CommandsLogic {
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    const deployVerifierInstance = await this.getContractInstance(Verifier, {}, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const relayVerifierInstance = await this.getContractInstance(Verifier, {}, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const deployVerifierInstance = await this.getContractInstance(DeployVerifier, {}, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const relayVerifierInstance = await this.getContractInstance(RelayVerifier, {}, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     // Overriding saved configuration with newly deployed instances
     this.config.deployVerifierAddress = deployVerifierInstance.options.address
     this.config.relayVerifierAddress = relayVerifierInstance.options.address
@@ -300,7 +302,7 @@ export default class CommandsLogic {
   }
 
   async deployVerifier (options: Required<SendOptions>, skipConfirmation: boolean | undefined): Promise<Contract> {
-    const verifierInstance = await this.getContractInstance(Verifier, {}, undefined, Object.assign({}, options), skipConfirmation)
+    const verifierInstance = await this.getContractInstance(DeployVerifier, {}, undefined, Object.assign({}, options), skipConfirmation)
     return verifierInstance
   }
 

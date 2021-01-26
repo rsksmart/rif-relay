@@ -17,13 +17,13 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestVerifierConfigurableMisbehaviorInstance,
+  TestDeployVerifierConfigurableMisbehaviorInstance,
   TestRecipientContract,
   TestRecipientInstance,
   ProxyFactoryInstance,
   SmartWalletInstance,
   TestTokenInstance
 } from '../../types/truffle-contracts'
-import { Address } from '../../src/relayclient/types/Aliases'
 import { isRsk } from '../../src/common/Environments'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
@@ -39,6 +39,7 @@ const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
+const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 
 const underlyingProvider = web3.currentProvider as HttpProvider
 const revertReasonEnabled = false // Enable when the RSK node supports revert reason codes
@@ -49,8 +50,7 @@ contract('RelayProvider', function (accounts) {
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
   let verifierInstance: TestVerifierConfigurableMisbehaviorInstance
-
-  let callVerifier: Address
+  let deployVerifierInstance: TestDeployVerifierConfigurableMisbehaviorInstance
   let relayProcess: ChildProcessWithoutNullStreams
   let relayProvider: RelayProvider
   let factory: ProxyFactoryInstance
@@ -75,16 +75,16 @@ contract('RelayProvider', function (accounts) {
     await token.mint('1000', smartWallet.address)
 
     verifierInstance = await TestVerifierConfigurableMisbehavior.new()
+    deployVerifierInstance = await TestDeployVerifierConfigurableMisbehavior.new()
 
-    callVerifier = verifierInstance.address
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       relaylog: process.env.relaylog,
       stake: 1e18,
       url: 'asd',
       relayOwner: accounts[1],
       ethereumNodeUrl: underlyingProvider.host,
-      deployVerifierAddress: callVerifier,
-      relayVerifierAddress: callVerifier
+      deployVerifierAddress: deployVerifierInstance.address,
+      relayVerifierAddress: verifierInstance.address
     })
   })
 
@@ -105,8 +105,8 @@ contract('RelayProvider', function (accounts) {
         relayHubAddress: relayHub.address,
         chainId: env.chainId,
         forwarderAddress: smartWallet.address,
-        relayVerifierAddress: callVerifier,
-        deployVerifierAddress: callVerifier
+        relayVerifierAddress: verifierInstance.address,
+        deployVerifierAddress: deployVerifierInstance.address
       })
 
       let websocketProvider: WebsocketProvider
@@ -133,7 +133,7 @@ contract('RelayProvider', function (accounts) {
         value: '0',
         // TODO: for some reason estimated values are crazy high!
         gas: '100000',
-        callVerifier
+        callVerifier: verifierInstance.address
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -160,7 +160,7 @@ contract('RelayProvider', function (accounts) {
         forceGasPrice: '0x51f4d5c00',
         value,
         gas: '100000',
-        callVerifier
+        callVerifier: verifierInstance.address
       })
 
       expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
@@ -179,7 +179,7 @@ contract('RelayProvider', function (accounts) {
           forceGasPrice: '0x51f4d5c00',
           value: '0',
           gas: '100000',
-          callVerifier
+          callVerifier: verifierInstance.address
         })
       } catch (error) {
         const expectedText = 'relayCall (local call) reverted in server'
@@ -218,7 +218,7 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: callVerifier, deployVerifierAddress: callVerifier })
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: deployVerifierInstance.address })
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
@@ -241,7 +241,7 @@ contract('RelayProvider', function (accounts) {
         callForwarder: factory.address,
         index: walletIndex.toString(),
         isSmartWalletDeploy: true,
-        callVerifier
+        callVerifier: deployVerifierInstance.address
       }
 
       try {
@@ -259,7 +259,7 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: callVerifier, relayVerifierAddress: callVerifier })
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
       assert.isTrue(relayProvider != null)
       gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
       const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
@@ -279,7 +279,7 @@ contract('RelayProvider', function (accounts) {
         tokenAmount: '10',
         recoverer: recoverer,
         index: walletIndex.toString(),
-        callVerifier,
+        callVerifier: deployVerifierInstance.address,
         callForwarder: factory.address,
         isSmartWalletDeploy: true
       }
@@ -318,7 +318,7 @@ contract('RelayProvider', function (accounts) {
       await testRecipient2.emitMessage('hello again', {
         from: gaslessAccount.address,
         gas: '100000',
-        callVerifier
+        callVerifier: verifierInstance.address
       })
       const log: any = await eventPromise
 
@@ -330,7 +330,7 @@ contract('RelayProvider', function (accounts) {
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
         from: gaslessAccount.address,
-        callVerifier
+        callVerifier: verifierInstance.address
       }), 'always fail')
     })
   })
@@ -360,7 +360,7 @@ contract('RelayProvider', function (accounts) {
             gas: '0x186a0',
             gasPrice: '0x4a817c800',
             forceGasPrice: '0x51f4d5c00',
-            callVerifier,
+            callVerifier: verifierInstance.address,
             to: testRecipient.address,
             data: testRecipient.contract.methods.emitMessage('hello world').encodeABI()
           }
@@ -392,18 +392,20 @@ contract('RelayProvider', function (accounts) {
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: env.chainId,
-        relayVerifierAddress: callVerifier,
-        deployVerifierAddress: callVerifier
+        relayVerifierAddress: verifierInstance.address,
+        deployVerifierAddress: deployVerifierInstance.address
       })
       gsnConfig.forwarderAddress = smartWallet.address
 
       const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
       relayProvider.addAccount(gaslessAccount)
-      const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result: JsonRpcResponse | undefined): void => {
+      const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result?: JsonRpcResponse): void => {
         if (error != null) {
           reject(error)
         } else {
-          resolve(result)
+          if (result !== undefined) {
+            resolve(result)
+          } else throw new Error('Result is undefined')
         }
       }))
       assert.equal(id, response.id)
@@ -469,7 +471,7 @@ contract('RelayProvider', function (accounts) {
         from: gaslessAccount.address,
         gas: '100000',
         gasPrice: '1',
-        callVerifier
+        callVerifier: verifierInstance.address
       })
       assert.equal(notRelayedTxReceiptTruffle.logs.length, 1)
       expectEvent.inLogs(notRelayedTxReceiptTruffle.logs, 'SampleRecipientEmitted')
@@ -486,7 +488,7 @@ contract('RelayProvider', function (accounts) {
           from: gaslessAccount.address,
           gas: '100000',
           gasPrice: '1',
-          callVerifier
+          callVerifier: verifierInstance.address
         })
       } catch (error) {
         const err: string = String(error)
@@ -510,7 +512,7 @@ contract('RelayProvider', function (accounts) {
           from: gaslessAccount.address,
           gas: '100000',
           gasPrice: '1',
-          callVerifier
+          callVerifier: verifierInstance.address
         })
       } catch (error) {
         const err: string = String(error)

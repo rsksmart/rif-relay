@@ -13,7 +13,6 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./utils/GsnEip712Library.sol";
 import "./interfaces/GsnTypes.sol";
 import "./interfaces/IRelayHub.sol";
-import "./interfaces/IVerifier.sol";
 import "./interfaces/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
  
@@ -104,7 +103,7 @@ contract RelayHub is IRelayHub {
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
                 manager,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
-        //  require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+        require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         
         bool deploySuccess = GsnEip712Library.deploy(deployRequest, signature);          
@@ -136,7 +135,7 @@ contract RelayHub is IRelayHub {
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
                 manager,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
-        //  require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         bool forwarderSuccess;
         uint256 lastSuccTrx;
@@ -152,7 +151,7 @@ contract RelayHub is IRelayHub {
         }
        
        if (lastSuccTrx == 0) {// 0 == OK
-                emit TransactionRelayed2(
+                emit TransactionRelayed(
                     manager,
                     msgSender,
                     keccak256(signature)
@@ -162,15 +161,16 @@ contract RelayHub is IRelayHub {
                     emit TransactionResult(relayedCallReturnValue);
                 }
         }
-        else{ 
-            emit TransactionRelayedButRevertedByRecipient(            
+        else{
+
+           emit TransactionRelayedButRevertedByRecipient(            
             manager,
             msgSender,
             relayRequest.request.from,
             relayRequest.request.to,
             lastSuccTrx,
             MinLibBytes.readBytes4(relayRequest.request.data, 0),
-            relayedCallReturnValue);// TODO: debate if its neccesary to have lastSuccTrx
+            relayedCallReturnValue);
         }
     }
 

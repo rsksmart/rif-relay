@@ -8,6 +8,11 @@ import { TxStoreManager, TXSTORE_FILENAME } from './TxStoreManager'
 import ContractInteractor from '../relayclient/ContractInteractor'
 import { configureGSN } from '../relayclient/GSNConfigurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
+import { PrefixedHexString } from 'ethereumjs-tx'
+import { SendTransactionDetails } from './TransactionManager'
+import { toBN, toHex } from 'web3-utils'
+import { ServerAction } from './StoredTransaction'
+import { defaultEnvironment } from '../common/Environments'
 
 function error (err: string): never {
   console.error(err)
@@ -60,9 +65,48 @@ async function run (): Promise<void> {
     contractInteractor
   }
 
-  const relay = new RelayServer(config, dependencies)
-  await relay.init()
-  const httpServer = new HttpServer(config.port, relay)
+  const relayServer = new RelayServer(config, dependencies)
+
+  const replenishFunction: (workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]> = async (workerIndex: number, currentBlock: number) => {
+    const transactionHashes: PrefixedHexString[] = []
+    let managerEthBalance = await relayServer.getManagerBalance()
+    relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)
+    if (managerEthBalance.gte(toBN(relayServer.config.managerTargetBalance.toString())) && relayServer.workerBalanceRequired.isSatisfied) {
+      // all filled, nothing to do
+      return transactionHashes
+    }
+    managerEthBalance = await relayServer.getManagerBalance()
+    const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
+    const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
+    if (mustReplenishWorker && !isReplenishPendingForWorker) {
+      const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
+      console.log(
+        `== replenishServer: mgr balance=${managerEthBalance.toString()}
+          \n${relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
+
+      if (refill.lt(managerEthBalance.sub(toBN(relayServer.config.managerMinBalance)))) {
+        console.log('Replenishing worker balance by manager rbtc balance')
+        const details: SendTransactionDetails = {
+          signer: relayServer.managerAddress,
+          serverAction: ServerAction.VALUE_TRANSFER,
+          destination: relayServer.workerAddress,
+          value: toHex(refill),
+          creationBlockNumber: currentBlock,
+          gasLimit: defaultEnvironment.mintxgascost
+        }
+        const { transactionHash } = await relayServer.transactionManager.sendTransaction(details)
+        transactionHashes.push(transactionHash)
+      } else {
+        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
+        relayServer.emit('fundingNeeded', message)
+        console.log(message)
+      }
+    }
+    return transactionHashes
+  }
+
+  await relayServer.init(devMode ? replenishFunction : undefined)
+  const httpServer = new HttpServer(config.port, relayServer)
   httpServer.start()
 }
 

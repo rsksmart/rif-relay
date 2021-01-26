@@ -49,7 +49,7 @@ export async function startRelay (
 
   fs.rmdirSync(serverWorkDir, { recursive: true })
   args.push('--workdir', serverWorkDir)
-  args.push('--devMode')
+  args.push('--devMode', true)
   args.push('--checkInterval', 10)
   args.push('--logLevel', 5)
   args.push('--relayHubAddress', relayHubAddress)
@@ -66,6 +66,9 @@ export async function startRelay (
   }
   if (options.baseRelayFee) {
     args.push('--baseRelayFee', options.baseRelayFee)
+  }
+  if (options.checkInterval) {
+    args.push('--checkInterval', options.checkInterval)
   }
 
   if (options.deployVerifierAddress) {
