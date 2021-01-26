@@ -15,6 +15,10 @@ import Web3 from 'web3'
 import ContractInteractor from './ContractInteractor'
 import { Environment, defaultEnvironment } from '../common/Environments'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
+import { PrefixedHexString } from 'ethereumjs-tx'
+import { toBN, toHex } from 'web3-utils'
+import { ServerAction } from '../relayserver/StoredTransaction'
+import { SendTransactionDetails } from '../relayserver/TransactionManager'
 
 export interface TestEnvironment {
   deploymentResult: DeploymentResult
@@ -42,11 +46,6 @@ class GsnTestEnvironmentClass {
     }
     const commandsLogic = new CommandsLogic(_host, configureGSN({ chainId: environment.chainId }))
     const from = await commandsLogic.findWealthyAccount()
-    /* TODO review and remove
-    if (from == null) {
-      throw new Error('could not get unlocked account with sufficient balance')
-    }
-    */
     const deploymentResult = await commandsLogic.deployGsnContracts({
       from,
       gasPrice: '1',
@@ -56,7 +55,8 @@ class GsnTestEnvironmentClass {
 
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
-    await this._runServer(_host, deploymentResult, from, relayUrl, port)
+
+    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -66,6 +66,7 @@ class GsnTestEnvironmentClass {
       stake: ether('1'),
       funds: ether('1'),
       relayUrl: relayUrl,
+      gasPrice: '1e9',
       unstakeDelay: '2000'
     }
     const registrationResult = await commandsLogic.registerRelay(registerOptions)
@@ -124,12 +125,59 @@ class GsnTestEnvironmentClass {
     }
   }
 
+  async defaultReplenishFunction (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
+    const transactionHashes: PrefixedHexString[] = []
+
+    if (relayServer === undefined || relayServer === null) {
+      return transactionHashes
+    }
+
+    let managerEthBalance = await relayServer.getManagerBalance()
+    relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)
+
+    if (managerEthBalance.gte(toBN(relayServer.config.managerTargetBalance.toString())) && relayServer.workerBalanceRequired.isSatisfied) {
+      // all filled, nothing to do
+      return transactionHashes
+    }
+    managerEthBalance = await relayServer.getManagerBalance()
+
+    const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
+    const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
+
+    if (mustReplenishWorker && !isReplenishPendingForWorker) {
+      const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
+      console.log(
+        `== replenishServer: mgr balance=${managerEthBalance.toString()}
+          \n${relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
+
+      if (refill.lt(managerEthBalance.sub(toBN(relayServer.config.managerMinBalance)))) {
+        console.log('Replenishing worker balance by manager rbtc balance')
+        const details: SendTransactionDetails = {
+          signer: relayServer.managerAddress,
+          serverAction: ServerAction.VALUE_TRANSFER,
+          destination: relayServer.workerAddress,
+          value: toHex(refill),
+          creationBlockNumber: currentBlock,
+          gasLimit: defaultEnvironment.mintxgascost
+        }
+        const { transactionHash } = await relayServer.transactionManager.sendTransaction(details)
+        transactionHashes.push(transactionHash)
+      } else {
+        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
+        relayServer.emit('fundingNeeded', message)
+        console.log(message)
+      }
+    }
+    return transactionHashes
+  }
+
   async _runServer (
     host: string,
     deploymentResult: DeploymentResult,
     from: Address,
     relayUrl: string,
     port: number,
+    replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
     if (this.httpServer !== undefined) {
@@ -161,15 +209,17 @@ class GsnTestEnvironmentClass {
       baseRelayFee: '0',
       pctRelayFee: 0,
       logLevel: 1,
+      checkInterval: 10,
+      // refreshStateTimeoutBlocks:1,
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
       deployVerifierAddress: deploymentResult.deployVerifierAddress
     }
-    const backend = new RelayServer(relayServerParams, relayServerDependencies)
-    await backend.init()
+    const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
+    await relayServer.init(replenishStrategy ?? this.defaultReplenishFunction)
 
     this.httpServer = new HttpServer(
       port,
-      backend
+      relayServer
     )
     this.httpServer.start()
   }

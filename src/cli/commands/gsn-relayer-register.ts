@@ -27,7 +27,8 @@ const commander = gsnCommander(['n', 'f', 'h', 'm'])
     stake: commander.stake ?? ether('0.01'),
     funds: commander.funds ?? ether('0.02'),
     relayUrl: commander.relayUrl ?? 'http://localhost:8090',
-    unstakeDelay: commander.unstakeDelay ?? 1000
+    unstakeDelay: commander.unstakeDelay ?? 1000,
+    gasPrice: commander.gasPrice ?? '1e9'
   }
   if (registerOptions.from == null) {
     console.error('Failed to find a wealthy "from" address')

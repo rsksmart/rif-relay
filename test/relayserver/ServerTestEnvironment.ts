@@ -156,7 +156,7 @@ export class ServerTestEnvironment {
 
   async newServerInstance (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): Promise<void> {
     await this.newServerInstanceNoInit(config, serverWorkdirs)
-    await this.relayServer.init(async (workerIndex: number, currentBlock: number) => {
+    await this.relayServer.init(async (relayServer: RelayServer, workerIndex: number, currentBlock: number) => {
       const transactionHashes: PrefixedHexString[] = []
       let managerEthBalance = await this.relayServer.getManagerBalance()
       this.relayServer.workerBalanceRequired.currentValue = await this.relayServer.getWorkerBalance(workerIndex)

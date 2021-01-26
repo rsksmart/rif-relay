@@ -96,7 +96,7 @@ export default class ContractInteractor {
   private readonly versionManager: VersionsManager
 
   private rawTxOptions?: TransactionOptions
-  private chainId?: number
+  chainId!: number
   private networkId?: number
   private networkType?: string
 
@@ -105,6 +105,7 @@ export default class ContractInteractor {
     this.web3 = new Web3(provider)
     this.config = config
     this.provider = provider
+    this.chainId = config.chainId
     // @ts-ignore
     this.IVerifierContract = TruffleContract({
       contractName: 'IVerifier',
@@ -407,6 +408,7 @@ export default class ContractInteractor {
   }
 
   async sendSignedTransaction (rawTx: string): Promise<TransactionReceipt> {
+    // noinspection ES6RedundantAwait - PromiEvent makes lint less happy about this line
     return await this.web3.eth.sendSignedTransaction(rawTx)
   }
 
