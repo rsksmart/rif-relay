@@ -37,7 +37,7 @@ export const environments: { [key: string]: Environment } = {
   }
 }
 
-export const defaultEnvironment = environments.istanbul
+export const defaultEnvironment = environments.rsk
 
 export function getEnvironment (networkName: string): Environment {
   if (networkName.startsWith('rsk')) {
