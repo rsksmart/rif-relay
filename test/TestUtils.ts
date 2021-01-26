@@ -33,6 +33,8 @@ require('source-map-support').install({ errorFormatterForce: true })
 const RelayHub = artifacts.require('RelayHub')
 
 const localhostOne = 'http://localhost:8090'
+export const deployTypeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
+export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 
 // start a background relay process.
 // rhub - relay hub contract
