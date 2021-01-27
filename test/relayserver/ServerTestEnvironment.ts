@@ -3,7 +3,7 @@ import abiDecoder from 'abi-decoder'
 import Web3 from 'web3'
 import crypto from 'crypto'
 import { HttpProvider } from 'web3-core'
-import { toHex, toBN } from 'web3-utils'
+import { toHex, toBN, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
 import {
@@ -287,17 +287,19 @@ export class ServerTestEnvironment {
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
+    reqSigHash: PrefixedHexString
   }> {
     const req = await this.createRelayHttpRequest(overrideDetails)
     const signedTx = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
-
+    const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
     if (assertRelayed) {
-      await this.assertTransactionRelayed(txHash)
+      await this.assertTransactionRelayed(txHash, keccak256(req.metadata.signature))
     }
     return {
       txHash,
-      signedTx
+      signedTx,
+      reqSigHash
     }
   }
 
@@ -306,13 +308,11 @@ export class ServerTestEnvironment {
     assert.deepEqual([], await this.relayServer.transactionManager.txStoreManager.getAll())
   }
 
-  async assertTransactionRelayed (txHash: string, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<void> {
+  async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<void> {
     const receipt = await web3.eth.getTransactionReceipt(txHash)
     if (receipt == null) {
       throw new Error('Transaction Receipt not found')
     }
-    const sender = overrideDetails.from ?? this.gasLess
-    const tokenPayer = overrideDetails.forwarder ?? this.forwarder.address
     const decodedLogs = abiDecoder.decodeLogs(receipt.logs).map(this.relayServer.registrationManager._parseEvent)
     const event1 = decodedLogs.find((e: { name: string }) => e.name === 'Transfer')
     assert.exists(event1, 'Transfer not found, maybe transaction was not relayed successfully')
@@ -323,8 +323,14 @@ export class ServerTestEnvironment {
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')
+    /**
+     * event TransactionRelayed(
+        address indexed relayManager,
+        address relayWorker,
+        bytes32 relayRequestSigHash);
+    */
     assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
-    assert.equal(event2.args.from.toLowerCase(), sender.toLowerCase())
-    assert.equal(event2.args.to.toLowerCase(), this.recipient.address.toLowerCase())
+    assert.equal(event2.args.relayManager.toLowerCase(), this.relayServer.managerAddress.toLowerCase())
+    assert.equal(event2.args.relayRequestSigHash, reqSignatureHash)
   }
 }
