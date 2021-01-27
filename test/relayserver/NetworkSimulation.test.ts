@@ -31,13 +31,13 @@ contract('Network Simulation for Relay Server', function (accounts) {
 
     it('should resolve once the transaction is broadcast', async function () {
       assert.equal(provider.mempool.size, 0)
-      const { txHash } = await env.relayTransaction(false)
+      const { txHash, reqSigHash } = await env.relayTransaction(false)
       assert.equal(provider.mempool.size, 1)
       const receipt = await env.web3.eth.getTransactionReceipt(txHash)
       assert.isNull(receipt)
       await provider.mineTransaction(txHash)
       assert.equal(provider.mempool.size, 0)
-      await env.assertTransactionRelayed(txHash)
+      await env.assertTransactionRelayed(txHash, reqSigHash)
     })
 
     it('should broadcast multiple transactions at once', async function () {
@@ -59,8 +59,8 @@ contract('Network Simulation for Relay Server', function (accounts) {
       assert.equal(provider.mempool.size, 2)
       await provider.mineTransaction(txs[0].txHash)
       await provider.mineTransaction(txs[1].txHash)
-      await env.assertTransactionRelayed(txs[0].txHash)
-      await env.assertTransactionRelayed(txs[1].txHash, overrideDetails)
+      await env.assertTransactionRelayed(txs[0].txHash, txs[0].reqSigHash)
+      await env.assertTransactionRelayed(txs[1].txHash, txs[1].reqSigHash, overrideDetails)
     })
   })
 })
