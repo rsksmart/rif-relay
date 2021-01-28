@@ -62,6 +62,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
 
     relayRequestData = {
       request: {
+        relayHub: relayHub,
         to: logicAddress,
         data: initParams,
         from: ownerAddress,
@@ -201,7 +202,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     relayVerifier = await RelayVerifier.new(factory.address, { from: verifierOwner })
     testVerifiers = await TestVerifiers.new(relayVerifier.address)
 
-    sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
+    sw = await createSmartWallet(relayHub, senderAddress, factory, senderPrivateKey, chainId)
     const smartWallet = sw.address
     const recipientContract = await TestRecipient.new()
 
@@ -210,6 +211,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
 
     relayRequestData = {
       request: {
+        relayHub: relayHub,
         to: recipientContract.address,
         data: '0x00',
         from: senderAddress,

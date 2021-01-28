@@ -155,6 +155,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
         bytes calldata sig
     ) external override {
 
+        require(msg.sender == req.relayHub, "Invalid caller");
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonces[req.from]++;
 
@@ -255,6 +256,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
             abi.encodePacked(
                 requestTypeHash,
                 abi.encode(
+                    req.relayHub,
                     req.from,
                     req.to,
                     req.value,
@@ -290,7 +292,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         //Verify Request type
         require(
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 

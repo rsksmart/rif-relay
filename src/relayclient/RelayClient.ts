@@ -310,6 +310,7 @@ export class RelayClient {
 
     const relayRequest: DeployRequest = {
       request: {
+        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
         from: gsnTransactionDetails.from, // owner EOA
         to: gsnTransactionDetails.to, // optional LogicAddr
         data: gsnTransactionDetails.data, // optional InitParams for LogicAddr
@@ -371,6 +372,7 @@ export class RelayClient {
 
     const relayRequest: DeployRequest = {
       request: {
+        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
         to: gsnTransactionDetails.to,
         data: gsnTransactionDetails.data,
         from: gsnTransactionDetails.from,
@@ -441,6 +443,7 @@ export class RelayClient {
 
     const relayRequest: RelayRequest = {
       request: {
+        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
         to: gsnTransactionDetails.to,
         data: gsnTransactionDetails.data,
         from: gsnTransactionDetails.from,

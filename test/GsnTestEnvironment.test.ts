@@ -10,7 +10,7 @@ const TestRecipient = artifacts.require('TestRecipient')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const ProxyFactory = artifacts.require('ProxyFactory')
 
-contract('GsnTestEnvironment', function () {
+contract('GsnTestEnvironment', function (accounts) {
   describe('#startGsn()', function () {
     it('should create a valid test environment for other tests to rely on', async function () {
       const host = (web3.currentProvider as HttpProvider).host
@@ -40,7 +40,7 @@ contract('GsnTestEnvironment', function () {
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
-      const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
+      const wallet = await createSmartWallet(accounts[0], sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
       testEnvironment.relayProvider.relayClient.accountManager.addAccount(sender)
 
       const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
@@ -116,7 +116,7 @@ contract('GsnTestEnvironment', function () {
       const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
-      const wallet = await createSmartWallet(sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
+      const wallet = await createSmartWallet(accounts[0], sender.address, proxyFactory, sender.privateKey, (await getTestingEnvironment()).chainId)
       testEnvironment.relayProvider.addAccount(sender)
 
       // @ts-ignore

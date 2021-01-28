@@ -46,7 +46,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
       const SmartWallet = artifacts.require('SmartWallet')
       const sWalletTemplate = await SmartWallet.new()
       const factory = await createProxyFactory(sWalletTemplate)
-      const smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
+      const smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
 
       env.relayClient.accountManager.addAccount(gaslessAccount)
 

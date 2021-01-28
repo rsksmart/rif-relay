@@ -91,8 +91,7 @@ contract('KnownRelaysManager', function (
       sWalletTemplate = await SmartWallet.new()
       await token.mint('1000', sWalletTemplate.address)
       factory = await createProxyFactory(sWalletTemplate)
-      smartWallet = await createSmartWallet(senderAddress.address, factory, senderAddress.privateKey, env.chainId)
-      await testRecipient.mint('200', smartWallet.address)
+      smartWallet = await createSmartWallet(activeRelayWorkersAdded, senderAddress.address, factory, senderAddress.privateKey, env.chainId)
       // register hub's RelayRequest with forwarder, if not already done.
 
       verifier = await TestVerifierConfigurableMisbehavior.new()
@@ -104,7 +103,7 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, notActiveRelay, owner)
 
       let nextNonce = (await smartWallet.nonce()).toString()
-      const txTransactionRelayed = await prepareTransaction(testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, '1')
+      const txTransactionRelayed = await prepareTransaction(relayHub.address, testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, '1')
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {
@@ -136,7 +135,7 @@ contract('KnownRelaysManager', function (
       await verifier.setReturnInvalidErrorCode(true)
 
       nextNonce = (await smartWallet.nonce()).toString()
-      const txVerifierRejected = await prepareTransaction(testRecipient, senderAddress, workerVerifierRejected, verifier.address, nextNonce, smartWallet.address, token.address, '1')
+      const txVerifierRejected = await prepareTransaction(relayHub.address, testRecipient, senderAddress, workerVerifierRejected, verifier.address, nextNonce, smartWallet.address, token.address, '1')
 
       await relayHub.relayCall(txVerifierRejected.relayRequest, txVerifierRejected.signature, {
         from: workerVerifierRejected,

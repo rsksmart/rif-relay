@@ -35,7 +35,7 @@ const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 
-contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
+contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
   // const chainId = defaultEnvironment.chainId
 
   let stakeManager: StakeManagerInstance
@@ -65,6 +65,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
     const relayRequest: RelayRequest = {
       request: {
+        relayHub: relayHub.address,
         to: recipient.address,
         data: txData,
         from: gaslessAccount.address,
@@ -158,7 +159,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
 
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
       const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+      smartWallet = await createSmartWallet(defaultAccount, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
       forwarder = smartWallet.address
 
       recipient = await TestTokenRecipient.new()
@@ -486,6 +487,7 @@ contract('RelayHub Penalizations', function ([_, relayOwner, relayWorker, otherR
       const relayRequest: RelayRequest =
         {
           request: {
+            relayHub: relayHub.address,
             to: encodedCallArgs.recipient,
             data: encodedCallArgs.data,
             from: encodedCallArgs.sender,

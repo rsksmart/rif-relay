@@ -214,8 +214,8 @@ class GsnTestEnvironmentClass {
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
       deployVerifierAddress: deploymentResult.deployVerifierAddress
     }
-    const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
-    await relayServer.init(replenishStrategy ?? this.defaultReplenishFunction)
+    const relayServer = new RelayServer(relayServerParams, relayServerDependencies, replenishStrategy ?? this.defaultReplenishFunction)
+    await relayServer.init()
 
     this.httpServer = new HttpServer(
       port,

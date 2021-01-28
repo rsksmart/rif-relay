@@ -285,7 +285,7 @@ export async function createSimpleProxyFactory (template: IForwarderInstance, ve
   return await ProxyFactory.new(template.address, versionHash)
 }
 
-export async function createSimpleSmartWallet (ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,
+export async function createSimpleSmartWallet (relayHub: string, ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SimpleSmartWalletInstance> {
   const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
@@ -294,6 +294,7 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
 
   const rReq: DeployRequest = {
     request: {
+      relayHub: relayHub,
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
       value: '0',
@@ -335,7 +336,7 @@ export async function createSimpleSmartWallet (ownerEOA: string, factory: Simple
   return sw
 }
 
-export async function createSmartWallet (ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
+export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000'): Promise<SmartWalletInstance> {
   const typeName = `${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
@@ -344,6 +345,7 @@ export async function createSmartWallet (ownerEOA: string, factory: ProxyFactory
 
   const rReq: DeployRequest = {
     request: {
+      relayHub: relayHub,
       from: ownerEOA,
       to: logicAddr,
       value: '0',
@@ -438,10 +440,11 @@ export function bufferToHexString (b: Buffer): string {
   return '0x' + b.toString('hex')
 }
 
-export async function prepareTransaction (testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
+export async function prepareTransaction (relayHub: Address, testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenAmount: string): Promise<{ relayRequest: RelayRequest, signature: string}> {
   const chainId = (await getTestingEnvironment()).chainId
   const relayRequest: RelayRequest = {
     request: {
+      relayHub: relayHub,
       to: testRecipient.address,
       data: testRecipient.contract.methods.emitMessage('hello world').encodeABI(),
       from: account.address,

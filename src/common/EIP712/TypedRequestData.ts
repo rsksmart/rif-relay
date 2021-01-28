@@ -23,6 +23,7 @@ const RelayDataType = [
 ]
 
 export const ForwardRequestType = [
+  { name: 'relayHub', type: 'address' },
   { name: 'from', type: 'address' },
   { name: 'to', type: 'address' },
   { name: 'value', type: 'uint256' },
@@ -34,6 +35,7 @@ export const ForwardRequestType = [
 ]
 
 export const DeployRequestDataType = [
+  { name: 'relayHub', type: 'address' },
   { name: 'from', type: 'address' },
   { name: 'to', type: 'address' },
   { name: 'value', type: 'uint256' },
@@ -134,7 +136,7 @@ export class TypedDeployRequestData implements EIP712TypedData {
   }
 }
 
-export const ENVELOPING_PARAMS = 'address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount'
+export const ENVELOPING_PARAMS = 'address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount'
 export const DEPLOY_PARAMS = 'address recoverer,uint256 index'
 
 export const GsnRequestType = {

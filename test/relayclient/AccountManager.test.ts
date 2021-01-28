@@ -104,6 +104,7 @@ contract('AccountManager', function (accounts) {
 
     const relayRequest: RelayRequest = {
       request: {
+        relayHub: constants.ZERO_ADDRESS,
         to: constants.ZERO_ADDRESS,
         data: '0x123',
         from: '',

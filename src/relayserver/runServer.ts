@@ -66,8 +66,6 @@ async function run (): Promise<void> {
     contractInteractor
   }
 
-  const relayServer = new RelayServer(config, dependencies)
-
   const replenishFunction: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]> = async (relayServer: RelayServer, workerIndex: number, currentBlock: number) => {
     const transactionHashes: PrefixedHexString[] = []
     let managerEthBalance = await relayServer.getManagerBalance()
@@ -106,7 +104,8 @@ async function run (): Promise<void> {
     return transactionHashes
   }
 
-  await relayServer.init(devMode ? replenishFunction : undefined)
+  const relayServer = new RelayServer(config, dependencies, devMode ? replenishFunction : undefined)
+  await relayServer.init()
   const httpServer = new HttpServer(config.port, relayServer)
   httpServer.start()
 }
