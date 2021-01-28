@@ -108,7 +108,7 @@ contract RelayHub is IRelayHub {
         
         bool deploySuccess = GsnEip712Library.deploy(deployRequest, signature);          
         
-        if ( deploySuccess ) {
+        if ( !deploySuccess ) {
             assembly {
                 revert(0, 0)
             }

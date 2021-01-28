@@ -21,7 +21,7 @@ contract('SampleRecipient', function (accounts) {
     const chainId = env.chainId
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
     const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+    await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
 
     sample = await TestRecipient.new()
   })

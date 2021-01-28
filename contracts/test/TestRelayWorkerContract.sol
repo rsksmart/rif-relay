@@ -15,4 +15,13 @@ contract TestRelayWorkerContract {
     {
         hub.relayCall(relayRequest, signature);
     }
+
+    function deployCall(
+        IRelayHub hub,
+        GsnTypes.DeployRequest memory deployRequest,
+        bytes memory signature)
+    public
+    {
+        hub.deployCall(deployRequest, signature);
+    }
 }

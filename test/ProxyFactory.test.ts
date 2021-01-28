@@ -38,6 +38,7 @@ contract('ProxyFactory', ([from]) => {
 
   const request: DeployRequest = {
     request: {
+      relayHub: constants.ZERO_ADDRESS,
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
@@ -369,6 +370,8 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
+      req.request.relayHub = from
+
       const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
@@ -428,6 +431,8 @@ contract('ProxyFactory', ([from]) => {
         }
       }
 
+      req.request.relayHub = from
+
       const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
@@ -470,6 +475,7 @@ contract('ProxyFactory', ([from]) => {
           ...request.relayData
         }
       }
+      req.request.relayHub = from
 
       const dataToSign = new TypedDeployRequestData(
         env.chainId,
@@ -515,6 +521,7 @@ contract('ProxyFactory', ([from]) => {
           ...request.relayData
         }
       }
+      req.request.relayHub = from
 
       const dataToSign = new TypedDeployRequestData(
         env.chainId,
@@ -653,6 +660,7 @@ contract('SimpleProxyFactory', ([from]) => {
 
   const request: DeployRequest = {
     request: {
+      relayHub: from,
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',

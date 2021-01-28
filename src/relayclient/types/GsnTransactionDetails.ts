@@ -20,6 +20,7 @@ export default interface GsnTransactionDetails {
   gasPrice?: PrefixedHexString
 
   // Required parameters for GSN, but assigned later
+  readonly relayHub?: Address
   readonly callForwarder?: Address
   readonly callVerifier?: Address
   readonly isSmartWalletDeploy?: boolean

@@ -2,9 +2,13 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import chai from 'chai'
 
 import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
-import { RelayRequest, cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
+import { RelayRequest, cloneRelayRequest, DeployRequest } from '../src/common/EIP712/RelayRequest'
 import { Environment } from '../src/common/Environments'
-import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import proxyFactoryAbi from '../src/common/interfaces/ISmartWalletFactory.json'
+
+// @ts-ignore
+import abiDecoder from 'abi-decoder'
 
 import {
   RelayHubInstance,
@@ -18,20 +22,28 @@ import {
   ProxyFactoryInstance,
   SimpleSmartWalletInstance,
   SimpleProxyFactoryInstance,
-  TestTokenInstance
+  TestTokenInstance,
+  TestDeployVerifierConfigurableMisbehaviorInstance,
+  TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
 import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { keccak } from 'ethereumjs-util'
+import { constants } from '../src/common/Constants'
+import { toChecksumAddress } from 'web3-utils'
+
 const { assert } = chai.use(chaiAsPromised)
 const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
+const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
+const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
+abiDecoder.addABI(proxyFactoryAbi)
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker]) {
   let chainId: number
@@ -41,6 +53,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
   let verifierContract: TestVerifierEverythingAcceptedInstance
+  let deployVerifierContract: TestDeployVerifierEverythingAcceptedInstance
   let forwarderInstance: IForwarderInstance
   let target: string
   let verifier: string
@@ -50,62 +63,65 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   const gasPrice = '1'
   const parametersGasOverhead = BigInt(40921)
   let sharedRelayRequestData: RelayRequest
+  let sharedDeployRequestData: DeployRequest
   let env: Environment
   let token: TestTokenInstance
-
-  beforeEach(async function () {
-    env = await getTestingEnvironment()
-    chainId = env.chainId
-
-    stakeManager = await StakeManager.new()
-    penalizer = await Penalizer.new()
-    relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
-    verifierContract = await TestVerifierEverythingAccepted.new()
-
-    gaslessAccount = await getGaslessAccount()
-
-    const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-    forwarderInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
-    forwarder = forwarderInstance.address
-    recipientContract = await TestRecipient.new()
-    const testToken = artifacts.require('TestToken')
-    token = await testToken.new()
-    await token.mint('1000', forwarder)
-
-    target = recipientContract.address
-    verifier = verifierContract.address
-    relayHub = relayHubInstance.address
-
-    sharedRelayRequestData = {
-      request: {
-        to: target,
-        data: '',
-        from: gaslessAccount.address,
-        nonce: (await forwarderInstance.nonce()).toString(),
-        value: '0',
-        gas: gasLimit,
-        tokenContract: token.address,
-        tokenAmount: '1'
-      },
-      relayData: {
-        gasPrice,
-        relayWorker,
-        callForwarder: forwarder,
-        callVerifier: verifier,
-        domainSeparator: getDomainSeparatorHash(forwarder, chainId)
-      }
-    }
-  })
-
-  it('should retrieve version number', async function () {
-    const version = await relayHubInstance.versionHub()
-    assert.match(version, /2\.\d*\.\d*-?.*\+opengsn\.hub\.irelayhub/)
-  })
+  let factory: ProxyFactoryInstance
 
   describe('relayCall', function () {
     const baseRelayFee = '10000'
     const pctRelayFee = '10'
+
+    beforeEach(async function () {
+      env = await getTestingEnvironment()
+      chainId = env.chainId
+
+      stakeManager = await StakeManager.new()
+      penalizer = await Penalizer.new()
+      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      verifierContract = await TestVerifierEverythingAccepted.new()
+      deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
+      gaslessAccount = await getGaslessAccount()
+
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createProxyFactory(sWalletTemplate)
+      recipientContract = await TestRecipient.new()
+      const testToken = artifacts.require('TestToken')
+      token = await testToken.new()
+      target = recipientContract.address
+      verifier = verifierContract.address
+      relayHub = relayHubInstance.address
+
+      forwarderInstance = await createSmartWallet(_, gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+      forwarder = forwarderInstance.address
+      await token.mint('1000', forwarder)
+
+      sharedRelayRequestData = {
+        request: {
+          relayHub: relayHub,
+          to: target,
+          data: '',
+          from: gaslessAccount.address,
+          nonce: (await forwarderInstance.nonce()).toString(),
+          value: '0',
+          gas: gasLimit,
+          tokenContract: token.address,
+          tokenAmount: '1'
+        },
+        relayData: {
+          gasPrice,
+          relayWorker,
+          callForwarder: forwarder,
+          callVerifier: verifier,
+          domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+        }
+      }
+    })
+
+    it('should retrieve version number', async function () {
+      const version = await relayHubInstance.versionHub()
+      assert.match(version, /2\.\d*\.\d*-?.*\+opengsn\.hub\.irelayhub/)
+    })
 
     // TODO review gasPrice for RSK
     context('with unknown worker', function () {
@@ -283,7 +299,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
-          const sWalletInstance = await createSimpleSmartWallet(gaslessAccount.address, simpleFactory, gaslessAccount.privateKey, chainId)
+          const sWalletInstance = await createSimpleSmartWallet(_, gaslessAccount.address, simpleFactory, gaslessAccount.privateKey, chainId)
 
           const nonceBefore = await sWalletInstance.nonce()
           await token.mint('10000', sWalletInstance.address)
@@ -610,6 +626,294 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             )
           })
         })
+      })
+    })
+  })
+
+  describe('deployCall', function () {
+    const baseRelayFee = '10000'
+    const pctRelayFee = '10'
+    let min = 0
+    let max = 1000000000
+    min = Math.ceil(min)
+    max = Math.floor(max)
+    let nextWalletIndex = Math.floor(Math.random() * (max - min + 1) + min)
+
+    beforeEach(async function () {
+      env = await getTestingEnvironment()
+      chainId = env.chainId
+
+      stakeManager = await StakeManager.new()
+      penalizer = await Penalizer.new()
+      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      verifierContract = await TestVerifierEverythingAccepted.new()
+      deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
+      gaslessAccount = await getGaslessAccount()
+
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createProxyFactory(sWalletTemplate)
+      recipientContract = await TestRecipient.new()
+      const testToken = artifacts.require('TestToken')
+      token = await testToken.new()
+      target = recipientContract.address
+      verifier = verifierContract.address
+      relayHub = relayHubInstance.address
+
+      sharedDeployRequestData = {
+        request: {
+          relayHub: relayHub,
+          to: constants.ZERO_ADDRESS,
+          data: '0x',
+          from: gaslessAccount.address,
+          nonce: (await factory.nonce(gaslessAccount.address)).toString(),
+          value: '0',
+          gas: gasLimit,
+          tokenContract: token.address,
+          tokenAmount: '1',
+          recoverer: constants.ZERO_ADDRESS,
+          index: '0'
+        },
+        relayData: {
+          gasPrice,
+          relayWorker,
+          callForwarder: factory.address,
+          callVerifier: deployVerifierContract.address,
+          domainSeparator: getDomainSeparatorHash(factory.address, chainId)
+        }
+      }
+    })
+
+    // TODO review gasPrice for RSK
+    context('with unknown worker', function () {
+      const signature = '0xdeadbeef'
+      const gas = 4e6
+      let deployRequest: DeployRequest
+
+      beforeEach(async function () {
+        deployRequest = cloneRelayRequest(sharedDeployRequestData) as DeployRequest
+        deployRequest.request.index = nextWalletIndex.toString()
+        nextWalletIndex++
+      })
+
+      it('should not accept a deploy call', async function () {
+        await expectRevert.unspecified(
+          relayHubInstance.deployCall(deployRequest, signature, {
+            from: relayWorker,
+            gas
+          }),
+          'Unknown relay worker')
+      })
+
+      context('with manager stake unlocked', function () {
+        beforeEach(async function () {
+          await stakeManager.stakeForAddress(relayManager, 1000, {
+            value: ether('1'),
+            from: relayOwner
+          })
+          await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+          await relayHubInstance.addRelayWorkers([relayWorker], {
+            from: relayManager
+          })
+          await stakeManager.unauthorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+        })
+
+        it('should not accept a deploy call', async function () {
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(deployRequest, signature, {
+              from: relayWorker,
+              gas
+            }),
+            'relay manager not staked')
+        })
+      })
+    })
+
+    context('with staked and registered relay', function () {
+      const url = 'http://relay.com'
+      let deployRequest: DeployRequest
+
+      beforeEach(async function () {
+        await stakeManager.stakeForAddress(relayManager, 1000, {
+          value: ether('2'),
+          from: relayOwner
+        })
+        await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+        await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+        await relayHubInstance.registerRelayServer(baseRelayFee, pctRelayFee, url, { from: relayManager })
+
+        deployRequest = cloneRelayRequest(sharedDeployRequestData) as DeployRequest
+        deployRequest.request.index = nextWalletIndex.toString()
+        nextWalletIndex++
+      })
+
+      context('with relay worker that is not externally-owned account', function () {
+        it('should not accept deploy requests', async function () {
+          const signature = '0xdeadbeef'
+          const gas = 4e6
+          const TestRelayWorkerContract = artifacts.require('TestRelayWorkerContract')
+          const testRelayWorkerContract = await TestRelayWorkerContract.new()
+          await relayHubInstance.addRelayWorkers([testRelayWorkerContract.address], {
+            from: relayManager
+          })
+          await expectRevert.unspecified(
+            testRelayWorkerContract.deployCall(
+              relayHubInstance.address,
+              deployRequest,
+              signature,
+              {
+                gas
+              }),
+            'RelayWorker cannot be a contract')
+        })
+      })
+
+      context('with funded verifier', function () {
+        let misbehavingVerifier: TestDeployVerifierConfigurableMisbehaviorInstance
+        let signatureWithMisbehavingVerifier: string
+        let relayRequestMisbehavingVerifier: DeployRequest
+        const gas = 4e6
+
+        beforeEach(async function () {
+          misbehavingVerifier = await TestDeployVerifierConfigurableMisbehavior.new()
+          deployRequest.request.index = nextWalletIndex.toString()
+          nextWalletIndex++
+
+          relayRequestMisbehavingVerifier = cloneRelayRequest(deployRequest) as DeployRequest
+          relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
+          const dataToSign = new TypedDeployRequestData(
+            chainId,
+            factory.address,
+            relayRequestMisbehavingVerifier
+          )
+          signatureWithMisbehavingVerifier = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
+          )
+        })
+
+        it('deployCall executes the transaction and increments sender nonce on factory', async function () {
+          const nonceBefore = await factory.nonce(gaslessAccount.address)
+          const calculatedAddr = await factory.getSmartWalletAddress(gaslessAccount.address,
+            constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, relayRequestMisbehavingVerifier.request.index)
+          await token.mint('1', calculatedAddr)
+
+          const { tx } = await relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+
+          const trx = await web3.eth.getTransactionReceipt(tx)
+
+          const decodedLogs = abiDecoder.decodeLogs(trx.logs)
+          console.log('decodedLogs:', decodedLogs)
+
+          const deployedEvent = decodedLogs.find((e: any) => e != null && e.name === 'Deployed')
+          assert.isTrue(deployedEvent !== undefined, 'No Deployed event found')
+          const event = deployedEvent?.events[0]
+          assert.equal(event.name, 'addr')
+          const generatedSWAddress = toChecksumAddress(event.value, env.chainId)
+
+          assert.equal(calculatedAddr, generatedSWAddress)
+
+          const nonceAfter = await factory.nonce(gaslessAccount.address)
+          assert.equal(nonceAfter.toNumber(), nonceBefore.addn(1).toNumber())
+        })
+
+        it('deployCall should refuse to re-send transaction with same nonce', async function () {
+          const calculatedAddr = await factory.getSmartWalletAddress(gaslessAccount.address,
+            constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, relayRequestMisbehavingVerifier.request.index)
+          await token.mint('2', calculatedAddr)
+
+          const { tx } = await relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+            from: relayWorker,
+            gas,
+            gasPrice
+          })
+
+          const trx = await web3.eth.getTransactionReceipt(tx)
+
+          const decodedLogs = abiDecoder.decodeLogs(trx.logs)
+
+          const deployedEvent = decodedLogs.find((e: any) => e != null && e.name === 'Deployed')
+          assert.isTrue(deployedEvent !== undefined, 'No Deployed event found')
+          const event = deployedEvent?.events[0]
+          assert.equal(event.name, 'addr')
+          const generatedSWAddress = toChecksumAddress(event.value, env.chainId)
+
+          assert.equal(calculatedAddr, generatedSWAddress)
+          assert.equal(calculatedAddr, generatedSWAddress)
+
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+              from: relayWorker,
+              gas,
+              gasPrice
+            }),
+            'nonce mismatch')
+        })
+
+        it('should not accept deploy requests if passed gas is too low for a relayed transaction', async function () {
+          const gasOverhead = (await relayHubInstance.gasOverhead()).toNumber()
+          const gasAlreadyUsedBeforeDoingAnythingInRelayCall = parametersGasOverhead// Just by calling and sending the parameters
+          const gasToSend = gasAlreadyUsedBeforeDoingAnythingInRelayCall + BigInt(gasOverhead) + BigInt(relayRequestMisbehavingVerifier.request.gas)
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+              from: relayWorker,
+              gasPrice,
+              gas: (gasToSend - BigInt(10000)).toString()
+            }),
+            'Not enough gas left')
+        })
+
+        it('should not accept deploy requests with gas price lower than user specified', async function () {
+          const relayRequestMisbehavingVerifier = cloneRelayRequest(deployRequest) as DeployRequest
+          relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
+          relayRequestMisbehavingVerifier.relayData.gasPrice = (BigInt(gasPrice) + BigInt(1)).toString()
+
+          const dataToSign = new TypedDeployRequestData(
+            chainId,
+            factory.address,
+            relayRequestMisbehavingVerifier
+          )
+          const signatureWithMisbehavingVerifier = getLocalEip712Signature(
+            dataToSign,
+            gaslessAccount.privateKey
+          )
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+              from: relayWorker,
+              gas,
+              gasPrice: gasPrice
+            }),
+            'Invalid gas price')
+        })
+
+        it('should not accept deploy requests with incorrect relay worker', async function () {
+          await relayHubInstance.addRelayWorkers([incorrectWorker], { from: relayManager })
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+              from: incorrectWorker,
+              gasPrice,
+              gas
+            }),
+            'Not a right worker')
+        })
+
+        it('should not accept deploy requests if destination recipient doesn\'t have a balance to pay for it',
+          async function () {
+            const verifier2 = await TestDeployVerifierEverythingAccepted.new()
+            const relayRequestVerifier2 = cloneRelayRequest(deployRequest) as DeployRequest
+            relayRequestVerifier2.relayData.callVerifier = verifier2.address
+
+            await expectRevert.unspecified(
+              relayHubInstance.deployCall(relayRequestVerifier2, signatureWithMisbehavingVerifier, {
+                from: relayWorker,
+                gas,
+                gasPrice
+              }),
+              'Verifier balance too low')
+          })
       })
     })
   })

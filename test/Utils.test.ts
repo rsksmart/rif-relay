@@ -42,7 +42,7 @@ contract('Utils', function (accounts) {
       chainId = (await testUtil.libGetChainID()).toNumber()
       const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
       const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-      forwarderInstance = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
+      forwarderInstance = await createSmartWallet(accounts[0], senderAddress, factory, senderPrivateKey, chainId)
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new()
 
@@ -56,6 +56,7 @@ contract('Utils', function (accounts) {
 
       relayRequest = {
         request: {
+          relayHub: testUtil.address,
           to: target,
           data: encodedFunction,
           from: senderAddress,

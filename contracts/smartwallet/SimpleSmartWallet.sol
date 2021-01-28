@@ -86,6 +86,8 @@ contract SimpleSmartWallet is IForwarder {
         )
     {
 
+        require(msg.sender == req.relayHub, "Invalid caller");
+
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonce++;
 
@@ -150,7 +152,7 @@ contract SimpleSmartWallet is IForwarder {
 
 
         require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
+            keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
             "Invalid request typehash"
         );
 
@@ -184,6 +186,7 @@ contract SimpleSmartWallet is IForwarder {
             abi.encodePacked(
                 requestTypeHash,
                 abi.encode(
+                    req.relayHub,
                     req.from,
                     req.to,
                     req.value,

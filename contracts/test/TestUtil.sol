@@ -84,6 +84,7 @@ contract TestUtil {
         bytes32 suffixData
     ) {
         forwardRequest = IForwarder.ForwardRequest(
+            req.request.relayHub,
             req.request.from,
             req.request.to,
             req.request.value,

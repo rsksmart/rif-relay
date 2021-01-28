@@ -10,6 +10,7 @@ export interface ForwardRequest {
   data: PrefixedHexString
   tokenContract: Address
   tokenAmount: IntString
+  relayHub: Address
 }
 
 export interface DeployRequestStruct {
@@ -23,4 +24,5 @@ export interface DeployRequestStruct {
   tokenAmount: IntString
   recoverer: Address // only used if factory is set
   index: IntString // only used if factory is set
+  relayHub: Address
 }

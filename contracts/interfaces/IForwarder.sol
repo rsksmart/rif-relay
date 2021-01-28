@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 interface IForwarder {
 
     struct ForwardRequest {
+        address relayHub;
         address from;
         address to;
         uint256 value;
@@ -16,6 +17,7 @@ interface IForwarder {
     }
 
     struct DeployRequest {
+        address relayHub;
         address from;
         address to; // In a deploy request, the to param inidicates an optional logic contract
         uint256 value;

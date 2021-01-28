@@ -101,7 +101,7 @@ contract('RelayClient', function (accounts) {
     const env = (await getTestingEnvironment())
     gaslessAccount = await getGaslessAccount()
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+    smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     verifier = await TestVerifier.new()
 
     relayProcess = await startRelay(relayHub.address, stakeManager, {
@@ -328,6 +328,7 @@ contract('RelayClient', function (accounts) {
 
       const request: DeployRequest = {
         request: {
+          relayHub: relayHub.address,
           from: eoaWithoutSmartWalletAccount.address,
           to: constants.ZERO_ADDRESS,
           value: '0',

@@ -70,7 +70,7 @@ contract('RelayProvider', function (accounts) {
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())
     factory = await createProxyFactory(sWalletTemplate)
-    smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+    smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     token = await TestToken.new()
     await token.mint('1000', smartWallet.address)
 
@@ -451,7 +451,7 @@ contract('RelayProvider', function (accounts) {
 
       // create desired transactions
       const nonceToUse = await smartWallet.nonce()
-      const { relayRequest, signature } = await prepareTransaction(testRecipient, gaslessAccount, accounts[0], verifierInstance.address, nonceToUse.toString(), smartWallet.address, token.address, '1')
+      const { relayRequest, signature } = await prepareTransaction(relayHub.address, testRecipient, gaslessAccount, accounts[0], verifierInstance.address, nonceToUse.toString(), smartWallet.address, token.address, '1')
 
       await verifierInstance.setReturnInvalidErrorCode(false)
       await verifierInstance.setRevertPreRelayCall(false)

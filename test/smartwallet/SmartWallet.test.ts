@@ -52,6 +52,7 @@ options.forEach(element => {
 
     const request: RelayRequest = {
       request: {
+        relayHub: constants.ZERO_ADDRESS,
         from: constants.ZERO_ADDRESS,
         to: constants.ZERO_ADDRESS,
         value: '0',
@@ -81,12 +82,12 @@ options.forEach(element => {
         const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
         template = await SimpleSmartWallet.new()
         factory = await createSimpleProxyFactory(template)
-        sw = await createSimpleSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
+        sw = await createSimpleSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
       } else {
         const SmartWallet = artifacts.require('SmartWallet')
         template = await SmartWallet.new()
         factory = await createProxyFactory(template)
-        sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
+        sw = await createSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
       }
 
       request.relayData.callForwarder = sw.address
@@ -191,7 +192,7 @@ options.forEach(element => {
         req1.request.data = func
         req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '10000000000'
-
+        req1.request.relayHub = testfwd.address
         const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
         const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
@@ -220,7 +221,7 @@ options.forEach(element => {
         req1.request.to = recipient.address
         req1.request.nonce = initialNonce.toString()
         req1.request.tokenAmount = '1'
-
+        req1.request.relayHub = defaultAccount
         const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
         const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
@@ -249,6 +250,7 @@ options.forEach(element => {
         req1.request.to = recipient.address
         req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '1'
+        req1.request.relayHub = testfwd.address
 
         const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
@@ -276,6 +278,7 @@ options.forEach(element => {
         req1.request.to = recipient.address
         req1.request.nonce = (await sw.nonce()).toString()
         req1.request.tokenAmount = '1'
+        req1.request.relayHub = testfwd.address
 
         const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
@@ -324,6 +327,7 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = value.toString()
+          req1.request.relayHub = testfwd.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
@@ -350,6 +354,7 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = ether('2').toString()
+          req1.request.relayHub = testfwd.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
@@ -375,6 +380,7 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = '1'
           req1.request.value = value.toString()
+          req1.request.relayHub = testfwd.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
@@ -410,6 +416,7 @@ options.forEach(element => {
           req1.request.nonce = (await sw.nonce()).toString()
           req1.request.tokenAmount = tokensPaid.toString()
           req1.request.value = value.toString()
+          req1.request.relayHub = testfwd.address
 
           const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
@@ -458,12 +465,12 @@ options.forEach(element => {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           template = await SimpleSmartWallet.new()
           factory = await createSimpleProxyFactory(template)
-          sw = await createSimpleSmartWallet(otherAccount, factory, otherAccountPrivateKey, chainId)
+          sw = await createSimpleSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId)
         } else {
           const SmartWallet = artifacts.require('SmartWallet')
           template = await SmartWallet.new()
           factory = await createProxyFactory(template)
-          sw = await createSmartWallet(otherAccount, factory, otherAccountPrivateKey, chainId)
+          sw = await createSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId)
         }
 
         await token.mint('1000', sw.address)

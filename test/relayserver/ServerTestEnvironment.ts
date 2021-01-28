@@ -128,7 +128,7 @@ export class ServerTestEnvironment {
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
-    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, gaslessAccount.privateKey, chainId)
+    const smartWallet: SmartWalletInstance = await createSmartWallet(web3.defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
 
     const shared: Partial<GSNConfig> = {
@@ -151,44 +151,8 @@ export class ServerTestEnvironment {
   }
 
   async newServerInstance (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): Promise<void> {
-    await this.newServerInstanceNoInit(config, serverWorkdirs)
-    await this.relayServer.init(async (relayServer: RelayServer, workerIndex: number, currentBlock: number) => {
-      const transactionHashes: PrefixedHexString[] = []
-      let managerEthBalance = await this.relayServer.getManagerBalance()
-      this.relayServer.workerBalanceRequired.currentValue = await this.relayServer.getWorkerBalance(workerIndex)
-      if (managerEthBalance.gte(toBN(this.relayServer.config.managerTargetBalance.toString())) && this.relayServer.workerBalanceRequired.isSatisfied) {
-        // all filled, nothing to do
-        return transactionHashes
-      }
-      managerEthBalance = await this.relayServer.getManagerBalance()
-      const mustReplenishWorker = !this.relayServer.workerBalanceRequired.isSatisfied
-      const isReplenishPendingForWorker = await this.relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, this.relayServer.workerAddress)
-      if (mustReplenishWorker && !isReplenishPendingForWorker) {
-        const refill = toBN(this.relayServer.config.workerTargetBalance.toString()).sub(this.relayServer.workerBalanceRequired.currentValue)
-        console.log(
-          `== replenishServer: mgr balance=${managerEthBalance.toString()}
-            \n${this.relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
-
-        if (refill.lt(managerEthBalance.sub(toBN(this.relayServer.config.managerMinBalance)))) {
-          console.log('Replenishing worker balance by manager rbtc balance')
-          const details: SendTransactionDetails = {
-            signer: this.relayServer.managerAddress,
-            serverAction: ServerAction.VALUE_TRANSFER,
-            destination: this.relayServer.workerAddress,
-            value: toHex(refill),
-            creationBlockNumber: currentBlock,
-            gasLimit: defaultEnvironment.mintxgascost
-          }
-          const { transactionHash } = await this.relayServer.transactionManager.sendTransaction(details)
-          transactionHashes.push(transactionHash)
-        } else {
-          const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
-          this.relayServer.emit('fundingNeeded', message)
-          console.log(message)
-        }
-      }
-      return transactionHashes
-    })
+    await this.newServerInstanceNoInit(config, serverWorkdirs, undefined, this.defaultReplenishFunction)
+    await this.relayServer.init()
     // initialize server - gas price, stake, owner, etc, whatever
     const latestBlock = await this.web3.eth.getBlock('latest')
     const receipts = await this.relayServer._worker(latestBlock.number)
@@ -204,8 +168,8 @@ export class ServerTestEnvironment {
     }
   }
 
-  async newServerInstanceNoInit (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, unstakeDelay = constants.weekInSec): Promise<void> {
-    this.newServerInstanceNoFunding(config, serverWorkdirs)
+  async newServerInstanceNoInit (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, unstakeDelay = constants.weekInSec, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): Promise<void> {
+    this.newServerInstanceNoFunding(config, serverWorkdirs, replenishStrategy)
     await web3.eth.sendTransaction({
       to: this.relayServer.managerAddress,
       from: this.relayOwner,
@@ -221,7 +185,7 @@ export class ServerTestEnvironment {
     })
   }
 
-  newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
+  newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): void {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
@@ -240,7 +204,8 @@ export class ServerTestEnvironment {
     }
     const mergedConfig: Partial<ServerConfigParams> = Object.assign({}, shared, config)
 
-    this.relayServer = new RelayServer(mergedConfig, serverDependencies)
+    this.relayServer = new RelayServer(mergedConfig, serverDependencies, replenishStrategy)
+
     this.relayServer.on('error', (e) => {
       console.log('newServer event', e.message)
     })
@@ -278,6 +243,52 @@ export class ServerTestEnvironment {
     }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))
+  }
+
+  async defaultReplenishFunction (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
+    const transactionHashes: PrefixedHexString[] = []
+
+    if (relayServer === undefined || relayServer === null) {
+      return transactionHashes
+    }
+
+    let managerEthBalance = await relayServer.getManagerBalance()
+    relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)
+
+    if (managerEthBalance.gte(toBN(relayServer.config.managerTargetBalance.toString())) && relayServer.workerBalanceRequired.isSatisfied) {
+      // all filled, nothing to do
+      return transactionHashes
+    }
+    managerEthBalance = await relayServer.getManagerBalance()
+
+    const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
+    const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
+
+    if (mustReplenishWorker && !isReplenishPendingForWorker) {
+      const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
+      console.log(
+        `== replenishServer: mgr balance=${managerEthBalance.toString()}
+          \n${relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
+
+      if (refill.lt(managerEthBalance.sub(toBN(relayServer.config.managerMinBalance)))) {
+        console.log('Replenishing worker balance by manager rbtc balance')
+        const details: SendTransactionDetails = {
+          signer: relayServer.managerAddress,
+          serverAction: ServerAction.VALUE_TRANSFER,
+          destination: relayServer.workerAddress,
+          value: toHex(refill),
+          creationBlockNumber: currentBlock,
+          gasLimit: defaultEnvironment.mintxgascost
+        }
+        const { transactionHash } = await relayServer.transactionManager.sendTransaction(details)
+        transactionHashes.push(transactionHash)
+      } else {
+        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
+        relayServer.emit('fundingNeeded', message)
+        console.log(message)
+      }
+    }
+    return transactionHashes
   }
 
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{

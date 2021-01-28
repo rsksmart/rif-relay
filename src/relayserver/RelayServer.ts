@@ -64,9 +64,9 @@ export class RelayServer extends EventEmitter {
 
   workerBalanceRequired: AmountRequired
 
-  private replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>
+  private readonly replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>
 
-  constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies) {
+  constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>) {
     super()
     this.versionManager = new VersionsManager(VERSION)
     this.config = configureServer(config)
@@ -75,6 +75,7 @@ export class RelayServer extends EventEmitter {
     this.transactionManager = new TransactionManager(dependencies, this.config)
     this.managerAddress = this.transactionManager.managerKeyManager.getAddress(0)
     this.workerAddress = this.transactionManager.workersKeyManager.getAddress(0)
+    this.replenishStrategy = replenishStrategy
     this.workerBalanceRequired = new AmountRequired('Worker Balance', toBN(this.config.workerMinBalance))
     this.printServerAddresses()
     log.setLevel(this.config.logLevel)
@@ -385,12 +386,11 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async init (replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): Promise<void> {
+  async init (): Promise<void> {
     if (this.initialized) {
       throw new Error('_init was already called')
     }
 
-    this.replenishStrategy = replenishStrategy
     await this.transactionManager._init()
     await this._initTrustedVerifiers(this.config.trustedVerifiers)
     this.relayHubContract = this.contractInteractor.relayHubInstance

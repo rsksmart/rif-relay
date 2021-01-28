@@ -108,7 +108,7 @@ options.forEach(params => {
         const env = await getTestingEnvironment()
         const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
         const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
-        const smartWalletInstance: SmartWalletInstance = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
+        const smartWalletInstance: SmartWalletInstance = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
         relayClientConfig = {
           logLevel: 5,
           relayHubAddress: rhub.address,
