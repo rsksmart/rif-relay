@@ -215,6 +215,11 @@ export class RelayProvider implements HttpProvider {
     if (gsnTransactionDetails.callForwarder === undefined || gsnTransactionDetails.callForwarder === null || gsnTransactionDetails.callForwarder === constants.ZERO_ADDRESS) {
       gsnTransactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
     }
+
+    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    }
+
     this.relayClient.relayTransaction(gsnTransactionDetails)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
