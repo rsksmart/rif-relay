@@ -12,7 +12,7 @@ import {
   RelayHubInstance,
   StakeManagerInstance,
   TestRecipientInstance,
-  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance
+  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance, TestDeployVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 
 import { DeployRequest, RelayRequest } from '../../src/common/EIP712/RelayRequest'
@@ -39,15 +39,16 @@ import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { soliditySha3Raw } from 'web3-utils'
+import { soliditySha3Raw, toHex } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
-import TypedRequestData, { ENVELOPING_PARAMS, ForwardRequestType, getDomainSeparatorHash, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import { DeployRequestDataType, DEPLOY_PARAMS, ENVELOPING_PARAMS, getDomainSeparatorHash, GsnRequestType, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
 import { bufferToHex } from 'ethereumjs-util'
 import { expectEvent } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestVerifier = artifacts.require('TestVerifierEverythingAccepted')
+const TestRelayVerifier = artifacts.require('TestVerifierEverythingAccepted')
+const TestDeployVerifier = artifacts.require('TestDeployVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
 const expect = chai.expect
@@ -76,7 +77,8 @@ contract('RelayClient', function (accounts) {
   let relayHub: RelayHubInstance
   let stakeManager: StakeManagerInstance
   let testRecipient: TestRecipientInstance
-  let verifier: TestVerifierEverythingAcceptedInstance
+  let relayVerifier: TestVerifierEverythingAcceptedInstance
+  let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
   let relayProcess: ChildProcessWithoutNullStreams
   let relayClient: RelayClient
   let gsnConfig: Partial<GSNConfig>
@@ -102,22 +104,23 @@ contract('RelayClient', function (accounts) {
     gaslessAccount = await getGaslessAccount()
     factory = await createProxyFactory(sWalletTemplate)
     smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
-    verifier = await TestVerifier.new()
+    relayVerifier = await TestRelayVerifier.new()
+    deployVerifier = await TestDeployVerifier.new()
 
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       stake: 1e18,
       relayOwner: accounts[1],
       ethereumNodeUrl: underlyingProvider.host,
-      deployVerifierAddress: verifier.address,
-      relayVerifierAddress: verifier.address
+      deployVerifierAddress: deployVerifier.address,
+      relayVerifierAddress: relayVerifier.address
     })
 
     gsnConfig = {
       logLevel: 5,
       relayHubAddress: relayHub.address,
       chainId: env.chainId,
-      deployVerifierAddress: verifier.address,
-      relayVerifierAddress: verifier.address
+      deployVerifierAddress: deployVerifier.address,
+      relayVerifierAddress: relayVerifier.address
     }
 
     relayClient = new RelayClient(underlyingProvider, gsnConfig)
@@ -137,7 +140,7 @@ contract('RelayClient', function (accounts) {
       data,
       relayHub: relayHub.address,
       callForwarder: smartWallet.address,
-      callVerifier: verifier.address,
+      callVerifier: relayVerifier.address,
       clientId: '1',
       tokenContract: token.address,
       tokenAmount: '1',
@@ -301,27 +304,26 @@ contract('RelayClient', function (accounts) {
       // register eoaWithoutSmartWalletAccount account in RelayClient to avoid signing with RSKJ
       relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
       const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, soliditySha3Raw({ t: 'bytes', v: '0x' }), '0')
+      await token.mint('1000', swAddress)
 
       const details: GsnTransactionDetails = {
         from: eoaWithoutSmartWalletAccount.address,
         to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
         data: '0x', // No extra-logic init data
         callForwarder: factory.address,
-        callVerifier: verifier.address,
+        callVerifier: deployVerifier.address,
         clientId: '1',
         tokenContract: token.address,
         tokenAmount: '1',
         recoverer: constants.ZERO_ADDRESS,
         index: '0',
         gasPrice: '0x1',
-        gas: '400000',
+        gas: toHex('400000'),
         value: '0',
         isSmartWalletDeploy: true,
         useGSN: true,
         relayHub: accounts[0]
       }
-
-      await token.mint('1000', swAddress)
 
       const estimatedGasResult = await relayClient.calculateSmartWalletDeployGas(details)
       const originalBalance = await token.balanceOf(swAddress)
@@ -330,11 +332,11 @@ contract('RelayClient', function (accounts) {
 
       const request: DeployRequest = {
         request: {
-          relayHub: relayHub.address,
+          relayHub: accounts[0],
           from: eoaWithoutSmartWalletAccount.address,
           to: constants.ZERO_ADDRESS,
           value: '0',
-          gas: '400000',
+          gas: toHex('400000'),
           nonce: senderNonce.toString(),
           data: '0x',
           tokenContract: token.address,
@@ -346,19 +348,19 @@ contract('RelayClient', function (accounts) {
           gasPrice: '1',
           relayWorker: constants.ZERO_ADDRESS,
           callForwarder: factory.address,
-          callVerifier: verifier.address,
+          callVerifier: deployVerifier.address,
           domainSeparator: getDomainSeparatorHash(swAddress, chainId)
         }
       }
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         chainId,
         factory.address,
         request
       )
 
       const sig = relayClient.accountManager._signWithControlledKey(eoaWithoutSmartWalletAccount, dataToSign)
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
-      const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`)
 
       const { logs } = await factory.relayedUserSmartWalletCreation(request.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, sig)
       const salt = web3.utils.soliditySha3(
@@ -405,7 +407,7 @@ contract('RelayClient', function (accounts) {
         gas: '0x1E8480',
         relayHub: relayHub.address,
         callForwarder: factory.address,
-        callVerifier: verifier.address,
+        callVerifier: deployVerifier.address,
         clientId: '1',
         tokenContract: token.address,
         tokenAmount: '1',
