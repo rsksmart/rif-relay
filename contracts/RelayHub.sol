@@ -181,7 +181,7 @@ contract RelayHub is IRelayHub {
         
         //If no revert, then return true
         require(succ, "relay manager not staked");
-       
+        return true;
     }
 
     modifier penalizerOnly () {
