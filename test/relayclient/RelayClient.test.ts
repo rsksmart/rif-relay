@@ -135,6 +135,7 @@ contract('RelayClient', function (accounts) {
       from,
       to,
       data,
+      relayHub: relayHub.address,
       callForwarder: smartWallet.address,
       callVerifier: verifier.address,
       clientId: '1',
@@ -402,6 +403,7 @@ contract('RelayClient', function (accounts) {
         to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
         data: '0x', // No extra-logic init data
         gas: '0x1E8480',
+        relayHub: relayHub.address,
         callForwarder: factory.address,
         callVerifier: verifier.address,
         clientId: '1',
