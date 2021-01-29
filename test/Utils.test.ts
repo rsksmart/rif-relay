@@ -232,17 +232,19 @@ contract('Utils', function (accounts) {
       const deploymentResult = await commandsLogic.deployGsnContracts({
         from: accounts[0],
         gasPrice: '1',
-        deployPaymaster: true,
+        deployPaymasters: true,
         skipConfirmation: true,
         relayHubConfiguration: defaultEnvironment.relayHubConfiguration
       })
       const minGasPrice = 777
       const partialConfig: Partial<GSNConfig> = {
-        paymasterAddress: deploymentResult.naivePaymasterAddress,
+        relayPaymasterAddress: deploymentResult.naiveRelayPaymasterAddress,
+        deployPaymasterAddress: deploymentResult.naiveDeployPaymasterAddress,
         minGasPrice
       }
       const resolvedPartialConfig = await resolveConfigurationGSN(web3.currentProvider as Web3Provider, partialConfig)
-      assert.equal(resolvedPartialConfig.paymasterAddress, deploymentResult.naivePaymasterAddress)
+      assert.equal(resolvedPartialConfig.relayPaymasterAddress, deploymentResult.naiveRelayPaymasterAddress)
+      assert.equal(resolvedPartialConfig.deployPaymasterAddress, deploymentResult.naiveDeployPaymasterAddress)
       assert.equal(resolvedPartialConfig.relayHubAddress, deploymentResult.relayHubAddress)
       assert.equal(resolvedPartialConfig.minGasPrice, minGasPrice, 'Input value lost')
       assert.equal(resolvedPartialConfig.sliceSize, defaultConfiguration.sliceSize, 'Unexpected value appeared')
@@ -251,7 +253,7 @@ contract('Utils', function (accounts) {
     it('should throw if no paymaster at address', async function () {
       await expect(resolveConfigurationGSN(
         web3.currentProvider as Web3Provider, {})
-      ).to.be.eventually.rejectedWith('Cannot resolve GSN deployment without paymaster address')
+      ).to.be.eventually.rejectedWith('Cannot resolve GSN deployment without relayer paymaster address')
     })
   })
 })

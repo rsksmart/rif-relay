@@ -15,13 +15,15 @@ const { assert, expect } = chai.use(chaiAsPromised)
 contract('client-configuration', () => {
   let env: TestEnvironment
   let deploymentResult: DeploymentResult
-  let paymasterAddress: PrefixedHexString
+  let relayPaymasterAddress: PrefixedHexString
+  let deployPaymasterAddress: PrefixedHexString
   before(async () => {
     const host = (web3.currentProvider as HttpProvider).host
     env = await GsnTestEnvironment.startGsn(host)
     deploymentResult = env.deploymentResult
     // deploymentResult = loadDeployment('./build/gsn')
-    paymasterAddress = deploymentResult.naivePaymasterAddress
+    relayPaymasterAddress = deploymentResult.naiveRelayPaymasterAddress
+    deployPaymasterAddress = deploymentResult.naiveDeployPaymasterAddress
   })
   describe('#resolveConfigurationGSN', () => {
     describe('failures', () => {
@@ -36,15 +38,15 @@ contract('client-configuration', () => {
       })
       it('should throw if no paymaster in config', async () => {
         await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, {}))
-          .to.eventually.rejectedWith('Cannot resolve GSN deployment without paymaster address')
+          .to.eventually.rejectedWith('Cannot resolve GSN deployment without relayer paymaster address')
       })
       it('should throw if no contract at paymaster address ', async () => {
-        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { paymasterAddress: constants.ZERO_ADDRESS }))
+        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: constants.ZERO_ADDRESS, deployPaymasterAddress: constants.ZERO_ADDRESS }))
           .to.eventually.rejectedWith('no code at address ')
       })
 
       it('should throw if not a paymaster contract', async () => {
-        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { paymasterAddress: deploymentResult.stakeManagerAddress }))
+        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: deploymentResult.stakeManagerAddress, deployPaymasterAddress: deploymentResult.stakeManagerAddress }))
           .to.eventually.rejectedWith('Not a paymaster contract')
       })
 
@@ -61,7 +63,7 @@ contract('client-configuration', () => {
             return await saveCPM.call(this, addr)
           }
 
-          await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { paymasterAddress }))
+          await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress }))
             .to.eventually.rejectedWith(/Provided.*version.*is not supported/)
         } finally {
           ContractInteractor.prototype._createPaymaster = saveCPM
@@ -72,9 +74,9 @@ contract('client-configuration', () => {
     describe('with successful resolveConfigurationGSN', () => {
       it('should fill relayHub, stakeManager, Forwarder from valid paymaster paymaster address ', async () => {
         // RSK Evenloping: Paymaster does NOT have a reference to the Smart Wallet (a.k.a, Forwarder)
-        const gsnConfig = await resolveConfigurationGSN(web3.currentProvider as Web3Provider, { paymasterAddress })
+        const gsnConfig = await resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: relayPaymasterAddress, deployPaymasterAddress: deployPaymasterAddress })
         assert.equal(gsnConfig.relayHubAddress, deploymentResult.relayHubAddress)
-        assert.equal(gsnConfig.paymasterAddress, deploymentResult.naivePaymasterAddress)
+        assert.equal(gsnConfig.relayPaymasterAddress, deploymentResult.naiveRelayPaymasterAddress)
         // assert.equal(gsnConfig.forwarderAddress, deploymentResult.forwarderAddress)
       })
       it('should set metamask defaults', async () => {
@@ -84,7 +86,7 @@ contract('client-configuration', () => {
             (web3.currentProvider as any).send(options, cb)
           }
         } as any
-        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, { paymasterAddress })
+        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, { relayPaymasterAddress: relayPaymasterAddress, deployPaymasterAddress: deployPaymasterAddress })
         assert.equal(gsnConfig.methodSuffix, '_v4')
         assert.equal(gsnConfig.jsonStringifyRequest, true)
       })
@@ -99,7 +101,7 @@ contract('client-configuration', () => {
 
         // note: to check boolean override, we explicitly set it to something that
         // is not in the defaults..
-        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, { paymasterAddress, methodSuffix: 'suffix', jsonStringifyRequest: 5 as unknown as boolean })
+        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, { relayPaymasterAddress: relayPaymasterAddress, deployPaymasterAddress: deployPaymasterAddress, methodSuffix: 'suffix', jsonStringifyRequest: 5 as unknown as boolean })
         assert.equal(gsnConfig.methodSuffix, 'suffix')
         assert.equal(gsnConfig.jsonStringifyRequest as any, 5)
       })

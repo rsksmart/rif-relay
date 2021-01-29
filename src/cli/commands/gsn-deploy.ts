@@ -45,7 +45,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
     from,
     gasPrice,
     relayHubConfiguration,
-    deployPaymaster: true,
+    deployPaymasters: true,
     verbose: true,
     skipConfirmation: commander.skipConfirmation,
     factoryAddress: commander.factory,

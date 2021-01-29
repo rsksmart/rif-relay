@@ -47,7 +47,7 @@ contract('GsnTestEnvironment', function () {
         from: sender.address,
         to: sr.address,
         forwarder: wallet.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
+        paymaster: testEnvironment.deploymentResult.naiveRelayPaymasterAddress,
         paymasterData: '0x',
         gas: '0x' + 1e6.toString(16),
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
@@ -79,7 +79,7 @@ contract('GsnTestEnvironment', function () {
         from: sender.address,
         to: str.address,
         forwarder: wallet.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
+        paymaster: testEnvironment.deploymentResult.naiveRelayPaymasterAddress,
         paymasterData: '0x',
         gas: '0x' + 1e6.toString(16),
         data: str.contract.methods.transfer(tokenReceiverAddress, '5').encodeABI(),
@@ -126,7 +126,7 @@ contract('GsnTestEnvironment', function () {
 
       const txDetails = {
         from: sender.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
+        paymaster: testEnvironment.deploymentResult.naiveRelayPaymasterAddress,
         forwarder: wallet.address
       }
       const ret = await sr.emitMessage('hello', txDetails)
@@ -149,7 +149,7 @@ contract('GsnTestEnvironment', function () {
 
       const txDetails = {
         from: sender.address,
-        paymaster: testEnvironment.deploymentResult.naivePaymasterAddress,
+        paymaster: testEnvironment.deploymentResult.naiveRelayPaymasterAddress,
         forwarder: wallet.address
       }
 
