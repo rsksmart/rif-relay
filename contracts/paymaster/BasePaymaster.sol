@@ -8,6 +8,8 @@ import "../interfaces/GsnTypes.sol";
 import "../interfaces/IPaymaster.sol";
 import "../interfaces/IRelayHub.sol";
 import "../utils/GsnEip712Library.sol";
+// V1 ONLY: Support for destructable contracts
+// import "../utils/RSKAddrValidator.sol";
 
 /**
  * Abstract base class to be inherited by a concrete Paymaster
