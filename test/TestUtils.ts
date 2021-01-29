@@ -376,7 +376,7 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
   const encoded = TypedDataUtils.encodeData(createdataToSign.primaryType, createdataToSign.message, createdataToSign.types)
   const countParams = DeployRequestDataType.length
   const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
-  const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature)
+  const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, deploySignature, { from: relayHub })
   console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
 
   const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')

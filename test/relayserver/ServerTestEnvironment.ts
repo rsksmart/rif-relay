@@ -128,7 +128,8 @@ export class ServerTestEnvironment {
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
-    const smartWallet: SmartWalletInstance = await createSmartWallet(web3.defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
+    const defaultAccount = web3.defaultAccount ?? (await web3.eth.getAccounts())[0]
+    const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
 
     const shared: Partial<GSNConfig> = {
@@ -233,6 +234,7 @@ export class ServerTestEnvironment {
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,
+      relayHub: this.relayHub.address,
       callVerifier: this.relayVerifier.address,
       callForwarder: this.forwarder.address,
       gas: toHex(1000000),
