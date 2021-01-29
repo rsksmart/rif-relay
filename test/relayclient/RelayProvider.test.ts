@@ -275,6 +275,7 @@ contract('RelayProvider', function (accounts) {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
+        // gas: toHex('400000'),
         tokenContract: token.address,
         tokenAmount: '10',
         recoverer: recoverer,
