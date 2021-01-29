@@ -121,8 +121,16 @@ export class RelayProvider implements HttpProvider {
    * @returns The transaction hash
    */
   async deploySmartWallet (gsnTransactionDetails: GsnTransactionDetails): Promise<string> {
-    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || !gsnTransactionDetails.isSmartWalletDeploy) {
+    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || gsnTransactionDetails.isSmartWalletDeploy === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, isSmartWalletDeploy: true }
+    }
+
+    if (!(gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
       throw new Error('Request is not for SmartWallet deploy')
+    }
+
+    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
     }
 
     try {

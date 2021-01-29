@@ -372,11 +372,18 @@ export default class ContractInteractor {
     }
   }
 
-  encodeABI (relayRequest: RelayRequest, sig: PrefixedHexString): PrefixedHexString {
+  encodeRelayCallABI (relayRequest: RelayRequest, sig: PrefixedHexString): PrefixedHexString {
     // TODO: check this works as expected
     // @ts-ignore
     const relayHub = new this.IRelayHubContract('')
     return relayHub.contract.methods.relayCall(relayRequest, sig).encodeABI()
+  }
+
+  encodeDeployCallABI (relayRequest: DeployRequest, sig: PrefixedHexString): PrefixedHexString {
+    // TODO: check this works as expected
+    // @ts-ignore
+    const relayHub = new this.IRelayHubContract('')
+    return relayHub.contract.methods.deployCall(relayRequest, sig).encodeABI()
   }
 
   async getPastEventsForHub (extraTopics: string[], options: PastEventOptions, names: EventName[] = ActiveManagerEvents): Promise<EventData[]> {

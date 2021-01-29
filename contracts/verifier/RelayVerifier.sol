@@ -52,9 +52,9 @@ contract RelayVerifier is BaseVerifier, IVerifier{
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
 
         address payer = relayRequest.relayData.callForwarder;
-        IERC20 token = IERC20(relayRequest.request.tokenContract);
-        uint256 tokenAmount = relayRequest.request.tokenAmount;
-        require(tokenAmount <= token.balanceOf(payer), "balance too low");
+        if(relayRequest.request.tokenContract != address(0)){
+            require(relayRequest.request.tokenAmount <= IERC20(relayRequest.request.tokenContract).balanceOf(payer), "balance too low");
+        }
 
         // Check for the codehash of the smart wallet sent
         bytes32 smartWalletCodeHash;
@@ -62,9 +62,7 @@ contract RelayVerifier is BaseVerifier, IVerifier{
 
         require(ProxyFactory(factory).runtimeCodeHash() == smartWalletCodeHash, "SW different to template");
 
-        //We dont do that here
-        //token.transferFrom(payer, address(this), tokenPrecharge);
-        return (abi.encode(payer, tokenAmount, token));
+        return (abi.encode(payer, relayRequest.request.tokenAmount, relayRequest.request.tokenContract));
     }
     /* solhint-enable no-unused-vars */
 

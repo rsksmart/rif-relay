@@ -14,8 +14,8 @@ import { ether, isSameAddress, sleep } from '../common/Utils'
 import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
-import DeployVerifier from './compiled/TestDeployVerifierEverythingAccepted.json'
-import RelayVerifier from './compiled/TestVerifierEverythingAccepted.json'
+import DeployVerifier from './compiled/DeployVerifier.json'
+import RelayVerifier from './compiled/RelayVerifier.json'
 
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
@@ -286,8 +286,16 @@ export default class CommandsLogic {
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    const deployVerifierInstance = await this.getContractInstance(DeployVerifier, {}, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const relayVerifierInstance = await this.getContractInstance(RelayVerifier, {}, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const deployVerifierInstance = await this.getContractInstance(DeployVerifier, {
+      arguments: [
+        pfInstance.options.address
+      ]
+    }, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const relayVerifierInstance = await this.getContractInstance(RelayVerifier, {
+      arguments: [
+        pfInstance.options.address
+      ]
+    }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     // Overriding saved configuration with newly deployed instances
     this.config.deployVerifierAddress = deployVerifierInstance.options.address
     this.config.relayVerifierAddress = relayVerifierInstance.options.address
