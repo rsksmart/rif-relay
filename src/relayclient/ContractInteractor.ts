@@ -40,7 +40,6 @@ import {
 import { Address, IntString } from './types/Aliases'
 import { GSNConfig } from './GSNConfigurator'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
-import { ForwardRequest } from '../common/EIP712/ForwardRequest'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
@@ -486,18 +485,18 @@ export default class ContractInteractor {
     return await stakeManager.getStakeInfo(managerAddress)
   }
 
-  async proxyFactoryDeployEstimageGas (request: ForwardRequest, factory: Address, domainHash: string, requestTypeHash: string,
+  async proxyFactoryDeployEstimageGas (request: DeployRequest, factory: Address, domainHash: string, requestTypeHash: string,
     suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
     const pFactory = await this._createFactory(factory)
 
-    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request, domainHash, requestTypeHash,
+    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request.request, domainHash, requestTypeHash,
       suffixData, signature)
 
     if (testCall) {
-      await method.call() // No particular msg.sender is required
+      await method.call({ from: request.request.relayHub })
     }
 
-    return method.estimateGas()
+    return method.estimateGas({ from: request.request.relayHub })
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction

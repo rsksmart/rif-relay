@@ -316,7 +316,8 @@ contract('RelayClient', function (accounts) {
         gas: '400000',
         value: '0',
         isSmartWalletDeploy: true,
-        useGSN: true
+        useGSN: true,
+        relayHub: accounts[0]
       }
 
       await token.mint('1000', swAddress)

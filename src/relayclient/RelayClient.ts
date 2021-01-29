@@ -186,7 +186,7 @@ export class RelayClient {
     const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`)
     const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + DeployRequestDataType.length) * 32))
     const domainHash = getDomainSeparatorHash(testInfo.relayRequest.relayData.callForwarder, this.accountManager.chainId)
-    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest.request,
+    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest,
       testInfo.relayRequest.relayData.callForwarder, domainHash, typeHash, suffixData, testInfo.metadata.signature)
     return estimatedGas
   }
@@ -310,7 +310,7 @@ export class RelayClient {
 
     const relayRequest: DeployRequest = {
       request: {
-        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
+        relayHub: gsnTransactionDetails.relayHub ?? this.config.relayHubAddress,
         from: gsnTransactionDetails.from, // owner EOA
         to: gsnTransactionDetails.to, // optional LogicAddr
         data: gsnTransactionDetails.data, // optional InitParams for LogicAddr
