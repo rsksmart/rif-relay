@@ -49,6 +49,10 @@ export function getPaymasterAddress (paymaster?: string): string | undefined {
   return getAddressFromFile('build/gsn/Paymaster.json', paymaster)
 }
 
+export function getDeployPaymasterAddress (deployPaymaster?: string): string | undefined {
+  return getAddressFromFile('build/gsn/DeployPaymaster.json', deployPaymaster)
+}
+
 export function getRelayHubAddress (defaultAddress?: string): string | undefined {
   return getAddressFromFile('build/gsn/RelayHub.json', defaultAddress)
 }

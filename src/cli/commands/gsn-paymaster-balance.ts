@@ -1,10 +1,11 @@
 import Web3 from 'web3'
 import CommandsLogic from '../CommandsLogic'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
-import { getMnemonic, getNetworkUrl, getPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'
+import { getMnemonic, getNetworkUrl, getPaymasterAddress, getDeployPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'
 
 const commander = gsnCommander(['h', 'n', 'm'])
-  .option('--paymaster <address>', 'address of the paymaster contract')
+  .option('--isDeploy', 'The paymaster is for deploy (default is false)')
+  .option('--paymaster <address>', 'address of the relayer paymaster contract')
   .parse(process.argv);
 
 (async () => {
@@ -12,7 +13,12 @@ const commander = gsnCommander(['h', 'n', 'm'])
   const nodeURL = getNetworkUrl(network)
 
   const hub = getRelayHubAddress(commander.hub)
-  const paymaster = getPaymasterAddress(commander.paymaster)
+  let paymaster
+  if (commander.isDeploy != null) {
+    paymaster = getDeployPaymasterAddress(commander.deployPaymaster)
+  } else {
+    paymaster = getPaymasterAddress(commander.paymaster)
+  }
 
   if (hub == null || paymaster == null) {
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions

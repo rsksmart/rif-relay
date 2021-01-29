@@ -1,9 +1,11 @@
 import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic from '../CommandsLogic'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
-import { getMnemonic, getNetworkUrl, getPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'
+import { getMnemonic, getNetworkUrl, getPaymasterAddress, getDeployPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'
 
 const commander = gsnCommander(['n', 'f', 'h', 'm'])
+  .option('--isDeploy',
+    'indicates if the paymaster is for deploy (default is false)')
   .option('--paymaster <address>',
     'address of the paymaster contract (defaults to address from build/gsn/Paymaster.json if exists')
   .option('--amount <amount>', 'amount of funds to deposit for the paymaster contract, in wei (defaults to 0.01 RBTC)')
@@ -14,7 +16,12 @@ const commander = gsnCommander(['n', 'f', 'h', 'm'])
   const nodeURL = getNetworkUrl(network)
 
   const hub = getRelayHubAddress(commander.hub)
-  const paymaster = getPaymasterAddress(commander.paymaster)
+  let paymaster
+  if (commander.isDeploy != null) {
+    paymaster = getDeployPaymasterAddress(commander.paymaster)
+  } else {
+    paymaster = getPaymasterAddress(commander.paymaster)
+  }
 
   if (hub == null || paymaster == null) {
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions

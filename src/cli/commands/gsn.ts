@@ -5,7 +5,7 @@ import { version } from '../../../package.json'
 
 commander
   .version(version)
-  .command('boot-test', 'all-on-one: deploy all contracts, start relay')
+  .command('boot-test', 'all-on-one: deploy all contracts, start relay. Warning: This should be used only for testing')
   .command('deploy', 'deploy RelayHub and other GSN contracts instances')
   .command('relayer-register', 'stake for a relayer and fund it')
   .command('relayer-run', 'launch a relayer server')
