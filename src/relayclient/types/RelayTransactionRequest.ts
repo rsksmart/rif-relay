@@ -23,6 +23,7 @@ export interface DeployTransactionRequest {
 export const DeployTransactionRequestShape = {
   relayRequest: {
     request: {
+      relayHub: ow.string,
       from: ow.string,
       to: ow.string,
       value: ow.string,
@@ -53,6 +54,7 @@ export const DeployTransactionRequestShape = {
 export const RelayTransactionRequestShape = {
   relayRequest: {
     request: {
+      relayHub: ow.string,
       from: ow.string,
       to: ow.string,
       value: ow.string,
