@@ -2,6 +2,7 @@ import { Address, IntString } from '../../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 export interface ForwardRequest {
+  relayHub: Address
   from: Address
   to: Address
   value: IntString
@@ -10,10 +11,10 @@ export interface ForwardRequest {
   data: PrefixedHexString
   tokenContract: Address
   tokenAmount: IntString
-  relayHub: Address
 }
 
 export interface DeployRequestStruct {
+  relayHub: Address
   from: Address
   to: Address
   value: IntString
@@ -22,7 +23,7 @@ export interface DeployRequestStruct {
   data: PrefixedHexString
   tokenContract: Address
   tokenAmount: IntString
-  recoverer: Address // only used if factory is set
-  index: IntString // only used if factory is set
-  relayHub: Address
+  recoverer: Address
+  index: IntString
+
 }

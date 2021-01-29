@@ -29,6 +29,7 @@ import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { constants } from '../common/Constants'
+import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 
 import Timeout = NodeJS.Timeout
 
@@ -219,9 +220,11 @@ export class RelayServer extends EventEmitter {
     )
 
     try {
-      verifierContract.contract.methods.preRelayedCall(req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({
-        from: this.workerAddress
-      })
+      if (this.isDeployRequest(req)) {
+        await (verifierContract as IDeployVerifierInstance).contract.methods.preRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress })
+      } else {
+        await (verifierContract as IVerifierInstance).contract.methods.preRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress })
+      }
     } catch (e) {
       const error = e as Error
       throw new Error(`Verification by verifier failed: ${error.message}`)
@@ -230,9 +233,7 @@ export class RelayServer extends EventEmitter {
     return { maxPossibleGas, acceptanceBudget }
   }
 
-  async validateViewCallSucceeds (req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
-    const method = this.relayHubContract.contract.methods.relayCall(
-      req.relayRequest, req.metadata.signature)
+  async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
     // const gasEstimated = await method.estimateGas({from: this.workerAddress,
     // gasPrice:req.relayRequest.relayData.gasPrice})
     try {
@@ -268,8 +269,6 @@ export class RelayServer extends EventEmitter {
 
     // TODO: relay server must decide wether the trx cost is too much to handle or not
 
-    // Call relayCall as a view function to see if we'll get paid for relaying this tx
-    await this.validateViewCallSucceeds(req, maxPossibleGas)
     // Send relayed transaction
     log.debug('maxPossibleGas is', maxPossibleGas)
     log.debug('acceptanceBudget is', acceptanceBudget) // TODO: Not used, plan to remove
@@ -277,8 +276,11 @@ export class RelayServer extends EventEmitter {
     const isDeploy = this.isDeployRequest(req)
 
     const method = isDeploy ? this.relayHubContract.contract.methods.deployCall(
-      req.relayRequest, req.metadata.signature) : this.relayHubContract.contract.methods.relayCall(
-      req.relayRequest, req.metadata.signature)
+      req.relayRequest as DeployRequest, req.metadata.signature) : this.relayHubContract.contract.methods.relayCall(
+      req.relayRequest as RelayRequest, req.metadata.signature)
+
+    // Call relayCall as a view function to see if we'll get paid for relaying this tx
+    await this.validateViewCallSucceeds(method, req, maxPossibleGas)
     const currentBlock = await this.contractInteractor.getBlockNumber()
     const details: SendTransactionDetails =
       {
