@@ -21,7 +21,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   let penalizer: PenalizerInstance
 
   beforeEach(async function () {
-    stakeManager = await StakeManager.new()
+    stakeManager = await StakeManager.new(0)
     penalizer = await Penalizer.new()
     relayHub = await deployHub(stakeManager.address, penalizer.address)
   })

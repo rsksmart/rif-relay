@@ -10,7 +10,7 @@ const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
 
 module.exports = async function (deployer) {
-  await deployer.deploy(StakeManager)
+  await deployer.deploy(StakeManager, 0)
   await deployer.deploy(Penalizer)
   await deployer.deploy(RelayHub, StakeManager.address, Penalizer.address, 0, 0, 0, 0, 0)
   await deployer.deploy(SampleRecipient)

@@ -149,7 +149,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         console.log(addr)
       }
 
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
       relayHub = await deployHub(stakeManager.address, penalizer.address)
       env = await getTestingEnvironment()

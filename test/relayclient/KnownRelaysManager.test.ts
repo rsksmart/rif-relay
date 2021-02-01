@@ -71,7 +71,7 @@ contract('KnownRelaysManager', function (
       workerRelayWorkersAdded = await web3.eth.personal.newAccount('password')
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(0)
       relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
       config = configureGSN({
         relayHubAddress: relayHub.address,
@@ -190,7 +190,7 @@ contract('KnownRelaysManager 2', function (accounts) {
 
     before(async function () {
       env = await getTestingEnvironment()
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(0)
       relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
       config = configureGSN({
         preferredRelays: ['http://localhost:8090'],
