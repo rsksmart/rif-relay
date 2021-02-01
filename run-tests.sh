@@ -1,7 +1,7 @@
 #!/bin/sh
 run_batch()
 {
-	cid=$(sudo docker run --init --network "$TEST_NETWORK" \
+	cid=$(docker run --init --network "$TEST_NETWORK" \
 	    --expose 4444 -p 127.0.0.1:4444:4444 \
 	    --rm -itd --name enveloping-rskj rsknode --regtest)
 
@@ -18,18 +18,18 @@ run_batch()
 	sleep 5
 
 	for test; do
-		sudo docker exec -it "$TEST_RUNNER_CID" \
+		docker exec -it "$TEST_RUNNER_CID" \
 		    npx truffle test --network rskdocker "$test"
 	done
 
-	sudo docker stop "$cid"
+	docker stop "$cid"
 }
 
 setup_containers()
 {
 	printf "Creating Docker network..." >&2
 	TEST_NETWORK=enveloping-tests-net
-	sudo docker network create -d bridge "$TEST_NETWORK"
+	docker network create -d bridge "$TEST_NETWORK"
 	if [ $? -ne 0 ]; then
 		printf "ERROR! Couldn't create the network; aborting\n" >&2
 		exit 1
@@ -37,15 +37,15 @@ setup_containers()
 	printf " OK\n" >&2
 
 	printf "Building containers..." >&2
-	sudo docker build -t rsknode rsknode/ &&
-	    sudo docker build -t tests-runner .
+	docker build -t rsknode rsknode/ &&
+	    docker build -t tests-runner .
 	if [ $? -ne 0 ]; then
 		printf "ERROR! Couldn't build containers; aborting\n" >&2
 		exit 1
 	fi
 
 	printf "Creating tests runner container..." >&2
-	TEST_RUNNER_CID=$(sudo docker run --init --network "$TEST_NETWORK" \
+	TEST_RUNNER_CID=$(docker run --init --network "$TEST_NETWORK" \
 	    -itd --rm tests-runner cat)
 	if [ $? -ne 0 ]; then
 		printf "ERROR! Couldn't create tests runner; aborting\n" >&2
@@ -56,9 +56,9 @@ setup_containers()
 
 cleanup()
 {
-	sudo docker stop enveloping-rskj 2>/dev/null || true
-	[ -n "$TEST_RUNNER_CID" ] && sudo docker stop "$TEST_RUNNER_CID" || true
-	[ -n "$TEST_NETWORK" ] && sudo docker network rm "$TEST_NETWORK" || true
+	docker stop enveloping-rskj 2>/dev/null || true
+	[ -n "$TEST_RUNNER_CID" ] && docker stop "$TEST_RUNNER_CID" || true
+	[ -n "$TEST_NETWORK" ] && docker network rm "$TEST_NETWORK" || true
 }
 
 TEST_NETWORK=
