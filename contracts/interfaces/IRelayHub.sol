@@ -38,7 +38,7 @@ interface IRelayHub {
         address  relayWorker,
         address  from,
         address to,
-        uint256 lastSuccTrx,
+        uint256 lastTxFailed,
         bytes4 selector,
         bytes reason);
 
