@@ -30,7 +30,7 @@ library GsnEip712Library {
     }
 
 
-    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, uint256 lastSuccTx, bytes memory ret) {
+    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, uint256 lastTxFailed, bytes memory ret) {
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.callForwarder.call(
                 abi.encodeWithSelector(IForwarder.execute.selector,
@@ -40,7 +40,7 @@ library GsnEip712Library {
                 ));
             
             if ( forwarderSuccess ) {
-                (lastSuccTx, ret) = abi.decode(ret, (uint256, bytes)); // decode return value of execute:
+                (lastTxFailed, ret) = abi.decode(ret, (uint256, bytes)); // decode return value of execute:
             }
 
             MinLibBytes.truncateInPlace(ret, 1024); // maximum length of return value/revert reason for 'execute' method. Will truncate result if exceeded.

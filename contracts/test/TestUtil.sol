@@ -58,15 +58,15 @@ contract TestUtil {
         bytes memory ret
     ) {
         bool forwarderSuccess;
-        uint256 lastSuccTx;
+        uint256 lastTxFailed;
 
-        (forwarderSuccess, lastSuccTx, ret) = GsnEip712Library.execute(relayRequest, signature);
+        (forwarderSuccess, lastTxFailed, ret) = GsnEip712Library.execute(relayRequest, signature);
         
         if ( !forwarderSuccess) {
             GsnUtils.revertWithData(ret);
         }
         
-        success = lastSuccTx == 0?true:false;
+        success = lastTxFailed == 0?true:false;
         emit Called(success, success == false ? ret : bytes(""));
     }
 

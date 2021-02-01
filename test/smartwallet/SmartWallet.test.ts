@@ -22,6 +22,10 @@ import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
+const SW_SUCCESS = 0
+const SW_FAILED_FORWARD_REQUEST = 1
+const SW_FAILED_TOKEN_TRANSFER = 2
+
 const keccak256 = web3.utils.keccak256
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 const TestTokenRecipient = artifacts.require('TestTokenRecipient')
@@ -146,8 +150,8 @@ options.forEach(element => {
           const sig: string = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
           // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-          await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x'), 'invalid signature length')
-          await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x123456'), 'invalid signature length')
+          await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x'), 'ECDSA: invalid signature length')
+          await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x123456'), 'ECDSA: invalid signature length')
           await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x' + '1b'.repeat(65)), 'signature mismatch')
           const newSig = sig.replace('a', 'b').replace('1', '2').replace('3', '4').replace('5', '6').replace('7', '8')
           await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, newSig), 'signature mismatch')
@@ -177,6 +181,8 @@ options.forEach(element => {
       let recipient: TestForwarderTargetInstance
       let testfwd: TestSmartWalletInstance
 
+      const worker = defaultAccount
+
       before(async () => {
         await token.mint('1000', sw.address)
 
@@ -188,6 +194,7 @@ options.forEach(element => {
 
       it('should return revert message of token payment revert', async () => {
         const func = recipient.contract.methods.testRevert().encodeABI()
+        const initialWorkerTokenBalance = await token.balanceOf(worker)
 
         const req1 = { ...request }
         req1.request.to = recipient.address
@@ -203,18 +210,18 @@ options.forEach(element => {
         const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
 
         // the helper simply emits the method return values
-        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
-        const tknBalance = await token.balanceOf(recipient.address)
+        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
+        const tknBalance = await token.balanceOf(worker)
 
-        assert.isTrue(new BN(0).eq(tknBalance))
+        assert.isTrue(initialWorkerTokenBalance.eq(tknBalance))
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastSuccTx, 0)
+        assert.equal(ret.logs[0].args.lastTxFailed, SW_FAILED_TOKEN_TRANSFER)
         assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
       })
 
       it('should call function', async () => {
         const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-        const initialRecipientBalance = await token.balanceOf(recipient.address)
+        const initialWorkerTokenBalance = await token.balanceOf(worker)
 
         const initialNonce = (await sw.nonce())
 
@@ -230,10 +237,10 @@ options.forEach(element => {
         const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
         // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
         // declared in solidity
-        await sw.execute(req1.request, domainSeparatorHash, typeHash, suffixData, sig)
+        await sw.execute(req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
 
-        const tknBalance = await token.balanceOf(recipient.address)
-        assert.equal(tknBalance.sub(initialRecipientBalance).toString(), new BN(1).toString())
+        const tknBalance = await token.balanceOf(worker)
+        assert.equal(tknBalance.sub(initialWorkerTokenBalance).toString(), new BN(1).toString())
         // @ts-ignore
         const logs = await recipient.getPastEvents('TestForwarderMessage')
         assert.equal(logs.length, 1, 'TestRecipient should emit')
@@ -245,7 +252,7 @@ options.forEach(element => {
 
       it('should return revert message of target revert', async () => {
         const func = recipient.contract.methods.testRevert().encodeABI()
-        const initialRecipientBalance = await token.balanceOf(recipient.address)
+        const initialWorkerTokenBalance = await token.balanceOf(worker)
 
         const req1 = { ...request }
         req1.request.data = func
@@ -262,18 +269,18 @@ options.forEach(element => {
         const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
         // the helper simply emits the method return values
-        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
+        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker})
         assert.equal(ret.logs[0].args.error, 'always fail')
-        assert.equal(ret.logs[0].args.lastSuccTx, 1)
+        assert.equal(ret.logs[0].args.lastTxFailed, 1)
 
         // Payment must have happened regardless of the revert
-        const tknBalance = await token.balanceOf(recipient.address)
-        assert.equal(tknBalance.toString(), initialRecipientBalance.add(new BN(1)).toString())
+        const tknBalance = await token.balanceOf(worker)
+        assert.equal(tknBalance.toString(), initialWorkerTokenBalance.add(new BN(1)).toString())
       })
 
       it('should not be able to re-submit after revert (its repeated nonce)', async () => {
         const func = recipient.contract.methods.testRevert().encodeABI()
-        const initialRecipientBalance = await token.balanceOf(recipient.address)
+        const initialWorkerTokenBalance = await token.balanceOf(worker)
 
         const req1 = { ...request }
         req1.request.data = func
@@ -290,21 +297,22 @@ options.forEach(element => {
         const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
         // the helper simply emits the method return values
-        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
+        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
         assert.equal(ret.logs[0].args.error, 'always fail')
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastSuccTx, 1)
+        assert.equal(ret.logs[0].args.lastTxFailed, 1)
 
-        const tknBalance = await token.balanceOf(recipient.address)
-        assert.equal(tknBalance.toString(), initialRecipientBalance.add(new BN(1)).toString())
+        const tknBalance = await token.balanceOf(worker)
+        assert.equal(tknBalance.toString(), initialWorkerTokenBalance.add(new BN(1)).toString())
 
-        await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig), 'nonce mismatch')
+        await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker }), 'nonce mismatch')
 
-        const tknBalance2 = await token.balanceOf(recipient.address)
+        const tknBalance2 = await token.balanceOf(worker)
         assert.equal(tknBalance.toString(), tknBalance2.toString())
       })
 
       describe('value transfer', () => {
+        let worker: string = defaultAccount
         let recipient: TestForwarderTargetInstance
         const tokensPaid = 1
 
@@ -321,7 +329,7 @@ options.forEach(element => {
         it('should fail to forward request if value specified but not provided', async () => {
           const value = ether('1')
           const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-          const initialRecipientBalance = await token.balanceOf(recipient.address)
+          const initialWorkerTokenBalance = await token.balanceOf(worker)
 
           const req1 = { ...request }
           req1.request.data = func
@@ -337,18 +345,18 @@ options.forEach(element => {
           const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value: '0' })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value: '0' })
           assert.equal(ret.logs[0].args.success, false)
-          assert.equal(ret.logs[0].args.lastSuccTx, 1)
+          assert.equal(ret.logs[0].args.lastTxFailed, 1)
           // Token transfer happens first
-          const tknBalance = await token.balanceOf(recipient.address)
-          assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
+          const tknBalance = await token.balanceOf(worker)
+          assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
         })
 
         it('should fail to forward request if value specified but not enough not provided', async () => {
           const value = ether('1')
           const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-          const initialRecipientBalance = await token.balanceOf(recipient.address)
+          const initialWorkerTokenBalance = await token.balanceOf(worker)
 
           const req1 = { ...request }
           req1.request.data = func
@@ -362,18 +370,18 @@ options.forEach(element => {
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
           const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value })
           assert.equal(ret.logs[0].args.success, false)
-          assert.equal(ret.logs[0].args.lastSuccTx, 1)
+          assert.equal(ret.logs[0].args.lastTxFailed, 1)
           // Token transfer happens first
-          const tknBalance = await token.balanceOf(recipient.address)
-          assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
+          const tknBalance = await token.balanceOf(worker)
+          assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
         })
 
         it('should forward request with value', async () => {
           const value = ether('1')
           const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-          const initialRecipientBalance = await token.balanceOf(recipient.address)
+          const initialWorkerTokenBalance = await token.balanceOf(worker)
           const initialRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
 
           const req1 = { ...request }
@@ -391,19 +399,20 @@ options.forEach(element => {
           const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { value })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, {from: worker,  value })
           assert.equal(ret.logs[0].args.error, '')
           assert.equal(ret.logs[0].args.success, true)
-          assert.equal(ret.logs[0].args.lastSuccTx, 2)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_SUCCESS)
 
           assert.equal(await web3.eth.getBalance(recipient.address), (new BN(initialRecipientEtherBalance).add(value)).toString())
 
-          const tknBalance = await token.balanceOf(recipient.address)
-          assert.equal(tknBalance.toString(), (initialRecipientBalance.add(new BN(1))).toString())
+          const tknBalance = await token.balanceOf(worker)
+          assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
         })
 
         it('should forward all funds left in forwarder to "from" address', async () => {
           // The owner of the SmartWallet might have a balance != 0
+          const tokenBalanceBefore = await token.balanceOf(worker)
           const ownerOriginalBalance = await web3.eth.getBalance(senderAddress)
           const recipientOriginalBalance = await web3.eth.getBalance(recipient.address)
           const smartWalletBalance = await web3.eth.getBalance(sw.address)
@@ -431,15 +440,15 @@ options.forEach(element => {
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
           // note: not transfering value in TX.
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig)
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker } )
           assert.equal(ret.logs[0].args.error, '')
           assert.equal(ret.logs[0].args.success, true)
-          assert.equal(ret.logs[0].args.lastSuccTx, 2)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_SUCCESS)
 
           // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
           // Ideally it should pay the relayWorker or verifier
-          const tknBalance = await token.balanceOf(recipient.address)
-          assert.isTrue(BigInt(tokensPaid) === BigInt(tknBalance))
+          const tknBalance = await token.balanceOf(worker)
+          assert.isTrue(BigInt(tokensPaid) === BigInt(tknBalance.sub(tokenBalanceBefore)))
 
           // The value=1 ether of value transfered should now be in the balance of the called contract (recipient)
           const valBalance = await web3.eth.getBalance(recipient.address)

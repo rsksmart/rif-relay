@@ -94,7 +94,7 @@ contract SmartWallet is IForwarder {
         override
         payable
         returns (
-            uint256 lastTxSucc,
+            uint256 lastTxFailed,
             bytes memory ret  
         )
     {
@@ -115,7 +115,7 @@ contract SmartWallet is IForwarder {
         );
 
         if (!success) {
-            lastTxSucc = 2;
+            lastTxFailed = 2;
         }
         else{
             bytes32 logicStrg;
@@ -140,10 +140,10 @@ contract SmartWallet is IForwarder {
             }
 
             if (!success) {
-                lastTxSucc = 1;
+                lastTxFailed = 1;
             }
             else{
-                lastTxSucc = 0; // 0 == OK
+                lastTxFailed = 0; // 0 == OK
             }
         }
 
