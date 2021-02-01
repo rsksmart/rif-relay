@@ -95,7 +95,7 @@ contract('RelayClient', function (accounts) {
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
-    stakeManager = await StakeManager.new()
+    stakeManager = await StakeManager.new(0)
     relayHub = await deployHub(stakeManager.address)
     testRecipient = await TestRecipient.new()
     sWalletTemplate = await SmartWallet.new()

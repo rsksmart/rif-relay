@@ -251,7 +251,9 @@ export default class CommandsLogic {
       gasPrice: deployOptions.gasPrice ?? (1e9).toString()
     }
 
-    const sInstance = await this.getContractInstance(StakeManager, {}, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const sInstance = await this.getContractInstance(StakeManager, {
+      arguments: [0]
+    }, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pInstance = await this.getContractInstance(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const swtInstance = await this.getContractInstance(SmartWallet, {}, deployOptions.sWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pfInstance = await this.getContractInstance(ProxyFactory, {

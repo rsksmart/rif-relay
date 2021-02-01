@@ -64,7 +64,7 @@ contract('RelayProvider', function (accounts) {
     sender = accounts[0]
     gaslessAccount = await getGaslessAccount()
     web3 = new Web3(underlyingProvider)
-    stakeManager = await StakeManager.new()
+    stakeManager = await StakeManager.new(0)
     relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
 
     sWalletTemplate = await SmartWallet.new()

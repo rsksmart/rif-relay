@@ -68,7 +68,7 @@ options.forEach(params => {
       // An account from RSK that has been depleted to ensure it has no funds
       gaslessAccount = await getExistingGaslessAccount()
 
-      sm = await StakeManager.new()
+      sm = await StakeManager.new(0)
       const p = await Penalizer.new()
       verifier = await TestVerifierEverythingAccepted.new()
       deployVerifier = await TestDeployVerifierEverythingAccepted.new()

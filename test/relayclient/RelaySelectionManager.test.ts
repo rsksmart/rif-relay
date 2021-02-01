@@ -103,7 +103,7 @@ contract('RelaySelectionManager', async function (accounts) {
       before(async function () {
         chainId = (await getTestingEnvironment()).chainId
         const StakeManager = artifacts.require('StakeManager')
-        const stakeManager = await StakeManager.new()
+        const stakeManager = await StakeManager.new(0)
         relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
         await stake(stakeManager, relayHub, relayManager, accounts[0])
         await register(relayHub, relayManager, accounts[2], preferredRelayUrl, '666', '777')

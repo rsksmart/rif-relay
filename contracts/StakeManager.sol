@@ -10,9 +10,15 @@ contract StakeManager is IStakeManager {
     using SafeMath for uint256;
 
     string public override versionSM = "2.0.0+opengsn.stakemanager.istakemanager";
+    uint256 public override minimumEntryDepositValue;
 
     /// maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
+
+     constructor (uint256 _minimumEntryDepositValue) public {
+         minimumEntryDepositValue = _minimumEntryDepositValue;
+    }
+
     function getStakeInfo(address relayManager) external override view returns (StakeInfo memory stakeInfo) {
         return stakes[relayManager];
     }
@@ -30,6 +36,12 @@ contract StakeManager is IStakeManager {
         require(unstakeDelay >= stakes[relayManager].unstakeDelay, "unstakeDelay cannot be decreased");
         require(msg.sender != relayManager, "caller is the relayManager");
         require(stakes[msg.sender].owner == address(0), "sender is a relayManager itself");
+        
+        //If it is the initial stake, it must meet the entry value
+        if(stakes[relayManager].owner == address(0)){
+            require(msg.value >= minimumEntryDepositValue,  "Insufficient intitial stake" );
+        }
+        
         stakes[relayManager].owner = msg.sender;
         stakes[relayManager].stake += msg.value;
         stakes[relayManager].unstakeDelay = unstakeDelay;

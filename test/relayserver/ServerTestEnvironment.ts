@@ -113,7 +113,7 @@ export class ServerTestEnvironment {
    * different provider from the contract interactor itself.
    */
   async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
-    this.stakeManager = await StakeManager.new()
+    this.stakeManager = await StakeManager.new(0)
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
     this.recipient = await TestRecipient.new()
     this.relayVerifier = await TestVerifierEverythingAccepted.new()

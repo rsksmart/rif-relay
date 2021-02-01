@@ -76,7 +76,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
       relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
@@ -643,7 +643,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
       relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()

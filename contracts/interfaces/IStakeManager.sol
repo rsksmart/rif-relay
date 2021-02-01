@@ -98,4 +98,7 @@ interface IStakeManager {
     function getStakeInfo(address relayManager) external view returns (StakeInfo memory stakeInfo);
 
     function versionSM() external view returns (string memory);
+
+    //For initial stakes, this is the minimum stake value allowed for taking ownership of this address' stake
+    function minimumEntryDepositValue() external view returns (uint256);
 }
