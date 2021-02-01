@@ -229,7 +229,7 @@ contract('RelayServer', function (accounts) {
 
         req.metadata.signature = INCORRECT_ECDSA_SIGNATURE
         const method = env.relayHub.contract.methods.relayCall(req.relayRequest, req.metadata.signature)
-        
+
         try {
           await env.relayServer.validateViewCallSucceeds(method, req, 2000000)
           assert.fail()

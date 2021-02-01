@@ -138,9 +138,9 @@ contract RelayHub is IRelayHub {
         require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         bool forwarderSuccess;
-        uint256 lastSuccTrx;
+        uint256 lastTxFailed;
 
-        (forwarderSuccess, lastSuccTrx, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
+        (forwarderSuccess, lastTxFailed, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
         
         if ( !forwarderSuccess ) {
             assembly {
@@ -150,7 +150,7 @@ contract RelayHub is IRelayHub {
             }
         }
        
-       if (lastSuccTrx == 0) {// 0 == OK
+       if (lastTxFailed == 0) {// 0 == OK
                 emit TransactionRelayed(
                     manager,
                     msgSender,
@@ -168,7 +168,7 @@ contract RelayHub is IRelayHub {
             msgSender,
             relayRequest.request.from,
             relayRequest.request.to,
-            lastSuccTrx,
+            lastTxFailed,
             MinLibBytes.readBytes4(relayRequest.request.data, 0),
             relayedCallReturnValue);
         }

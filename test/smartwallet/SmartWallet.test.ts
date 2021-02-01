@@ -21,9 +21,9 @@ import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
-const SW_SUCCESS = 0
-const SW_FAILED_FORWARD_REQUEST = 1
-const SW_FAILED_TOKEN_TRANSFER = 2
+const SW_FORDWARD_REQUEST_SUCCESS = 0
+const SW_FORWARD_REQUEST_FAILED = 1
+const SW_TOKEN_TRANSFER_FAILED = 2
 
 const keccak256 = web3.utils.keccak256
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
@@ -213,7 +213,7 @@ options.forEach(element => {
 
         assert.isTrue(initialWorkerTokenBalance.eq(tknBalance))
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastTxFailed, SW_FAILED_TOKEN_TRANSFER)
+        assert.equal(ret.logs[0].args.lastTxFailed, SW_TOKEN_TRANSFER_FAILED)
         assert.equal(ret.logs[0].args.error, 'ERC20: transfer amount exceeds balance')
       })
 
@@ -267,9 +267,9 @@ options.forEach(element => {
         const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
         // the helper simply emits the method return values
-        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker})
+        const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
         assert.equal(ret.logs[0].args.error, 'always fail')
-        assert.equal(ret.logs[0].args.lastTxFailed, 1)
+        assert.equal(ret.logs[0].args.lastTxFailed, SW_FORWARD_REQUEST_FAILED)
 
         // Payment must have happened regardless of the revert
         const tknBalance = await token.balanceOf(worker)
@@ -298,7 +298,7 @@ options.forEach(element => {
         const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
         assert.equal(ret.logs[0].args.error, 'always fail')
         assert.equal(ret.logs[0].args.success, false)
-        assert.equal(ret.logs[0].args.lastTxFailed, 1)
+        assert.equal(ret.logs[0].args.lastTxFailed, SW_FORWARD_REQUEST_FAILED)
 
         const tknBalance = await token.balanceOf(worker)
         assert.equal(tknBalance.toString(), initialWorkerTokenBalance.add(new BN(1)).toString())
@@ -310,7 +310,7 @@ options.forEach(element => {
       })
 
       describe('value transfer', () => {
-        let worker: string = defaultAccount
+        const worker: string = defaultAccount
         let recipient: TestForwarderTargetInstance
         const tokensPaid = 1
 
@@ -345,7 +345,7 @@ options.forEach(element => {
 
           const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value: '0' })
           assert.equal(ret.logs[0].args.success, false)
-          assert.equal(ret.logs[0].args.lastTxFailed, 1)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_FORWARD_REQUEST_FAILED)
           // Token transfer happens first
           const tknBalance = await token.balanceOf(worker)
           assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
@@ -370,7 +370,7 @@ options.forEach(element => {
 
           const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value })
           assert.equal(ret.logs[0].args.success, false)
-          assert.equal(ret.logs[0].args.lastTxFailed, 1)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_FORWARD_REQUEST_FAILED)
           // Token transfer happens first
           const tknBalance = await token.balanceOf(worker)
           assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
@@ -397,10 +397,10 @@ options.forEach(element => {
           const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, {from: worker,  value })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value })
           assert.equal(ret.logs[0].args.error, '')
           assert.equal(ret.logs[0].args.success, true)
-          assert.equal(ret.logs[0].args.lastTxFailed, SW_SUCCESS)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_FORDWARD_REQUEST_SUCCESS)
 
           assert.equal(await web3.eth.getBalance(recipient.address), (new BN(initialRecipientEtherBalance).add(value)).toString())
 
@@ -438,10 +438,10 @@ options.forEach(element => {
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
           // note: not transfering value in TX.
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker } )
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
           assert.equal(ret.logs[0].args.error, '')
           assert.equal(ret.logs[0].args.success, true)
-          assert.equal(ret.logs[0].args.lastTxFailed, SW_SUCCESS)
+          assert.equal(ret.logs[0].args.lastTxFailed, SW_FORDWARD_REQUEST_SUCCESS)
 
           // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
           // Ideally it should pay the relayWorker or verifier
