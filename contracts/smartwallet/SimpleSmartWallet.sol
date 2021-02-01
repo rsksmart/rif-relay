@@ -81,7 +81,7 @@ contract SimpleSmartWallet is IForwarder {
         override
         payable
         returns (
-            uint256 lastTxSucc,
+            uint256 lastTxFailed,
             bytes memory ret  
         )
     {
@@ -102,7 +102,7 @@ contract SimpleSmartWallet is IForwarder {
         );
 
         if (!success) {
-            lastTxSucc = 2;
+            lastTxFailed = 2;
         }
         else{
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
@@ -114,12 +114,12 @@ contract SimpleSmartWallet is IForwarder {
             }
 
             if (!success) {
-                lastTxSucc = 1;
+                lastTxFailed = 1;
             }
             else{
-                lastTxSucc = 0; // 0 == OK
+                lastTxFailed = 0; // 0 == OK
             }
-            // No need for else lastTxSucc = 2, there's no other possible scenario if "success"
+            // No need for else lastTxFailed = 2, there's no other possible scenario if "success"
         }
 
   

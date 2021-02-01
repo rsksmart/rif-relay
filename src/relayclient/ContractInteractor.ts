@@ -33,7 +33,6 @@ import {
   IKnowForwarderAddressInstance,
   IVerifierInstance,
   IRelayHubInstance,
-  BaseRelayRecipientInstance,
   IStakeManagerInstance, ISmartWalletFactoryInstance, IDeployVerifierInstance, IBaseVerifierInstance
 } from '../../types/truffle-contracts'
 
@@ -86,7 +85,6 @@ export default class ContractInteractor {
 
   relayHubInstance!: IRelayHubInstance
   private stakeManagerInstance!: IStakeManagerInstance
-  private readonly relayRecipientInstance?: BaseRelayRecipientInstance
   private knowForwarderAddressInstance?: IKnowForwarderAddressInstance
 
   readonly web3: Web3
