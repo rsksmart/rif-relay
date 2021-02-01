@@ -84,7 +84,7 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.stakeManagerAddress, workdir, 'StakeManager.json')
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
-  saveContractToFile(deploymentResult.naiveRelayPaymasterAddress, workdir, 'RelayPaymaster.json')
+  saveContractToFile(deploymentResult.naiveRelayPaymasterAddress, workdir, 'Paymaster.json')
   saveContractToFile(deploymentResult.naiveDeployPaymasterAddress, workdir, 'DeployPaymaster.json')
   saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
