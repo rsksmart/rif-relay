@@ -45,7 +45,7 @@ setup_containers()
 	fi
 
 	printf "Creating tests runner container..." >&2
-	TEST_RUNNER_CID=$(docker run --init --network "$TEST_NETWORK" \
+	TEST_RUNNER_CID=$(docker run -e NODE_OPTIONS=--max_old_space_size=4096 --init --network "$TEST_NETWORK" \
 	    -itd --rm tests-runner cat)
 	if [ $? -ne 0 ]; then
 		printf "ERROR! Couldn't create tests runner; aborting\n" >&2
