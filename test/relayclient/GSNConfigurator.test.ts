@@ -46,7 +46,7 @@ contract('client-configuration', () => {
       })
 
       it('should throw if not a paymaster contract', async () => {
-        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: deploymentResult.stakeManagerAddress, deployPaymasterAddress: deploymentResult.stakeManagerAddress }))
+        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: deploymentResult.stakeManagerAddress, deployPaymasterAddress: deployPaymasterAddress }))
           .to.eventually.rejectedWith('Not a paymaster contract')
       })
 
