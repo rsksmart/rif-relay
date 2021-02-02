@@ -50,6 +50,11 @@ contract('client-configuration', () => {
           .to.eventually.rejectedWith('Not a paymaster contract')
       })
 
+      it('should throw if not a deploy paymaster contract', async () => {
+        await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayPaymasterAddress: relayPaymasterAddress, deployPaymasterAddress: deploymentResult.stakeManagerAddress }))
+          .to.eventually.rejectedWith('Not a deploy paymaster contract')
+      })
+
       it.skip('should throw if wrong contract paymaster version', async () => {
         // instead of deploying a new paymaster with a different version, we make our client version older
         // since resolveConfigurationGSN creates its own ContractInteractor, we have to hook the class to modify the version
