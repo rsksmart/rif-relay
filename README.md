@@ -79,8 +79,16 @@ We can deploy the project with
 
 ### 3.2. Test <a id="c03.2"></a>
 
+- To run all the tests:
+
+`./run-tests`
+
+Note: It takes time, the script will run an RSK node in regtest, and then run all the tests.
+
+- To run an specific test:
+
 Once the project is built, we can test it with truffle
-- `yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
+`yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
 
 ### 3.3 Create a Smart Wallet <a id="c03.3"></a>
 
