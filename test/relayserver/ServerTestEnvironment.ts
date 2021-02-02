@@ -42,6 +42,7 @@ import { defaultEnvironment } from '../../src/common/Environments'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { SendTransactionDetails } from '../../src/relayserver/TransactionManager'
+import { ether } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -56,7 +57,7 @@ abiDecoder.addABI(RelayVerifierABI)
 abiDecoder.addABI(DeployVerifierABI)
 
 // @ts-ignore
-abiDecoder.addABI(TestTokenRecipient.abi)
+abiDecoder.addABI(TestRecipient.abi)
 // @ts-ignore
 abiDecoder.addABI(TestVerifierEverythingAccepted.abi)
 // @ts-ignore
@@ -124,9 +125,6 @@ export class ServerTestEnvironment {
     const gaslessAccount = await getGaslessAccount()
     this.gasLess = gaslessAccount.address
 
-    // this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
-    this.encodedFunction = this.tokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
-
     const sWalletTemplate = await SmartWallet.new()
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
@@ -134,7 +132,6 @@ export class ServerTestEnvironment {
     const defaultAccount = web3.defaultAccount ?? (await web3.eth.getAccounts())[0]
     const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
-    await this.tokenRecipient.mint('200', smartWallet.address)
 
     const shared: Partial<GSNConfig> = {
       logLevel: 5,
@@ -151,7 +148,7 @@ export class ServerTestEnvironment {
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
 
-    // Register gasless account to avoid signing with RSKJ
+    // Regisgter gasless account to avoid signing with RSKJ
     this.relayClient.accountManager.addAccount(gaslessAccount)
   }
 
@@ -236,7 +233,7 @@ export class ServerTestEnvironment {
 
     const gsnTransactionDetails: GsnTransactionDetails = {
       from: this.gasLess,
-      to: this.tokenRecipient.address,
+      to: this.recipient.address,
       data: this.encodedFunction,
       relayHub: this.relayHub.address,
       callVerifier: this.relayVerifier.address,
@@ -327,12 +324,9 @@ export class ServerTestEnvironment {
       throw new Error('Transaction Receipt not found')
     }
     const decodedLogs = abiDecoder.decodeLogs(receipt.logs).map(this.relayServer.registrationManager._parseEvent)
-    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'Transfer')
-    assert.exists(event1, 'Transfer not found, maybe transaction was not relayed successfully')
-    assert.equal(event1.args.value, '5')
-    assert.equal(event1.args.from.toLowerCase(), tokenPayer.toLowerCase())
-    assert.equal(event1.args.to.toLowerCase(), this.gasLess.toLowerCase())
-
+    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'SampleRecipientEmitted')
+    assert.exists(event1, 'SampleRecipientEmitted not found, maybe transaction was not relayed successfully')
+    assert.equal(event1.args.message, 'hello world')
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')

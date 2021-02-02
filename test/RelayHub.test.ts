@@ -266,7 +266,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         let signatureWithMisbehavingVerifier: string
         let relayRequestMisbehavingVerifier: RelayRequest
         const gas = 4e6
-        const tokenReceiverAddress = '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
 
         beforeEach(async function () {
           misbehavingVerifier = await TestVerifierConfigurableMisbehavior.new()

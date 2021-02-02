@@ -7,7 +7,9 @@ import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import {
   RelayHubInstance,
   StakeManagerInstance,
-  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance, TestRecipientInstance
+  TestVerifierConfigurableMisbehaviorInstance,
+  TestRecipientInstance,
+  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
@@ -87,7 +89,7 @@ contract('KnownRelaysManager', function (
 
       await contractInteractor.init()
 
-      testRecipient = await TestTokenRecipient.new()
+      testRecipient = await TestRecipient.new()
       sWalletTemplate = await SmartWallet.new()
       await token.mint('1000', sWalletTemplate.address)
       factory = await createProxyFactory(sWalletTemplate)
@@ -201,7 +203,7 @@ contract('KnownRelaysManager 2', function (accounts) {
         stake: 1e18,
         url: 'asd',
         relayOwner: accounts[1],
-        rskNodeUrl: (web3.currentProvider as HttpProvider).host
+        ethereumNodeUrl: (web3.currentProvider as HttpProvider).host
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       await contractInteractor.init()

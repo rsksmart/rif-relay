@@ -61,7 +61,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
 
     const gasPrice = new BN('1')
     const gasLimit = new BN('5000000')
-    const txData = recipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
+    const txData = recipient.contract.methods.emitMessage('').encodeABI()
 
     const relayRequest: RelayRequest = {
       request: {
@@ -162,8 +162,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
       smartWallet = await createSmartWallet(defaultAccount, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
       forwarder = smartWallet.address
 
-      recipient = await TestTokenRecipient.new()
-      await recipient.mint('200', forwarder)
+      recipient = await TestRecipient.new()
 
       verifier = await TestVerifierEverythingAccepted.new()
       await stakeManager.stakeForAddress(relayManager, 1000, {
@@ -413,7 +412,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
 
           const relayCallTxDataSig = await getDataAndSignatureFromHash(relayCallTx.tx, env)
 
-          const rskDifference: number = isRsk(env) ? 105525 : 0
+          const rskDifference: number = isRsk(env) ? 105000 : 0
 
           await expectPenalization(
             async (opts) => await penalizer.penalizeIllegalTransaction(relayCallTxDataSig.data, relayCallTxDataSig.signature, relayHub.address, opts), rskDifference

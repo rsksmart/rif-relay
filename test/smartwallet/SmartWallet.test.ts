@@ -4,7 +4,6 @@ import {
   TestForwarderTargetInstance,
   ProxyFactoryInstance,
   TestTokenInstance,
-  TestRecipientInstance,
   SimpleSmartWalletInstance,
   SimpleProxyFactoryInstance
 } from '../../types/truffle-contracts'
@@ -28,7 +27,6 @@ const SW_TOKEN_TRANSFER_FAILED = 2
 
 const keccak256 = web3.utils.keccak256
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
-const TestTokenRecipient = artifacts.require('TestTokenRecipient')
 const TestToken = artifacts.require('TestToken')
 const typeHash = keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
 const TestSmartWallet = artifacts.require('TestSmartWallet')

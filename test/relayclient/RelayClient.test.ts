@@ -97,7 +97,7 @@ contract('RelayClient', function (accounts) {
     web3 = new Web3(underlyingProvider)
     stakeManager = await StakeManager.new(0)
     relayHub = await deployHub(stakeManager.address)
-    testTokenRecipient = await TestTokenRecipient.new()
+    testRecipient = await TestRecipient.new()
     sWalletTemplate = await SmartWallet.new()
     token = await TestToken.new()
     const env = (await getTestingEnvironment())
@@ -129,10 +129,10 @@ contract('RelayClient', function (accounts) {
     relayClient.accountManager.addAccount(gaslessAccount)
 
     from = gaslessAccount.address
-    to = testTokenRecipient.address
+    to = testRecipient.address
     await token.mint('1000', smartWallet.address)
-    await testTokenRecipient.mint('200', smartWallet.address)
-    data = testTokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
+
+    data = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
 
     options = {
       from,
@@ -167,7 +167,7 @@ contract('RelayClient', function (accounts) {
 
       // validate we've got the "SampleRecipientEmitted" event
       // TODO: use OZ test helpers
-      const topic: string = web3.utils.sha3('Transfer(address,address,uint256)') ?? ''
+      const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
       assert(res.logs.find(log => log.topics.includes(topic)))
 
       const destination: string = validTransaction.to.toString('hex')
