@@ -29,7 +29,7 @@ contract RelayHub is IRelayHub {
     string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
 
     // maps relay worker's address to its manager's address
-    mapping(address => address) public override workerToManager;
+    mapping(address => bytes32) public override workerToManager;
 
     // maps relay managers to the number of their workers
     mapping(address => uint256) public override workerCount;
@@ -53,17 +53,48 @@ contract RelayHub is IRelayHub {
     }
 
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
-        address relayManager = msg.sender;
+        //relay manager is msg.sender
         //Check if Relay Manager is staked
         /* solhint-disable-next-line avoid-low-level-calls */
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                relayManager,minimumStake,minimumUnstakeDelay));
+                msg.sender,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
 
-        require(workerCount[relayManager] > 0, "no relay workers");
-        emit RelayServerRegistered(relayManager, baseRelayFee, pctRelayFee, url);
+        require(workerCount[msg.sender] > 0, "no relay workers");
+        emit RelayServerRegistered(msg.sender, baseRelayFee, pctRelayFee, url);
     }
 
+
+    function disableRelayWorkers(address[] calldata relayWorkers) external override {
+        //relay manager is msg.sender
+        uint256 actualWorkerCount = workerCount[msg.sender];
+        require(actualWorkerCount >= relayWorkers.length, "invalid quantity of workers");
+        workerCount[msg.sender] = actualWorkerCount - relayWorkers.length;
+        
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                msg.sender,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+
+
+        bytes32 enabledWorker = bytes32(uint256(msg.sender) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
+        bytes32 disabledWorker = bytes32(uint256(msg.sender) << 4);
+        
+        for (uint256 i = 0; i < relayWorkers.length; i++) {
+            //The relay manager can only disable its relay workers and only if they are enabled (right-most nibble as 1)
+            require(workerToManager[relayWorkers[i]] == enabledWorker, "Incorrect Manager");
+            //Disabling a worker means putting the right-most nibble to 0
+            workerToManager[relayWorkers[i]] = disabledWorker;
+        }
+
+        emit RelayWorkersDisabled(msg.sender, relayWorkers, workerCount[msg.sender]);
+    }
+    
+
+    /**
+    New relay worker addresses can be added (as enabled workers) as long as they don't have a relay manager aldeady assigned.
+     */
     function addRelayWorkers(address[] calldata newRelayWorkers) external override {
         address relayManager = msg.sender;
         workerCount[relayManager] = workerCount[relayManager] + newRelayWorkers.length;
@@ -75,10 +106,10 @@ contract RelayHub is IRelayHub {
                 relayManager,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
 
-
+        bytes32 enabledWorker = bytes32(uint256(relayManager) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
         for (uint256 i = 0; i < newRelayWorkers.length; i++) {
-            require(workerToManager[newRelayWorkers[i]] == address(0), "this worker has a manager");
-            workerToManager[newRelayWorkers[i]] = relayManager;
+            require(workerToManager[newRelayWorkers[i]] == bytes32(0), "this worker has a manager");
+            workerToManager[newRelayWorkers[i]] = enabledWorker;
         }
 
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
@@ -93,12 +124,19 @@ contract RelayHub is IRelayHub {
     override
     {
         (signature);
-        address msgSender = msg.sender;
-        address manager = workerToManager[msgSender];
+        
+        bytes32 managerEntry = workerToManager[msg.sender];
+
+        //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
+        require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
+        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+
+        address manager = address(uint160(uint256(managerEntry >> 4)));
+
         require(gasleft() >= gasOverhead.add(deployRequest.request.gas), "Not enough gas left");
-        require(msgSender == tx.origin, "RelayWorker cannot be a contract");
-        require(manager != address(0), "Unknown relay worker");
-        require(deployRequest.relayData.relayWorker == msgSender, "Not a right worker");
+        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
+        require(msg.sender == deployRequest.relayData.relayWorker, "Not a right worker");
+
          /* solhint-disable-next-line avoid-low-level-calls */
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
                 manager,minimumStake,minimumUnstakeDelay));
@@ -125,12 +163,17 @@ contract RelayHub is IRelayHub {
     {
         (signature);
         bytes memory relayedCallReturnValue;
-        address msgSender = msg.sender;
-        address manager = workerToManager[msgSender];
+        
+        bytes32 managerEntry = workerToManager[msg.sender];
+        //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
+         require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
+        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+
+        address manager = address(uint160(uint256(managerEntry >> 4)));
+
         require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
-        require(msgSender == tx.origin, "RelayWorker cannot be a contract");
-        require(manager != address(0), "Unknown relay worker");
-        require(relayRequest.relayData.relayWorker == msgSender, "Not a right worker");
+        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
+        require(msg.sender == relayRequest.relayData.relayWorker, "Not a right worker");
          /* solhint-disable-next-line avoid-low-level-calls */
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
                 manager,minimumStake,minimumUnstakeDelay));
@@ -153,7 +196,7 @@ contract RelayHub is IRelayHub {
        if (lastTxFailed == 0) {// 0 == OK
                 emit TransactionRelayed(
                     manager,
-                    msgSender,
+                    msg.sender,
                     keccak256(signature)
                 );
 
@@ -165,7 +208,7 @@ contract RelayHub is IRelayHub {
 
            emit TransactionRelayedButRevertedByRecipient(            
             manager,
-            msgSender,
+            msg.sender,
             relayRequest.request.from,
             relayRequest.request.to,
             lastTxFailed,
@@ -190,9 +233,11 @@ contract RelayHub is IRelayHub {
     }
 
     function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
-        address relayManager = workerToManager[relayWorker];
-        // The worker must be controlled by a manager with a locked stake
+       
+        //Relay Manager might be enabled or disabled
+        address relayManager = address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
+
         require(
             isRelayManagerStaked(relayManager),
             "relay manager not staked"

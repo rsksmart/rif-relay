@@ -26,13 +26,13 @@ import {
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
+import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { keccak } from 'ethereumjs-util'
 import { constants } from '../src/common/Constants'
-import { toChecksumAddress } from 'web3-utils'
+import { toBN, toChecksumAddress } from 'web3-utils'
 
 const { assert } = chai.use(chaiAsPromised)
 const StakeManager = artifacts.require('StakeManager')
@@ -45,7 +45,7 @@ const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfi
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 abiDecoder.addABI(proxyFactoryAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager]) {
   let chainId: number
   let relayHub: string
   let stakeManager: StakeManagerInstance
@@ -67,6 +67,191 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   let env: Environment
   let token: TestTokenInstance
   let factory: ProxyFactoryInstance
+
+  describe('add/disable relay workers', function () {
+    beforeEach(async function () {
+      env = await getTestingEnvironment()
+      chainId = env.chainId
+
+      stakeManager = await StakeManager.new(0)
+      penalizer = await Penalizer.new()
+      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      verifierContract = await TestVerifierEverythingAccepted.new()
+      deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
+      gaslessAccount = await getGaslessAccount()
+
+      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createProxyFactory(sWalletTemplate)
+      recipientContract = await TestRecipient.new()
+      const testToken = artifacts.require('TestToken')
+      token = await testToken.new()
+      target = recipientContract.address
+      verifier = verifierContract.address
+      relayHub = relayHubInstance.address
+
+      forwarderInstance = await createSmartWallet(_, gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+      forwarder = forwarderInstance.address
+      await token.mint('1000', forwarder)
+
+      sharedRelayRequestData = {
+        request: {
+          relayHub: relayHub,
+          to: target,
+          data: '',
+          from: gaslessAccount.address,
+          nonce: (await forwarderInstance.nonce()).toString(),
+          value: '0',
+          gas: gasLimit,
+          tokenContract: token.address,
+          tokenAmount: '1'
+        },
+        relayData: {
+          gasPrice,
+          relayWorker,
+          callForwarder: forwarder,
+          callVerifier: verifier,
+          domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+        }
+      }
+    })
+
+    it('should register and allow to disable new relay workers', async function () {
+      await stakeManager.stakeForAddress(relayManager, 1000, {
+        value: ether('1'),
+        from: relayOwner
+      })
+
+      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+
+      const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersBefore.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`)
+
+      let txResponse = await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+
+      expectEvent.inLogs(txResponse.logs, 'RelayWorkersAdded', {
+        relayManager: relayManager,
+        newRelayWorkers: [relayWorker],
+        workersCount: toBN(1)
+      })
+
+      let relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
+
+      let manager = await relayHubInstance.workerToManager(relayWorker)
+      // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
+      let expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+      txResponse = await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
+
+      expectEvent.inLogs(txResponse.logs, 'RelayWorkersDisabled', {
+        relayManager: relayManager,
+        relayWorkers: [relayWorker],
+        workersCount: toBN(0)
+      })
+
+      relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersAfter.toNumber(), 0, 'Workers must be zero')
+
+      manager = await relayHubInstance.workerToManager(relayWorker)
+      expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+    })
+
+    it('should fail to disable more relay workers than available', async function () {
+      await stakeManager.stakeForAddress(relayManager, 1000, {
+        value: ether('1'),
+        from: relayOwner
+      })
+
+      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+
+      const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersBefore.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`)
+
+      const txResponse = await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+
+      expectEvent.inLogs(txResponse.logs, 'RelayWorkersAdded', {
+        relayManager: relayManager,
+        newRelayWorkers: [relayWorker],
+        workersCount: toBN(1)
+      })
+
+      let relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
+
+      let manager = await relayHubInstance.workerToManager(relayWorker)
+      // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
+      let expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+      await expectRevert.unspecified(
+        relayHubInstance.disableRelayWorkers([relayWorker, relayWorker], { from: relayManager }),
+        'invalid quantity of workers')
+
+      relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
+      assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
+
+      manager = await relayHubInstance.workerToManager(relayWorker)
+      expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+    })
+
+    it('should only allow the corresponding relay manager to disable their respective relay workers', async function () {
+      await stakeManager.stakeForAddress(relayManager, 1000, {
+        value: ether('1'),
+        from: relayOwner
+      })
+
+      await stakeManager.stakeForAddress(incorrectRelayManager, 1000, {
+        value: ether('1'),
+        from: relayOwner
+      })
+      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
+      await stakeManager.authorizeHubByOwner(incorrectRelayManager, relayHub, { from: relayOwner })
+
+      const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
+      const relayWorkersBefore2 = await relayHubInstance.workerCount(incorrectRelayManager)
+      assert.equal(relayWorkersBefore.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`)
+      assert.equal(relayWorkersBefore2.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore2.toNumber()}`)
+
+      await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+      await relayHubInstance.addRelayWorkers([incorrectWorker], { from: incorrectRelayManager })
+
+      const relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
+      let relayWorkersAfter2 = await relayHubInstance.workerCount(incorrectRelayManager)
+
+      assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
+      assert.equal(relayWorkersAfter2.toNumber(), 1, 'Workers must be one')
+
+      let manager = await relayHubInstance.workerToManager(relayWorker)
+      let manager2 = await relayHubInstance.workerToManager(incorrectWorker)
+
+      // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
+      let expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+      let expectedManager2 = '0x00000000000000000000000'.concat(stripHex(incorrectRelayManager.concat('1')))
+
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+      assert.equal(manager2.toLowerCase(), expectedManager2.toLowerCase(), `Incorrect relay manager: ${manager2}`)
+
+      await expectRevert.unspecified(
+        relayHubInstance.disableRelayWorkers([relayWorker], { from: incorrectRelayManager }),
+        'Incorrect Manager')
+
+      relayWorkersAfter2 = await relayHubInstance.workerCount(incorrectRelayManager)
+      assert.equal(relayWorkersAfter2.toNumber(), 1, "Workers shouldn't have changed")
+
+      manager = await relayHubInstance.workerToManager(relayWorker)
+      expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+      assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+      manager2 = await relayHubInstance.workerToManager(incorrectWorker)
+      expectedManager2 = '0x00000000000000000000000'.concat(stripHex(incorrectRelayManager.concat('1')))
+      assert.equal(manager2.toLowerCase(), expectedManager2.toLowerCase(), `Incorrect relay manager: ${manager2}`)
+    })
+  })
 
   describe('relayCall', function () {
     const baseRelayFee = '10000'
@@ -139,7 +324,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             from: relayWorker,
             gas
           }),
-          'Unknown relay worker')
+          'Not an enabled worker')
       })
 
       context('with manager stake unlocked', function () {
@@ -453,6 +638,27 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           })
         })
 
+        it('should fail to relay if the worker has been disabled', async function () {
+          let manager = await relayHubInstance.workerToManager(relayWorker)
+          // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
+          let expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+
+          assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+          await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
+          manager = await relayHubInstance.workerToManager(relayWorker)
+          expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
+          assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+          await expectRevert.unspecified(
+            relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
+              from: relayWorker,
+              gas,
+              gasPrice
+            }),
+            'Not an enabled worker')
+        })
+
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
           const nonceBefore = await forwarderInstance.nonce()
 
@@ -701,7 +907,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             from: relayWorker,
             gas
           }),
-          'Unknown relay worker')
+          'Not an enabled worker')
       })
 
       context('with manager stake unlocked', function () {
@@ -806,7 +1012,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           const trx = await web3.eth.getTransactionReceipt(tx)
 
           const decodedLogs = abiDecoder.decodeLogs(trx.logs)
-          console.log('decodedLogs:', decodedLogs)
 
           const deployedEvent = decodedLogs.find((e: any) => e != null && e.name === 'Deployed')
           assert.isTrue(deployedEvent !== undefined, 'No Deployed event found')
@@ -818,6 +1023,27 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
           const nonceAfter = await factory.nonce(gaslessAccount.address)
           assert.equal(nonceAfter.toNumber(), nonceBefore.addn(1).toNumber())
+        })
+
+        it('should fail to deploy if the worker has been disabled', async function () {
+          let manager = await relayHubInstance.workerToManager(relayWorker)
+          // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
+          let expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('1')))
+
+          assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+          await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
+          manager = await relayHubInstance.workerToManager(relayWorker)
+          expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
+          assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
+
+          await expectRevert.unspecified(
+            relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
+              from: relayWorker,
+              gas,
+              gasPrice
+            }),
+            'Not an enabled worker')
         })
 
         it('deployCall should refuse to re-send transaction with same nonce', async function () {

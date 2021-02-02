@@ -21,6 +21,13 @@ interface IRelayHub {
         uint256 workersCount
     );
 
+    /// Emitted when relays are removed by a relayManager
+    event RelayWorkersDisabled(
+        address indexed relayManager,
+        address[] relayWorkers,
+        uint256 workersCount
+    );
+
 
     // Emitted when a transaction is relayed. Note that the actual encoded function might be reverted: this will be
     // indicated in the status field.
@@ -68,6 +75,10 @@ interface IRelayHub {
     /// Emits a RelayWorkersAdded event.
     /// This function can be called multiple times, emitting new events
     function addRelayWorkers(address[] calldata newRelayWorkers) external;
+
+    // Disable a relayWorker account so it cannot relay calls anymore (e.g, if the account was compromised)
+    // Once disabled, a relay worker cannot be re-enabled
+    function disableRelayWorkers(address[] calldata relayWorkers) external; 
 
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external;
 
@@ -122,7 +133,7 @@ interface IRelayHub {
     // maximum number of worker account allowed per manager
     function maxWorkerCount() external view returns (uint256);
 
-    function workerToManager(address worker) external view returns(address);
+    function workerToManager(address worker) external view returns(bytes32);
 
     function workerCount(address manager) external view returns(uint256);
 
