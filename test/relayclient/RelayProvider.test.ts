@@ -82,7 +82,7 @@ contract('RelayProvider', function (accounts) {
       stake: 1e18,
       url: 'asd',
       relayOwner: accounts[1],
-      ethereumNodeUrl: underlyingProvider.host,
+      rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifierInstance.address,
       relayVerifierAddress: verifierInstance.address
     })

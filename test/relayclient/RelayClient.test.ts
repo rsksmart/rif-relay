@@ -110,7 +110,7 @@ contract('RelayClient', function (accounts) {
     relayProcess = await startRelay(relayHub.address, stakeManager, {
       stake: 1e18,
       relayOwner: accounts[1],
-      ethereumNodeUrl: underlyingProvider.host,
+      rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifier.address,
       relayVerifierAddress: relayVerifier.address
     })

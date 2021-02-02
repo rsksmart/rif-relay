@@ -34,7 +34,7 @@ async function run (): Promise<void> {
       trustedVerifiers = JSON.parse(conf.trustedVerifiers)
     }
 
-    web3provider = new Web3.providers.HttpProvider(conf.ethereumNodeUrl)
+    web3provider = new Web3.providers.HttpProvider(conf.rskNodeUrl)
     config = await resolveServerConfig(conf, web3provider) as ServerConfigParams
     if (trustedVerifiers.length > 0) {
       config.trustedVerifiers = trustedVerifiers
