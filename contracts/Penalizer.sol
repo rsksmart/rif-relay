@@ -107,30 +107,4 @@ contract Penalizer is IPenalizer{
     function penalize(address relayWorker, IRelayHub hub) private {
         hub.penalize(relayWorker, msg.sender);
     }
-
-    // V1 ONLY: Support for destructable contracts
-    // For v1 deployment only to support kill, pause and unpause behavior
-    // This functionality is temporary and will be removed in v2
-    /*
-    address public contractOwner;
-
-    constructor() public {
-        contractOwner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Sender is not the owner");
-        _;
-    }
-    
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
-        contractOwner = newOwner;
-    }
-
-    function kill(address payable recipient) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
-        selfdestruct(recipient);
-    }
-    */
 }

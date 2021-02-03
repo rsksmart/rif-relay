@@ -16,14 +16,4 @@ contract VersionRegistry is IVersionRegistry, Ownable {
     function cancelVersion(bytes32 id, bytes32 version, string calldata reason) external override onlyOwner {
         emit VersionCanceled(id, version, reason);
     }
-
-    // V1 ONLY: Support for destructable contracts
-    // For v1 deployment only to support kill, pause and unpause behavior
-    // This functionality is temporary and will be removed in v2
-    /*
-    function kill(address payable recipient) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
-        selfdestruct(recipient);
-    }
-    */
 }

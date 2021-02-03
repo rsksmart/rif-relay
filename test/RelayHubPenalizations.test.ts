@@ -447,7 +447,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
 
         context('with not owned relay worker', function () {
           it('account cannot be penalized', async function () {
-            await expectRevert.unspecified(penalize(), 'Unknown relay worker')
+            await expectRevert.unspecified(penalize(), 'Not an enabled worker')
           })
         })
 

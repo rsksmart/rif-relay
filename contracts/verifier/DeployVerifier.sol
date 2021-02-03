@@ -53,7 +53,7 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
             keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
-        require(!GsnUtils._isContract(contractAddr), "Address already created");
+        require(!GsnUtils._isContract(contractAddr), "Address already created!");
 
         if(relayRequest.request.tokenContract != address(0)){
             require(relayRequest.request.tokenAmount <= IERC20(relayRequest.request.tokenContract).balanceOf(contractAddr), "balance too low");

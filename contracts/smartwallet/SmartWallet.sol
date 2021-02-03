@@ -320,7 +320,7 @@ contract SmartWallet is IForwarder {
             )
         }
 
-        if (logicStrg != bytes32(0)  ) {
+        if (bytes32(0) != logicStrg) {
             //If the storage cell is not empty
             
             address logic = address(uint160(uint256(logicStrg)));
