@@ -26,14 +26,15 @@ async function run (): Promise<void> {
   console.log('Starting GSN Relay Server process...\n')
   try {
     const conf = await parseServerConfig(process.argv.slice(2), process.env)
-    if (conf.ethereumNodeUrl == null) {
-      error('missing ethereumNodeUrl')
+    console.log(conf)
+    if (conf.rskNodeUrl == null) {
+      error('missing rskNodeUrl')
     }
     if (conf.trustedVerifiers !== undefined && conf.trustedVerifiers != null && conf.trustedVerifiers !== '') {
       trustedVerifiers = JSON.parse(conf.trustedVerifiers)
     }
 
-    web3provider = new Web3.providers.HttpProvider(conf.ethereumNodeUrl)
+    web3provider = new Web3.providers.HttpProvider(conf.rskNodeUrl)
     config = await resolveServerConfig(conf, web3provider) as ServerConfigParams
     if (trustedVerifiers.length > 0) {
       config.trustedVerifiers = trustedVerifiers

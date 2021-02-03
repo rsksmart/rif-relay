@@ -8,7 +8,7 @@ import { HttpProvider, TransactionReceipt } from 'web3-core'
 import { fromWei, toBN } from 'web3-utils'
 import { merge } from 'lodash'
 
-import { ether, isSameAddress, sleep } from '../common/Utils'
+import { isSameAddress, sleep } from '../common/Utils'
 
 // compiled folder populated by "prepublish"
 import StakeManager from './compiled/StakeManager.json'
@@ -30,6 +30,7 @@ import HttpWrapper from '../relayclient/HttpWrapper'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
 import { constants } from '../common/Constants'
+import { ether } from '@openzeppelin/test-helpers'
 
 interface RegisterOptions {
   from: Address

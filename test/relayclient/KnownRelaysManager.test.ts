@@ -203,7 +203,7 @@ contract('KnownRelaysManager 2', function (accounts) {
         stake: 1e18,
         url: 'asd',
         relayOwner: accounts[1],
-        ethereumNodeUrl: (web3.currentProvider as HttpProvider).host
+        rskNodeUrl: (web3.currentProvider as HttpProvider).host
       })
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       await contractInteractor.init()

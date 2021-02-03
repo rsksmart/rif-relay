@@ -207,6 +207,7 @@ export class RelayClient {
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
+
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
     const relayingErrors = new Map<string, Error>()

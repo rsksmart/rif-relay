@@ -61,8 +61,8 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
 
         return (abi.encode(contractAddr, relayRequest.request.tokenAmount, relayRequest.request.tokenContract));
     }
+    
     /* solhint-ensable no-unused-vars */
-
     /* solhint-disable no-empty-blocks */
     function postRelayedCall(
         bytes calldata context,

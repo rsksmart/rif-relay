@@ -30,7 +30,7 @@ import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { ether, removeHexPrefix } from '../../src/common/Utils'
+import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
@@ -42,6 +42,7 @@ import { defaultEnvironment } from '../../src/common/Environments'
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { SendTransactionDetails } from '../../src/relayserver/TransactionManager'
+import { ether } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')

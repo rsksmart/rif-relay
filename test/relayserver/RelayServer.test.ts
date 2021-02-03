@@ -359,7 +359,7 @@ contract('RelayServer', function (accounts) {
         `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
     })
 
-    it('should emit \'funding needed\' when both eth and hub balances are too low', async function () {
+    it('should emit \'funding needed\' when both rbtc and hub balances are too low', async function () {
       await relayServer.transactionManager.sendTransaction({
         signer: relayServer.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,

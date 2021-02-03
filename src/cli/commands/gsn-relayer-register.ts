@@ -1,19 +1,18 @@
-import { ether } from '../../common/Utils'
-
+import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic from '../CommandsLogic'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
 import { getNetworkUrl, getRelayHubAddress, gsnCommander, getMnemonic } from '../utils'
 
 const commander = gsnCommander(['n', 'f', 'h', 'm'])
   .option('--relayUrl <url>', 'url to advertise the relayer (defaults to localhost:8090)')
-  .option('--stake <stake>', 'amount to stake for the relayer, in wei (defaults to 1 Ether)')
+  .option('--stake <stake>', 'amount to stake for the relayer, in wei (defaults to 0.01 RBTC)')
   .option(
     '--unstakeDelay <delay>',
     'blocks to wait between unregistering and withdrawing the stake (defaults to one 1000)'
   )
   .option(
     '--funds <funds>',
-    'amount to transfer to the relayer to pay for relayed transactions, in wei (defaults to 2 Ether)'
+    'amount to transfer to the relayer to pay for relayed transactions, in wei (defaults to 0.02 RBTC)'
   )
   .parse(process.argv);
 
@@ -25,8 +24,8 @@ const commander = gsnCommander(['n', 'f', 'h', 'm'])
   const registerOptions = {
     hub,
     from: commander.from ?? await logic.findWealthyAccount(),
-    stake: commander.stake ?? ether('1'),
-    funds: commander.funds ?? ether('2'),
+    stake: commander.stake ?? ether('0.01'),
+    funds: commander.funds ?? ether('0.02'),
     relayUrl: commander.relayUrl ?? 'http://localhost:8090',
     unstakeDelay: commander.unstakeDelay ?? 1000,
     gasPrice: commander.gasPrice ?? '1e9'

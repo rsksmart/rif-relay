@@ -82,7 +82,7 @@ contract('RelayProvider', function (accounts) {
       stake: 1e18,
       url: 'asd',
       relayOwner: accounts[1],
-      ethereumNodeUrl: underlyingProvider.host,
+      rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifierInstance.address,
       relayVerifierAddress: verifierInstance.address
     })
@@ -585,7 +585,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should throw on calling .new without useGSN: false', async function () {
-      await expect(TestRecipient.new()).to.be.eventually.rejectedWith('GSN cannot relay contract deployment transactions. Add {from: accountWithEther, useGSN: false}.')
+      await expect(TestRecipient.new()).to.be.eventually.rejectedWith('GSN cannot relay contract deployment transactions. Add {from: accountWithRBTC, useGSN: false}.')
     })
 
     it('should deploy a contract without GSN on calling .new with useGSN: false', async function () {

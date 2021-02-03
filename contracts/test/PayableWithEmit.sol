@@ -7,7 +7,7 @@ pragma solidity ^0.6.12;
 // it should work)
 contract PayableWithEmit {
 
-  string public versionRecipient = "2.0.0+opengsn.payablewithemit.irelayrecipient";
+  string public versionRecipient = "2.0.1+opengsn.payablewithemit.irelayrecipient";
 
   event Received(address sender, uint value, uint gasleft);
 

@@ -234,7 +234,7 @@ contract RelayHub is IRelayHub {
 
     function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
        
-        //Relay Manager might be enabled or disabled
+        //Relay worker might be enabled or disabled
         address relayManager = address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
 

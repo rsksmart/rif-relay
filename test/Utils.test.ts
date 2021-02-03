@@ -113,6 +113,7 @@ contract('Utils', function (accounts) {
           error: expectedReturnValue
         })
       })
+
       it('should call target', async function () {
         relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
         relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()

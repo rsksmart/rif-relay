@@ -293,7 +293,6 @@ contract('ProxyFactory', ([from]) => {
 
       // Call the isInitialized function
       let result = await web3.eth.call(newTrx)
-
       let resultStr = result as string
 
       // It should be initialized
