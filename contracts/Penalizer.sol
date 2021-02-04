@@ -76,35 +76,6 @@ contract Penalizer is IPenalizer{
 
         require(keccak256(dataToCheck1) != keccak256(dataToCheck2), "tx is equal");
 
-        penalize(addr1, hub);
-    }
-
-    function penalizeIllegalTransaction(
-        bytes memory unsignedTx,
-        bytes memory signature,
-        IRelayHub hub
-    )
-    public
-    override
-    relayManagerOnly(hub)
-    {
-        Transaction memory decodedTx = decodeTransaction(unsignedTx);
-        if (decodedTx.to == address(hub)) {
-            bytes4 selector = GsnUtils.getMethodSig(decodedTx.data);
-            bool isWrongMethodCall = selector != IRelayHub.relayCall.selector;
-            //External Gas limit is no longer sent in relayCall (not needed)
-            //bool isGasLimitWrong = GsnUtils.getParam(decodedTx.data, 4) != decodedTx.gasLimit;
-            require(
-                isWrongMethodCall, //|| isGasLimitWrong,
-                "Legal relay transaction");
-        }
-        address relay = keccak256(abi.encodePacked(unsignedTx)).recover(signature);
-        require(RSKAddrValidator.checkPKNotZero(relay), "ecrecover failed");
-
-        penalize(relay, hub);
-    }
-
-    function penalize(address relayWorker, IRelayHub hub) private {
-        hub.penalize(relayWorker, msg.sender);
+        hub.penalize(addr1, msg.sender);
     }
 }

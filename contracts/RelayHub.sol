@@ -90,7 +90,6 @@ contract RelayHub is IRelayHub {
 
         emit RelayWorkersDisabled(msg.sender, relayWorkers, workerCount[msg.sender]);
     }
-    
 
     /**
     New relay worker addresses can be added (as enabled workers) as long as they don't have a relay manager aldeady assigned.
@@ -114,8 +113,6 @@ contract RelayHub is IRelayHub {
 
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
     }
-
-
 
  function deployCall(
         GsnTypes.DeployRequest calldata deployRequest,
@@ -233,7 +230,6 @@ contract RelayHub is IRelayHub {
     }
 
     function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
-       
         //Relay worker might be enabled or disabled
         address relayManager = address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
