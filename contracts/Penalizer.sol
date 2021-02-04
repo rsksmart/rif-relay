@@ -13,6 +13,8 @@ import "./interfaces/IPenalizer.sol";
 contract Penalizer is IPenalizer{
 
     string public override versionPenalizer = "2.0.1+opengsn.penalizer.ipenalizer";
+    
+    mapping(bytes32 => bool) public penalizedTransactions;
 
     using ECDSA for bytes32;
 
@@ -54,8 +56,14 @@ contract Penalizer is IPenalizer{
         // If reported via a relay, the forfeited stake is split between
         // msg.sender (the relay used for reporting) and the address that reported it.
 
-        address addr1 = keccak256(abi.encodePacked(unsignedTx1)).recover(signature1);
-        address addr2 = keccak256(abi.encodePacked(unsignedTx2)).recover(signature2);
+        bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
+        bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
+
+        // check that transactions were not already penalized
+        require(!penalizedTransactions[txHash1] && !penalizedTransactions[txHash2], "Transactions already penalized");
+
+        address addr1 = txHash1.recover(signature1);
+        address addr2 = txHash2.recover(signature2);
 
         require(addr1 == addr2, "Different signer");
         require(RSKAddrValidator.checkPKNotZero(addr1), "ecrecover failed");
@@ -75,6 +83,9 @@ contract Penalizer is IPenalizer{
         abi.encodePacked(decodedTx2.data, decodedTx2.gasLimit, decodedTx2.to, decodedTx2.value);
 
         require(keccak256(dataToCheck1) != keccak256(dataToCheck2), "tx is equal");
+
+        penalizedTransactions[txHash1] = true;
+        penalizedTransactions[txHash2] = true;
 
         hub.penalize(addr1, msg.sender);
     }
