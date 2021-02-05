@@ -60,7 +60,7 @@ contract Penalizer is IPenalizer{
         bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
 
         // check that transactions were not already penalized
-        require(!penalizedTransactions[txHash1] && !penalizedTransactions[txHash2], "Transactions already penalized");
+        require(!penalizedTransactions[txHash1] || !penalizedTransactions[txHash2], "Transactions already penalized");
 
         address addr1 = txHash1.recover(signature1);
         address addr2 = txHash2.recover(signature2);
