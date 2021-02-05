@@ -81,30 +81,32 @@ contract SimpleSmartWallet is IForwarder {
         override
         payable
         returns (
-            uint256 lastTxFailed,
+            bool success,
             bytes memory ret  
         )
     {
 
+        (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
 
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonce++;
 
-        bool success;
-        /* solhint-disable avoid-tx-origin */
-        (success, ret) = req.tokenContract.call(
-            abi.encodeWithSelector(
-                IERC20.transfer.selector,
-                tx.origin,
-                req.tokenAmount
-            )
-        );
+        if(req.tokenContract != address(0)){
+            /* solhint-disable avoid-tx-origin */
+            (success, ret) = req.tokenContract.call(
+                abi.encodeWithSelector(
+                    hex"a9059cbb", 
+                    tx.origin,
+                    req.tokenAmount
+                )
+            );
 
-        if (!success) {
-            lastTxFailed = 2;
+            require(
+                success && (ret.length == 0 || abi.decode(ret, (bool))),
+                "Unable to pay for relay"
+            );
         }
-        else{
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
      
             //If any balance has been added then trasfer it to the owner EOA
@@ -112,16 +114,6 @@ contract SimpleSmartWallet is IForwarder {
                 //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
                 payable(req.from).transfer(address(this).balance);
             }
-
-            if (!success) {
-                lastTxFailed = 1;
-            }
-            else{
-                lastTxFailed = 0; // 0 == OK
-            }
-            // No need for else lastTxFailed = 2, there's no other possible scenario if "success"
-        }
-
   
     }
 
@@ -242,8 +234,10 @@ contract SimpleSmartWallet is IForwarder {
 
         //we need to initialize the contract
         if (tokenAddr != address(0)) {
-            (bool success, ) = tokenAddr.call(transferData);
-            require(success, "Unable to pay for deployment");
+            (bool success, bytes memory ret ) = tokenAddr.call(transferData);
+            require(
+            success && (ret.length == 0 || abi.decode(ret, (bool))),
+            "Unable to pay for deployment");
         }
 
         currentVersionHash = versionHash;

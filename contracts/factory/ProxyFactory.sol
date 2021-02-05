@@ -131,7 +131,7 @@ contract ProxyFactory is IProxyFactory {
             index,
             initParams
         );
-
+        (sig);
         require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
 
         //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
@@ -164,6 +164,7 @@ contract ProxyFactory is IProxyFactory {
         bytes calldata sig
     ) external override {
 
+        (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonces[req.from]++;

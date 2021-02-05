@@ -275,16 +275,9 @@ export class RelayProvider implements HttpProvider {
     }
 
     const transactionRelayed = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
-    if (transactionRelayed !== undefined && transactionRelayed !== null) {
-      const transactionRelayedStatus = transactionRelayed.events.find((e: any) => e.name === 'status')
-      if (transactionRelayedStatus !== undefined && transactionRelayedStatus !== null) { // status was removed
-        const status: string = transactionRelayedStatus.value.toString()
-        // 0 signifies success
-        if (status !== '0') {
-          log.info(`reverted relayed transaction, status code ${status}. changing status to zero`)
-          fixedTransactionReceipt.status = '0'
-        }
-      }
+    if (transactionRelayed === undefined || transactionRelayed === null) {
+      log.info('reverted relayed transaction. changing status to zero')
+      fixedTransactionReceipt.status = '0'
     }
     return fixedTransactionReceipt
   }

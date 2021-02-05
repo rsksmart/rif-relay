@@ -3,7 +3,6 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../interfaces/IForwarder.sol";
 import "../utils/RSKAddrValidator.sol";
 
@@ -94,30 +93,34 @@ contract SmartWallet is IForwarder {
         override
         payable
         returns (
-            uint256 lastTxFailed,
+            bool success,
             bytes memory ret  
         )
     {
 
+        (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
 
-        bool success;
         _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
         nonce++;
 
-        /* solhint-disable avoid-tx-origin */
-        (success, ret) = req.tokenContract.call(
-            abi.encodeWithSelector(
-                IERC20.transfer.selector,
-                tx.origin,
-                req.tokenAmount
-            )
-        );
+        if(req.tokenContract != address(0)){
+            /* solhint-disable avoid-tx-origin */
+            (success, ret) = req.tokenContract.call(
+                abi.encodeWithSelector(
+                    hex"a9059cbb", 
+                    tx.origin,
+                    req.tokenAmount
+                )
+            );
 
-        if (!success) {
-            lastTxFailed = 2;
+            require(
+                success && (ret.length == 0 || abi.decode(ret, (bool))),
+                "Unable to pay for relay"
+            );
         }
-        else{
+
+
             bytes32 logicStrg;
             assembly {
                 logicStrg := sload(
@@ -138,15 +141,6 @@ contract SmartWallet is IForwarder {
                 //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
                 payable(req.from).transfer(address(this).balance);
             }
-
-            if (!success) {
-                lastTxFailed = 1;
-            }
-            else{
-                lastTxFailed = 0; // 0 == OK
-            }
-        }
-
   
     }
 
@@ -274,8 +268,10 @@ contract SmartWallet is IForwarder {
 
         //we need to initialize the contract
         if (tokenAddr != address(0)) {
-            (bool success, ) = tokenAddr.call(transferData);
-            require(success, "Unable to pay for deployment");
+            (bool success, bytes memory ret ) = tokenAddr.call(transferData);
+            require(
+            success && (ret.length == 0 || abi.decode(ret, (bool))),
+            "Unable to pay for deployment");
         }
 
         currentVersionHash = versionHash;

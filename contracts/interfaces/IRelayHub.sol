@@ -45,7 +45,6 @@ interface IRelayHub {
         address  relayWorker,
         address  from,
         address to,
-        uint256 lastTxFailed,
         bytes4 selector,
         bytes reason);
 
@@ -60,16 +59,6 @@ interface IRelayHub {
         address sender,
         uint256 reward
     );
-
-    /// Reason error codes for the TransactionRelayed event
-    /// @param OK - the transaction was successfully relayed and execution successful - never included in the event
-    /// @param RejectedByForwarder - the transaction was not relayed due to forwarder check (signature,nonce)
-
-    enum RelayCallStatus {
-        OK,
-        RelayedCallFailed,
-        RejectedByForwarder    
-        }
 
     /// Add new worker addresses controlled by sender who must be a staked Relay Manager address.
     /// Emits a RelayWorkersAdded event.

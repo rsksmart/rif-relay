@@ -450,7 +450,7 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
       from: account.address,
       nonce: nonce,
       value: '0',
-      gas: '10000',
+      gas: '200000',
       tokenContract: tokenContract,
       tokenAmount: tokenAmount
     },

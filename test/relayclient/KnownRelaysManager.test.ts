@@ -91,9 +91,10 @@ contract('KnownRelaysManager', function (
 
       testRecipient = await TestRecipient.new()
       sWalletTemplate = await SmartWallet.new()
-      await token.mint('1000', sWalletTemplate.address)
       factory = await createProxyFactory(sWalletTemplate)
       smartWallet = await createSmartWallet(activeRelayWorkersAdded, senderAddress.address, factory, senderAddress.privateKey, env.chainId)
+      await token.mint('1000', smartWallet.address)
+
       // register hub's RelayRequest with forwarder, if not already done.
 
       verifier = await TestVerifierConfigurableMisbehavior.new()
@@ -105,7 +106,7 @@ contract('KnownRelaysManager', function (
       await stake(stakeManager, relayHub, notActiveRelay, owner)
 
       let nextNonce = (await smartWallet.nonce()).toString()
-      const txTransactionRelayed = await prepareTransaction(relayHub.address, testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, constants.ZERO_ADDRESS, '1')
+      const txTransactionRelayed = await prepareTransaction(relayHub.address, testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, token.address, '1')
 
       /** events that are not supposed to be visible to the manager */
       await relayHub.addRelayWorkers([workerRelayServerRegistered], {

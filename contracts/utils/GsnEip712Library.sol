@@ -29,8 +29,11 @@ library GsnEip712Library {
         
     }
 
-
-    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, uint256 lastTxFailed, bytes memory ret) {
+    //forwarderSuccess = Did the call to IForwarder.execute() revert or not?
+    //relaySuccess = Did the destination-contract call revert or not?
+    //ret = if !forwarderSuccess it is the revert reason of IForwarder, otherwise it is the destination-contract return data, wich might be
+    // a revert reason if !relaySuccess
+    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool relaySuccess, bytes memory ret) {
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.callForwarder.call(
                 abi.encodeWithSelector(IForwarder.execute.selector,
@@ -40,7 +43,7 @@ library GsnEip712Library {
                 ));
             
             if ( forwarderSuccess ) {
-                (lastTxFailed, ret) = abi.decode(ret, (uint256, bytes)); // decode return value of execute:
+                (relaySuccess, ret) = abi.decode(ret, (bool, bytes)); // decode return value of execute:
             }
 
             MinLibBytes.truncateInPlace(ret, 1024); // maximum length of return value/revert reason for 'execute' method. Will truncate result if exceeded.

@@ -49,8 +49,8 @@ contract('Utils', function (accounts) {
       const senderNonce = '0'
       const target = recipient.address
       const encodedFunction = '0xdeadbeef'
-      const gasPrice = '10000000'
-      const gasLimit = '500000'
+      const gasPrice = '1'
+      const gasLimit = '1000000'
       const verifier = accounts[7]
       const relayWorker = accounts[9]
 
@@ -100,7 +100,7 @@ contract('Utils', function (accounts) {
     describe('#callForwarderVerifyAndCall', () => {
       it('should return revert result', async function () {
         relayRequest.request.data = await recipient.contract.methods.testRevert().encodeABI()
-        const sig = await getLocalEip712Signature(
+        const sig = getLocalEip712Signature(
           new TypedRequestData(
             chainId,
             forwarder,
@@ -115,10 +115,10 @@ contract('Utils', function (accounts) {
       })
 
       it('should call target', async function () {
-        relayRequest.request.data = await recipient.contract.methods.emitMessage('hello').encodeABI()
+        relayRequest.request.data = recipient.contract.methods.emitMessage('hello').encodeABI()
         relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
 
-        const sig = await getLocalEip712Signature(
+        const sig = getLocalEip712Signature(
           new TypedRequestData(
             chainId,
             forwarder,

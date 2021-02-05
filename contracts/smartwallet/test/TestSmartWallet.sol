@@ -8,13 +8,12 @@ import "../../interfaces/IForwarder.sol";
 contract TestSmartWallet {
     function callExecute(IForwarder sw, IForwarder.ForwardRequest memory req,
         bytes32 domainSeparator, bytes32 requestTypeHash, bytes32 suffixData, bytes memory sig) public payable {
-         (uint256 lastTxFailed, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
+         (bool relaySuccess, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
        
-        bool success = lastTxFailed==0?true:false;
-        emit Result(success, success ? "" : this.decodeErrorMessage(ret), lastTxFailed);
+        emit Result(relaySuccess, relaySuccess ? "" : this.decodeErrorMessage(ret));
     }
 
-    event Result(bool success, string error, uint256 lastTxFailed);
+    event Result(bool success, string error);
 
     function decodeErrorMessage(bytes calldata ret) external pure returns (string memory message) {
         //decode evert string: assume it has a standard Error(string) signature: simply skip the (selector,offset,length) fields
