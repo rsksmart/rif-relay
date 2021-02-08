@@ -155,7 +155,7 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 ```
 4. Send to relayManagerAddress at least 0.1 tRBTC to set it up
 5. Send to relayWorkerAddress at least 0.1 tRBTC to set it up
-6. Once both addresses have been funded, run `node dist/src/cli/commands/gsn.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds 1e17 --stake 3e17 --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
+6. Once both addresses have been funded, run `node dist/src/cli/commands/gsn.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
 7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
 ## 5. Use MetaCoin <a id="c05"></a>
