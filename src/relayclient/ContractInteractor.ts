@@ -214,6 +214,8 @@ export default class ContractInteractor {
     if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
       this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
     }
+
+    console.log('Contracts initialized correctly')
   }
 
   // must use these options when creating Transaction object

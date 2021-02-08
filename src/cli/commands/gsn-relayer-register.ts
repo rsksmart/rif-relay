@@ -30,6 +30,10 @@ const commander = gsnCommander(['n', 'f', 'h', 'm', 'g'])
     unstakeDelay: commander.unstakeDelay ?? 1000,
     gasPrice: commander.gasPrice ?? 60000000
   }
+
+  console.log("Register options params")
+  console.log(registerOptions)
+
   if (registerOptions.from == null) {
     console.error('Failed to find a wealthy "from" address')
     process.exit(1)

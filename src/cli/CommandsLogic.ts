@@ -170,6 +170,9 @@ export default class CommandsLogic {
       const stakeManager = await this.contractInteractor._createStakeManager(stakeManagerAddress)
       const { stake, unstakeDelay, owner } = await stakeManager.getStakeInfo(relayAddress)
 
+      console.log('Current stake info:')
+      console.log('Relayer owner: '+owner)
+      console.log('Current unstake delay: '+unstakeDelay)
       console.log('current stake=', fromWei(stake, 'ether'))
 
       if (owner !== constants.ZERO_ADDRESS && !isSameAddress(owner, options.from)) {
