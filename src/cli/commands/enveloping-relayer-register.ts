@@ -3,7 +3,7 @@ import CommandsLogic from '../CommandsLogic'
 import { configure } from '../../relayclient/Configurator'
 import { getNetworkUrl, getRelayHubAddress, envelopingCommander, getMnemonic } from '../utils'
 
-const commander = envelopingCommander(['n', 'f', 'h', 'm'])
+const commander = envelopingCommander(['n', 'f', 'h', 'm', 'g'])
   .option('--relayUrl <url>', 'url to advertise the relayer (defaults to localhost:8090)')
   .option('--stake <stake>', 'amount to stake for the relayer, in wei (defaults to 0.01 RBTC)')
   .option(
@@ -24,11 +24,11 @@ const commander = envelopingCommander(['n', 'f', 'h', 'm'])
   const registerOptions = {
     hub,
     from: commander.from ?? await logic.findWealthyAccount(),
-    stake: commander.stake ?? ether('0.01'),
-    funds: commander.funds ?? ether('0.02'),
+    stake: ether( commander.stake ?? '0.01'),
+    funds: ether(commander.funds ?? '0.02'),
     relayUrl: commander.relayUrl ?? 'http://localhost:8090',
     unstakeDelay: commander.unstakeDelay ?? 1000,
-    gasPrice: commander.gasPrice ?? '1e9'
+    gasPrice: commander.gasPrice ?? 60000000
   }
   if (registerOptions.from == null) {
     console.error('Failed to find a wealthy "from" address')

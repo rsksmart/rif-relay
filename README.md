@@ -76,13 +76,13 @@ The core Enveloping architecture is defined by the following components:
 ## 3. Building project <a id="c03"></a>
 
 Clone the project. Then run the following from the project's root directory
--  `yarn install` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
+-  `yarn install && yarn prepare` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
 - Move [here](rsknode/README.md) (optional: it runs an RSK client)
 
 ### 3.1. Deploy <a id="c03.1"></a>
 
 We can deploy the project with
-- `npx truffle --network rsk migrate`
+- `npx truffle --network rsk migrate` (Make sure `truffle.js` is correctly configured)
 - `yarn run dev`
 
 ### 3.2. Test <a id="c03.2"></a>

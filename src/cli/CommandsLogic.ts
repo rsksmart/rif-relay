@@ -151,6 +151,12 @@ export default class CommandsLogic {
           error: 'Already registered'
         }
       }
+
+      if(!this.contractInteractor.isInitialized()) {
+        console.log('aparece como no inicializado')
+        await this.contractInteractor.init()
+      }
+
       const chainId = this.contractInteractor.chainId
       if (response.chainId !== chainId.toString()) {
         throw new Error(`wrong chain-id: Relayer on (${response.chainId}) but our provider is on (${chainId})`)
