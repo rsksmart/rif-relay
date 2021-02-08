@@ -169,7 +169,7 @@ export default class ContractInteractor {
     this.rawTxOptions = getRawTxOptions(this.chainId, this.networkId, chain)
   }
 
-  isInitialized(): boolean {
+  isInitialized (): boolean {
     return this.rawTxOptions != null
   }
 

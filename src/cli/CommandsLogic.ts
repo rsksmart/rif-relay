@@ -152,8 +152,7 @@ export default class CommandsLogic {
         }
       }
 
-      if(!this.contractInteractor.isInitialized()) {
-        console.log('aparece como no inicializado')
+      if (!this.contractInteractor.isInitialized()) {
         await this.contractInteractor.init()
       }
 
@@ -171,8 +170,8 @@ export default class CommandsLogic {
       const { stake, unstakeDelay, owner } = await stakeManager.getStakeInfo(relayAddress)
 
       console.log('Current stake info:')
-      console.log('Relayer owner: '+owner)
-      console.log('Current unstake delay: '+unstakeDelay)
+      console.log('Relayer owner: ' + owner)
+      console.log('Current unstake delay: ' + unstakeDelay)
       console.log('current stake=', fromWei(stake, 'ether'))
 
       if (owner !== constants.ZERO_ADDRESS && !isSameAddress(owner, options.from)) {
