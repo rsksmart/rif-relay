@@ -37,15 +37,14 @@ interface IRelayHub {
   event TransactionRelayed(
         address indexed relayManager,
         address relayWorker,
-        bytes32 relayRequestSigHash);
+        bytes32 relayRequestSigHash,
+        bytes relayedCallReturnValue);
 
         
     event TransactionRelayedButRevertedByRecipient(
         address indexed relayManager,
         address  relayWorker,
-        address  from,
-        address to,
-        bytes4 selector,
+        bytes32 relayRequestSigHash,
         bytes reason);
 
     

@@ -154,13 +154,16 @@ contract RelayHub is IRelayHub {
 
     function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature    )
-    external
-    override
+        bytes calldata signature) 
+    external override
     {
         (signature);
-        bytes memory relayedCallReturnValue;
         
+        require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
+        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
+        require(msg.sender == relayRequest.relayData.relayWorker, "Not a right worker");
+        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+
         bytes32 managerEntry = workerToManager[msg.sender];
         //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
          require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
@@ -168,47 +171,36 @@ contract RelayHub is IRelayHub {
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
 
-        require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
-        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
-        require(msg.sender == relayRequest.relayData.relayWorker, "Not a right worker");
          /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(hex"fe716339",   //fe716339  =>  requireManagerStaked(address,uint256,uint256)
                 manager,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
-        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         bool forwarderSuccess;
-        bool relaySuccess;
-
-        (forwarderSuccess, relaySuccess, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
+        bytes memory relayedCallReturnValue;
+        //use succ as relay call success variable
+        (forwarderSuccess, succ, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
         
         if ( !forwarderSuccess ) {
             assembly {
-                let dataSize := mload(relayedCallReturnValue)
-                let dataPtr := add(relayedCallReturnValue, 32)
-                revert(dataPtr, dataSize)
+                revert(add(relayedCallReturnValue, 32), mload(relayedCallReturnValue))
             }
         }
        
-       if (relaySuccess) {
+       if (succ) {
                 emit TransactionRelayed(
                     manager,
                     msg.sender,
-                    keccak256(signature)
+                    keccak256(signature),
+                    relayedCallReturnValue
                 );
-
-                if ( relayedCallReturnValue.length>0 ) {
-                    emit TransactionResult(relayedCallReturnValue);
-                }
         }
         else{
 
            emit TransactionRelayedButRevertedByRecipient(            
             manager,
             msg.sender,
-            relayRequest.request.from,
-            relayRequest.request.to,
-            MinLibBytes.readBytes4(relayRequest.request.data, 0),
+            keccak256(signature),
             relayedCallReturnValue);
         }
     }

@@ -23,10 +23,9 @@ contract TestUtil {
            relayRequest.relayData.callForwarder.staticcall(
             abi.encodeWithSelector(
                 IForwarder.verify.selector,
-                relayRequest.request,
                 relayRequest.relayData.domainSeparator,
-                RELAY_REQUEST_TYPEHASH,
                 GsnEip712Library.hashRelayData(relayRequest.relayData),
+                relayRequest.request,
                 signature
             )
         );
@@ -69,12 +68,12 @@ contract TestUtil {
             req.request.relayHub,
             req.request.from,
             req.request.to,
+            req.request.tokenContract,
             req.request.value,
             req.request.gas,
             req.request.nonce,
-            req.request.data,
-            req.request.tokenContract,
-            req.request.tokenAmount
+            req.request.tokenAmount,
+            req.request.data
         );
         suffixData = GsnEip712Library.hashRelayData(req.relayData);
         typeHash = RELAY_REQUEST_TYPEHASH;

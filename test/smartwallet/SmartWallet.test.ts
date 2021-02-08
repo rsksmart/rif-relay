@@ -18,19 +18,17 @@ import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toBN, toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, createSimpleProxyFactory, createSimpleSmartWallet } from '../TestUtils'
-import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType, ENVELOPING_PARAMS, GsnRequestType } from '../../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
-const keccak256 = web3.utils.keccak256
 const TestForwarderTarget = artifacts.require('TestForwarderTarget')
 const TestToken = artifacts.require('TestToken')
 const TetherToken = artifacts.require('TetherToken')
 const NonRevertTestToken = artifacts.require('NonRevertTestToken')
 const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
-const typeHash = keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const options = [
@@ -184,7 +182,7 @@ options.forEach(element => {
             const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
             const sig = signTypedData_v4(senderPrivateKey, { data: dataToSign })
             // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(request.request, dummyDomainSeparator, typeHash, suffixData, sig), 'unregistered domain separator')
+            await expectRevert.unspecified(sw.verify(dummyDomainSeparator, suffixData, request.request, sig), 'unregistered domain separator')
           })
 
           it('should fail on wrong nonce', async () => {
@@ -209,7 +207,7 @@ options.forEach(element => {
             const sig = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
             // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(req.request, domainSeparatorHash, typeHash, suffixData, sig), message)
+            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, req.request, sig), message)
           })
           it('should fail on invalid signature', async () => {
             const dataToSign = new TypedRequestData(
@@ -221,11 +219,11 @@ options.forEach(element => {
             const sig: string = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
             // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x'), 'ECDSA: invalid signature length')
-            await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x123456'), 'ECDSA: invalid signature length')
-            await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, '0x' + '1b'.repeat(65)), 'signature mismatch')
+            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x'), 'ECDSA: invalid signature length')
+            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x123456'), 'ECDSA: invalid signature length')
+            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x' + '1b'.repeat(65)), 'signature mismatch')
             const newSig = sig.replace('a', 'b').replace('1', '2').replace('3', '4').replace('5', '6').replace('7', '8')
-            await expectRevert.unspecified(sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, newSig), 'signature mismatch')
+            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, newSig), 'signature mismatch')
           })
         })
         describe('#verify success', () => {
@@ -243,7 +241,7 @@ options.forEach(element => {
             const sig: string = signTypedData_v4(senderPrivateKey, { data: dataToSign })
             const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 
-            await sw.verify(request.request, domainSeparatorHash, typeHash, suffixData, sig)
+            await sw.verify(domainSeparatorHash, suffixData, request.request, sig)
           })
         })
       })
@@ -280,7 +278,7 @@ options.forEach(element => {
 
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
 
-          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker }), 'Unable to pay for relay')
+          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'Unable to pay for relay')
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -307,7 +305,7 @@ options.forEach(element => {
           const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
           // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
           // declared in solidity
-          await sw.execute(req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
+          await sw.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker })
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -343,7 +341,7 @@ options.forEach(element => {
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
           // the helper simply emits the method return values
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker })
           assert.equal(ret.logs[0].args.error, 'always fail')
           assert.equal(ret.logs[0].args.success, false)
 
@@ -371,14 +369,14 @@ options.forEach(element => {
           const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
           // the helper simply emits the method return values
-          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
+          const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker })
           assert.equal(ret.logs[0].args.error, 'always fail')
           assert.equal(ret.logs[0].args.success, false)
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           assert.equal(tknBalance.toString(), initialWorkerTokenBalance.add(new BN(1)).toString())
 
-          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker }), 'nonce mismatch')
+          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'nonce mismatch')
 
           const tknBalance2 = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           assert.equal(tknBalance.toString(), tknBalance2.toString())
@@ -418,7 +416,7 @@ options.forEach(element => {
             const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
             const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
-            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value: '0' })
+            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker, value: '0' })
             assert.equal(ret.logs[0].args.success, false)
             // Token transfer happens first
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -442,7 +440,7 @@ options.forEach(element => {
             const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
             const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value })
+            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker, value })
             assert.equal(ret.logs[0].args.success, false)
             // Token transfer happens first
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -470,7 +468,7 @@ options.forEach(element => {
             const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
             const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
-            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker, value })
+            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker, value })
             assert.equal(ret.logs[0].args.error, '')
             assert.equal(ret.logs[0].args.success, true)
 
@@ -510,7 +508,7 @@ options.forEach(element => {
             const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32))
 
             // note: not transfering value in TX.
-            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, typeHash, suffixData, sig, { from: worker })
+            const ret = await testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker })
             assert.equal(ret.logs[0].args.error, '')
             assert.equal(ret.logs[0].args.success, true)
 

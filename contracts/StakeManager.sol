@@ -131,15 +131,12 @@ contract StakeManager is IStakeManager {
     override
     view {
         StakeInfo storage info = stakes[relayManager];
-        bool isAmountSufficient = info.stake >= minAmount;
-        bool isDelaySufficient = info.unstakeDelay >= minUnstakeDelay;
-        bool isStakeLocked = info.withdrawBlock == 0;
-        bool isHubAuthorized = authorizedHubs[relayManager][msg.sender].removalBlock == uint(-1);
         require(
-        isAmountSufficient &&
-        isDelaySufficient &&
-        isStakeLocked &&
-        isHubAuthorized, "RelayManager not staked");
+        info.stake >= minAmount && //isAmountSufficient
+        info.unstakeDelay >= minUnstakeDelay && //isDelaySufficient
+        info.withdrawBlock == 0 && //isStakeLocked
+        authorizedHubs[relayManager][msg.sender].removalBlock == uint(-1), //isHubAuthorized
+         "RelayManager not staked");
     }
 
     /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.

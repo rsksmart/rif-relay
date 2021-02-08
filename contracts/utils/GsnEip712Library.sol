@@ -36,10 +36,8 @@ library GsnEip712Library {
     function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool relaySuccess, bytes memory ret) {
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.callForwarder.call(
-                abi.encodeWithSelector(IForwarder.execute.selector,
-                relayRequest.request, relayRequest.relayData.domainSeparator,
-                keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), 
-                hashRelayData(relayRequest.relayData), signature
+                abi.encodeWithSelector(IForwarder.execute.selector, relayRequest.relayData.domainSeparator,
+                hashRelayData(relayRequest.relayData), relayRequest.request, signature
                 ));
             
             if ( forwarderSuccess ) {

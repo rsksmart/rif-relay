@@ -28,14 +28,13 @@ contract SmartWallet is IForwarder {
     }
 
     function verify(
-        ForwardRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest memory req,
         bytes calldata sig
     ) external override view {
 
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _verifySig(domainSeparator, suffixData, req, sig);
     }
 
     function getOwner() private view returns (bytes32 owner){
@@ -83,10 +82,9 @@ contract SmartWallet is IForwarder {
     }
     
     function execute(
-        ForwardRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest memory req,
         bytes calldata sig
     )
         external
@@ -101,7 +99,7 @@ contract SmartWallet is IForwarder {
         (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
 
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _verifySig(domainSeparator, suffixData, req, sig);
         nonce++;
 
         if(req.tokenContract != address(0)){
@@ -137,9 +135,10 @@ contract SmartWallet is IForwarder {
             }
      
             //If any balance has been added then trasfer it to the owner EOA
-            if (address(this).balance > 0) {
+            uint256 balance = address(this).balance;
+            if ( balance > 0) {
                 //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-                payable(req.from).transfer(address(this).balance);
+                payable(req.from).transfer(balance);
             }
   
     }
@@ -153,10 +152,9 @@ contract SmartWallet is IForwarder {
     }
 
     function _verifySig(
-        ForwardRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest memory req,
         bytes memory sig
     ) private view {
 
@@ -168,12 +166,6 @@ contract SmartWallet is IForwarder {
 
         //Verify nonce
         require(nonce == req.nonce, "nonce mismatch");
-
-
-        require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
-            "Invalid request typehash"
-        );
 
         require(
             keccak256(abi.encode(
@@ -190,19 +182,18 @@ contract SmartWallet is IForwarder {
                 keccak256(abi.encodePacked(
                     "\x19\x01",
                     domainSeparator,
-                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                    keccak256(_getEncoded(suffixData, req)))
                 ).recover(sig), req.from), "signature mismatch"
         );
     }
 
     function _getEncoded(
-        ForwardRequest memory req,
-        bytes32 requestTypeHash,
-        bytes32 suffixData
+        bytes32 suffixData,
+        ForwardRequest memory req
     ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
-                requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
                 abi.encode(
                     req.relayHub,
                     req.from,
