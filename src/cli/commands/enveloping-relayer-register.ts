@@ -24,14 +24,14 @@ const commander = envelopingCommander(['n', 'f', 'h', 'm', 'g'])
   const registerOptions = {
     hub,
     from: commander.from ?? await logic.findWealthyAccount(),
-    stake: ether( commander.stake ?? '0.01'),
+    stake: ether(commander.stake ?? '0.01'),
     funds: ether(commander.funds ?? '0.02'),
     relayUrl: commander.relayUrl ?? 'http://localhost:8090',
     unstakeDelay: commander.unstakeDelay ?? 1000,
     gasPrice: commander.gasPrice ?? 60000000
   }
 
-  console.log("Register options params")
+  console.log('Register options params')
   console.log(registerOptions)
 
   if (registerOptions.from == null) {
