@@ -3,25 +3,6 @@
 Secure sponsored transaction system to enable users to pay fees using ERC-20 tokens.
 
 [![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
-
-## Table of Contents
-
-1. [Description](#c01)
-2. [Technical Overview](#c02)<br>
-  2.1 [Testnet Contracts](#c02.1)<br>
-3. [Building project](#c03)<br>
-  3.1 [Deploy](#c03.1)<br>
-  3.2 [Test](#c03.2)<br>
-  3.3 [Create a Smart Wallet](#c03.3)<br>
-4. [Run a Relay Server](#c04)<br>
-  4.1 [Regtest](#c04.1)<br>
-  4.2 [Testnet](#c04.2)
-5. [Use MetaCoin](#c05)
-6. [Documentation](#c06)
-7. [Troubleshooting](#c07)<br>
-  7.1 [Running on macOS](#c07.1)<br>
-  7.2 [Common errors when testing](#c07.2)
-
 ## Description
 
 The following information discribes the version 1 of RIF Enveloping. This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
@@ -50,7 +31,6 @@ The following technical content are available:
 ## Changelog
 
 
-
 ### 2.1 Testnet Contracts <a id="c02.1"></a>
 
 | Contract          | Address                                    |
@@ -75,15 +55,9 @@ The following technical content are available:
 
 ## 3. Building project <a id="c03"></a>
 
-Clone the project. Then run the following from the project's root directory
--  `yarn install && yarn prepare` (for instruction to install yarn [here](https://classic.yarnpkg.com/en/))
-- Move [here](rsknode/README.md) (optional: it runs an RSK client)
+
 
 ### 3.1. Deploy <a id="c03.1"></a>
-
-We can deploy the project with
-- `npx truffle --network rsk migrate` (Make sure `truffle.js` is correctly configured)
-- `yarn run dev`
 
 ### 3.2. Test <a id="c03.2"></a>
 
@@ -131,32 +105,9 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 
 ### 4.1. Regtest <a id="c04.1"></a>
 
-In order to run an Enveloping instance in Regtest, clone the project then run the following from the project's root directory:
-
-1. `yarn install && yarn prepare`
-2. On the jsrelay directory `npx webpack`
-3. On the project's root directory, run `docker-compose build` (Optional)
-4. Run `docker-compose up -d rskj` (Optional: it runs an RSK node in regtest)
-5. Run '`node dist/src/cli/commands/gsn.js boot-test -n rsk-regtest`
-
-For checking if it's working, run `curl http://localhost:8090/getaddr` (The port 8090 should be changed by the relay's port).
 
 ### 4.2. Testnet <a id="c04.2"></a>
 
-In order to run an Enveloping instance in Testnet, clone the project then run the following from the project's root directory:
-
-1. Create the project home folder, in this folder the jsrelay databases will be placed: mkdir enveloping_relay
-2. In a terminal run `node dist/src/cli/commands/gsn.js relayer-run  --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8090 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8091/jsrelay`)
-3. In another terminal run `curl http://localhost:8090/getaddr` which will return a JSON with information of the running jsRelay Server, for example:
-```json
-{"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
-"relayHubAddress":"0x38bebd507aBC3D76B10d61f5C95668e1240D087F", "minGasPrice":"6000000000",
-"maxAcceptanceBudget":"200000","chainId":"31", "networkId":"31","ready":false,"version":"2.0.1"}
-```
-4. Send to relayManagerAddress at least 0.1 tRBTC to set it up
-5. Send to relayWorkerAddress at least 0.1 tRBTC to set it up
-6. Once both addresses have been funded, run `node dist/src/cli/commands/gsn.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
-7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
 ## 5. Use MetaCoin <a id="c05"></a>
 
@@ -169,20 +120,6 @@ Try it: https://github.com/rsksmart/enveloping-metacoin
 
 
 ## 7. Troubleshooting <a id="c07"></a>
-
-### 7.1. Running on macOS <a id="c07.1"></a>
-To run the project using Docker on a Mac, you must follow these steps or the scripts and web apps won't work.
-
-- Patch `readlink`
-The startup scripts assume that GNU's `readlink` command is available. But MacOS ships with BSD's `readlink`, which is incompatible with GNU's version. So you must patch `readlink`. This can be done as follows:
-
-```
-brew install coreutils
-ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
-```
-
-After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
-
 ### 7.2. Common errors when testing <a id="c07.2"></a>
 
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
@@ -193,11 +130,7 @@ Ensure that you are in the project's root directory and that the test's name has
 
 Stop the running node and delete the db used by the node.
 
-#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
-
-The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-## 7. Gas Station Network <a id="c07"></a>
+## Gas Station Network <a id="c07"></a>
 
 This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
 - Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
