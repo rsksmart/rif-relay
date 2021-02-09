@@ -22,7 +22,7 @@ Secure sponsored transaction system to enable users to pay fees using ERC-20 tok
   7.1 [Running on macOS](#c07.1)<br>
   7.2 [Common errors when testing](#c07.2)
 
-## 1. Description <a id="c01"></a>
+## Description
 
 The following information discribes the version 1 of RIF Enveloping. This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
 
@@ -38,18 +38,18 @@ The RIF Enveloping team is working on a new architecture to further reduce gas c
 
 It is important to mention that in version 1 the contracts deployed on Mainnet have as security measure **kill()**, **pause()** and **unpause()** functions and limits to the amount of RBTC that can be staked. These functions and limits will be removed in the upcoming version 2.
 
-## 2. Technical Overview <a id="c02"></a>
+## Technical Documentation
 
-The system is designed to achieve deployments and transaction sponsorship at low cost. The cost of the relay service provided by "sponsors" is agreed among the parties off-chain. The low cost of transactions on RSK contributes to keeping overall service costs low as well.
+The following technical content are available:
 
-The core Enveloping architecture is defined by the following components:
+- Enveloping architecture [docs/enveloping_architecture](docs/enveloping_architecture.md)
+- Installing basic requirements [docs/basic_requirements](docs/basic_requirements.md)
+- Launching enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
+- Development guide [docs/development_guide](docs/development_guide.md)
 
-- **Relay Request** - a structure that wraps the transaction sent by an end-user including the required data for the relay (e.g. address of the payer, address of the original requester, token payment data).
-- **Relay Hub** - a core contract on the blockchain which serves as the interface for the on-chain system. It manages the balances of the accounts involved and forwards Relay Requests to the rest of the contracts. 
-- **Verifier** - an abstract contract that authorizes a specific relay request.
-- **Smart Wallet** - a contract that verifies forwarded data and invokes the receipient contract of the transaction. The smart wallet is created *counterfactually* at the moment it is needed. This happens, for instance, when a user with some token balances wants to move those tokens without spending gas, i.e. using the enveloping system.
-- **Relay Server** - a relay service daemon, running as a  HTTP service.  Advertises itself (through the RelayHub) and waits for client requests.
-- **Relay Client** - a typescript library for a client to access the blockchain through a relay. Provides APIs to find a good relay, and to send transactions through it. The library hooks the local web3, so that any loade. Id contract API will go through the relay.
+## Changelog
+
+
 
 ### 2.1 Testnet Contracts <a id="c02.1"></a>
 
@@ -166,7 +166,7 @@ Try it: https://github.com/rsksmart/enveloping-metacoin
 
 ## 6. Documentation <a id="c06"></a>
 
-For more detailed documentation, go [here](https://docs.google.com/document/d/1kan8xUFYgjWNozBfpkopn35P9E6IuRjC-PNhwcrQLN4/edit)
+
 
 ## 7. Troubleshooting <a id="c07"></a>
 
