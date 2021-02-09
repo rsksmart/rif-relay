@@ -1,11 +1,4 @@
 # Basic requirements
-
-## Docker
-
-We recommend following the official [site](https://docs.docker.com/get-docker/) for installing Docker and keeping upgrade it.
-
-You need to install `docker` and `docker-compose`
-
 ## Yarn
 
 As package manager, we are using `yarn` version `v1.22.0`.
@@ -31,3 +24,22 @@ All the command we run with truffle use the prefix `npx`. This is to execute nod
 For checking if it's installed run `npx truffle version`
 
 The configuration we use is in the `truffle.js` file. For details about this file and how to use it, please redirect to the Truffle's site.
+
+## Docker
+
+We recommend following the official [site](https://docs.docker.com/get-docker/) for installing Docker and keeping upgrade it.
+
+You need to install `docker` and `docker-compose`
+
+### Running on macOS
+To run the project using Docker on a Mac, you must follow these steps or the scripts and web apps won't work.
+
+- Patch `readlink`
+The startup scripts assume that GNU's `readlink` command is available. But MacOS ships with BSD's `readlink`, which is incompatible with GNU's version. So you must patch `readlink`. This can be done as follows:
+
+```
+brew install coreutils
+ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
+```
+
+After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can do it with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
