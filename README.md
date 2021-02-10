@@ -27,11 +27,9 @@ The following technical content are available:
 - Installing basic requirements [docs/basic_requirements](docs/basic_requirements.md)
 - Launching enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
 - Development guide [docs/development_guide](docs/development_guide.md)
+- Integration guide [docs/integration_guide](docs/integration_guide.md)
 
-## Changelog
-
-
-### 2.1 Testnet Contracts <a id="c02.1"></a>
+## Testnet Contracts
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
@@ -53,26 +51,7 @@ The following technical content are available:
 [DeployVerifier]:(https://explorer.testnet.rsk.co/address/0x3AD4EDEc75570c3B03620f84d37EF7F9021665bC)
 [RelayVerifier]:(https://explorer.testnet.rsk.co/address/0x053b4a77e9d5895920cBF505eB8108F99d929395)
 
-## 3. Building project <a id="c03"></a>
-
-
-
-### 3.1. Deploy <a id="c03.1"></a>
-
-### 3.2. Test <a id="c03.2"></a>
-
-- To run all the tests:
-
-`./run-tests`
-
-Note: It takes time, the script will run an RSK node in regtest, and then run all the tests.
-
-- To run an specific test:
-
-Once the project is built, we can test it with truffle
-`yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
-
-### 3.3 Create a Smart Wallet <a id="c03.3"></a>
+## Create a Smart Wallet
 
 As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). 
 
@@ -101,6 +80,7 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 //Using the same parameters as when SW was created.
 ```
 
+<<<<<<< HEAD
 ## 4. Run a Relay Server <a id="c04"></a>
 
 ### 4.1. Regtest <a id="c04.1"></a>
@@ -129,8 +109,11 @@ Ensure that you are in the project's root directory and that the test's name has
 #### Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
 
 Stop the running node and delete the db used by the node.
+=======
+## Changelog
+>>>>>>> integration section added and development guide wrote
 
-## Gas Station Network <a id="c07"></a>
+## Gas Station Network
 
 This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
 - Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.

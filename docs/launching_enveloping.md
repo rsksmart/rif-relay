@@ -30,7 +30,7 @@ We use `truffle` for deploying contracts.
 
 `npx truffle migrate --network rsktestnet` (disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`).
 
-We already have our own contracts deployed in Testnet. See [here](docs/launch.md##Testnetcontracts)
+We have already deployed these contracts on Testnet. See [here](#testnet-contracts)
 
 ## Run a Relay Server on testnet
 
