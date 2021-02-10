@@ -482,7 +482,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           )
         })
 
-        it('gas estimation tests for Simple Smart Wallet', async function () {
+        it.only('gas estimation tests for Simple Smart Wallet', async function () {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
