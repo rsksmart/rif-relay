@@ -151,6 +151,84 @@ contract RelayHub is IRelayHub {
     }
 
 
+function batchRelayCall(
+        GsnTypes.RelayRequest[] calldata relayRequests,
+        bytes[] calldata signatures) external 
+    
+    {
+        (signatures);
+        
+        require(relayRequests.length == signatures.length, "Invalid num of params");
+        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
+
+        uint256 totalGas;
+        for(uint256 i = 0; i< relayRequests.length; i++){
+            require(msg.sender == relayRequests[i].relayData.relayWorker, "Not a right worker");
+            require(relayRequests[i].relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+
+            totalGas = totalGas.add(relayRequests[i].request.gas);
+        }
+
+        require(gasleft() >= gasOverhead.add(totalGas), "Not enough gas left");
+
+        bytes32 managerEntry = workerToManager[msg.sender];
+        //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
+         require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
+        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+
+        address manager = address(uint160(uint256(managerEntry >> 4)));
+
+         /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(hex"fe716339",   //fe716339  =>  requireManagerStaked(address,uint256,uint256)
+                manager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+    
+        //use succ as relay call success variabl
+
+        for(uint256 i = 0; i< relayRequests.length; i++){
+            /* solhint-disable-next-line avoid-low-level-calls */
+            (bool success, bytes memory ret) = relayRequests[i].relayData.callForwarder.call(
+                abi.encodeWithSelector(IForwarder.execute.selector, relayRequests[i].relayData.domainSeparator,
+                GsnEip712Library.hashRelayData(relayRequests[i].relayData), relayRequests[i].request, signatures[i]
+                ));
+            
+            if (success) {
+                (success, ret) = abi.decode(ret, (bool, bytes)); // decode return value of execute:
+                MinLibBytes.truncateInPlace(ret, 1024); // maximum length of return value/revert reason for 'execute' method. Will truncate result if exceeded.
+
+                if (success) {
+                    emit TransactionRelayed(
+                        manager,
+                        tx.origin,
+                        keccak256(signatures[i]),
+                        ret
+                    );
+                }
+                else{
+                    emit TransactionRelayedButRevertedByRecipient(            
+                        manager,
+                        tx.origin,
+                        keccak256(signatures[i]),
+                        ret
+                    );
+                }
+
+            }
+            else{
+                MinLibBytes.truncateInPlace(ret, 1024); // maximum length of return value/revert reason for 'execute' method. Will truncate result if exceeded.
+
+                emit TransactionFailed(
+                    manager,
+                    tx.origin,
+                    keccak256(signatures[i]),
+                    ret
+                );
+            }
+
+        }     
+
+    }
+
 
     function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
@@ -232,4 +310,6 @@ contract RelayHub is IRelayHub {
         IStakeManager.StakeInfo memory stakeInfo = IStakeManager(stakeManager).getStakeInfo(relayManager);
         IStakeManager(stakeManager).penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
     }
+
+ 
 }

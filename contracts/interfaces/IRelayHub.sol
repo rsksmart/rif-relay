@@ -40,6 +40,12 @@ interface IRelayHub {
         bytes32 relayRequestSigHash,
         bytes relayedCallReturnValue);
 
+  event TransactionFailed(
+        address indexed relayManager,
+        address relayWorker,
+        bytes32 relayRequestSigHash,
+        bytes relayedCallReturnValue);
+
         
     event TransactionRelayedButRevertedByRecipient(
         address indexed relayManager,
