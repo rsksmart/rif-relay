@@ -64,7 +64,8 @@ contract('Utils', function (accounts) {
           value: '0',
           gas: gasLimit,
           tokenContract: constants.ZERO_ADDRESS,
-          tokenAmount: '0'
+          tokenAmount: '0',
+          tokenGas: '0'
         },
         relayData: {
           gasPrice,

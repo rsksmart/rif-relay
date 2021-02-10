@@ -70,7 +70,8 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
         value: '0',
         gas: gasLimit,
         tokenContract: token.address,
-        tokenAmount: tokensPaid.toString()
+        tokenAmount: tokensPaid.toString(),
+        tokenGas: '50000'
       },
       relayData: {
         gasPrice,
@@ -219,7 +220,8 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
         value: '0',
         gas: gasLimit,
         tokenContract: token.address,
-        tokenAmount: tokensPaid.toString()
+        tokenAmount: tokensPaid.toString(),
+        tokenGas: '50000'
       },
       relayData: {
         gasPrice,

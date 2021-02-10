@@ -9,7 +9,7 @@ import "../utils/GsnUtils.sol";
 contract TestUtil {
 
 
-     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)");
+     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)");
 
     //helpers for test to call the library funcs:
     function callForwarderVerify(
@@ -73,6 +73,7 @@ contract TestUtil {
             req.request.gas,
             req.request.nonce,
             req.request.tokenAmount,
+            req.request.tokenGas,
             req.request.data
         );
         suffixData = GsnEip712Library.hashRelayData(req.relayData);

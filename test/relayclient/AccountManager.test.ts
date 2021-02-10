@@ -112,7 +112,8 @@ contract('AccountManager', function (accounts) {
         value: '0',
         gas: '1',
         tokenContract: constants.ZERO_ADDRESS,
-        tokenAmount: '0'
+        tokenAmount: '0',
+        tokenGas: '0'
       },
       relayData: {
         gasPrice: '1',

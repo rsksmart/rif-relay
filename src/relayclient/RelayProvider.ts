@@ -111,6 +111,11 @@ export class RelayProvider implements HttpProvider {
    * data:bytes => init params for the optional custom logic
    * tokenContract:address => Token used to pay for the deployment, can be address(0) if the deploy is subsidized
    * tokenAmount:IntString => Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
+   * tokenGas:IntString => Gas to be passed to the token transfer function. This was added because some ERC20 tokens (e.g, USDT) are unsafe, they use
+   * assert() instead of require(). An elaborated (and quite difficult in terms of timing) attack by a user could plan to deplete their token balance between the time
+   * the Relay Server makes the local relayCall to check the transaction passes and it actually submits it to the blockchain. In that scenario,
+   * when the SmartWallet tries to pay with the user's USDT tokens and the balance is 0, instead of reverting and reimbursing the unused gas, it would revert and spend all the gas,
+   * by adding tokeGas we prevent this attack, the gas reserved to actually execute the rest of the relay call is not lost but reimbursed to the relay worker/
    * factory:address => Address of the factory used to deploy the Smart Wallet
    * recoverer:address => Optional recoverer account/contract, can be address(0)
    * index:IntString => Numeric value used to generate several SW instances using the same paramaters defined above
@@ -131,6 +136,22 @@ export class RelayProvider implements HttpProvider {
 
     if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
       gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    }
+
+    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
+    }
+
+    const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
+    const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+
+    if (tokenContract !== constants.ZERO_ADDRESS && tokenGas === '0') {
+      // There is a token payment involved
+      // The user expects the client to estimate the gas required for the token call
+      const swAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
+      if (swAddress === constants.ZERO_ADDRESS) {
+        throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+      }
     }
 
     try {
@@ -226,6 +247,10 @@ export class RelayProvider implements HttpProvider {
 
     if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
       gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    }
+
+    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
     }
 
     this.relayClient.relayTransaction(gsnTransactionDetails)
@@ -357,6 +382,11 @@ export class RelayProvider implements HttpProvider {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (payload.params[0]?.hasOwnProperty('isSmartWalletDeploy')) {
         delete p.params[0].isSmartWalletDeploy
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('onlyPreferredRelays')) {
+        delete p.params[0].onlyPreferredRelays
       }
     }
 

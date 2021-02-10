@@ -92,7 +92,7 @@ contract SimpleSmartWallet is IForwarder {
 
         if(req.tokenContract != address(0)){
             /* solhint-disable avoid-tx-origin */
-            (success, ret) = req.tokenContract.call(
+            (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
                 abi.encodeWithSelector(
                     hex"a9059cbb", 
                     tx.origin,
@@ -108,10 +108,10 @@ contract SimpleSmartWallet is IForwarder {
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
      
             //If any balance has been added then trasfer it to the owner EOA
-            uint256 balance = address(this).balance;
-            if ( balance > 0) {
+            uint256 balanceToTransfer = address(this).balance;
+            if ( balanceToTransfer > 0) {
                 //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-                payable(req.from).transfer(balance);
+                payable(req.from).transfer(balanceToTransfer);
             }
   
     }
@@ -166,17 +166,18 @@ contract SimpleSmartWallet is IForwarder {
     ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
-                keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
                 abi.encode(
                     req.relayHub,
                     req.from,
                     req.to,
+                    req.tokenContract,
                     req.value,
                     req.gas,
                     req.nonce,
-                    keccak256(req.data),
-                    req.tokenContract,
-                    req.tokenAmount               
+                    req.tokenAmount,
+                    req.tokenGas,              
+                    keccak256(req.data)
                 ),
                 suffixData
             );
@@ -205,6 +206,7 @@ contract SimpleSmartWallet is IForwarder {
     function initialize(
         address owner,
         address tokenAddr,
+        uint256 tokenGas,
         bytes32 versionHash,
         bytes memory transferData
     ) external  {
@@ -224,7 +226,7 @@ contract SimpleSmartWallet is IForwarder {
 
         //we need to initialize the contract
         if (tokenAddr != address(0)) {
-            (bool success, bytes memory ret ) = tokenAddr.call(transferData);
+            (bool success, bytes memory ret ) = tokenAddr.call{gas: tokenGas}(transferData);
             require(
             success && (ret.length == 0 || abi.decode(ret, (bool))),
             "Unable to pay for deployment");

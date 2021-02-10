@@ -129,11 +129,12 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
 
-        //61b44766  =>  initialize(address owner,address tokenAddr,bytes32 version"Hash,bytes transferData)  
+        //0cf756c2  =>  initialize(address owner,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes transferData)  
         bytes memory initData = abi.encodeWithSelector(
-            hex"61b44766",
+            hex"0cf756c2",
             owner,
             address(0), // This "gas-funded" call does not pay with tokens
+            0, //No token transfer
             currentVersionHash,
             hex"00"
         );
@@ -150,16 +151,15 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     function relayedUserSmartWalletCreation(
         IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
         bytes calldata sig
     ) external override {
 
         require(msg.sender == req.relayHub, "Invalid caller");
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _verifySig(req, domainSeparator, suffixData, sig);
         nonces[req.from]++;
 
-        //61b44766  =>  initialize(address owner,address tokenAddr,bytes32 versionHash,bytes transferData)  
+        //0cf756c2  =>  initialize(address owner,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         /* solhint-disable avoid-tx-origin */
         deploy(getCreationBytecode(), keccak256(
@@ -169,9 +169,10 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
                 req.index
             ) // salt
         ), abi.encodeWithSelector(
-            hex"61b44766",
+            hex"0cf756c2",
             req.from,
             req.tokenContract,
+            req.tokenGas,
             currentVersionHash,
             abi.encodeWithSelector(
                 hex"a9059cbb",
@@ -249,24 +250,24 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
     function _getEncoded(
         IForwarder.DeployRequest memory req,
-        bytes32 requestTypeHash,
         bytes32 suffixData
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
-                requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
                 abi.encode(
                     req.relayHub,
                     req.from,
                     req.to,
+                    req.tokenContract,
+                    req.recoverer,
                     req.value,
                     req.gas,
                     req.nonce,
-                    keccak256(req.data),
-                    req.tokenContract,
                     req.tokenAmount,
-                    req.recoverer,
-                    req.index
+                    req.tokenGas,
+                    req.index,
+                    keccak256(req.data)    
                 ),
                 suffixData
             );
@@ -282,19 +283,12 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     function _verifySig(
         IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
         bytes memory sig
     ) internal view {
 
         //Verify nonce
         require(nonces[req.from] == req.nonce, "nonce mismatch");
-
-        //Verify Request type
-        require(
-            keccak256("RelayRequest(address relayHub,address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenContract,uint256 tokenAmount,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)") == requestTypeHash,
-            "Invalid request typehash"
-        );
 
         //Verify Domain separator
         require(
@@ -315,7 +309,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
                 keccak256(abi.encodePacked(
                     "\x19\x01",
                     domainSeparator,
-                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                    keccak256(_getEncoded(req, suffixData)))
                 ).recover(sig), req.from),"signature mismatch"
         );
     }

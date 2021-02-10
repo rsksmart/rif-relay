@@ -13,6 +13,7 @@ interface IForwarder {
         uint256 gas;
         uint256 nonce;
         uint256 tokenAmount;
+        uint256 tokenGas;
         bytes data;
     }
 
@@ -26,6 +27,7 @@ interface IForwarder {
         uint256 gas;
         uint256 nonce;
         uint256 tokenAmount;
+        uint256 tokenGas;
         uint256 index; // only used in SmartWallet deploy requests
         bytes data;
     }

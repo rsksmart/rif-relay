@@ -49,7 +49,8 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
       value: '0',
       gas: '1000000',
       tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '0'
+      tokenAmount: '0',
+      tokenGas: '0'
     },
     relayData: {
       gasPrice: '50',

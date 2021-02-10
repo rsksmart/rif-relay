@@ -33,7 +33,7 @@ import {
   IKnowForwarderAddressInstance,
   IVerifierInstance,
   IRelayHubInstance,
-  IStakeManagerInstance, ISmartWalletFactoryInstance, IDeployVerifierInstance, IBaseVerifierInstance
+  IStakeManagerInstance, IDeployVerifierInstance, IBaseVerifierInstance, ISmartWalletFactoryInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from './types/Aliases'
@@ -78,7 +78,7 @@ export default class ContractInteractor {
   private readonly IForwarderContract: Contract<IForwarderInstance>
   private readonly IStakeManager: Contract<IStakeManagerInstance>
   private readonly IKnowForwarderAddress: Contract<IKnowForwarderAddressInstance>
-  private readonly IProxyFactoryContract: Contract<ISmartWalletFactoryInstance>
+  private readonly ISmartWalletFactoryContract: Contract<ISmartWalletFactoryInstance>
 
   private relayVerifierInstance!: IVerifierInstance
   private deployVerifierInstance!: IDeployVerifierInstance
@@ -139,7 +139,7 @@ export default class ContractInteractor {
       abi: knowForwarderAddressAbi
     })
     // @ts-ignore
-    this.IProxyFactoryContract = TruffleContract({
+    this.ISmartWalletFactoryContract = TruffleContract({
       contractName: 'ISmartWalletFactory',
       abi: proxyFactoryAbi
     })
@@ -150,7 +150,7 @@ export default class ContractInteractor {
     this.IBaseVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IKnowForwarderAddress.setProvider(this.provider, undefined)
-    this.IProxyFactoryContract.setProvider(this.provider, undefined)
+    this.ISmartWalletFactoryContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -249,7 +249,7 @@ export default class ContractInteractor {
   }
 
   async _createFactory (address: Address): Promise<ISmartWalletFactoryInstance> {
-    return await this.IProxyFactoryContract.at(address)
+    return await this.ISmartWalletFactoryContract.at(address)
   }
 
   async _createStakeManager (address: Address): Promise<IStakeManagerInstance> {
@@ -388,7 +388,7 @@ export default class ContractInteractor {
   }
 
   async getPastEventsForStakeManager (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
-    const stakeManager = await this.stakeManagerInstance
+    const stakeManager = this.stakeManagerInstance
     return await this._getPastEvents(stakeManager.contract, names, extraTopics, options)
   }
 
@@ -483,11 +483,11 @@ export default class ContractInteractor {
     return await stakeManager.getStakeInfo(managerAddress)
   }
 
-  async proxyFactoryDeployEstimageGas (request: DeployRequest, factory: Address, domainHash: string, requestTypeHash: string,
+  async proxyFactoryDeployEstimageGas (request: DeployRequest, factory: Address, domainHash: string,
     suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
     const pFactory = await this._createFactory(factory)
 
-    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request.request, domainHash, requestTypeHash,
+    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request.request, domainHash,
       suffixData, signature)
 
     if (testCall) {

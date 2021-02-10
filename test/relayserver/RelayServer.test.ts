@@ -224,7 +224,7 @@ contract('RelayServer', function (accounts) {
 
     describe('#validateViewCallSucceeds()', function () {
       // RelayHub contract
-      it.only('should fail to relay rejected transaction', async function () {
+      it('should fail to relay rejected transaction', async function () {
         const req = await env.createRelayHttpRequest()
 
         req.metadata.signature = INCORRECT_ECDSA_SIGNATURE

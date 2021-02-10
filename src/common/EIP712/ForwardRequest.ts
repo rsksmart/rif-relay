@@ -5,25 +5,27 @@ export interface ForwardRequest {
   relayHub: Address
   from: Address
   to: Address
+  tokenContract: Address
   value: IntString
   gas: IntString
   nonce: IntString
-  data: PrefixedHexString
-  tokenContract: Address
   tokenAmount: IntString
+  tokenGas: IntString
+  data: PrefixedHexString
 }
 
 export interface DeployRequestStruct {
   relayHub: Address
   from: Address
   to: Address
+  tokenContract: Address
+  recoverer: Address
   value: IntString
   gas: IntString
   nonce: IntString
-  data: PrefixedHexString
-  tokenContract: Address
   tokenAmount: IntString
-  recoverer: Address
+  tokenGas: IntString
   index: IntString
+  data: PrefixedHexString
 
 }

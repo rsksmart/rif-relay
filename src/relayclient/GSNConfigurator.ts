@@ -20,6 +20,7 @@ const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
 
 const defaultGsnConfig: GSNConfig = {
   preferredRelays: [],
+  onlyPreferredRelays: false,
   relayLookupWindowBlocks: DEFAULT_LOOKUP_WINDOW_BLOCKS,
   gasPriceFactorPercent: GAS_PRICE_PERCENT,
   minGasPrice: 1e09,
@@ -95,6 +96,7 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
  */
 export interface GSNConfig {
   preferredRelays: string[]
+  onlyPreferredRelays: boolean
   relayLookupWindowBlocks: number
   methodSuffix: string
   jsonStringifyRequest: boolean

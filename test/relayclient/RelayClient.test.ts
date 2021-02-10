@@ -39,9 +39,9 @@ import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { soliditySha3Raw, toHex } from 'web3-utils'
+import { soliditySha3Raw, toBN, toHex } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
-import { DeployRequestDataType, DEPLOY_PARAMS, ENVELOPING_PARAMS, getDomainSeparatorHash, GsnRequestType, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
+import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
 import { bufferToHex } from 'ethereumjs-util'
 import { expectEvent } from '@openzeppelin/test-helpers'
 
@@ -144,6 +144,7 @@ contract('RelayClient', function (accounts) {
       clientId: '1',
       tokenContract: token.address,
       tokenAmount: '1',
+      tokenGas: '50000',
       isSmartWalletDeploy: false
     }
   })
@@ -296,7 +297,7 @@ contract('RelayClient', function (accounts) {
       assert.match(relayingErrors.values().next().value.message, /score-error/)
     })
 
-    // TODOO test other things, for example, if the smart wallet to deploy has no funds, etc
+    // TODO test other things, for example, if the smart wallet to deploy has no funds, etc
     // Do we want to restrict to certnain factories?
 
     it('should calculate the estimatedGas for deploying a SmartWallet using the ProxyFactory', async function () {
@@ -315,6 +316,7 @@ contract('RelayClient', function (accounts) {
         clientId: '1',
         tokenContract: token.address,
         tokenAmount: '1',
+        tokenGas: '50000',
         recoverer: constants.ZERO_ADDRESS,
         index: '0',
         gasPrice: '0x1',
@@ -341,6 +343,7 @@ contract('RelayClient', function (accounts) {
           data: '0x',
           tokenContract: token.address,
           tokenAmount: '1',
+          tokenGas: '50000',
           recoverer: constants.ZERO_ADDRESS,
           index: '0'
         },
@@ -360,9 +363,8 @@ contract('RelayClient', function (accounts) {
 
       const sig = relayClient.accountManager._signWithControlledKey(eoaWithoutSmartWalletAccount, dataToSign)
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-      const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`)
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(request.request, getDomainSeparatorHash(factory.address, chainId), typeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(request.request, getDomainSeparatorHash(factory.address, chainId), suffixData, sig)
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: eoaWithoutSmartWalletAccount.address },
         { t: 'address', v: constants.ZERO_ADDRESS },
@@ -394,6 +396,305 @@ contract('RelayClient', function (accounts) {
         ((lowActual <= estimatedGasResult) && (highActual >= estimatedGasResult)), 'Incorrect estimated gas')
     })
 
+    it('should relay properly with token transfer gas estimation used', async function () {
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+
+      // register eoaWithoutSmartWallet account to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
+
+      const deployOptions: GsnTransactionDetails = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        gas: '0x1E8480',
+        relayHub: relayHub.address,
+        callForwarder: factory.address,
+        callVerifier: deployVerifier.address,
+        clientId: '1',
+        tokenContract: token.address,
+        tokenAmount: '1',
+        tokenGas: '50000',
+        isSmartWalletDeploy: true,
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
+      await token.mint('1000', swAddress)
+
+      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
+      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+
+      const result = await relayClient.relayTransaction(deployOptions)
+      const senderAddress = `0x${result.transaction?.getSenderAddress().toString('hex')}`
+      const senderTokenInitialBalance = await token.balanceOf(senderAddress)
+      assert.notEqual(senderAddress, constants.ZERO_ADDRESS)
+
+      const relayOptions = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: options.to,
+        data: options.data,
+        relayHub: options.relayHub,
+        callForwarder: swAddress,
+        callVerifier: options.callVerifier,
+        clientId: options.clientId,
+        tokenContract: options.tokenContract, // tokenGas is skipped, also smartWalletAddress is not needed since is the forwarder
+        tokenAmount: '1',
+        isSmartWalletDeploy: false
+      }
+
+      const relayingResult = await relayClient.relayTransaction(relayOptions)
+      const senderAddressRelay = `0x${relayingResult.transaction?.getSenderAddress().toString('hex')}`
+      const senderTokenFinalBalance = await token.balanceOf(senderAddressRelay)
+
+      assert.notEqual(senderAddressRelay, '0xundefined')
+      assert.equal(senderAddress, senderAddressRelay)
+      assert.equal(senderTokenInitialBalance.toString(), senderTokenFinalBalance.sub(toBN('1')).toString())
+
+      const validTransaction = relayingResult.transaction
+
+      if (validTransaction == null) {
+        assert.fail(`validTransaction is null: ${JSON.stringify(relayingResult, replaceErrors)}`)
+        return
+      }
+      const validTransactionHash: string = validTransaction.hash(true).toString('hex')
+      const txHash = `0x${validTransactionHash}`
+      const res = await web3.eth.getTransactionReceipt(txHash)
+
+      // validate we've got the "SampleRecipientEmitted" event
+      // TODO: use OZ test helpers
+      const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
+      assert(res.logs.find(log => log.topics.includes(topic)))
+
+      const destination: string = validTransaction.to.toString('hex')
+      assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+    })
+
+    it('should fail if a deploy without tokenGas and smartwallet is attempted', async function () {
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+
+      // register eoaWithoutSmartWallet account to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
+
+      const deployOptions: GsnTransactionDetails = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        gas: '0x1E8480',
+        relayHub: relayHub.address,
+        callForwarder: factory.address,
+        callVerifier: deployVerifier.address,
+        clientId: '1',
+        tokenContract: token.address,
+        tokenAmount: '1',
+        // tokenGas: '50000', omitted so it is calculated
+        isSmartWalletDeploy: true,
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
+      await token.mint('1000', swAddress)
+      // deployOptions.smartWalletAddress = swAddress  --> The client cannot tell who is the token sender so it cannot estimate the token transfer.
+      // calculating the address in the client is not an option because the factory used is not in control of the client (a thus, the method to calculate it, which is not unique)
+
+      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
+      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+
+      try {
+        await relayClient.relayTransaction(deployOptions)
+      } catch (error) {
+        assert.equal(error.message, 'In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+      }
+    })
+    it('should deploy properly with token transfer gas estimation used', async function () {
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+
+      // register eoaWithoutSmartWallet account to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
+
+      const deployOptions: GsnTransactionDetails = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        gas: '0x1E8480',
+        relayHub: relayHub.address,
+        callForwarder: factory.address,
+        callVerifier: deployVerifier.address,
+        clientId: '1',
+        tokenContract: token.address,
+        tokenAmount: '1',
+        // tokenGas: '50000', omitted so it is calculated
+        isSmartWalletDeploy: true,
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0'
+      }
+
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, deployOptions.to, soliditySha3Raw({ t: 'bytes', v: deployOptions.data }), '0')
+      await token.mint('1000', swAddress)
+      deployOptions.smartWalletAddress = swAddress
+
+      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
+      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+
+      const relayingResult = await relayClient.relayTransaction(deployOptions)
+      const validTransaction = relayingResult.transaction
+
+      if (validTransaction == null) {
+        assert.fail(`validTransaction is null: ${JSON.stringify(relayingResult, replaceErrors)}`)
+        return
+      }
+      const validTransactionHash: string = validTransaction.hash(true).toString('hex')
+      const txHash = `0x${validTransactionHash}`
+      const res = await web3.eth.getTransactionReceipt(txHash)
+      // validate we've got the "Deployed" event
+
+      const topic: string = web3.utils.sha3('Deployed(address,uint256)') ?? ''
+      assert.notEqual(topic, '', 'error while calculating topic')
+
+      assert(res.logs.find(log => log.topics.includes(topic)))
+      const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
+      const loggedEvent = res.logs[eventIdx]
+
+      const saltSha = web3.utils.soliditySha3(
+        { t: 'address', v: eoaWithoutSmartWalletAccount.address },
+        { t: 'address', v: constants.ZERO_ADDRESS },
+        { t: 'address', v: deployOptions.to },
+        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: deployOptions.data }) },
+        { t: 'uint256', v: '0' }
+      ) ?? ''
+
+      assert.notEqual(saltSha, '', 'error while calculating salt')
+
+      const expectedSalt = web3.utils.toBN(saltSha).toString()
+
+      const obtainedEvent = web3.eth.abi.decodeParameters([{ type: 'address', name: 'sWallet' },
+        { type: 'uint256', name: 'salt' }], loggedEvent.data)
+
+      assert.equal(obtainedEvent.salt, expectedSalt, 'salt from Deployed event is not the expected one')
+      assert.equal(obtainedEvent.sWallet, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
+
+      const destination: string = validTransaction.to.toString('hex')
+      assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
+
+      let expectedCode = await factory.getCreationBytecode()
+      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)// only runtime code
+      assert.equal(await web3.eth.getCode(swAddress), expectedCode, 'The installed code is not the expected one')
+    })
+
+    it('should calculate the estimatedGas for the token transfer in a deployCall', async function () {
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+      // register eoaWithoutSmartWalletAccount account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, soliditySha3Raw({ t: 'bytes', v: '0x' }), '0')
+      await token.mint('1000', swAddress)
+      await token.mint('2', accounts[0])
+
+      const details: GsnTransactionDetails = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: constants.ZERO_ADDRESS, // No extra logic for the Smart Wallet
+        data: '0x', // No extra-logic init data
+        callForwarder: factory.address,
+        callVerifier: deployVerifier.address,
+        clientId: '1',
+        tokenContract: token.address,
+        tokenAmount: '1',
+        // tokenGas: '50000', tokeGas is omitted so it is calculated
+        recoverer: constants.ZERO_ADDRESS,
+        index: '0',
+        gasPrice: '0x1',
+        gas: toHex('400000'),
+        value: '0',
+        isSmartWalletDeploy: true,
+        useGSN: true,
+        relayHub: accounts[0],
+        smartWalletAddress: accounts[0] // just for mocking up the scenario for the estimate in a deploy
+      }
+
+      const estimatedGasResult = await relayClient.estimateTokenTransferGas(details)
+
+      const verifierTokenBalance = await token.balanceOf(deployVerifier.address)
+
+      const tx = await token.transfer(deployVerifier.address, 1, {
+        from: accounts[0],
+        gasPrice: '1'
+      })
+
+      const verifierFinalTokenBalance = await token.balanceOf(deployVerifier.address)
+      assert.equal(verifierFinalTokenBalance.toString(), verifierTokenBalance.add(toBN(1)).toString(), 'Token balance of verifier must be one')
+
+      // clean accounts[0]
+      await token.transfer(deployVerifier.address, 1, {
+        from: accounts[0],
+        gasPrice: '1'
+      })
+
+      const actualGasUsed: number = tx.receipt.cumulativeGasUsed
+      console.log(`gas Used ${actualGasUsed}, estimated gas ${estimatedGasResult}`)
+
+      const tenPercertGasCushion = actualGasUsed * 0.1
+      const highActual = actualGasUsed + tenPercertGasCushion
+      const lowActual = actualGasUsed - tenPercertGasCushion
+
+      assert.isTrue(estimatedGasResult === actualGasUsed ||
+        ((lowActual <= estimatedGasResult) && (highActual >= estimatedGasResult)), 'Incorrect estimated gas')
+    })
+
+    it('should calculate the estimatedGas for the token transfer in a relayCall', async function () {
+      const eoaWithoutSmartWalletAccount = await getGaslessAccount()
+      // register eoaWithoutSmartWalletAccount account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(eoaWithoutSmartWalletAccount)
+      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, soliditySha3Raw({ t: 'bytes', v: '0x' }), '0')
+      await token.mint('1000', swAddress)
+      await token.mint('2', accounts[0])
+
+      const details: GsnTransactionDetails = {
+        from: eoaWithoutSmartWalletAccount.address,
+        to: constants.ZERO_ADDRESS, // not important
+        data: '0x',
+        callForwarder: accounts[0], // just for mocking up the scenario for the estimate in a deploy
+        callVerifier: deployVerifier.address,
+        clientId: '1',
+        tokenContract: token.address,
+        tokenAmount: '1',
+        // tokenGas: '50000', tokeGas is omitted so it is calculated
+        gasPrice: '0x1',
+        gas: toHex('400000'),
+        value: '0',
+        isSmartWalletDeploy: false,
+        useGSN: true,
+        relayHub: accounts[0]
+      }
+
+      const estimatedGasResult = await relayClient.estimateTokenTransferGas(details)
+
+      const verifierTokenBalance = await token.balanceOf(deployVerifier.address)
+
+      const tx = await token.transfer(deployVerifier.address, 1, {
+        from: accounts[0],
+        gasPrice: '1'
+      })
+      const actualGasUsed: number = tx.receipt.cumulativeGasUsed
+
+      const verifierFinalTokenBalance = await token.balanceOf(deployVerifier.address)
+      assert.equal(verifierFinalTokenBalance.toString(), verifierTokenBalance.add(toBN(1)).toString(), 'Token balance of verifier must be one')
+
+      // clean accounts[0]
+      await token.transfer(deployVerifier.address, 1, {
+        from: accounts[0],
+        gasPrice: '1'
+      })
+
+      console.log(`gas Used ${actualGasUsed}, estimated gas ${estimatedGasResult}`)
+
+      const tenPercertGasCushion = actualGasUsed * 0.1
+      const highActual = actualGasUsed + tenPercertGasCushion
+      const lowActual = actualGasUsed - tenPercertGasCushion
+
+      assert.isTrue(estimatedGasResult === actualGasUsed ||
+        ((lowActual <= estimatedGasResult) && (highActual >= estimatedGasResult)), 'Incorrect estimated gas')
+    })
+
     it('should send a SmartWallet create transaction to a relay and receive a signed transaction in response', async function () {
       const eoaWithoutSmartWalletAccount = await getGaslessAccount()
 
@@ -411,6 +712,7 @@ contract('RelayClient', function (accounts) {
         clientId: '1',
         tokenContract: token.address,
         tokenAmount: '1',
+        tokenGas: '50000',
         isSmartWalletDeploy: true,
         recoverer: constants.ZERO_ADDRESS,
         index: '0'

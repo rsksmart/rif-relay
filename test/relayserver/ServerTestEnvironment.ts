@@ -241,6 +241,7 @@ export class ServerTestEnvironment {
       gas: toHex(1000000),
       gasPrice: toHex(20000000000),
       tokenAmount: toHex(0),
+      tokenGas: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: false
     }

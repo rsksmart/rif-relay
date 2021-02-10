@@ -237,6 +237,7 @@ contract('RelayProvider', function (accounts) {
         data: logicData,
         tokenContract: token.address,
         tokenAmount: '10',
+        tokenGas: '50000',
         recoverer: recoverer,
         callForwarder: factory.address,
         index: walletIndex.toString(),
@@ -278,6 +279,7 @@ contract('RelayProvider', function (accounts) {
         // gas: toHex('400000'),
         tokenContract: token.address,
         tokenAmount: '10',
+        tokenGas: '50000',
         recoverer: recoverer,
         index: walletIndex.toString(),
         callVerifier: deployVerifierInstance.address,
@@ -299,6 +301,100 @@ contract('RelayProvider', function (accounts) {
       expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
       assert.equal(deployedCode, expectedCode)
+    }
+    )
+
+    it('should correclty deploy the smart wallet when tokenGas is not defined', async function () {
+      const ownerEOA = await getGaslessAccount()
+      const recoverer = constants.ZERO_ADDRESS
+      const customLogic = constants.ZERO_ADDRESS
+      const logicData = '0x'
+      const walletIndex = 0
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
+      assert.isTrue(relayProvider != null)
+      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      rProvider.addAccount(ownerEOA)
+      const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      await token.mint('10000', swAddress)
+
+      let expectedCode = await web3.eth.getCode(swAddress)
+      assert.equal('0x00', expectedCode)
+
+      const trxData: GsnTransactionDetails = {
+        from: ownerEOA.address,
+        to: customLogic,
+        data: logicData,
+        // gas: toHex('400000'),
+        tokenContract: token.address,
+        tokenAmount: '10',
+        // tokenGas: '50000',
+        recoverer: recoverer,
+        index: walletIndex.toString(),
+        callVerifier: deployVerifierInstance.address,
+        callForwarder: factory.address,
+        isSmartWalletDeploy: true,
+        smartWalletAddress: swAddress // so the client knows how to estimate tokenGas
+      }
+
+      const txHash = await rProvider.deploySmartWallet(trxData)
+      const trx = await web3.eth.getTransactionReceipt(txHash)
+
+      const logs = abiDecoder.decodeLogs(trx.logs)
+      const deployedEvent = logs.find((e: any) => e != null && e.name === 'Deployed')
+      const event = deployedEvent.events[0]
+      assert.equal(event.name, 'addr')
+      const generatedSWAddress = toChecksumAddress(event.value, env.chainId)
+
+      assert.equal(generatedSWAddress, swAddress)
+      const deployedCode = await web3.eth.getCode(generatedSWAddress)
+      expectedCode = await factory.getCreationBytecode()
+      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
+      assert.equal(deployedCode, expectedCode)
+    }
+    )
+
+    it('should fail to deploy the smart wallet is tokenGas and smartWalletAddress are not defined', async function () {
+      const ownerEOA = await getGaslessAccount()
+      const recoverer = constants.ZERO_ADDRESS
+      const customLogic = constants.ZERO_ADDRESS
+      const logicData = '0x'
+      const walletIndex = 0
+      const env = await getTestingEnvironment()
+      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
+      assert.isTrue(relayProvider != null)
+      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      rProvider.addAccount(ownerEOA)
+      const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      await token.mint('10000', swAddress)
+
+      const expectedCode = await web3.eth.getCode(swAddress)
+      assert.equal('0x00', expectedCode)
+
+      const trxData: GsnTransactionDetails = {
+        from: ownerEOA.address,
+        to: customLogic,
+        data: logicData,
+        // gas: toHex('400000'),
+        tokenContract: token.address,
+        tokenAmount: '10',
+        // tokenGas: '50000',
+        recoverer: recoverer,
+        index: walletIndex.toString(),
+        callVerifier: deployVerifierInstance.address,
+        callForwarder: factory.address,
+        isSmartWalletDeploy: true
+      }
+
+      try {
+        await rProvider.deploySmartWallet(trxData)
+      } catch (error) {
+        assert.equal(error.message, 'In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+      }
     }
     )
 

@@ -27,7 +27,7 @@ import {
   GsnDoneRefreshRelaysEvent,
   GsnRefreshRelaysEvent, GsnRelayerResponseEvent, GsnSendToRelayerEvent, GsnSignRequestEvent, GsnValidateRequestEvent
 } from './GsnEvents'
-import { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS, TypedDeployRequestData, DEPLOY_PARAMS, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
+import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
 
 // generate "approvalData" and "verifierData" for a request.
@@ -183,12 +183,60 @@ export class RelayClient {
       { ...testInfo.relayRequest }
     )
 
-    const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`)
     const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + DeployRequestDataType.length) * 32))
     const domainHash = getDomainSeparatorHash(testInfo.relayRequest.relayData.callForwarder, this.accountManager.chainId)
     const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest,
-      testInfo.relayRequest.relayData.callForwarder, domainHash, typeHash, suffixData, testInfo.metadata.signature)
+      testInfo.relayRequest.relayData.callForwarder, domainHash, suffixData, testInfo.metadata.signature)
     return estimatedGas
+  }
+
+  async estimateTokenTransferGas (gsnTransactionDetails: GsnTransactionDetails): Promise<number> {
+    let gasCost = 0
+    const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+
+    if (tokenContract !== constants.ZERO_ADDRESS) {
+      let tokenOrigin: string
+      const tokenDestination = gsnTransactionDetails.callVerifier ?? constants.ZERO_ADDRESS // the factory
+
+      if (gsnTransactionDetails.isSmartWalletDeploy ?? false) {
+        // If it is a deploy and tokenGas was not defined, then the smartwallet address is needed to estimate the token gas
+        const smartWalletAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
+
+        if (smartWalletAddress === constants.ZERO_ADDRESS) {
+          throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+        }
+        tokenOrigin = smartWalletAddress
+      } else {
+        tokenOrigin = gsnTransactionDetails.callForwarder ?? constants.ZERO_ADDRESS // the smart wallet
+      }
+
+      if (tokenOrigin !== constants.ZERO_ADDRESS) {
+        const encodedFunction = this.contractInteractor.web3.eth.abi.encodeFunctionCall({
+          name: 'transfer',
+          type: 'function',
+          inputs: [
+            {
+              type: 'address',
+              name: 'recipient'
+            }, {
+              type: 'uint256',
+              name: 'amount'
+            }
+          ]
+        },
+        [tokenDestination,
+          gsnTransactionDetails.tokenAmount ?? '0'])
+
+        gasCost = await this.contractInteractor.estimateGas({
+          from: tokenOrigin, // token holder is the smart wallet
+          to: tokenContract,
+          gasPrice: gsnTransactionDetails.gasPrice,
+          data: encodedFunction
+        })
+      }
+    }
+
+    return gasCost
   }
 
   async relayTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayingResult> {
@@ -207,6 +255,9 @@ export class RelayClient {
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
+
+    // Estimate the gas required to transfer the token
+    gsnTransactionDetails.tokenGas = gsnTransactionDetails.tokenGas ?? (await this.estimateTokenTransferGas(gsnTransactionDetails)).toString()
 
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
@@ -307,6 +358,7 @@ export class RelayClient {
     const gasPrice = BigInt(gsnTransactionDetails.gasPrice ?? '0x00').toString()
     const value = BigInt(gsnTransactionDetails.value ?? '0').toString()
     const tokenAmount = BigInt(gsnTransactionDetails.tokenAmount ?? '0x00').toString()
+    const tokenGas = BigInt(gsnTransactionDetails.tokenGas ?? '0x00').toString()
 
     const relayRequest: DeployRequest = {
       request: {
@@ -318,6 +370,7 @@ export class RelayClient {
         nonce: senderNonce,
         gas: gasLimit, // Not used since RelayHub won't be involved
         tokenAmount: tokenAmount,
+        tokenGas: tokenGas,
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         index: gsnTransactionDetails.index ?? '0'
@@ -380,6 +433,7 @@ export class RelayClient {
         nonce: senderNonce,
         gas: gasLimit,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenGas: gsnTransactionDetails.tokenGas ?? '0x00',
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         index: gsnTransactionDetails.index ?? '0'
@@ -451,6 +505,7 @@ export class RelayClient {
         nonce: senderNonce,
         gas: gasLimit,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenGas: gsnTransactionDetails.tokenGas ?? '0x00',
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
       },
       relayData: {

@@ -172,6 +172,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     callForwarder: '',
     callVerifier: '',
     tokenAmount: '',
+    tokenGas: '',
     tokenContract: '',
     isSmartWalletDeploy: false
   }

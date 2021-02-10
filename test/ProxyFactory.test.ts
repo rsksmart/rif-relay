@@ -12,7 +12,7 @@ import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
 import { ethers } from 'ethers'
 import chai from 'chai'
-import { bytes32, getTestingEnvironment, stripHex, deployTypeHash } from './TestUtils'
+import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { DeployRequestDataType, ForwardRequestType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
@@ -47,6 +47,7 @@ contract('ProxyFactory', ([from]) => {
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
+      tokenGas: '50000',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -314,6 +315,10 @@ contract('ProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'uint256',
+          name: 'tokenGas'
+        },
+        {
           type: 'bytes32',
           name: 'versionHash'
         },
@@ -326,7 +331,7 @@ contract('ProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, versionHash, initParams, '0x00'])
+      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, '0x00', versionHash, initParams, '0x00'])
 
       newTrx.data = initFunc
 
@@ -382,7 +387,7 @@ contract('ProxyFactory', ([from]) => {
       // relayData information
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
@@ -445,7 +450,7 @@ contract('ProxyFactory', ([from]) => {
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
 
@@ -488,7 +493,7 @@ contract('ProxyFactory', ([from]) => {
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig))
+      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
 
       const newBalance = await token.balanceOf(expectedAddress)
       chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
@@ -531,7 +536,7 @@ contract('ProxyFactory', ([from]) => {
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
@@ -611,6 +616,10 @@ contract('ProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'uint256',
+          name: 'tokenGas'
+        },
+        {
           type: 'bytes32',
           name: 'versionHash'
         },
@@ -623,7 +632,7 @@ contract('ProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, token.address, versionHash, initParams, transferFunc])
+      }, [ownerAddress, logicAddress, token.address, '0xD6D8', versionHash, initParams, transferFunc])
 
       newTrx.data = initFunc
 
@@ -668,6 +677,7 @@ contract('SimpleProxyFactory', ([from]) => {
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
+      tokenGas: '50000',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -904,6 +914,10 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'uint256',
+          name: 'tokenGas'
+        },
+        {
           type: 'bytes32',
           name: 'versionHash'
         },
@@ -912,7 +926,7 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, constants.ZERO_ADDRESS, versionHash, '0x00'])
+      }, [ownerAddress, constants.ZERO_ADDRESS, '0x00', versionHash, '0x00'])
 
       newTrx.data = initFunc
 
@@ -964,7 +978,7 @@ contract('SimpleProxyFactory', ([from]) => {
       // relayData information
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
@@ -1020,7 +1034,7 @@ contract('SimpleProxyFactory', ([from]) => {
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
 
@@ -1059,7 +1073,7 @@ contract('SimpleProxyFactory', ([from]) => {
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig))
+      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
 
       const newBalance = await token.balanceOf(expectedAddress)
       chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
@@ -1097,7 +1111,7 @@ contract('SimpleProxyFactory', ([from]) => {
       const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), deployTypeHash, suffixData, sig)
+      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
 
       const salt = web3.utils.soliditySha3(
         { t: 'address', v: ownerAddress },
@@ -1171,6 +1185,10 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'uint256',
+          name: 'tokenGas'
+        },
+        {
           type: 'bytes32',
           name: 'versionHash'
         },
@@ -1179,7 +1197,7 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'transferData'
         }
         ]
-      }, [ownerAddress, token.address, versionHash, transferFunc])
+      }, [ownerAddress, token.address, '0xD6D8', versionHash, transferFunc])
 
       newTrx.data = initFunc
 

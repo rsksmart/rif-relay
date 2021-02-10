@@ -8,6 +8,7 @@ export default interface GsnTransactionDetails {
   readonly to: Address
   readonly tokenContract?: Address
   readonly tokenAmount?: IntString
+  tokenGas?: IntString
   readonly recoverer?: Address
   readonly index?: IntString
   readonly value?: IntString
@@ -24,6 +25,7 @@ export default interface GsnTransactionDetails {
   readonly callForwarder?: Address
   readonly callVerifier?: Address
   readonly isSmartWalletDeploy?: boolean
+  smartWalletAddress?: Address
 
   readonly clientId?: IntString
 
