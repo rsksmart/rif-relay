@@ -1,4 +1,8 @@
 # Basic requirements
+## Typescript
+
+One of the main programming languages in the project is `typescript`. [Here](https://www.typescriptlang.org/#installation) are the instructions for installing it.
+
 ## Yarn
 
 As package manager, we are using `yarn` version `v1.22.0`.
