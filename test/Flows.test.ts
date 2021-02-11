@@ -112,7 +112,7 @@ options.forEach(params => {
         relayClientConfig = {
           logLevel: 5,
           relayHubAddress: rhub.address,
-          paymasterAddress: paymaster.address,
+          relayPaymasterAddress: paymaster.address,
           chainId: env.chainId,
           forwarderAddress: smartWalletInstance.address
         }

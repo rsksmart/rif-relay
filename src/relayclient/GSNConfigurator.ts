@@ -30,7 +30,8 @@ const defaultGsnConfig: GSNConfig = {
   jsonStringifyRequest: false,
   chainId: defaultEnvironment.chainId,
   relayHubAddress: constants.ZERO_ADDRESS,
-  paymasterAddress: constants.ZERO_ADDRESS,
+  relayPaymasterAddress: constants.ZERO_ADDRESS,
+  deployPaymasterAddress: constants.ZERO_ADDRESS,
   forwarderAddress: constants.ZERO_ADDRESS,
   logLevel: 0,
   clientId: '1'
@@ -59,12 +60,17 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
   if (partialConfig.relayHubAddress != null) {
     throw new Error('Resolve cannot override passed values')
   }
-  if (partialConfig.paymasterAddress == null) {
-    throw new Error('Cannot resolve GSN deployment without paymaster address')
+  if (partialConfig.relayPaymasterAddress == null) {
+    throw new Error('Cannot resolve GSN deployment without relayer paymaster address')
+  }
+
+  if (partialConfig.deployPaymasterAddress == null) {
+    throw new Error('Cannot resolve GSN deployment without deploy paymaster address')
   }
 
   const contractInteractor = new ContractInteractor(provider, defaultGsnConfig)
-  const paymasterInstance = await contractInteractor._createPaymaster(partialConfig.paymasterAddress)
+  const paymasterInstance = await contractInteractor._createPaymaster(partialConfig.relayPaymasterAddress)
+  const deployPaymasterInstance = await contractInteractor._createPaymaster(partialConfig.deployPaymasterAddress)
 
   const [
     chainId, relayHubAddress, forwarderAddress
@@ -72,8 +78,12 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
 
     partialConfig.chainId ?? contractInteractor.getAsyncChainId(),
     paymasterInstance.getHubAddr().catch(e => { throw new Error('Not a paymaster contract') }),
+    deployPaymasterInstance.getHubAddr().catch(e => { throw new Error('Not a deploy paymaster contract') }),
+
     partialConfig.forwarderAddress ?? '',
     paymasterInstance.versionPaymaster().catch((e: any) => { throw new Error('Not a paymaster contract') }).then((version: string) => contractInteractor._validateVersion(version))
+      .catch(err => console.log('WARNING: beta ignore version compatibility', err)),
+    deployPaymasterInstance.versionPaymaster().catch((e: any) => { throw new Error('Not a deploy paymaster contract') }).then((version: string) => contractInteractor._validateVersion(version))
       .catch(err => console.log('WARNING: beta ignore version compatibility', err))
   ])
 
@@ -113,7 +123,8 @@ export interface GSNConfig {
   minGasPrice: number
   maxRelayNonceGap: number
   relayHubAddress: Address
-  paymasterAddress: Address
+  relayPaymasterAddress: Address
+  deployPaymasterAddress: Address
   forwarderAddress: Address
   chainId: number
   clientId: IntString

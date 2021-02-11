@@ -29,11 +29,11 @@ class GsnTestEnvironmentClass {
   /**
    *
    * @param host:
-   * @param deployPaymaster - whether to deploy the naive paymaster instance for tests
+   * @param deployPaymasters - whether to deploy the naive paymaster and deploy naive paymaster instances for tests
    * @param debug
    * @return
    */
-  async startGsn (host?: string, environment = defaultEnvironment, deployPaymaster: boolean = true): Promise<TestEnvironment> {
+  async startGsn (host?: string, environment = defaultEnvironment, deployPaymasters: boolean = true): Promise<TestEnvironment> {
     await this.stopGsn()
     const _host: string = getNetworkUrl(host)
     console.log('_host=', _host)
@@ -51,13 +51,15 @@ class GsnTestEnvironmentClass {
     const deploymentResult = await commandsLogic.deployGsnContracts({
       from,
       gasPrice: '1',
-      deployPaymaster,
+      deployPaymasters,
       skipConfirmation: true,
       relayHubConfiguration: environment.relayHubConfiguration
     })
-    if (deployPaymaster) {
-      const balance = await commandsLogic.fundPaymaster(from, deploymentResult.naivePaymasterAddress, ether('1'))
+    if (deployPaymasters) {
+      const balance = await commandsLogic.fundPaymaster(from, deploymentResult.naiveRelayPaymasterAddress, ether('1'))
       console.log('Naive Paymaster successfully funded, balance:', Web3.utils.fromWei(balance))
+      const dbalance = await commandsLogic.fundPaymaster(from, deploymentResult.naiveDeployPaymasterAddress, ether('1'))
+      console.log('Naive Deploy Paymaster successfully funded, balance:', Web3.utils.fromWei(dbalance))
     }
 
     const port = await this._resolveAvailablePort()
@@ -86,7 +88,8 @@ class GsnTestEnvironmentClass {
 
     const config = configureGSN({
       relayHubAddress: deploymentResult.relayHubAddress,
-      paymasterAddress: deploymentResult.naivePaymasterAddress,
+      relayPaymasterAddress: deploymentResult.naiveRelayPaymasterAddress,
+      deployPaymasterAddress: deploymentResult.naiveDeployPaymasterAddress,
       preferredRelays: [relayUrl],
       chainId: environment.chainId
     })

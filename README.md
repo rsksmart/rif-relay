@@ -125,19 +125,13 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 
 In order to run an Enveloping instance in Regtest, clone the project then run the following from the project's root directory:
 
-1. `yarn install`
+1. `yarn install && yarn prepare`
 2. On the jsrelay directory `npx webpack`
-3. `npm link`
-4. On the project's root directory, run `docker-compose build`
-5. Run `docker-compose up -d rskj`
-6. On a new terminal run `npx gsn start --network http://localhost:4444/`. Keeping the Relay Hub address.
-7. Set the Relay Hub on the Paymaster contracts.
-8. Create an account from a mnemonic, and store the mnemonic in a file. After that, add funds to the newly created account.
-9. In the jsrelay directory in the file `gsn-relay-register` add the Relay Hub address.
-10. On the project's root directory, run `docker-compose up -d jsrelay`
-11. Finally, run `gsn relayer-register -n http://localhost:4444 -m <PATH.TO.MNEM> -f <0xADDRESS CREATED IN STEP 8>`
+3. On the project's root directory, run `docker-compose build` (Optional)
+4. Run `docker-compose up -d rskj` (Optional: it runs an RSK node in regtest)
+5. Run '`node dist/src/cli/commands/gsn.js boot-test -n rsk-regtest`
 
-For checking if it's working, run `curl http://localhost:8090/getaddr`
+For checking if it's working, run `curl http://localhost:8090/getaddr` (The port 8090 should be changed by the relay's port).
 
 ### 4.2. Testnet <a id="c04.2"></a>
 

@@ -14,7 +14,8 @@ import { ether } from '@openzeppelin/test-helpers'
 import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
-import Paymaster from './compiled/TestPaymasterEverythingAccepted.json'
+import RelayPaymaster from './compiled/TestPaymasterEverythingAccepted.json'
+import DeployPaymaster from './compiled/TestDeployPaymasterEverythingAccepted.json'
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
@@ -38,7 +39,7 @@ interface RegisterOptions {
 interface DeployOptions {
   from: Address
   gasPrice: string
-  deployPaymaster?: boolean
+  deployPaymasters?: boolean
   factoryAddress?: string
   sWalletTemplateAddress?: string
   relayHubAddress?: string
@@ -58,7 +59,8 @@ export interface DeploymentResult {
   sWalletTemplateAddress: Address
   factoryAddress: Address
   versionRegistryAddress: Address
-  naivePaymasterAddress: Address
+  naiveRelayPaymasterAddress: Address
+  naiveDeployPaymasterAddress: Address
 }
 
 interface RegistrationResult {
@@ -269,13 +271,18 @@ export default class CommandsLogic {
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    let paymasterAddress = constants.ZERO_ADDRESS
-    if (deployOptions.deployPaymaster === true) {
-      const pmInstance = await this.deployPaymaster(Object.assign({}, options), rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
-      paymasterAddress = pmInstance.options.address
+    let relayPaymasterAddress = constants.ZERO_ADDRESS
+    let deployPaymasterAddress = constants.ZERO_ADDRESS
+    if (deployOptions.deployPaymasters === true) {
+      const pmInstance = await this.deployPaymasters(Object.assign({}, options), true, rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
+      const dpmInstance = await this.deployPaymasters(Object.assign({}, options), false, rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
+
+      relayPaymasterAddress = pmInstance.options.address
+      deployPaymasterAddress = dpmInstance.options.address
 
       // Overriding saved configuration with newly deployed instances
-      this.config.paymasterAddress = paymasterAddress
+      this.config.relayPaymasterAddress = relayPaymasterAddress
+      this.config.deployPaymasterAddress = deployPaymasterAddress
     }
     this.config.relayHubAddress = rInstance.options.address
 
@@ -286,7 +293,8 @@ export default class CommandsLogic {
       sWalletTemplateAddress: swtInstance.options.address,
       factoryAddress: pfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
-      naivePaymasterAddress: paymasterAddress
+      naiveRelayPaymasterAddress: relayPaymasterAddress,
+      naiveDeployPaymasterAddress: deployPaymasterAddress
     }
   }
 
@@ -318,8 +326,13 @@ export default class CommandsLogic {
     return contractInstance
   }
 
-  async deployPaymaster (options: Required<SendOptions>, hub: Address, from: string, skipConfirmation: boolean | undefined): Promise<Contract> {
-    const pmInstance = await this.getContractInstance(Paymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
+  async deployPaymasters (options: Required<SendOptions>, relay: boolean, hub: Address, from: string, skipConfirmation: boolean | undefined): Promise<Contract> {
+    let pmInstance
+    if (relay) {
+      pmInstance = await this.getContractInstance(RelayPaymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
+    } else {
+      pmInstance = await this.getContractInstance(DeployPaymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
+    }
     await pmInstance.methods.setRelayHub(hub).send(options)
     return pmInstance
   }

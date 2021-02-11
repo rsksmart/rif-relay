@@ -4,13 +4,12 @@ import { configureGSN } from '../../relayclient/GSNConfigurator'
 import { getMnemonic, getNetworkUrl, getPaymasterAddress, getRelayHubAddress, gsnCommander } from '../utils'
 
 const commander = gsnCommander(['h', 'n', 'm'])
-  .option('--paymaster <address>', 'address of the paymaster contract')
+  .option('--paymaster <address>', 'address of the relay paymaster contract (defaults to address from build/gsn/Paymaster.json if exists)')
   .parse(process.argv);
 
 (async () => {
   const network: string = commander.network
   const nodeURL = getNetworkUrl(network)
-
   const hub = getRelayHubAddress(commander.hub)
   const paymaster = getPaymasterAddress(commander.paymaster)
 

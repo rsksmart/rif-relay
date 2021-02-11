@@ -79,6 +79,7 @@ export default class ContractInteractor {
   private readonly IProxyFactoryContract: Contract<IProxyFactoryInstance>
 
   private paymasterInstance!: IPaymasterInstance
+  private deployPaymasterInstance!: IPaymasterInstance
   relayHubInstance!: IRelayHubInstance
   private stakeManagerInstance!: IStakeManagerInstance
   private readonly relayRecipientInstance?: BaseRelayRecipientInstance
@@ -188,8 +189,12 @@ export default class ContractInteractor {
       }
       this.stakeManagerInstance = await this._createStakeManager(hubStakeManagerAddress)
     }
-    if (this.config.paymasterAddress !== constants.ZERO_ADDRESS) {
-      this.paymasterInstance = await this._createPaymaster(this.config.paymasterAddress)
+    if (this.config.relayPaymasterAddress !== constants.ZERO_ADDRESS) {
+      this.paymasterInstance = await this._createPaymaster(this.config.relayPaymasterAddress)
+    }
+
+    if (this.config.deployPaymasterAddress !== constants.ZERO_ADDRESS) {
+      this.deployPaymasterInstance = await this._createPaymaster(this.config.deployPaymasterAddress)
     }
   }
 

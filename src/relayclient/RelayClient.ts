@@ -356,7 +356,7 @@ export class RelayClient {
     } else {
       senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
     }
-    const paymaster = gsnTransactionDetails.paymaster ?? this.config.paymasterAddress
+    const paymaster = gsnTransactionDetails.paymaster ?? this.config.relayPaymasterAddress
 
     const relayWorker = relayInfo.pingResponse.relayWorkerAddress
     const gasPriceHex = gsnTransactionDetails.gasPrice

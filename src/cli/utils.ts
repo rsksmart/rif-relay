@@ -49,6 +49,10 @@ export function getPaymasterAddress (paymaster?: string): string | undefined {
   return getAddressFromFile('build/gsn/Paymaster.json', paymaster)
 }
 
+export function getDeployPaymasterAddress (deployPaymaster?: string): string | undefined {
+  return getAddressFromFile('build/gsn/DeployPaymaster.json', deployPaymaster)
+}
+
 export function getRelayHubAddress (defaultAddress?: string): string | undefined {
   return getAddressFromFile('build/gsn/RelayHub.json', defaultAddress)
 }
@@ -80,13 +84,14 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.stakeManagerAddress, workdir, 'StakeManager.json')
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
-  saveContractToFile(deploymentResult.naivePaymasterAddress, workdir, 'Paymaster.json')
+  saveContractToFile(deploymentResult.naiveRelayPaymasterAddress, workdir, 'Paymaster.json')
+  saveContractToFile(deploymentResult.naiveDeployPaymasterAddress, workdir, 'DeployPaymaster.json')
   saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
-export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined, paymasterTitle: string | undefined = undefined): void {
+export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined, paymasterTitle: string | undefined = undefined, deployPaymasterTitle: string | undefined = undefined): void {
   if (title != null) {
     console.log(title)
   }
@@ -97,7 +102,9 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
   SmartWallet Template: ${deploymentResult.sWalletTemplateAddress}
   SmartWallet Factory: ${deploymentResult.factoryAddress}
-  Paymaster ${paymasterTitle != null ? '(' + paymasterTitle + ')' : ''}: ${deploymentResult.naivePaymasterAddress}`)
+  RelayPaymaster ${paymasterTitle != null ? '(' + paymasterTitle + ')' : ''}: ${deploymentResult.naiveRelayPaymasterAddress}
+  DeployPaymaster ${deployPaymasterTitle != null ? '(' + deployPaymasterTitle + ')' : ''}: ${deploymentResult.naiveDeployPaymasterAddress}
+  `)
 }
 
 export function loadDeployment (workdir: string): DeploymentResult {
@@ -112,7 +119,8 @@ export function loadDeployment (workdir: string): DeploymentResult {
     sWalletTemplateAddress: getAddress('SmartWallet'),
     factoryAddress: getAddress('ProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
-    naivePaymasterAddress: getAddress('Paymaster')
+    naiveRelayPaymasterAddress: getAddress('RelayPaymaster'),
+    naiveDeployPaymasterAddress: getAddress('DeployPaymaster')
   }
 }
 
