@@ -5,13 +5,20 @@ import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
-import { Address } from '../relayclient/types/Aliases'
+import { Address, IntString } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
-import TypedRequestData from './EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash } from './EIP712/TypedRequestData'
+import { GSNConfig } from '../relayclient/GSNConfigurator'
 import chalk from 'chalk'
 
-import sigUtil from 'eth-sig-util'
+import signTypedData_v4 from 'eth-sig-util'
+import HttpClient from '../relayclient/HttpClient'
+import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
+
+import ContractInteractor, { Web3Provider } from '../relayclient/ContractInteractor'
+import { RelayMetadata } from '../relayclient/types/RelayTransactionRequest'
+import HttpWrapper from '../relayclient/HttpWrapper'
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -76,7 +83,7 @@ export function getLocalEip712Signature (
   }
 
   // @ts-ignore
-  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
+  return signTypedData_v4(privateKey, { data: dataToSign })
 }
 
 export async function getEip712Signature (
@@ -234,4 +241,108 @@ interface Signature {
 
 export function boolString (bool: boolean): string {
   return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
+}
+
+export class EnvelopingUtils {
+  readonly PROXY_FACTORY_ADDRESS = '0'
+  readonly ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+  
+  config: GSNConfig
+  relayHubAddress: Address
+  contractInteractor: ContractInteractor
+
+  constructor(_config: GSNConfig, _web3 : Web3) {
+    this.config = _config
+    this.relayHubAddress = this.config.relayHubAddress
+    this.contractInteractor = new ContractInteractor(_web3.currentProvider as Web3Provider, this.config)
+  }
+
+  async createDeployRequest(relayWorkerAddress: Address, from: Address, gasLimit: IntString, tokenContract:  Address, tokenAmount: IntString, index? : IntString, recoverer? : IntString, gasPrice?: IntString): Promise<DeployRequest> {
+    
+    const deployRequest : DeployRequest = {
+      request: {
+      relayHub: this.relayHubAddress,
+      from: from,
+      to: this.PROXY_FACTORY_ADDRESS,
+      value: '0',
+      gas: gasLimit,
+      nonce: await this.getFactoryNonce(this.PROXY_FACTORY_ADDRESS, from).toString(),
+      data: '0x',
+      tokenContract: tokenContract,
+      tokenAmount: tokenAmount,
+      recoverer: recoverer ?? this.ZERO_ADDRESS,
+      index: index ?? '0'
+    }, 
+    relayData: {
+      gasPrice: gasPrice ?? '0',
+      relayWorker: relayWorkerAddress,
+      callForwarder: this.config.forwarderAddress,
+      callVerifier: this.config.deployVerifierAddress,
+      domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+    }
+  }
+
+    return deployRequest
+  }
+  
+  async createRelayRequest(relayWorkerAddress: Address, from: Address, to: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract:  Address, tokenAmount: IntString, index? : IntString, recoverer? : IntString, gasPrice?: IntString): Promise<RelayRequest> {
+    
+    const relayRequest : RelayRequest = {
+      request: {
+      relayHub: this.relayHubAddress,
+      from: from,
+      to: to,
+      data: data,
+      value: '0',
+      gas: gasLimit,
+      nonce: this.getSenderNonce(this.config.forwarderAddress).toString(),
+      tokenContract: tokenContract,
+      tokenAmount: tokenAmount,
+    }, 
+    relayData: {
+      gasPrice: gasPrice ?? '0',
+      relayWorker: relayWorkerAddress,
+      callForwarder: this.config.forwarderAddress,
+      callVerifier: this.config.deployVerifierAddress,
+      domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+    }
+  }
+  
+    return relayRequest
+  }
+
+  signRequest(privKey : Buffer, request : RelayRequest|DeployRequest) : PrefixedHexString {
+    const cloneRequest = { ...request }
+    const signedData = new TypedRequestData(
+        this.config.chainId,
+        this.config.forwarderAddress,
+        cloneRequest
+    )
+
+    return signTypedData_v4(privKey, { data: signedData })
+  }
+
+  // sendHttpRequest(request : RelayRequest|DeployRequest, signature : PrefixedHexString) {
+  //   const metadata: RelayMetadata = {
+  //     relayHubAddress: this.relayHubAddress,
+  //     signature: signature,
+  //     approvalData: '0x',
+  //     relayMaxNonce: this.web3.eth.getTransactionCount(RELAY_WORKER_ADDRESS, defaultBlock) + (0 || 3)
+  //   }
+
+  //   const httpClient = new HttpClient(new HttpWrapper(), config)
+  //   httpClient.relayTransaction
+  //   call '/relay' with httpRequest
+  // }
+
+
+
+
+  async getSenderNonce (sWallet: Address): Promise<IntString> {
+    return await this.contractInteractor.getSenderNonce(sWallet)
+  }
+​
+  async getFactoryNonce (factoryAddr: Address, from: Address): Promise<IntString> {
+    return await this.contractInteractor.getFactoryNonce(factoryAddr, from)
+  }
 }
