@@ -1,4 +1,4 @@
-import express, { Express } from 'express'
+import express, { Express, Request, Response } from 'express'
 import jsonrpc from 'jsonrpc-lite'
 import bodyParser from 'body-parser'
 import cors from 'cors'
@@ -18,7 +18,6 @@ export class HttpServer {
     this.app.use(bodyParser.json())
 
     this.app.post('/', this.rootHandler.bind(this))
-    // TODO change all to jsonrpc
     this.app.post('/getaddr', this.pingHandler.bind(this))
     this.app.get('/getaddr', this.pingHandler.bind(this))
     this.app.get('/status', this.statusHandler.bind(this))
@@ -79,10 +78,16 @@ export class HttpServer {
     res.send(status)
   }
 
-  pingHandler (req: any, res: any): void {
-    const pingResponse = this.backend.pingHandler(req.query.paymaster)
-    res.send(pingResponse)
-    console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
+  async pingHandler (req: Request, res: Response): Promise<void> {
+    try {
+      const pingResponse = await this.backend.pingHandler(req.query.verifier as string)
+      res.send(pingResponse)
+      console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
+    } catch (e) {
+      const message: string = e.message
+      res.send({ message })
+      log.error(`ping handler rejected: ${message}`)
+    }
   }
 
   statusHandler (req: any, res: any): void {

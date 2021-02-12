@@ -22,11 +22,5 @@ interface IPenalizer {
         IRelayHub hub
     ) external;
 
-    function penalizeIllegalTransaction(
-        bytes calldata unsignedTx,
-        bytes calldata signature,
-        IRelayHub hub
-    ) external;
-
     function versionPenalizer() external view returns (string memory);
 }

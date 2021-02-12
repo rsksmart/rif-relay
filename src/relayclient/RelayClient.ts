@@ -4,8 +4,8 @@ import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import { constants } from '../common/Constants'
 
-import RelayRequest from '../common/EIP712/RelayRequest'
-import { RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
+import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
+import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { Address, AsyncDataCallback, PingFilter } from './types/Aliases'
 import HttpClient from './HttpClient'
@@ -27,11 +27,11 @@ import {
   GsnDoneRefreshRelaysEvent,
   GsnRefreshRelaysEvent, GsnRelayerResponseEvent, GsnSendToRelayerEvent, GsnSignRequestEvent, GsnValidateRequestEvent
 } from './GsnEvents'
-import TypedRequestData, { getDomainSeparatorHash, GsnRequestType, ENVELOPING_PARAMS, ForwardRequestType } from '../common/EIP712/TypedRequestData'
+import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
 
-// generate "approvalData" and "paymasterData" for a request.
-// both are bytes arrays. paymasterData is part of the client request.
+// generate "approvalData" and "verifierData" for a request.
+// both are bytes arrays. verifierData is part of the client request.
 // approvalData is created after request is filled and signed.
 export const EmptyDataCallback: AsyncDataCallback = async (): Promise<PrefixedHexString> => {
   return '0x'
@@ -71,7 +71,6 @@ export class RelayClient {
   protected contractInteractor: ContractInteractor
   protected knownRelaysManager: IKnownRelaysManager
   private readonly asyncApprovalData: AsyncDataCallback
-  private readonly asyncPaymasterData: AsyncDataCallback
   private readonly transactionValidator: RelayedTransactionValidator
   private readonly pingFilter: PingFilter
 
@@ -97,7 +96,6 @@ export class RelayClient {
     this.accountManager = dependencies.accountManager
     this.pingFilter = dependencies.pingFilter
     this.asyncApprovalData = dependencies.asyncApprovalData
-    this.asyncPaymasterData = dependencies.asyncPaymasterData
     log.setLevel(this.config.logLevel)
   }
 
@@ -179,18 +177,66 @@ export class RelayClient {
   async calculateSmartWalletDeployGas (gsnTransactionDetails: GsnTransactionDetails): Promise<number> {
     const testInfo = await this._prepareFactoryGasEstimationRequest(gsnTransactionDetails)
 
-    const signedData = new TypedRequestData(
+    const signedData = new TypedDeployRequestData(
       this.accountManager.chainId,
-      testInfo.relayRequest.request.factory,
+      testInfo.relayRequest.relayData.callForwarder,
       { ...testInfo.relayRequest }
     )
 
-    const typeHash = web3.utils.keccak256(`${GsnRequestType.typeName}(${ENVELOPING_PARAMS},${GsnRequestType.typeSuffix}`)
-    const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + ForwardRequestType.length) * 32))
-    const domainHash = getDomainSeparatorHash(gsnTransactionDetails.factory ?? '', this.accountManager.chainId)
-    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest.request,
-      domainHash, typeHash, suffixData, testInfo.metadata.signature)
+    const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + DeployRequestDataType.length) * 32))
+    const domainHash = getDomainSeparatorHash(testInfo.relayRequest.relayData.callForwarder, this.accountManager.chainId)
+    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest,
+      testInfo.relayRequest.relayData.callForwarder, domainHash, suffixData, testInfo.metadata.signature)
     return estimatedGas
+  }
+
+  async estimateTokenTransferGas (gsnTransactionDetails: GsnTransactionDetails): Promise<number> {
+    let gasCost = 0
+    const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+
+    if (tokenContract !== constants.ZERO_ADDRESS) {
+      let tokenOrigin: string
+      const tokenDestination = gsnTransactionDetails.callVerifier ?? constants.ZERO_ADDRESS // the factory
+
+      if (gsnTransactionDetails.isSmartWalletDeploy ?? false) {
+        // If it is a deploy and tokenGas was not defined, then the smartwallet address is needed to estimate the token gas
+        const smartWalletAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
+
+        if (smartWalletAddress === constants.ZERO_ADDRESS) {
+          throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+        }
+        tokenOrigin = smartWalletAddress
+      } else {
+        tokenOrigin = gsnTransactionDetails.callForwarder ?? constants.ZERO_ADDRESS // the smart wallet
+      }
+
+      if (tokenOrigin !== constants.ZERO_ADDRESS) {
+        const encodedFunction = this.contractInteractor.web3.eth.abi.encodeFunctionCall({
+          name: 'transfer',
+          type: 'function',
+          inputs: [
+            {
+              type: 'address',
+              name: 'recipient'
+            }, {
+              type: 'uint256',
+              name: 'amount'
+            }
+          ]
+        },
+        [tokenDestination,
+          gsnTransactionDetails.tokenAmount ?? '0'])
+
+        gasCost = await this.contractInteractor.estimateGas({
+          from: tokenOrigin, // token holder is the smart wallet
+          to: tokenContract,
+          gasPrice: gsnTransactionDetails.gasPrice,
+          data: encodedFunction
+        })
+      }
+    }
+
+    return gasCost
   }
 
   async relayTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayingResult> {
@@ -200,16 +246,18 @@ export class RelayClient {
     await this.knownRelaysManager.refresh()
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
 
-    if (gsnTransactionDetails.gas === undefined || gsnTransactionDetails.gas === null) {
-      if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
-        gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
-        const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
+    if (gsnTransactionDetails.gas === undefined || gsnTransactionDetails.gas == null) {
+      if ((gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
+        const estimated = await this.calculateSmartWalletDeployGas(gsnTransactionDetails)
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       } else {
-        const estimated = await this.calculateSmartWalletDeployGas(gsnTransactionDetails)
+        const estimated = await this.contractInteractor.estimateGas(this.getEstimateGasParams(gsnTransactionDetails))
         gsnTransactionDetails.gas = `0x${estimated.toString(16)}`
       }
     }
+
+    // Estimate the gas required to transfer the token
+    gsnTransactionDetails.tokenGas = gsnTransactionDetails.tokenGas ?? (await this.estimateTokenTransferGas(gsnTransactionDetails)).toString()
 
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
@@ -217,11 +265,11 @@ export class RelayClient {
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
-      if (activeRelay !== null && activeRelay !== undefined) {
+      if (activeRelay !== undefined && activeRelay !== null) {
         this.emit(new GsnNextRelayEvent(activeRelay.relayInfo.relayUrl))
         relayingAttempt = await this._attemptRelay(activeRelay, gsnTransactionDetails)
           .catch(error => ({ error }))
-        if (relayingAttempt.transaction == null) {
+        if (relayingAttempt.transaction === undefined || relayingAttempt.transaction === null) {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
           continue
         }
@@ -250,17 +298,26 @@ export class RelayClient {
   ): Promise<RelayingAttempt> {
     log.info(`attempting relay: ${JSON.stringify(relayInfo)} transaction: ${JSON.stringify(gsnTransactionDetails)}`)
     const maxAcceptanceBudget = parseInt(relayInfo.pingResponse.maxAcceptanceBudget)
-    const httpRequest = await this._prepareRelayHttpRequest(relayInfo, gsnTransactionDetails)
+    let httpRequest: RelayTransactionRequest | DeployTransactionRequest
+    let acceptRelayCallResult
 
-    this.emit(new GsnValidateRequestEvent())
+    if ((gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
+      const deployRequest = await this._prepareDeployHttpRequest(relayInfo, gsnTransactionDetails)
+      this.emit(new GsnValidateRequestEvent())
+      acceptRelayCallResult = await this.contractInteractor.validateAcceptDeployCall(deployRequest.relayRequest, deployRequest.metadata.signature, deployRequest.metadata.approvalData)
+      httpRequest = deployRequest
+    } else {
+      httpRequest = await this._prepareRelayHttpRequest(relayInfo, gsnTransactionDetails)
+      this.emit(new GsnValidateRequestEvent())
+      acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(httpRequest.relayRequest, httpRequest.metadata.signature, httpRequest.metadata.approvalData)
+    }
 
-    const acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(maxAcceptanceBudget, httpRequest.relayRequest, httpRequest.metadata.signature, httpRequest.metadata.approvalData)
-    if (!acceptRelayCallResult.paymasterAccepted) {
+    if (!acceptRelayCallResult.verifierAccepted) {
       let message: string
       if (acceptRelayCallResult.reverted) {
         message = 'local view call to \'relayCall()\' reverted'
       } else {
-        message = 'paymaster rejected in local view call to \'relayCall()\' '
+        message = 'verifier rejected in local view call to \'relayCall()\' '
       }
       return { error: new Error(`${message}: ${decodeRevertReason(acceptRelayCallResult.returnValue)}`) }
     }
@@ -290,40 +347,39 @@ export class RelayClient {
 
   async _prepareFactoryGasEstimationRequest (
     gsnTransactionDetails: GsnTransactionDetails
-  ): Promise<RelayTransactionRequest> {
-    if (gsnTransactionDetails.factory === constants.ZERO_ADDRESS || gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null) {
-      throw new Error(`Invalid factory contract,a valid factory: ${gsnTransactionDetails.factory}`)
+  ): Promise<DeployTransactionRequest> {
+    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || !gsnTransactionDetails.isSmartWalletDeploy) {
+      throw new Error('Request type is not for SmartWallet deploy')
     }
 
-    const senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
-
+    const callForwarder = this.resolveForwarder(gsnTransactionDetails)
+    const senderNonce = await this.contractInteractor.getFactoryNonce(callForwarder, gsnTransactionDetails.from)
     const gasLimit = BigInt(gsnTransactionDetails.gas ?? '0x00').toString()
     const gasPrice = BigInt(gsnTransactionDetails.gasPrice ?? '0x00').toString()
     const value = BigInt(gsnTransactionDetails.value ?? '0').toString()
     const tokenAmount = BigInt(gsnTransactionDetails.tokenAmount ?? '0x00').toString()
-    const relayRequest: RelayRequest = {
+    const tokenGas = BigInt(gsnTransactionDetails.tokenGas ?? '0x00').toString()
+
+    const relayRequest: DeployRequest = {
       request: {
+        relayHub: gsnTransactionDetails.relayHub ?? this.config.relayHubAddress,
         from: gsnTransactionDetails.from, // owner EOA
         to: gsnTransactionDetails.to, // optional LogicAddr
         data: gsnTransactionDetails.data, // optional InitParams for LogicAddr
         value: value,
         nonce: senderNonce,
         gas: gasLimit, // Not used since RelayHub won't be involved
-        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: tokenAmount,
+        tokenGas: tokenGas,
         tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS,
         recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         index: gsnTransactionDetails.index ?? '0'
       },
       relayData: {
-        pctRelayFee: '0',
-        baseRelayFee: '0',
         gasPrice,
-        paymaster: gsnTransactionDetails.paymaster ?? constants.ZERO_ADDRESS,
-        paymasterData: gsnTransactionDetails.paymasterData ?? '0x',
-        clientId: gsnTransactionDetails.clientId ?? this.config.clientId,
-        forwarder: await this.resolveForwarder(gsnTransactionDetails),
+        callVerifier: gsnTransactionDetails.callVerifier ?? constants.ZERO_ADDRESS,
+        callForwarder: callForwarder,
+        domainSeparator: getDomainSeparatorHash(callForwarder, this.accountManager.chainId),
         relayWorker: constants.ZERO_ADDRESS
       }
     }
@@ -336,10 +392,81 @@ export class RelayClient {
       approvalData: '',
       relayMaxNonce: 0
     }
-    const httpRequest: RelayTransactionRequest = {
+    const httpRequest: DeployTransactionRequest = {
       relayRequest,
       metadata
     }
+    return httpRequest
+  }
+
+  async _prepareDeployHttpRequest (
+    relayInfo: RelayInfo,
+    gsnTransactionDetails: GsnTransactionDetails
+  ): Promise<DeployTransactionRequest> {
+    const forwarderAddress = this.resolveForwarder(gsnTransactionDetails)
+
+    const senderNonce: string = await this.contractInteractor.getFactoryNonce(forwarderAddress, gsnTransactionDetails.from)
+    const callVerifier = gsnTransactionDetails.callVerifier ?? this.config.deployVerifierAddress
+    const relayWorker = relayInfo.pingResponse.relayWorkerAddress
+    const gasPriceHex = gsnTransactionDetails.gasPrice
+    const gasLimitHex = gsnTransactionDetails.gas
+    if (gasPriceHex == null || gasLimitHex == null) {
+      throw new Error('RelayClient internal exception. Gas price or gas limit still not calculated. Cannot happen.')
+    }
+    if (gasPriceHex.indexOf('0x') !== 0) {
+      throw new Error(`Invalid gasPrice hex string: ${gasPriceHex}`)
+    }
+    if (gasLimitHex.indexOf('0x') !== 0) {
+      throw new Error(`Invalid gasLimit hex string: ${gasLimitHex}`)
+    }
+    const gasLimit = parseInt(gasLimitHex, 16).toString()
+    const gasPrice = parseInt(gasPriceHex, 16).toString()
+    const value = gsnTransactionDetails.value ?? '0'
+
+    const relayRequest: DeployRequest = {
+      request: {
+        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
+        to: gsnTransactionDetails.to,
+        data: gsnTransactionDetails.data,
+        from: gsnTransactionDetails.from,
+        value: value,
+        nonce: senderNonce,
+        gas: gasLimit,
+        tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
+        tokenGas: gsnTransactionDetails.tokenGas ?? '0x00',
+        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
+        recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
+        index: gsnTransactionDetails.index ?? '0'
+      },
+      relayData: {
+        gasPrice,
+        callVerifier,
+        domainSeparator: getDomainSeparatorHash(forwarderAddress, this.accountManager.chainId),
+        callForwarder: forwarderAddress,
+        relayWorker
+      }
+    }
+    // put verifierData into struct before signing
+    this.emit(new GsnSignRequestEvent())
+    const signature = await this.accountManager.sign(relayRequest)
+    const approvalData = await this.asyncApprovalData(relayRequest)
+    // max nonce is not signed, as contracts cannot access addresses' nonces.
+    const transactionCount = await this.contractInteractor.getTransactionCount(relayWorker)
+    const relayMaxNonce = transactionCount + this.config.maxRelayNonceGap
+    // TODO: the server accepts a flat object, and that is why this code looks like shit.
+    //  Must teach server to accept correct types
+    const metadata: RelayMetadata = {
+      relayHubAddress: this.config.relayHubAddress,
+      signature,
+      approvalData,
+      relayMaxNonce
+    }
+    const httpRequest: DeployTransactionRequest = {
+      relayRequest,
+      metadata
+    }
+    log.info(`Created HTTP deploy request: ${JSON.stringify(httpRequest)}`)
+
     return httpRequest
   }
 
@@ -347,17 +474,11 @@ export class RelayClient {
     relayInfo: RelayInfo,
     gsnTransactionDetails: GsnTransactionDetails
   ): Promise<RelayTransactionRequest> {
-    let senderNonce: string
-    const forwarderAddress = await this.resolveForwarder(gsnTransactionDetails)
+    const forwarderAddress = this.resolveForwarder(gsnTransactionDetails)
 
-    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
-      // Common relay scenario
-      senderNonce = await this.contractInteractor.getSenderNonce(forwarderAddress)
-    } else {
-      senderNonce = await this.contractInteractor.getFactoryNonce(gsnTransactionDetails.factory, gsnTransactionDetails.from)
-    }
-    const paymaster = gsnTransactionDetails.paymaster ?? this.config.relayPaymasterAddress
+    const senderNonce: string = await this.contractInteractor.getSenderNonce(forwarderAddress)
 
+    const callVerifier = gsnTransactionDetails.callVerifier ?? this.config.relayVerifierAddress
     const relayWorker = relayInfo.pingResponse.relayWorkerAddress
     const gasPriceHex = gsnTransactionDetails.gasPrice
     const gasLimitHex = gsnTransactionDetails.gas
@@ -376,32 +497,26 @@ export class RelayClient {
 
     const relayRequest: RelayRequest = {
       request: {
+        relayHub: gsnTransactionDetails.relayHub ?? constants.ZERO_ADDRESS,
         to: gsnTransactionDetails.to,
         data: gsnTransactionDetails.data,
         from: gsnTransactionDetails.from,
         value: value,
         nonce: senderNonce,
         gas: gasLimit,
-        tokenRecipient: gsnTransactionDetails.tokenRecipient ?? constants.ZERO_ADDRESS,
         tokenAmount: gsnTransactionDetails.tokenAmount ?? '0x00',
-        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
-        factory: gsnTransactionDetails.factory ?? constants.ZERO_ADDRESS,
-        recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS,
-        index: gsnTransactionDetails.index ?? '0'
+        tokenGas: gsnTransactionDetails.tokenGas ?? '0x00',
+        tokenContract: gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
       },
       relayData: {
-        pctRelayFee: relayInfo.relayInfo.pctRelayFee !== '' ? relayInfo.relayInfo.pctRelayFee : '0',
-        baseRelayFee: relayInfo.relayInfo.baseRelayFee !== '' ? relayInfo.relayInfo.baseRelayFee : '0',
         gasPrice,
-        paymaster,
-        paymasterData: '', // temp value. filled in by asyncPaymasterData, below.
-        clientId: this.config.clientId,
-        forwarder: forwarderAddress,
+        callVerifier,
+        domainSeparator: getDomainSeparatorHash(forwarderAddress, this.accountManager.chainId),
+        callForwarder: forwarderAddress,
         relayWorker
       }
     }
-    // put paymasterData into struct before signing
-    relayRequest.relayData.paymasterData = await this.asyncPaymasterData(relayRequest)
+    // put verifierData into struct before signing
     this.emit(new GsnSignRequestEvent())
     const signature = await this.accountManager.sign(relayRequest)
     const approvalData = await this.asyncApprovalData(relayRequest)
@@ -425,19 +540,12 @@ export class RelayClient {
     return httpRequest
   }
 
-  async resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Promise<Address> {
-    // The forwarder is the SmartWallet contract calling the final contract.
-    // In the case of a SmartWallet deploy, there's is no forwarder, the forwarder value is not read
-    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null ||
-      gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
-      const forwarderAddress = gsnTransactionDetails.forwarder ?? this.config.forwarderAddress
-      if (forwarderAddress === constants.ZERO_ADDRESS) {
-        throw new Error('No forwarder address configured')
-      }
-      return forwarderAddress
-    } else {
-      return gsnTransactionDetails.forwarder ?? constants.ZERO_ADDRESS
+  resolveForwarder (gsnTransactionDetails: GsnTransactionDetails): Address {
+    const forwarderAddress = gsnTransactionDetails.callForwarder ?? constants.ZERO_ADDRESS
+    if (forwarderAddress === constants.ZERO_ADDRESS) {
+      throw new Error('No callForwarder address configured')
     }
+    return forwarderAddress
   }
 
   getEstimateGasParams (gsnTransactionDetails: GsnTransactionDetails): EstimateGasParams {

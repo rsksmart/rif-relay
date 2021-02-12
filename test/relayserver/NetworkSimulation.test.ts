@@ -5,6 +5,7 @@ import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
+import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment
@@ -30,13 +31,13 @@ contract('Network Simulation for Relay Server', function (accounts) {
 
     it('should resolve once the transaction is broadcast', async function () {
       assert.equal(provider.mempool.size, 0)
-      const { txHash } = await env.relayTransaction(false)
+      const { txHash, reqSigHash } = await env.relayTransaction(false)
       assert.equal(provider.mempool.size, 1)
       const receipt = await env.web3.eth.getTransactionReceipt(txHash)
       assert.isNull(receipt)
       await provider.mineTransaction(txHash)
       assert.equal(provider.mempool.size, 0)
-      await env.assertTransactionRelayed(txHash)
+      await env.assertTransactionRelayed(txHash, reqSigHash)
     })
 
     it('should broadcast multiple transactions at once', async function () {
@@ -45,22 +46,21 @@ contract('Network Simulation for Relay Server', function (accounts) {
       const SmartWallet = artifacts.require('SmartWallet')
       const sWalletTemplate = await SmartWallet.new()
       const factory = await createProxyFactory(sWalletTemplate)
-      const smartWallet = await createSmartWallet(gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
+      const smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
 
       env.relayClient.accountManager.addAccount(gaslessAccount)
 
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
-      const overrideDetails = { from: gaslessAccount.address, forwarder: smartWallet.address }
-      await env.tokenRecipient.mint('200', smartWallet.address)
+      const overrideDetails: Partial<GsnTransactionDetails> = { from: gaslessAccount.address, callForwarder: smartWallet.address }
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)
       assert.equal(provider.mempool.size, 2)
       await provider.mineTransaction(txs[0].txHash)
       await provider.mineTransaction(txs[1].txHash)
-      await env.assertTransactionRelayed(txs[0].txHash)
-      await env.assertTransactionRelayed(txs[1].txHash, overrideDetails)
+      await env.assertTransactionRelayed(txs[0].txHash, txs[0].reqSigHash)
+      await env.assertTransactionRelayed(txs[1].txHash, txs[1].reqSigHash, overrideDetails)
     })
   })
 })

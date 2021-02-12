@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./IProxyFactory.sol";
 import "../utils/RSKAddrValidator.sol";
 
-//import "@nomiclabs/buidler/console.sol";
 /* solhint-disable no-inline-assembly */
 /* solhint-disable avoid-low-level-calls */
 
@@ -132,15 +131,16 @@ contract ProxyFactory is IProxyFactory {
             index,
             initParams
         );
-
+        (sig);
         require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
 
-        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
+        //07a5b285  =>  initialize(address owner,address logic,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes initParams,bytes transferData)  
         bytes memory initData = abi.encodeWithSelector(
-            hex"60654ec4",
+            hex"07a5b285",
             owner,
             logic,
             address(0), // This "gas-funded" call does not pay with tokens
+            0,//No token transfer
             currentVersionHash,
             initParams,
             hex"00"
@@ -158,18 +158,21 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function relayedUserSmartWalletCreation(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
         bytes calldata sig
     ) external override {
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+
+        (sig);
+        require(msg.sender == req.relayHub, "Invalid caller");
+        _verifySig(req, domainSeparator, suffixData, sig);
         nonces[req.from]++;
 
-        //60654ec4  =>  initialize(address owner,address logic,address tokenAddr,bytes32 versionHash,bytes initParams,bytes transferData)
+        //07a5b285  =>  initialize(address owner,address logic,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes initParams,bytes transferData)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         //initParams (req.data) must not contain the function selector for the logic initialization function
+        /* solhint-disable avoid-tx-origin */
         deploy(getCreationBytecode(), keccak256(
             abi.encodePacked(
                 req.from,
@@ -179,15 +182,16 @@ contract ProxyFactory is IProxyFactory {
                 req.index
             )
         ), abi.encodeWithSelector(
-            hex"60654ec4",
+            hex"07a5b285",
             req.from,
             req.to,
             req.tokenContract,
+            req.tokenGas,
             currentVersionHash,
             req.data,
             abi.encodeWithSelector(
                 hex"a9059cbb",
-                req.tokenRecipient,
+                tx.origin,
                 req.tokenAmount
             )
         ));
@@ -266,26 +270,25 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _getEncoded(
-        IForwarder.ForwardRequest memory req,
-        bytes32 requestTypeHash,
+        IForwarder.DeployRequest memory req,
         bytes32 suffixData
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
-                requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
                 abi.encode(
+                    req.relayHub,
                     req.from,
                     req.to,
+                    req.tokenContract,
+                    req.recoverer,
                     req.value,
                     req.gas,
                     req.nonce,
-                    keccak256(req.data),
-                    req.tokenRecipient,
-                    req.tokenContract,
                     req.tokenAmount,
-                    req.factory,
-                    req.recoverer,
-                    req.index
+                    req.tokenGas,
+                    req.index,
+                    keccak256(req.data)
                 ),
                 suffixData
             );
@@ -299,21 +302,14 @@ contract ProxyFactory is IProxyFactory {
     }
 
     function _verifySig(
-        IForwarder.ForwardRequest memory req,
+        IForwarder.DeployRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
         bytes memory sig
     ) internal view {
 
         //Verify nonce
         require(nonces[req.from] == req.nonce, "nonce mismatch");
-
-        //Verify Request type
-        require(
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)") == requestTypeHash,
-            "Invalid request typehash"
-        );
 
         //Verify Domain separator
         require(
@@ -334,23 +330,9 @@ contract ProxyFactory is IProxyFactory {
                 keccak256(abi.encodePacked(
                     "\x19\x01",
                     domainSeparator,
-                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                    keccak256(_getEncoded(req, suffixData)))
                 ).recover(sig), req.from),"signature mismatch"
         );
     }
 
-    // V1 ONLY: Support for destructable contracts
-    // For v1 deployment only to support kill, pause and unpause behavior
-    // This functionality is temporary and will be removed in v2
-    /*
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
-        contractOwner = newOwner;
-    }
-
-    function kill(address payable recipient) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
-        selfdestruct(recipient);
-    }
-    */
 }

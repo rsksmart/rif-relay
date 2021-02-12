@@ -3,13 +3,13 @@ import abiDecoder from 'abi-decoder'
 import Web3 from 'web3'
 import crypto from 'crypto'
 import { HttpProvider } from 'web3-core'
-import { toHex } from 'web3-utils'
+import { toHex, toBN, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IForwarderInstance,
   IRelayHubInstance,
-  IStakeManagerInstance, TestPaymasterEverythingAcceptedInstance, SmartWalletInstance, TestTokenRecipientInstance
+  IStakeManagerInstance, TestVerifierEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 import {
   assertRelayAdded,
@@ -34,28 +34,41 @@ import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
-import PayMasterABI from '../../src/common/interfaces/IPaymaster.json'
+import RelayVerifierABI from '../../src/common/interfaces/IVerifier.json'
+import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
+
+import { defaultEnvironment } from '../../src/common/Environments'
+
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
+import { ServerAction } from '../../src/relayserver/StoredTransaction'
+import { SendTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ether } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
-const TestTokenRecipient = artifacts.require('TestTokenRecipient')
-const TestPaymasterEverythingAccepted = artifacts.require('TestPaymasterEverythingAccepted')
+const TestRecipient = artifacts.require('TestRecipient')
+const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
+const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
+
 const SmartWallet = artifacts.require('SmartWallet')
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(StakeManagerABI)
-abiDecoder.addABI(PayMasterABI)
+abiDecoder.addABI(RelayVerifierABI)
+abiDecoder.addABI(DeployVerifierABI)
+
 // @ts-ignore
-abiDecoder.addABI(TestTokenRecipient.abi)
+abiDecoder.addABI(TestRecipient.abi)
 // @ts-ignore
-abiDecoder.addABI(TestPaymasterEverythingAccepted.abi)
+abiDecoder.addABI(TestVerifierEverythingAccepted.abi)
+// @ts-ignore
+abiDecoder.addABI(TestDeployVerifierEverythingAccepted.abi)
+
 export const LocalhostOne = 'http://localhost:8090'
 
 export interface PrepareRelayRequestOption {
   to: string
   from: string
-  paymaster: string
+  verifier: string // TODO Change to relay and deploy verifierS
   pctRelayFee: number
   baseRelayFee: string
 }
@@ -64,15 +77,17 @@ export class ServerTestEnvironment {
   stakeManager!: IStakeManagerInstance
   relayHub!: IRelayHubInstance
   forwarder!: IForwarderInstance
-  paymaster!: TestPaymasterEverythingAcceptedInstance
-  tokenRecipient!: TestTokenRecipientInstance
+  relayVerifier!: TestVerifierEverythingAcceptedInstance
+  deployVerifier!: TestDeployVerifierEverythingAcceptedInstance
+
+  recipient!: TestRecipientInstance
 
   relayOwner!: Address
   gasLess!: Address
 
   encodedFunction!: PrefixedHexString
 
-  paymasterData!: PrefixedHexString
+  verifierData!: PrefixedHexString
   clientId!: string
 
   options?: PrepareRelayRequestOption
@@ -99,32 +114,30 @@ export class ServerTestEnvironment {
    * different provider from the contract interactor itself.
    */
   async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
-    this.stakeManager = await StakeManager.new()
+    this.stakeManager = await StakeManager.new(0)
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
-    this.tokenRecipient = await TestTokenRecipient.new()
-    this.paymaster = await TestPaymasterEverythingAccepted.new()
+    this.recipient = await TestRecipient.new()
+    this.relayVerifier = await TestVerifierEverythingAccepted.new()
+    this.deployVerifier = await TestDeployVerifierEverythingAccepted.new()
 
-    // await this.paymaster.setTrustedForwarder(this.forwarder.address)
-    await this.paymaster.setRelayHub(this.relayHub.address)
-    await this.paymaster.deposit({ value: this.web3.utils.toWei('1', 'ether') })
+    this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
 
     const gaslessAccount = await getGaslessAccount()
     this.gasLess = gaslessAccount.address
-
-    // this.encodedFunction = this.recipient.contract.methods.emitMessage('hello world').encodeABI()
-    this.encodedFunction = this.tokenRecipient.contract.methods.transfer(gaslessAccount.address, '5').encodeABI()
 
     const sWalletTemplate = await SmartWallet.new()
     const factory = await createProxyFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
-    const smartWallet: SmartWalletInstance = await createSmartWallet(this.gasLess, factory, gaslessAccount.privateKey, chainId)
+    const defaultAccount = web3.defaultAccount ?? (await web3.eth.getAccounts())[0]
+    const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
-    await this.tokenRecipient.mint('200', smartWallet.address)
 
     const shared: Partial<GSNConfig> = {
       logLevel: 5,
-      relayHubAddress: this.relayHub.address
+      relayHubAddress: this.relayHub.address,
+      relayVerifierAddress: this.relayVerifier.address,
+      deployVerifierAddress: this.deployVerifier.address
     }
     if (contractFactory == null) {
       this.contractInteractor = new ContractInteractor(this.provider, configureGSN(shared))
@@ -135,12 +148,12 @@ export class ServerTestEnvironment {
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
 
-    // Register gasless account to avoid signing with RSKJ
+    // Regisgter gasless account to avoid signing with RSKJ
     this.relayClient.accountManager.addAccount(gaslessAccount)
   }
 
   async newServerInstance (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): Promise<void> {
-    await this.newServerInstanceNoInit(config, serverWorkdirs)
+    await this.newServerInstanceNoInit(config, serverWorkdirs, undefined, this.defaultReplenishFunction)
     await this.relayServer.init()
     // initialize server - gas price, stake, owner, etc, whatever
     const latestBlock = await this.web3.eth.getBlock('latest')
@@ -157,8 +170,8 @@ export class ServerTestEnvironment {
     }
   }
 
-  async newServerInstanceNoInit (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, unstakeDelay = constants.weekInSec): Promise<void> {
-    this.newServerInstanceNoFunding(config, serverWorkdirs)
+  async newServerInstanceNoInit (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, unstakeDelay = constants.weekInSec, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): Promise<void> {
+    this.newServerInstanceNoFunding(config, serverWorkdirs, replenishStrategy)
     await web3.eth.sendTransaction({
       to: this.relayServer.managerAddress,
       from: this.relayOwner,
@@ -174,7 +187,7 @@ export class ServerTestEnvironment {
     })
   }
 
-  newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
+  newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>): void {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
@@ -187,13 +200,19 @@ export class ServerTestEnvironment {
     const shared: Partial<ServerConfigParams> = {
       relayHubAddress: this.relayHub.address,
       checkInterval: 10,
-      logLevel: 5
+      logLevel: 5,
+      relayVerifierAddress: this.relayVerifier.address,
+      deployVerifierAddress: this.deployVerifier.address
     }
     const mergedConfig: Partial<ServerConfigParams> = Object.assign({}, shared, config)
-    this.relayServer = new RelayServer(mergedConfig, serverDependencies)
+
+    this.relayServer = new RelayServer(mergedConfig, serverDependencies, replenishStrategy)
+
     this.relayServer.on('error', (e) => {
       console.log('newServer event', e.message)
     })
+    this.relayServer.config.trustedVerifiers.push(this.relayVerifier.address)
+    this.relayServer.config.trustedVerifiers.push(this.deployVerifier.address)
   }
 
   async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
@@ -214,35 +233,84 @@ export class ServerTestEnvironment {
 
     const gsnTransactionDetails: GsnTransactionDetails = {
       from: this.gasLess,
-      to: this.tokenRecipient.address,
+      to: this.recipient.address,
       data: this.encodedFunction,
-      paymaster: this.paymaster.address,
-      forwarder: this.forwarder.address,
+      relayHub: this.relayHub.address,
+      callVerifier: this.relayVerifier.address,
+      callForwarder: this.forwarder.address,
       gas: toHex(1000000),
       gasPrice: toHex(20000000000),
-      tokenRecipient: constants.ZERO_ADDRESS,
       tokenAmount: toHex(0),
+      tokenGas: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
-      factory: constants.ZERO_ADDRESS
+      isSmartWalletDeploy: false
     }
 
     return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))
   }
 
+  async defaultReplenishFunction (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
+    const transactionHashes: PrefixedHexString[] = []
+
+    if (relayServer === undefined || relayServer === null) {
+      return transactionHashes
+    }
+
+    let managerEthBalance = await relayServer.getManagerBalance()
+    relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)
+
+    if (managerEthBalance.gte(toBN(relayServer.config.managerTargetBalance.toString())) && relayServer.workerBalanceRequired.isSatisfied) {
+      // all filled, nothing to do
+      return transactionHashes
+    }
+    managerEthBalance = await relayServer.getManagerBalance()
+
+    const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
+    const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
+
+    if (mustReplenishWorker && !isReplenishPendingForWorker) {
+      const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
+      console.log(
+        `== replenishServer: mgr balance=${managerEthBalance.toString()}
+          \n${relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
+
+      if (refill.lt(managerEthBalance.sub(toBN(relayServer.config.managerMinBalance)))) {
+        console.log('Replenishing worker balance by manager rbtc balance')
+        const details: SendTransactionDetails = {
+          signer: relayServer.managerAddress,
+          serverAction: ServerAction.VALUE_TRANSFER,
+          destination: relayServer.workerAddress,
+          value: toHex(refill),
+          creationBlockNumber: currentBlock,
+          gasLimit: defaultEnvironment.mintxgascost
+        }
+        const { transactionHash } = await relayServer.transactionManager.sendTransaction(details)
+        transactionHashes.push(transactionHash)
+      } else {
+        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
+        relayServer.emit('fundingNeeded', message)
+        console.log(message)
+      }
+    }
+    return transactionHashes
+  }
+
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
+    reqSigHash: PrefixedHexString
   }> {
     const req = await this.createRelayHttpRequest(overrideDetails)
     const signedTx = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
-
+    const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
     if (assertRelayed) {
-      await this.assertTransactionRelayed(txHash)
+      await this.assertTransactionRelayed(txHash, keccak256(req.metadata.signature))
     }
     return {
       txHash,
-      signedTx
+      signedTx,
+      reqSigHash
     }
   }
 
@@ -251,26 +319,26 @@ export class ServerTestEnvironment {
     assert.deepEqual([], await this.relayServer.transactionManager.txStoreManager.getAll())
   }
 
-  async assertTransactionRelayed (txHash: string, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<void> {
+  async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<void> {
     const receipt = await web3.eth.getTransactionReceipt(txHash)
     if (receipt == null) {
       throw new Error('Transaction Receipt not found')
     }
-    const sender = overrideDetails.from ?? this.gasLess
-    const tokenPayer = overrideDetails.forwarder ?? this.forwarder.address
     const decodedLogs = abiDecoder.decodeLogs(receipt.logs).map(this.relayServer.registrationManager._parseEvent)
-    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'Transfer')
-    assert.exists(event1, 'Transfer not found, maybe transaction was not relayed successfully')
-    assert.equal(event1.args.value, '5')
-    assert.equal(event1.args.from.toLowerCase(), tokenPayer.toLowerCase())
-    assert.equal(event1.args.to.toLowerCase(), this.gasLess.toLowerCase())
-
+    const event1 = decodedLogs.find((e: { name: string }) => e.name === 'SampleRecipientEmitted')
+    assert.exists(event1, 'SampleRecipientEmitted not found, maybe transaction was not relayed successfully')
+    assert.equal(event1.args.message, 'hello world')
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')
+    /**
+     * event TransactionRelayed(
+        address indexed relayManager,
+        address relayWorker,
+        bytes32 relayRequestSigHash);
+    */
     assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
-    assert.equal(event2.args.from.toLowerCase(), sender.toLowerCase())
-    assert.equal(event2.args.to.toLowerCase(), this.tokenRecipient.address.toLowerCase())
-    assert.equal(event2.args.paymaster.toLowerCase(), this.paymaster.address.toLowerCase())
+    assert.equal(event2.args.relayManager.toLowerCase(), this.relayServer.managerAddress.toLowerCase())
+    assert.equal(event2.args.relayRequestSigHash, reqSignatureHash)
   }
 }

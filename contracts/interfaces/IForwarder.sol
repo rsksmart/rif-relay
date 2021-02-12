@@ -5,19 +5,34 @@ pragma experimental ABIEncoderV2;
 interface IForwarder {
 
     struct ForwardRequest {
+        address relayHub;
         address from;
-        address to; // In a deploy request, the to param inidicates an optional logic contract
+        address to;
+        address tokenContract;
         uint256 value;
         uint256 gas;
         uint256 nonce;
-        bytes data;
-        address tokenRecipient;
-        address tokenContract;
         uint256 tokenAmount;
-        address factory; // only set if this is a SmartWallet deploy request
-        address recoverer; // only used in SmartWallet deploy requests
-        uint256 index; // only used in SmartWallet deploy requests
+        uint256 tokenGas;
+        bytes data;
     }
+
+    struct DeployRequest {
+        address relayHub;
+        address from;
+        address to; // In a deploy request, the to param inidicates an optional logic contract
+        address tokenContract;
+        address recoverer; // only used in SmartWallet deploy requests
+        uint256 value;
+        uint256 gas;
+        uint256 nonce;
+        uint256 tokenAmount;
+        uint256 tokenGas;
+        uint256 index; // only used in SmartWallet deploy requests
+        bytes data;
+    }
+
+    
 
     function nonce()
     external view
@@ -29,10 +44,9 @@ interface IForwarder {
      * revert if either signature or nonce are incorrect.
      */
     function verify(
-        ForwardRequest calldata forwardRequest,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest calldata forwardRequest,
         bytes calldata signature
     ) external view;
 
@@ -40,7 +54,6 @@ interface IForwarder {
      * execute a transaction
      * @param forwardRequest - all transaction parameters
      * @param domainSeparator - domain used when signing this request
-     * @param requestTypeHash - request type used when signing this request.
      * @param suffixData - the extension data used when signing this request.
      * @param signature - signature to validate.
      *
@@ -50,13 +63,16 @@ interface IForwarder {
      * are reported using the returned "success" and ret string
      */
     function execute(
-        ForwardRequest calldata forwardRequest,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest calldata forwardRequest,
         bytes calldata signature
     )
     external payable
-    returns (bool success, uint256 lastSuccTx, bytes memory ret);
-
+    returns (bool success, bytes memory ret);
+    
+    function directExecute(address to, bytes calldata data) external payable returns (
+        bool success,
+        bytes memory ret  
+    );
 }

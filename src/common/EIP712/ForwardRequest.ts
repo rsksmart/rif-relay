@@ -1,17 +1,31 @@
 import { Address, IntString } from '../../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
-export default interface ForwardRequest {
+export interface ForwardRequest {
+  relayHub: Address
   from: Address
   to: Address
-  data: PrefixedHexString
-  value: IntString
-  nonce: IntString
-  gas: IntString
-  tokenRecipient: Address
   tokenContract: Address
+  value: IntString
+  gas: IntString
+  nonce: IntString
   tokenAmount: IntString
-  factory: Address // only set if this is a deploy request,
-  recoverer: Address // only used if factory is set
-  index: IntString // only used if factory is set
+  tokenGas: IntString
+  data: PrefixedHexString
+}
+
+export interface DeployRequestStruct {
+  relayHub: Address
+  from: Address
+  to: Address
+  tokenContract: Address
+  recoverer: Address
+  value: IntString
+  gas: IntString
+  nonce: IntString
+  tokenAmount: IntString
+  tokenGas: IntString
+  index: IntString
+  data: PrefixedHexString
+
 }

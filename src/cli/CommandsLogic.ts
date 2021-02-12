@@ -1,35 +1,40 @@
-import Web3 from 'web3'
-import { Contract, SendOptions } from 'web3-eth-contract'
-import HDWalletProvider from '@truffle/hdwallet-provider'
-import BN from 'bn.js'
-import { HttpProvider, TransactionReceipt } from 'web3-core'
-import { merge } from 'lodash'
 // @ts-ignore
 import io from 'console-read-write'
+import BN from 'bn.js'
+import HDWalletProvider from '@truffle/hdwallet-provider'
+import Web3 from 'web3'
+import { Contract, SendOptions } from 'web3-eth-contract'
+import { HttpProvider, TransactionReceipt } from 'web3-core'
+import { fromWei, toBN } from 'web3-utils'
+import { merge } from 'lodash'
 
-import { sleep } from '../common/Utils'
-import { ether } from '@openzeppelin/test-helpers'
+import { isSameAddress, sleep } from '../common/Utils'
 
 // compiled folder populated by "prepublish"
 import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
-import RelayPaymaster from './compiled/TestPaymasterEverythingAccepted.json'
-import DeployPaymaster from './compiled/TestDeployPaymasterEverythingAccepted.json'
+import DeployVerifier from './compiled/DeployVerifier.json'
+import RelayVerifier from './compiled/RelayVerifier.json'
+
 import SmartWallet from './compiled/SmartWallet.json'
 import ProxyFactory from './compiled/ProxyFactory.json'
+import SimpleSmartWallet from './compiled/SimpleSmartWallet.json'
+import SimpleProxyFactory from './compiled/SimpleProxyFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
-import { Address, notNull } from '../relayclient/types/Aliases'
+import { Address } from '../relayclient/types/Aliases'
 import ContractInteractor from '../relayclient/ContractInteractor'
 import { GSNConfig } from '../relayclient/GSNConfigurator'
 import HttpClient from '../relayclient/HttpClient'
 import HttpWrapper from '../relayclient/HttpWrapper'
-import { constants } from '../common/Constants'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 import { string32 } from '../common/VersionRegistry'
+import { constants } from '../common/Constants'
+import { ether } from '@openzeppelin/test-helpers'
 
 interface RegisterOptions {
   from: Address
+  gasPrice: string | BN
   stake: string | BN
   funds: string | BN
   relayUrl: string
@@ -39,9 +44,12 @@ interface RegisterOptions {
 interface DeployOptions {
   from: Address
   gasPrice: string
-  deployPaymasters?: boolean
+  deployVerifierAddress?: string
+  relayVerifierAddress?: string
   factoryAddress?: string
+  simpleFactoryAddress?: string
   sWalletTemplateAddress?: string
+  simpleSWalletTemplateAddress?: string
   relayHubAddress?: string
   stakeManagerAddress?: string
   penalizerAddress?: string
@@ -57,10 +65,12 @@ export interface DeploymentResult {
   stakeManagerAddress: Address
   penalizerAddress: Address
   sWalletTemplateAddress: Address
+  simpleSWalletTemplateAddress: Address
   factoryAddress: Address
+  simpleFactoryAddress: Address
   versionRegistryAddress: Address
-  naiveRelayPaymasterAddress: Address
-  naiveDeployPaymasterAddress: Address
+  deployVerifierAddress: Address
+  relayVerifierAddress: Address
 }
 
 interface RegistrationResult {
@@ -81,13 +91,13 @@ export default class CommandsLogic {
       // web3 defines provider type quite narrowly
       provider = new HDWalletProvider(mnemonic, provider) as unknown as HttpProvider
     }
-    this.contractInteractor = new ContractInteractor(provider, config)
     this.httpClient = new HttpClient(new HttpWrapper(), config)
+    this.contractInteractor = new ContractInteractor(provider, config)
     this.config = config
     this.web3 = new Web3(provider)
   }
 
-  async findWealthyAccount (requiredBalance = ether('0.001')): Promise<string> {
+  async findWealthyAccount (requiredBalance = ether('2')): Promise<string> {
     let accounts: string[] = []
     try {
       accounts = await this.web3.eth.getAccounts()
@@ -128,102 +138,102 @@ export default class CommandsLogic {
     throw Error(`Relay not ready after ${timeout}s`)
   }
 
-  async getPaymasterBalance (paymaster: Address): Promise<BN> {
-    const relayHub = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
-    return await relayHub.balanceOf(paymaster)
-  }
-
-  /**
-   * Send enough ether from the {@param from} to the RelayHub to make {@param paymaster}'s gas deposit exactly {@param amount}.
-   * Does nothing if current paymaster balance exceeds amount.
-   * @param from
-   * @param paymaster
-   * @param amount
-   * @return deposit of the paymaster after
-   */
-  async fundPaymaster (
-    from: Address, paymaster: Address, amount: string | BN
-  ): Promise<BN> {
-    const relayHub = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
-    const targetAmount = new BN(amount)
-    const currentBalance = await relayHub.balanceOf(paymaster)
-    if (currentBalance.lt(targetAmount)) {
-      const value = targetAmount.sub(currentBalance)
-      await relayHub.depositFor(paymaster, {
-        value,
-        from
-      })
-      return targetAmount
-    } else {
-      return currentBalance
-    }
-  }
-
   async registerRelay (options: RegisterOptions): Promise<RegistrationResult> {
+    const transactions: string[] = []
     try {
-      if (await this.isRelayReady(options.relayUrl)) {
+      console.log(`Registering GSN relayer at ${options.relayUrl}`)
+
+      const response = await this.httpClient.getPingResponse(options.relayUrl)
+        .catch(() => { throw new Error('could contact not relayer, is it running?') })
+      if (response.ready) {
         return {
           success: false,
           error: 'Already registered'
         }
       }
-    } catch (error) {
-      return {
-        success: false,
-        error: `Could not reach the relay at ${options.relayUrl}, is it running?`
+      const chainId = this.contractInteractor.chainId
+      if (response.chainId !== chainId.toString()) {
+        throw new Error(`wrong chain-id: Relayer on (${response.chainId}) but our provider is on (${chainId})`)
       }
-    }
 
-    let stakeTx: Truffle.TransactionResponse | undefined
-    let authorizeTx: Truffle.TransactionResponse | undefined
-    let fundTx: TransactionReceipt | undefined
-    try {
-      console.error(`Funding GSN relay at ${options.relayUrl}`)
-
-      const response = await this.httpClient.getPingResponse(options.relayUrl)
       const relayAddress = response.relayManagerAddress
       const relayHubAddress = this.config.relayHubAddress ?? response.relayHubAddress
 
       const relayHub = await this.contractInteractor._createRelayHub(relayHubAddress)
       const stakeManagerAddress = await relayHub.stakeManager()
       const stakeManager = await this.contractInteractor._createStakeManager(stakeManagerAddress)
-      stakeTx = await stakeManager
-        .stakeForAddress(relayAddress, options.unstakeDelay.toString(), {
-          value: options.stake,
-          from: options.from,
-          gas: 1e6,
-          gasPrice: 1e9
-        })
-      authorizeTx = await stakeManager
-        .authorizeHubByOwner(relayAddress, relayHubAddress, {
-          from: options.from,
-          gas: 1e6,
-          gasPrice: 1e9
-        })
-      const _fundTx = await this.web3.eth.sendTransaction({
-        from: options.from,
-        to: relayAddress,
-        value: options.funds,
-        gas: 1e6,
-        gasPrice: 1e9
-      })
+      const { stake, unstakeDelay, owner } = await stakeManager.getStakeInfo(relayAddress)
 
-      fundTx = _fundTx as TransactionReceipt
-      if (fundTx.transactionHash == null) {
-        return {
-          success: false,
-          error: `Fund transaction reverted: ${JSON.stringify(_fundTx)}`
-        }
+      console.log('current stake=', fromWei(stake, 'ether'))
+
+      if (owner !== constants.ZERO_ADDRESS && !isSameAddress(owner, options.from)) {
+        throw new Error(`Already owned by ${owner}, our account=${options.from}`)
       }
+
+      if (toBN(unstakeDelay).gte(toBN(options.unstakeDelay)) &&
+        toBN(stake).gte(toBN(options.stake.toString()))
+      ) {
+        console.log('Relayer already staked')
+      } else {
+        const stakeValue = toBN(options.stake.toString()).sub(toBN(stake))
+        console.log(`Staking relayer ${fromWei(stakeValue, 'ether')} eth`,
+          stake === '0' ? '' : ` (already has ${fromWei(stake, 'ether')} eth)`)
+
+        const stakeTx = await stakeManager
+          .stakeForAddress(relayAddress, options.unstakeDelay.toString(), {
+            value: stakeValue,
+            from: options.from,
+            gas: 1e6,
+            gasPrice: options.gasPrice
+          })
+        transactions.push(stakeTx.tx)
+      }
+
+      if (isSameAddress(owner, options.from)) {
+        console.log('Relayer already authorized')
+      } else {
+        console.log('Authorizing relayer for hub')
+        const authorizeTx = await stakeManager
+          .authorizeHubByOwner(relayAddress, relayHubAddress, {
+            from: options.from,
+            gas: 1e6,
+            gasPrice: options.gasPrice
+          })
+        transactions.push(authorizeTx.tx)
+      }
+
+      const bal = await this.contractInteractor.getBalance(relayAddress)
+      if (toBN(bal).gt(toBN(options.funds.toString()))) {
+        console.log('Relayer already funded')
+      } else {
+        console.log('Funding relayer')
+
+        const _fundTx = await this.web3.eth.sendTransaction({
+          from: options.from,
+          to: relayAddress,
+          value: options.funds,
+          gas: 1e6,
+          gasPrice: options.gasPrice
+        })
+        const fundTx = _fundTx as TransactionReceipt
+        if (fundTx.transactionHash == null) {
+          return {
+            success: false,
+            error: `Fund transaction reverted: ${JSON.stringify(_fundTx)}`
+          }
+        }
+        transactions.push(fundTx.transactionHash)
+      }
+
       await this.waitForRelay(options.relayUrl)
       return {
         success: true,
-        transactions: [stakeTx.tx, authorizeTx.tx, fundTx.transactionHash]
+        transactions
       }
     } catch (error) {
       return {
         success: false,
-        transactions: [stakeTx?.tx, authorizeTx?.tx, fundTx?.transactionHash].filter(notNull),
+        transactions,
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         error: `Failed to fund relay: '${error}'`
       }
@@ -242,7 +252,9 @@ export default class CommandsLogic {
       gasPrice: deployOptions.gasPrice ?? (1e9).toString()
     }
 
-    const sInstance = await this.getContractInstance(StakeManager, {}, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const sInstance = await this.getContractInstance(StakeManager, {
+      arguments: [0]
+    }, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pInstance = await this.getContractInstance(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const swtInstance = await this.getContractInstance(SmartWallet, {}, deployOptions.sWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const pfInstance = await this.getContractInstance(ProxyFactory, {
@@ -252,13 +264,19 @@ export default class CommandsLogic {
       ]
     }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
+    const simpleSwtInstance = await this.getContractInstance(SimpleSmartWallet, {}, deployOptions.simpleSWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const simplePfInstance = await this.getContractInstance(SimpleProxyFactory, {
+      arguments: [
+        simpleSwtInstance.options.address,
+        '0xad7c5bef027816a800da1736444fb58a807ef4c9603b7848673f7e3a68eb14a5' // domain version hash (version=2)
+      ]
+    }, deployOptions.simpleFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     const rInstance = await this.getContractInstance(RelayHub, {
       arguments: [
         sInstance.options.address,
         pInstance.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
-        deployOptions.relayHubConfiguration.gasReserve,
-        deployOptions.relayHubConfiguration.postOverhead,
         deployOptions.relayHubConfiguration.gasOverhead,
         deployOptions.relayHubConfiguration.maximumRecipientDeposit,
         deployOptions.relayHubConfiguration.minimumUnstakeDelay,
@@ -271,19 +289,19 @@ export default class CommandsLogic {
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    let relayPaymasterAddress = constants.ZERO_ADDRESS
-    let deployPaymasterAddress = constants.ZERO_ADDRESS
-    if (deployOptions.deployPaymasters === true) {
-      const pmInstance = await this.deployPaymasters(Object.assign({}, options), true, rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
-      const dpmInstance = await this.deployPaymasters(Object.assign({}, options), false, rInstance.options.address, deployOptions.from, deployOptions.skipConfirmation)
-
-      relayPaymasterAddress = pmInstance.options.address
-      deployPaymasterAddress = dpmInstance.options.address
-
-      // Overriding saved configuration with newly deployed instances
-      this.config.relayPaymasterAddress = relayPaymasterAddress
-      this.config.deployPaymasterAddress = deployPaymasterAddress
-    }
+    const deployVerifierInstance = await this.getContractInstance(DeployVerifier, {
+      arguments: [
+        pfInstance.options.address
+      ]
+    }, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const relayVerifierInstance = await this.getContractInstance(RelayVerifier, {
+      arguments: [
+        pfInstance.options.address
+      ]
+    }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    // Overriding saved configuration with newly deployed instances
+    this.config.deployVerifierAddress = deployVerifierInstance.options.address
+    this.config.relayVerifierAddress = relayVerifierInstance.options.address
     this.config.relayHubAddress = rInstance.options.address
 
     return {
@@ -292,9 +310,11 @@ export default class CommandsLogic {
       penalizerAddress: pInstance.options.address,
       sWalletTemplateAddress: swtInstance.options.address,
       factoryAddress: pfInstance.options.address,
+      simpleSWalletTemplateAddress: simpleSwtInstance.options.address,
+      simpleFactoryAddress: simplePfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
-      naiveRelayPaymasterAddress: relayPaymasterAddress,
-      naiveDeployPaymasterAddress: deployPaymasterAddress
+      relayVerifierAddress: relayVerifierInstance.options.address,
+      deployVerifierAddress: deployVerifierInstance.options.address
     }
   }
 
@@ -326,15 +346,9 @@ export default class CommandsLogic {
     return contractInstance
   }
 
-  async deployPaymasters (options: Required<SendOptions>, relay: boolean, hub: Address, from: string, skipConfirmation: boolean | undefined): Promise<Contract> {
-    let pmInstance
-    if (relay) {
-      pmInstance = await this.getContractInstance(RelayPaymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
-    } else {
-      pmInstance = await this.getContractInstance(DeployPaymaster, {}, undefined, Object.assign({}, options), skipConfirmation)
-    }
-    await pmInstance.methods.setRelayHub(hub).send(options)
-    return pmInstance
+  async deployVerifier (options: Required<SendOptions>, skipConfirmation: boolean | undefined): Promise<Contract> {
+    const verifierInstance = await this.getContractInstance(DeployVerifier, {}, undefined, Object.assign({}, options), skipConfirmation)
+    return verifierInstance
   }
 
   async confirm (): Promise<void> {

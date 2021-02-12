@@ -13,6 +13,8 @@ import "./interfaces/IPenalizer.sol";
 contract Penalizer is IPenalizer{
 
     string public override versionPenalizer = "2.0.1+opengsn.penalizer.ipenalizer";
+    
+    mapping(bytes32 => bool) public penalizedTransactions;
 
     using ECDSA for bytes32;
 
@@ -54,8 +56,14 @@ contract Penalizer is IPenalizer{
         // If reported via a relay, the forfeited stake is split between
         // msg.sender (the relay used for reporting) and the address that reported it.
 
-        address addr1 = keccak256(abi.encodePacked(unsignedTx1)).recover(signature1);
-        address addr2 = keccak256(abi.encodePacked(unsignedTx2)).recover(signature2);
+        bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
+        bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
+
+        // check that transactions were not already penalized
+        require(!penalizedTransactions[txHash1] || !penalizedTransactions[txHash2], "Transactions already penalized");
+
+        address addr1 = txHash1.recover(signature1);
+        address addr2 = txHash2.recover(signature2);
 
         require(addr1 == addr2, "Different signer");
         require(RSKAddrValidator.checkPKNotZero(addr1), "ecrecover failed");
@@ -76,60 +84,9 @@ contract Penalizer is IPenalizer{
 
         require(keccak256(dataToCheck1) != keccak256(dataToCheck2), "tx is equal");
 
-        penalize(addr1, hub);
-    }
+        penalizedTransactions[txHash1] = true;
+        penalizedTransactions[txHash2] = true;
 
-    function penalizeIllegalTransaction(
-        bytes memory unsignedTx,
-        bytes memory signature,
-        IRelayHub hub
-    )
-    public
-    override
-    relayManagerOnly(hub)
-    {
-        Transaction memory decodedTx = decodeTransaction(unsignedTx);
-        if (decodedTx.to == address(hub)) {
-            bytes4 selector = GsnUtils.getMethodSig(decodedTx.data);
-            bool isWrongMethodCall = selector != IRelayHub.relayCall.selector;
-            bool isGasLimitWrong = GsnUtils.getParam(decodedTx.data, 4) != decodedTx.gasLimit;
-            require(
-                isWrongMethodCall || isGasLimitWrong,
-                "Legal relay transaction");
-        }
-        address relay = keccak256(abi.encodePacked(unsignedTx)).recover(signature);
-        require(RSKAddrValidator.checkPKNotZero(relay), "ecrecover failed");
-
-        penalize(relay, hub);
+        hub.penalize(addr1, msg.sender);
     }
-
-    function penalize(address relayWorker, IRelayHub hub) private {
-        hub.penalize(relayWorker, msg.sender);
-    }
-
-    // V1 ONLY: Support for destructable contracts
-    // For v1 deployment only to support kill, pause and unpause behavior
-    // This functionality is temporary and will be removed in v2
-    /*
-    address public contractOwner;
-
-    constructor() public {
-        contractOwner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Sender is not the owner");
-        _;
-    }
-    
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
-        contractOwner = newOwner;
-    }
-
-    function kill(address payable recipient) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
-        selfdestruct(recipient);
-    }
-    */
 }

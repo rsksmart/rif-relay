@@ -109,9 +109,13 @@ export class RelayProvider implements HttpProvider {
    * from:address => EOA of the Smart Wallet owner
    * to:address => Optional custom logic address
    * data:bytes => init params for the optional custom logic
-   * tokenRecipient:address => Account that gets paid for the deploy
    * tokenContract:address => Token used to pay for the deployment, can be address(0) if the deploy is subsidized
    * tokenAmount:IntString => Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
+   * tokenGas:IntString => Gas to be passed to the token transfer function. This was added because some ERC20 tokens (e.g, USDT) are unsafe, they use
+   * assert() instead of require(). An elaborated (and quite difficult in terms of timing) attack by a user could plan to deplete their token balance between the time
+   * the Relay Server makes the local relayCall to check the transaction passes and it actually submits it to the blockchain. In that scenario,
+   * when the SmartWallet tries to pay with the user's USDT tokens and the balance is 0, instead of reverting and reimbursing the unused gas, it would revert and spend all the gas,
+   * by adding tokeGas we prevent this attack, the gas reserved to actually execute the rest of the relay call is not lost but reimbursed to the relay worker/
    * factory:address => Address of the factory used to deploy the Smart Wallet
    * recoverer:address => Optional recoverer account/contract, can be address(0)
    * index:IntString => Numeric value used to generate several SW instances using the same paramaters defined above
@@ -122,8 +126,32 @@ export class RelayProvider implements HttpProvider {
    * @returns The transaction hash
    */
   async deploySmartWallet (gsnTransactionDetails: GsnTransactionDetails): Promise<string> {
-    if (gsnTransactionDetails.factory === undefined || gsnTransactionDetails.factory == null || gsnTransactionDetails.factory === constants.ZERO_ADDRESS) {
-      throw new Error('Invalid factory address')
+    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || gsnTransactionDetails.isSmartWalletDeploy === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, isSmartWalletDeploy: true }
+    }
+
+    if (!(gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
+      throw new Error('Request is not for SmartWallet deploy')
+    }
+
+    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    }
+
+    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
+    }
+
+    const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
+    const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+
+    if (tokenContract !== constants.ZERO_ADDRESS && tokenGas === '0') {
+      // There is a token payment involved
+      // The user expects the client to estimate the gas required for the token call
+      const swAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
+      if (swAddress === constants.ZERO_ADDRESS) {
+        throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
+      }
     }
 
     try {
@@ -171,6 +199,23 @@ export class RelayProvider implements HttpProvider {
     return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
   }
 
+  calculateSimpleSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+    const salt: string = web3.utils.soliditySha3(
+      { t: 'address', v: ownerEOA },
+      { t: 'address', v: recoverer },
+      { t: 'uint256', v: walletIndex }
+    ) ?? ''
+
+    const _data: string = web3.utils.soliditySha3(
+      { t: 'bytes1', v: '0xff' },
+      { t: 'address', v: factory },
+      { t: 'bytes32', v: salt },
+      { t: 'bytes32', v: bytecodeHash }
+    ) ?? ''
+
+    return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
+  }
+
   _ethGetTransactionReceipt (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
     this.origProviderSend(payload, (error: Error | null, rpcResponse?: JsonRpcResponse): void => {
@@ -194,7 +239,20 @@ export class RelayProvider implements HttpProvider {
 
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
-    const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
+    let gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
+
+    if (gsnTransactionDetails.callForwarder === undefined || gsnTransactionDetails.callForwarder === null || gsnTransactionDetails.callForwarder === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
+    }
+
+    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    }
+
+    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
+      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
+    }
+
     this.relayClient.relayTransaction(gsnTransactionDetails)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
@@ -223,34 +281,28 @@ export class RelayProvider implements HttpProvider {
     }
   }
 
+  // TODO: Seems not used anymore, double check and remove
   _getTranslatedGsnResponseResult (respResult: BaseTransactionReceipt): BaseTransactionReceipt {
     const fixedTransactionReceipt = Object.assign({}, respResult)
     if (respResult.logs === null || respResult.logs.length === 0) {
       return fixedTransactionReceipt
     }
     const logs = abiDecoder.decodeLogs(respResult.logs)
-    const paymasterRejectedEvents = logs.find((e: any) => e != null && e.name === 'TransactionRejectedByPaymaster')
+    const recipientRejectedEvents = logs.find((e: any) => e != null && e.name === 'TransactionRelayedButRevertedByRecipient')
 
-    if (paymasterRejectedEvents !== null && paymasterRejectedEvents !== undefined) {
-      const paymasterRejectionReason: { value: string } = paymasterRejectedEvents.events.find((e: any) => e.name === 'reason')
-      if (paymasterRejectionReason !== undefined) {
-        log.info(`Paymaster rejected on-chain: ${paymasterRejectionReason.value}. changing status to zero`)
+    if (recipientRejectedEvents !== undefined && recipientRejectedEvents !== null) {
+      const recipientRejectionReason: { value: string } = recipientRejectedEvents.events.find((e: any) => e.name === 'reason')
+      if (recipientRejectionReason !== undefined && recipientRejectionReason !== null) {
+        log.info(`Recipient rejected on-chain: ${recipientRejectionReason.value}. changing status to zero`)
         fixedTransactionReceipt.status = '0'
       }
       return fixedTransactionReceipt
     }
 
     const transactionRelayed = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
-    if (transactionRelayed != null) {
-      const transactionRelayedStatus = transactionRelayed.events.find((e: any) => e.name === 'status')
-      if (transactionRelayedStatus !== undefined) {
-        const status: string = transactionRelayedStatus.value.toString()
-        // 0 signifies success
-        if (status !== '0') {
-          log.info(`reverted relayed transaction, status code ${status}. changing status to zero`)
-          fixedTransactionReceipt.status = '0'
-        }
-      }
+    if (transactionRelayed === undefined || transactionRelayed === null) {
+      log.info('reverted relayed transaction. changing status to zero')
+      fixedTransactionReceipt.status = '0'
     }
     return fixedTransactionReceipt
   }
@@ -303,7 +355,7 @@ export class RelayProvider implements HttpProvider {
     let p: JsonRpcPayload = payload
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('paymaster')) {
+    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('callVerifier')) {
       // Deep copy the payload to safely remove the useGSN property
       p = JSON.parse(JSON.stringify(payload))
 
@@ -313,8 +365,8 @@ export class RelayProvider implements HttpProvider {
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (payload.params[0]?.hasOwnProperty('paymaster')) {
-        delete p.params[0].paymaster
+      if (payload.params[0]?.hasOwnProperty('callVerifier')) {
+        delete p.params[0].callVerifier
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
@@ -323,8 +375,18 @@ export class RelayProvider implements HttpProvider {
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (payload.params[0]?.hasOwnProperty('factory')) {
-        delete p.params[0].factory
+      if (payload.params[0]?.hasOwnProperty('callForwarder')) {
+        delete p.params[0].callForwarder
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('isSmartWalletDeploy')) {
+        delete p.params[0].isSmartWalletDeploy
+      }
+
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (payload.params[0]?.hasOwnProperty('onlyPreferredRelays')) {
+        delete p.params[0].onlyPreferredRelays
       }
     }
 

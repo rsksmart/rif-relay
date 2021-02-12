@@ -3,8 +3,7 @@ pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "./IForwarder.sol";
+import "../interfaces/IForwarder.sol";
 import "../utils/RSKAddrValidator.sol";
 
 /* solhint-disable no-inline-assembly */
@@ -16,29 +15,26 @@ contract SmartWallet is IForwarder {
     bytes32 public currentVersionHash;
     uint256 public override nonce;
     
-    //event GasUsed(uint256 place, uint256 gasUsed);
-
 
     /**It will only work if called through Enveloping */
-    function setVersion(bytes32 versionHash) external {
+    function setVersion(bytes32 versionHash) public {
        
         require(
-            getOwner() == keccak256(abi.encodePacked(msg.sender)),
-            "Not the owner of the SmartWallet"
+            address(this) == msg.sender,
+            "Caller must be the SmartWallet"
         );        
         
         currentVersionHash = versionHash;
     }
 
     function verify(
-        ForwardRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest memory req,
         bytes calldata sig
     ) external override view {
 
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
+        _verifySig(domainSeparator, suffixData, req, sig);
     }
 
     function getOwner() private view returns (bytes32 owner){
@@ -49,43 +45,20 @@ contract SmartWallet is IForwarder {
         }
     }
     
-    //TODO ADD a much simpler execute, intended to be called by the owner 
-    //msg.sender MUST be the smart wallet owner
-    //No signature is needed, only the data to call the final contract
-    
-    function execute(
-        ForwardRequest memory req,
-        bytes32 domainSeparator,
-        bytes32 requestTypeHash,
-        bytes32 suffixData,
-        bytes calldata sig
-    )
-        external
-        override
-        payable
-        returns (
+
+    function directExecute(address to, bytes calldata data) external override payable returns (
             bool success,
-            uint256 lastTxSucc,
             bytes memory ret  
         )
     {
 
-        _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-        nonce++;
-
-        (success, ret) = req.tokenContract.call(
-            abi.encodeWithSelector(
-                IERC20.transfer.selector,
-                req.tokenRecipient,
-                req.tokenAmount
-            )
+        //Verify Owner
+        require(
+            getOwner() == keccak256(abi.encodePacked(msg.sender)),
+            "Not the owner of the SmartWallet"
         );
 
-        if (!success) {
-            return (success, 0, ret);
-        }
-
-        bytes32 logicStrg;
+       bytes32 logicStrg;
         assembly {
             logicStrg := sload(
                 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
@@ -94,7 +67,7 @@ contract SmartWallet is IForwarder {
 
         // If there's no extra logic, then call the destination contract
         if (logicStrg == bytes32(0)) {
-            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
+            (success, ret) = to.call{value: msg.value}(data);
         } else {
             //If there's extra logic, delegate the execution
             (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
@@ -103,14 +76,71 @@ contract SmartWallet is IForwarder {
         //If any balance has been added then trasfer it to the owner EOA
         if (address(this).balance > 0) {
             //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(req.from).transfer(address(this).balance);
+            payable(msg.sender).transfer(address(this).balance);
+        }
+   
+    }
+    
+    function execute(
+        bytes32 domainSeparator,
+        bytes32 suffixData,
+        ForwardRequest memory req,
+        bytes calldata sig
+    )
+        external
+        override
+        payable
+        returns (
+            bool success,
+            bytes memory ret  
+        )
+    {
+
+        (sig);
+        require(msg.sender == req.relayHub, "Invalid caller");
+
+        _verifySig(domainSeparator, suffixData, req, sig);
+        nonce++;
+
+        if(req.tokenContract != address(0)){
+            /* solhint-disable avoid-tx-origin */
+            (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
+                abi.encodeWithSelector(
+                    hex"a9059cbb", 
+                    tx.origin,
+                    req.tokenAmount
+                )
+            );
+
+            require(
+                success && (ret.length == 0 || abi.decode(ret, (bool))),
+                "Unable to pay for relay"
+            );
         }
 
-        if (!success) {
-            return (success, 1, ret);
-        }
 
-        return (success, 2, ret);
+            bytes32 logicStrg;
+            assembly {
+                logicStrg := sload(
+                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc
+                )
+            }
+
+            // If there's no extra logic, then call the destination contract
+            if (logicStrg == bytes32(0)) {
+                (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
+            } else {
+                //If there's extra logic, delegate the execution
+                (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
+            }
+     
+            //If any balance has been added then trasfer it to the owner EOA
+            uint256 balanceToTransfer = address(this).balance;
+            if ( balanceToTransfer > 0) {
+                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
+                payable(req.from).transfer(balanceToTransfer);
+            }
+  
     }
 
    
@@ -122,10 +152,9 @@ contract SmartWallet is IForwarder {
     }
 
     function _verifySig(
-        ForwardRequest memory req,
         bytes32 domainSeparator,
-        bytes32 requestTypeHash,
         bytes32 suffixData,
+        ForwardRequest memory req,
         bytes memory sig
     ) private view {
 
@@ -137,12 +166,6 @@ contract SmartWallet is IForwarder {
 
         //Verify nonce
         require(nonce == req.nonce, "nonce mismatch");
-
-
-        require(//REQUEST_TYPE_HASH
-            keccak256("RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)") == requestTypeHash,
-            "Invalid request typehash"
-        );
 
         require(
             keccak256(abi.encode(
@@ -159,32 +182,29 @@ contract SmartWallet is IForwarder {
                 keccak256(abi.encodePacked(
                     "\x19\x01",
                     domainSeparator,
-                    keccak256(_getEncoded(req, requestTypeHash, suffixData)))
+                    keccak256(_getEncoded(suffixData, req)))
                 ).recover(sig), req.from), "signature mismatch"
         );
     }
 
     function _getEncoded(
-        ForwardRequest memory req,
-        bytes32 requestTypeHash,
-        bytes32 suffixData
-    ) public pure returns (bytes memory) {
+        bytes32 suffixData,
+        ForwardRequest memory req
+    ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
-                requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
                 abi.encode(
+                    req.relayHub,
                     req.from,
                     req.to,
+                    req.tokenContract,
                     req.value,
                     req.gas,
                     req.nonce,
-                    keccak256(req.data),
-                    req.tokenRecipient,
-                    req.tokenContract,
                     req.tokenAmount,
-                    req.factory,
-                    req.recoverer,
-                    req.index
+                    req.tokenGas,
+                    keccak256(req.data)
                 ),
                 suffixData
             );
@@ -216,71 +236,68 @@ contract SmartWallet is IForwarder {
         address owner,
         address logic,
         address tokenAddr,
+        uint256 tokenGas,
         bytes32 versionHash,
         bytes memory initParams,
         bytes memory transferData
     ) external {
 
-            require (getOwner() == bytes32(0), "Already initialized");
+        require(getOwner() == bytes32(0), "already initialized");
 
-            //Done before any external call to avoid re-entrancy attacks
-            //Set this instance as initialized, by
-            //storing the logic address
-            //Set the owner of this Smart Wallet
-            //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
-            bytes32 ownerCell = keccak256(abi.encodePacked(owner));
+        //To avoid re-entrancy attacks by external contracts, the first thing we do is set
+        //the variable that controls "is initialized"
+        //We set this instance as initialized, by
+        //storing the logic address
+        //Set the owner of this Smart Wallet
+        //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+        bytes32 ownerCell = keccak256(abi.encodePacked(owner));
+
+        assembly {
+            sstore(
+                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                ownerCell
+            )
+        }
+
+        //we need to initialize the contract
+        if (tokenAddr != address(0)) {
+            (bool success, bytes memory ret ) = tokenAddr.call{gas:tokenGas}(transferData);
+            require(
+            success && (ret.length == 0 || abi.decode(ret, (bool))),
+            "Unable to pay for deployment");
+        }
+
+        currentVersionHash = versionHash;
+
+        //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
+        //the initialize function can only be called once)
+        if (logic != address(0) ) {
+
+            //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
+            (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
+                hex"439fab91",
+                initParams
+            ));
+
+            require(
+                success,
+                "initialize call in logic failed"
+            );
+
+            bytes memory logicCell = abi.encodePacked(logic);
 
             assembly {
+                //The slot used complies with EIP-1967, obtained as:
+                //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
                 sstore(
-                    0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
-                    ownerCell
+                    0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
+                    logicCell
                 )
             }
-
-            //we need to initialize the contract
-            if (tokenAddr != address(0)) {
-                (bool success, ) = tokenAddr.call(transferData);
-                require(success, "Unable to pay for deployment");
-            }
-
-            currentVersionHash = versionHash;
-
-            //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
-            //the initialize function can only be called once)
-            if ( logic!= address(0) ) {
-
-                //Initialize function of custom wallet logic must be initialize(bytes) = 439fab91
-                (bool success, ) = logic.delegatecall(abi.encodeWithSelector(
-                    hex"439fab91",
-                    initParams
-                ));
-
-                require(
-                    success,
-                    "initialize call in logic failed"
-                );
-
-                bytes memory logicCell = abi.encodePacked(logic);
-
-                assembly {
-                    //The slot used complies with EIP-1967, obtained as:
-                    //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
-                    sstore(
-                        0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                        logicCell
-                    )
-                }
-            }
-
+        }
+       
     }
 
-    /**
-     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
-     * function in the contract matches the call data.
-     */
-    fallback() external payable {
-        _fallback();
-    }
 
     function _fallback() private {
         //Proxy code to the logic (if any)
@@ -292,7 +309,7 @@ contract SmartWallet is IForwarder {
             )
         }
 
-        if (logicStrg != bytes32(0)  ) {
+        if (bytes32(0) != logicStrg) {
             //If the storage cell is not empty
             
             address logic = address(uint160(uint256(logicStrg)));
@@ -333,7 +350,15 @@ contract SmartWallet is IForwarder {
      * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if call data
      * is empty.
      */
-    receive() payable external  {
+    receive() payable external {
+        _fallback();
+    }
+
+    /**
+     * @dev Fallback function that delegates calls to the address returned by `_implementation()`. Will run if no other
+     * function in the contract matches the call data.
+     */
+    fallback() payable external  {
         _fallback();
     }
 }

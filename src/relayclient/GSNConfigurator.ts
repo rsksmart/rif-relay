@@ -13,16 +13,17 @@ import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { Address, AsyncDataCallback, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
 import { EmptyDataCallback, GasPricePingFilter } from './RelayClient'
 
-const GAS_PRICE_PERCENT = 20
+const GAS_PRICE_PERCENT = 0 //
 const MAX_RELAY_NONCE_GAP = 3
 const DEFAULT_RELAY_TIMEOUT_GRACE_SEC = 1800
 const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
 
 const defaultGsnConfig: GSNConfig = {
   preferredRelays: [],
+  onlyPreferredRelays: false,
   relayLookupWindowBlocks: DEFAULT_LOOKUP_WINDOW_BLOCKS,
   gasPriceFactorPercent: GAS_PRICE_PERCENT,
-  minGasPrice: 0,
+  minGasPrice: 1e09,
   maxRelayNonceGap: MAX_RELAY_NONCE_GAP,
   sliceSize: 3,
   relayTimeoutGrace: DEFAULT_RELAY_TIMEOUT_GRACE_SEC,
@@ -30,8 +31,8 @@ const defaultGsnConfig: GSNConfig = {
   jsonStringifyRequest: false,
   chainId: defaultEnvironment.chainId,
   relayHubAddress: constants.ZERO_ADDRESS,
-  relayPaymasterAddress: constants.ZERO_ADDRESS,
-  deployPaymasterAddress: constants.ZERO_ADDRESS,
+  deployVerifierAddress: constants.ZERO_ADDRESS,
+  relayVerifierAddress: constants.ZERO_ADDRESS,
   forwarderAddress: constants.ZERO_ADDRESS,
   logLevel: 0,
   clientId: '1'
@@ -47,7 +48,7 @@ export function configureGSN (partialConfig: Partial<GSNConfig>): GSNConfig {
 }
 
 /**
- * Same as {@link configureGSN} but also resolves the GSN deployment from Paymaster
+ * Same as {@link configureGSN} but also resolves the GSN deployment from Verifier
  * @param provider - web3 provider needed to query blockchain
  * @param partialConfig
  */
@@ -60,31 +61,14 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
   if (partialConfig.relayHubAddress != null) {
     throw new Error('Resolve cannot override passed values')
   }
-  if (partialConfig.relayPaymasterAddress == null) {
-    throw new Error('Cannot resolve GSN deployment without relayer paymaster address')
-  }
-
-  if (partialConfig.deployPaymasterAddress == null) {
-    throw new Error('Cannot resolve GSN deployment without deploy paymaster address')
-  }
 
   const contractInteractor = new ContractInteractor(provider, defaultGsnConfig)
-  const paymasterInstance = await contractInteractor._createPaymaster(partialConfig.relayPaymasterAddress)
-  const deployPaymasterInstance = await contractInteractor._createPaymaster(partialConfig.deployPaymasterAddress)
 
   const [
-    chainId, relayHubAddress, forwarderAddress
+    chainId, forwarderAddress
   ] = await Promise.all([
-
     partialConfig.chainId ?? contractInteractor.getAsyncChainId(),
-    paymasterInstance.getHubAddr().catch(e => { throw new Error('Not a paymaster contract') }),
-    deployPaymasterInstance.getHubAddr().catch(e => { throw new Error('Not a deploy paymaster contract') }),
-
-    partialConfig.forwarderAddress ?? '',
-    paymasterInstance.versionPaymaster().catch((e: any) => { throw new Error('Not a paymaster contract') }).then((version: string) => contractInteractor._validateVersion(version))
-      .catch(err => console.log('WARNING: beta ignore version compatibility', err)),
-    deployPaymasterInstance.versionPaymaster().catch((e: any) => { throw new Error('Not a deploy paymaster contract') }).then((version: string) => contractInteractor._validateVersion(version))
-      .catch(err => console.log('WARNING: beta ignore version compatibility', err))
+    partialConfig.forwarderAddress ?? ''
   ])
 
   const isMetamask: boolean = (provider as any).isMetaMask
@@ -94,7 +78,6 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
   const jsonStringifyRequest = partialConfig.jsonStringifyRequest ?? (isMetamask ? true : defaultGsnConfig.jsonStringifyRequest)
 
   const resolvedConfig = {
-    relayHubAddress,
     forwarderAddress,
     chainId,
     methodSuffix,
@@ -113,6 +96,7 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
  */
 export interface GSNConfig {
   preferredRelays: string[]
+  onlyPreferredRelays: boolean
   relayLookupWindowBlocks: number
   methodSuffix: string
   jsonStringifyRequest: boolean
@@ -123,8 +107,8 @@ export interface GSNConfig {
   minGasPrice: number
   maxRelayNonceGap: number
   relayHubAddress: Address
-  relayPaymasterAddress: Address
-  deployPaymasterAddress: Address
+  deployVerifierAddress: Address
+  relayVerifierAddress: Address
   forwarderAddress: Address
   chainId: number
   clientId: IntString
@@ -139,7 +123,7 @@ export interface GSNDependencies {
   pingFilter: PingFilter
   relayFilter: RelayFilter
   asyncApprovalData: AsyncDataCallback
-  asyncPaymasterData: AsyncDataCallback
+  asyncVerifierData: AsyncDataCallback
   scoreCalculator: AsyncScoreCalculator
   config: GSNConfig
 }
@@ -167,7 +151,7 @@ export function getDependencies (config: GSNConfig, provider?: HttpProvider, ove
   const pingFilter = overrideDependencies?.pingFilter ?? GasPricePingFilter
   const relayFilter = overrideDependencies?.relayFilter ?? EmptyFilter
   const asyncApprovalData = overrideDependencies?.asyncApprovalData ?? EmptyDataCallback
-  const asyncPaymasterData = overrideDependencies?.asyncPaymasterData ?? EmptyDataCallback
+  const asyncVerifierData = overrideDependencies?.asyncVerifierData ?? EmptyDataCallback
   const scoreCalculator = overrideDependencies?.scoreCalculator ?? DefaultRelayScore
   const knownRelaysManager = overrideDependencies?.knownRelaysManager ?? new KnownRelaysManager(contractInteractor, config, relayFilter)
   const transactionValidator = overrideDependencies?.transactionValidator ?? new RelayedTransactionValidator(contractInteractor, config)
@@ -181,7 +165,7 @@ export function getDependencies (config: GSNConfig, provider?: HttpProvider, ove
     pingFilter,
     relayFilter,
     asyncApprovalData,
-    asyncPaymasterData,
+    asyncVerifierData,
     scoreCalculator,
     config
   }

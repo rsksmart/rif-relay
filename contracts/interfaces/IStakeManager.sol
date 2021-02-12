@@ -85,6 +85,10 @@ interface IStakeManager {
     view
     returns (bool);
 
+        function requireManagerStaked(address relayManager, uint256 minAmount, uint256 minUnstakeDelay)
+    external
+    view;
+
     /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.
     /// @param relayManager - entry to penalize
     /// @param beneficiary - address that receives half of the penalty amount
@@ -94,4 +98,7 @@ interface IStakeManager {
     function getStakeInfo(address relayManager) external view returns (StakeInfo memory stakeInfo);
 
     function versionSM() external view returns (string memory);
+
+    //For initial stakes, this is the minimum stake value allowed for taking ownership of this address' stake
+    function minimumEntryDepositValue() external view returns (uint256);
 }

@@ -13,12 +13,9 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "./utils/GsnEip712Library.sol";
 import "./interfaces/GsnTypes.sol";
 import "./interfaces/IRelayHub.sol";
-import "./interfaces/IPaymaster.sol";
-import "./forwarder/IForwarder.sol";
+import "./interfaces/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
-    //TODO Enveloping
-    //If req.token != address(0) then do not use the balances at all
-    //If req.token == 0, then the relayHub will pay the worker with balance
+ 
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
@@ -26,27 +23,21 @@ contract RelayHub is IRelayHub {
     uint256 public override minimumUnstakeDelay;
     uint256 public override maximumRecipientDeposit;
     uint256 public override gasOverhead;
-    uint256 public override postOverhead;
-    uint256 public override gasReserve;
     uint256 public override maxWorkerCount;
     address override public penalizer;
-    IStakeManager override public stakeManager;
+    address override public stakeManager;
     string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
 
     // maps relay worker's address to its manager's address
-    mapping(address => address) public override workerToManager;
+    mapping(address => bytes32) public override workerToManager;
 
     // maps relay managers to the number of their workers
     mapping(address => uint256) public override workerCount;
 
-    mapping(address => uint256) private balances;
-
     constructor (
-        IStakeManager _stakeManager,
+        address _stakeManager,
         address _penalizer,
         uint256 _maxWorkerCount,
-        uint256 _gasReserve,
-        uint256 _postOverhead,
         uint256 _gasOverhead,
         uint256 _maximumRecipientDeposit,
         uint256 _minimumUnstakeDelay,
@@ -55,356 +46,173 @@ contract RelayHub is IRelayHub {
         stakeManager = _stakeManager;
         penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
-        gasReserve = _gasReserve;
-        postOverhead = _postOverhead;
         gasOverhead = _gasOverhead;
         maximumRecipientDeposit = _maximumRecipientDeposit;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake =  _minimumStake;
-
-        // V1 ONLY: to support kill, pause and unpause behavior
-        /* contractOwner = msg.sender; */
     }
 
-    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override /* whenNotPaused */ {
-        address relayManager = msg.sender;
-        require(
-            isRelayManagerStaked(relayManager),
-            "relay manager not staked"
-        );
-        require(workerCount[relayManager] > 0, "no relay workers");
-        emit RelayServerRegistered(relayManager, baseRelayFee, pctRelayFee, url);
+    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
+        //relay manager is msg.sender
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                msg.sender,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+
+        require(workerCount[msg.sender] > 0, "no relay workers");
+        emit RelayServerRegistered(msg.sender, baseRelayFee, pctRelayFee, url);
     }
 
-    function addRelayWorkers(address[] calldata newRelayWorkers) external override /* whenNotPaused */ {
+
+    function disableRelayWorkers(address[] calldata relayWorkers) external override {
+        //relay manager is msg.sender
+        uint256 actualWorkerCount = workerCount[msg.sender];
+        require(actualWorkerCount >= relayWorkers.length, "invalid quantity of workers");
+        workerCount[msg.sender] = actualWorkerCount - relayWorkers.length;
+        
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                msg.sender,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+
+
+        bytes32 enabledWorker = bytes32(uint256(msg.sender) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
+        bytes32 disabledWorker = bytes32(uint256(msg.sender) << 4);
+        
+        for (uint256 i = 0; i < relayWorkers.length; i++) {
+            //The relay manager can only disable its relay workers and only if they are enabled (right-most nibble as 1)
+            require(workerToManager[relayWorkers[i]] == enabledWorker, "Incorrect Manager");
+            //Disabling a worker means putting the right-most nibble to 0
+            workerToManager[relayWorkers[i]] = disabledWorker;
+        }
+
+        emit RelayWorkersDisabled(msg.sender, relayWorkers, workerCount[msg.sender]);
+    }
+
+    /**
+    New relay worker addresses can be added (as enabled workers) as long as they don't have a relay manager aldeady assigned.
+     */
+    function addRelayWorkers(address[] calldata newRelayWorkers) external override {
         address relayManager = msg.sender;
         workerCount[relayManager] = workerCount[relayManager] + newRelayWorkers.length;
         require(workerCount[relayManager] <= maxWorkerCount, "too many workers");
 
-        require(
-            isRelayManagerStaked(relayManager),
-            "relay manager not staked"
-        );
+        //Check if Relay Manager is staked
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                relayManager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
 
+        bytes32 enabledWorker = bytes32(uint256(relayManager) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
         for (uint256 i = 0; i < newRelayWorkers.length; i++) {
-            require(workerToManager[newRelayWorkers[i]] == address(0), "this worker has a manager");
-            workerToManager[newRelayWorkers[i]] = relayManager;
+            require(workerToManager[newRelayWorkers[i]] == bytes32(0), "this worker has a manager");
+            workerToManager[newRelayWorkers[i]] = enabledWorker;
         }
 
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
     }
 
-    function depositFor(address target) public override payable /* whenNotPaused */ {
-        uint256 amount = msg.value;
-        // V1 ONLY: comment out next line
-        require(amount <= maximumRecipientDeposit, "deposit too big");
-
-        balances[target] = balances[target].add(amount);
-
-        // V1 ONLY: next line is needed for limiting deposits. Limits will be removed in v2 
-        // require(balances[target] <= maximumRecipientDeposit, "deposit too big");
-
-        emit Deposited(target, msg.sender, amount);
-    }
-
-    function balanceOf(address target) external override view returns (uint256) {
-        return balances[target];
-    }
-
-    function withdraw(uint256 amount, address payable dest) public override {
-        address payable account = msg.sender;
-        require(balances[account] >= amount, "insufficient funds");
-
-        balances[account] = balances[account].sub(amount);
-        dest.transfer(amount);
-
-        emit Withdrawn(account, dest, amount);
-    }
-
-    function verifyGasLimits(
-        uint256 paymasterMaxAcceptanceBudget,
-        GsnTypes.RelayRequest calldata relayRequest,
-        uint256 initialGas
-    )
-    private
-    view
-    returns (IPaymaster.GasLimits memory gasLimits, uint256 maxPossibleGas) {
-        gasLimits =
-            IPaymaster(relayRequest.relayData.paymaster).getGasLimits{gas:50000}();
-
-        require(paymasterMaxAcceptanceBudget >= gasLimits.acceptanceBudget, "unexpected high acceptanceBudget");
-
-        maxPossibleGas =
-            gasOverhead.add(
-            gasLimits.preRelayedCallGasLimit).add(
-            gasLimits.postRelayedCallGasLimit).add(
-            relayRequest.request.gas);
-        /**
-        NOTE on gasOverhead, which is a hardcoded value
-        In forwarder.execute, the gas of lines 1,2,3, and 5:
-
-           1) _verifyNonce(req);
-           2) _verifySig(req, domainSeparator, requestTypeHash, suffixData, sig);
-           3) _updateNonce(req);
-            
-           4)(success,ret) = req.to.call{gas : req.gas, value : req.value}(abi.encodePacked(req.data, req.from));
-
-           5) if ( address(this).balance>0 ) {
-                payable(req.from).transfer(address(this).balance);
-            }
-
-        Should already be included in gasOverhead because relayRequest.request.gas is only for line 4
-        We need to check this, if that's the case, then for deploy calls (req.factory!=0) we need
-        to substract to the gasOverhead, the gas of lines 1,2,3,and 5 (we can calculate it and put it
-        as another constant), because the relayRequest.request.gas estimate for deploy calls includes the
-        estimation of calling the whole function
-         */
-
-        // This transaction must have enough gas to forward the call to the recipient with the requested amount, and not
-        // run out of gas later in this function.
-        require(
-            initialGas >= maxPossibleGas,
-            "Not enough gas left");
-
-        uint256 maxPossibleCharge = calculateCharge(
-            maxPossibleGas,
-            relayRequest.relayData
-        );
-
-        // We don't yet know how much gas will be used by the recipient, so we make sure there are enough funds to pay
-        // for the maximum possible charge.
-        require(maxPossibleCharge <= balances[relayRequest.relayData.paymaster],
-            "Paymaster balance too low");
-    }
-
-    struct RelayCallData {
-        bool success;
-        bytes4 functionSelector;
-        bytes recipientContext;
-        bytes relayedCallReturnValue;
-        IPaymaster.GasLimits gasLimits;
-        RelayCallStatus status;
-        uint256 innerGasUsed;
-        uint256 maxPossibleGas;
-        uint256 gasBeforeInner;
-        bytes retData;
-    }
-
-    function relayCall(
-        uint paymasterMaxAcceptanceBudget,
-        GsnTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint externalGasLimit
-    )
+ function deployCall(
+        GsnTypes.DeployRequest calldata deployRequest,
+        bytes calldata signature    )
     external
-    override /* whenNotPaused */
-    returns (bool paymasterAccepted, bytes memory returnValue)
+    override
     {
         (signature);
-        RelayCallData memory vars;
+        
+        bytes32 managerEntry = workerToManager[msg.sender];
+
+        //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
+        require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
+        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+
+        address manager = address(uint160(uint256(managerEntry >> 4)));
+
+        require(gasleft() >= gasOverhead.add(deployRequest.request.gas), "Not enough gas left");
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
-        require(workerToManager[msg.sender] != address(0), "Unknown relay worker");
-        require(relayRequest.relayData.relayWorker == msg.sender, "Not a right worker");
-        require(
-            isRelayManagerStaked(workerToManager[msg.sender]),
-            "relay manager not staked"
-        );
-        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
-        require(externalGasLimit <= block.gaslimit, "Impossible gas limit");
+        require(msg.sender == deployRequest.relayData.relayWorker, "Not a right worker");
 
-        //In SmartWallet deploys (factory!=0) the data attribute is used for initialization params of extra logic contract, 
-        //this extra logic contract is defined in the "to" parameter
-        if(address(0) == relayRequest.request.factory){
-            vars.functionSelector = MinLibBytes.readBytes4(relayRequest.request.data, 0);
-        }
-        (vars.gasLimits, vars.maxPossibleGas) =
-             verifyGasLimits(paymasterMaxAcceptanceBudget, relayRequest, externalGasLimit);
-
-    {
-
-        //How much gas to pass down to innerRelayCall. must be lower than the default 63/64
-        // actually, min(gasleft*63/64, gasleft-GAS_RESERVE) might be enough.
-        uint256 innerGasLimit = gasleft()-gasReserve;
-        vars.gasBeforeInner = gasleft();
-
-        uint256 _tmpInitialGas = innerGasLimit + externalGasLimit + gasOverhead + postOverhead;
-        // Calls to the recipient are performed atomically inside an inner transaction which may revert in case of
-        // errors in the recipient. In either case (revert or regular execution) the return data encodes the
-        // RelayCallStatus value.
-        (bool success, bytes memory relayCallStatus) = address(this).call{gas:innerGasLimit}(
-            abi.encodeWithSelector(RelayHub.innerRelayCall.selector, relayRequest, signature, approvalData, vars.gasLimits,
-                _tmpInitialGas - gasleft(),
-                vars.maxPossibleGas
-                )
-        );
-        vars.success = success;
-        vars.innerGasUsed = vars.gasBeforeInner-gasleft();
-        (vars.status, vars.relayedCallReturnValue) = abi.decode(relayCallStatus, (RelayCallStatus, bytes));
-        if ( vars.relayedCallReturnValue.length>0 ) {
-            emit TransactionResult(vars.status, vars.relayedCallReturnValue);
-        }
-    }
-    {
-        if (!vars.success) {
-            //Failure cases where the PM doesn't pay
-            if ( (vars.innerGasUsed < vars.gasLimits.acceptanceBudget ) && (
-                    vars.status == RelayCallStatus.RejectedByPreRelayed ||
-                    vars.status == RelayCallStatus.RejectedByForwarder ||
-                    vars.status == RelayCallStatus.RejectedByRecipientRevert  //can only be thrown if rejectOnRecipientRevert==true
-            )) {
-                paymasterAccepted=false;
-
-                emit TransactionRejectedByPaymaster(
-                    workerToManager[msg.sender],
-                    relayRequest.relayData.paymaster,
-                    relayRequest.request.from,
-                    relayRequest.request.to,
-                    msg.sender,
-                    vars.functionSelector,
-                    vars.innerGasUsed,
-                    vars.relayedCallReturnValue);
-                return (false, vars.relayedCallReturnValue);
+         /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                manager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+        require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+      
+        
+        bool deploySuccess = GsnEip712Library.deploy(deployRequest, signature);          
+        
+        if ( !deploySuccess ) {
+            assembly {
+                revert(0, 0)
             }
         }
-        // We now perform the actual charge calculation, based on the measured gas used
-        //externalGasLimit is the maxPossibleGas set by the Relay Server
-        //in the case of dep
-        //uint256 gasUsed = (externalGasLimit - gasleft()) + gasOverhead;
-        uint256 charge = calculateCharge((externalGasLimit - gasleft()) + gasOverhead, relayRequest.relayData);
-
-        balances[relayRequest.relayData.paymaster] = balances[relayRequest.relayData.paymaster].sub(charge);
-        balances[workerToManager[msg.sender]] = balances[workerToManager[msg.sender]].add(charge);
-
-        emit TransactionRelayed(
-            workerToManager[msg.sender],
-            msg.sender,
-            relayRequest.request.from,
-            relayRequest.request.to,
-            relayRequest.relayData.paymaster,
-            vars.functionSelector,
-            vars.status,
-            charge);
-        return (true, "");
-    }
     }
 
-    struct InnerRelayCallData {
-        uint256 balanceBefore;
-        bytes32 preReturnValue;
-        bool relayedCallSuccess;
-        bytes relayedCallReturnValue;
-        bytes recipientContext;
-        bytes data;
-        bool rejectOnRecipientRevert;
-    }
 
-    function innerRelayCall(
+
+    function relayCall(
         GsnTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        IPaymaster.GasLimits calldata gasLimits,
-        uint256 totalInitialGas,
-        uint256 maxPossibleGas
-    )
-    external /* whenNotPaused */
-    returns (RelayCallStatus, bytes memory)
+        bytes calldata signature) 
+    external override
     {
-        InnerRelayCallData memory vars;
-        // A new gas measurement is performed inside innerRelayCall, since
-        // due to EIP150 available gas amounts cannot be directly compared across external calls
+        (signature);
+        
+        require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
+        require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
+        require(msg.sender == relayRequest.relayData.relayWorker, "Not a right worker");
+        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
 
-        // This external function can only be called by RelayHub itself, creating an internal transaction. Calls to the
-        // recipient (preRelayedCall, the relayedCall, and postRelayedCall) are called from inside this transaction.
-        require(msg.sender == address(this), "Caller is not the RelayHub");
+        bytes32 managerEntry = workerToManager[msg.sender];
+        //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
+         require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
+        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
 
-        // If either pre or post reverts, the whole internal transaction will be reverted, reverting all side effects on
-        // the recipient. The recipient will still be charged for the used gas by the relay.
+        address manager = address(uint160(uint256(managerEntry >> 4)));
 
-        // The recipient is no allowed to withdraw balance from RelayHub during a relayed transaction. We check pre and
-        // post state to ensure this doesn't happen.
-        vars.balanceBefore = balances[relayRequest.relayData.paymaster];
-
-        // First preRelayedCall is executed.
-        // Note: we open a new block to avoid growing the stack too much.
-        vars.data = abi.encodeWithSelector(
-            IPaymaster.preRelayedCall.selector,
-                relayRequest, signature, approvalData, maxPossibleGas
-        );
-        {
-            bool success;
-            bytes memory retData;
-            (success, retData) = relayRequest.relayData.paymaster.call{gas:gasLimits.preRelayedCallGasLimit}(vars.data);
-            if (!success) {
-                GsnEip712Library.truncateInPlace(retData);
-                revertWithStatus(RelayCallStatus.RejectedByPreRelayed, retData);
-            }
-            (vars.recipientContext, vars.rejectOnRecipientRevert) = abi.decode(retData, (bytes,bool));
-        }
-
-        // The actual relayed call is now executed. The sender's address is appended at the end of the transaction data
-
-        {
-            bool forwarderSuccess;
-            uint256 lastSuccTrx;
-            (forwarderSuccess, vars.relayedCallSuccess,lastSuccTrx, vars.relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
-            if ( !forwarderSuccess ) {
-                revertWithStatus(RelayCallStatus.RejectedByForwarder, vars.relayedCallReturnValue);
-            }
-
-            if (vars.rejectOnRecipientRevert && !vars.relayedCallSuccess) {
-                //we trusted the recipient, but it reverted...
-                revertWithStatus(RelayCallStatus.RejectedByRecipientRevert, vars.relayedCallReturnValue);
+         /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(hex"fe716339",   //fe716339  =>  requireManagerStaked(address,uint256,uint256)
+                manager,minimumStake,minimumUnstakeDelay));
+        require(succ, "relay manager not staked" );
+      
+        bool forwarderSuccess;
+        bytes memory relayedCallReturnValue;
+        //use succ as relay call success variable
+        (forwarderSuccess, succ, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
+        
+        if ( !forwarderSuccess ) {
+            assembly {
+                revert(add(relayedCallReturnValue, 32), mload(relayedCallReturnValue))
             }
         }
-        // Finally, postRelayedCall is executed, with the relayedCall execution's status and a charge estimate
-        // We now determine how much the recipient will be charged, to pass this value to postRelayedCall for accurate
-        // accounting.
-        vars.data = abi.encodeWithSelector(
-            IPaymaster.postRelayedCall.selector,
-            vars.recipientContext,
-            vars.relayedCallSuccess,
-            totalInitialGas - gasleft(), /*gasUseWithoutPost*/
-            relayRequest.relayData
-        );
-
-        {
-        (bool successPost,bytes memory ret) = relayRequest.relayData.paymaster.call{gas:gasLimits.postRelayedCallGasLimit}(vars.data);
-
-        if (!successPost) {
-            revertWithStatus(RelayCallStatus.PostRelayedFailed, ret);
+       
+       if (succ) {
+                emit TransactionRelayed(
+                    manager,
+                    msg.sender,
+                    keccak256(signature),
+                    relayedCallReturnValue
+                );
         }
-        }
+        else{
 
-        if (balances[relayRequest.relayData.paymaster] < vars.balanceBefore) {
-            revertWithStatus(RelayCallStatus.PaymasterBalanceChanged, "");
-        }
-
-        return (vars.relayedCallSuccess ? RelayCallStatus.OK : RelayCallStatus.RelayedCallFailed, vars.relayedCallReturnValue);
-    }
-
-    /**
-     * @dev Reverts the transaction with return data set to the ABI encoding of the status argument (and revert reason data)
-     */
-    function revertWithStatus(RelayCallStatus status, bytes memory ret) private pure {
-        bytes memory data = abi.encode(status, ret);
-        GsnEip712Library.truncateInPlace(data);
-
-        assembly {
-            let dataSize := mload(data)
-            let dataPtr := add(data, 32)
-
-            revert(dataPtr, dataSize)
+           emit TransactionRelayedButRevertedByRecipient(            
+            manager,
+            msg.sender,
+            keccak256(signature),
+            relayedCallReturnValue);
         }
     }
 
-    function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) public override virtual view returns (uint256) {
-        //       relayData.baseRelayFee + (gasUsed * relayData.gasPrice * (100 + relayData.pctRelayFee)) / 100;
-        return relayData.baseRelayFee.add((gasUsed.mul(relayData.gasPrice).mul(relayData.pctRelayFee.add(100))).div(100));
-    }
-
-    function isRelayManagerStaked(address relayManager) public override view returns (bool) {
-        return stakeManager.isRelayManagerStaked(relayManager, address(this), minimumStake, minimumUnstakeDelay);
+    function isRelayManagerStaked(address relayManager) public override returns (bool){
+        /* solhint-disable-next-line avoid-low-level-calls */
+        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
+                relayManager,minimumStake,minimumUnstakeDelay));
+        
+        //If no revert, then return true
+        require(succ, "relay manager not staked");
+        return true;
     }
 
     modifier penalizerOnly () {
@@ -412,59 +220,16 @@ contract RelayHub is IRelayHub {
         _;
     }
 
-    function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly /* whenNotPaused */ {
-        address relayManager = workerToManager[relayWorker];
-        // The worker must be controlled by a manager with a locked stake
+    function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
+        //Relay worker might be enabled or disabled
+        address relayManager = address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
+
         require(
             isRelayManagerStaked(relayManager),
             "relay manager not staked"
         );
-        IStakeManager.StakeInfo memory stakeInfo = stakeManager.getStakeInfo(relayManager);
-        stakeManager.penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
+        IStakeManager.StakeInfo memory stakeInfo = IStakeManager(stakeManager).getStakeInfo(relayManager);
+        IStakeManager(stakeManager).penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
     }
-
-    // V1 ONLY: Support for destructable contracts
-    // For v1 deployment only to support kill, pause and unpause behavior
-    // This functionality is temporary and will be removed in v2
-    /*
-    address public contractOwner;
-    bool public paused = false;
-
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Sender is not the owner");
-        _;
-    }
-
-    modifier whenNotPaused() {
-        require(!paused, "Contract is not paused");
-        _;
-    }
-
-    modifier whenPaused() {
-        require(paused, "Contract is paused");
-        _;
-    }
-    
-    function transferOwnership(address newOwner) external onlyOwner {
-        require(RSKAddrValidator.checkPKNotZero(newOwner), "Invalid new owner");
-        contractOwner = newOwner;
-    }
-
-    function kill(address payable recipient) external onlyOwner whenPaused {
-        require(RSKAddrValidator.checkPKNotZero(recipient), "Invalid recipient");
-
-        // The recipient is not the owner of the contract's balance
-        require(address(this).balance == 0, "Contract has balance");
-        selfdestruct(recipient);
-    }
-
-    function pause() public onlyOwner {
-        paused = true;
-    }
-
-    function unpause() public onlyOwner {
-        paused = false;
-    }
-    */
 }

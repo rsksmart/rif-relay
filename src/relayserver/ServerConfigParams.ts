@@ -31,10 +31,11 @@ export interface ServerConfigParams {
   alertedBlockDelay: number
   minAlertedDelayMS: number
   maxAlertedDelayMS: number
-  trustedPaymasters: Address[]
+  trustedVerifiers: Address[]
   gasPriceFactor: number
   logLevel: LogLevelNumbers
-
+  deployVerifierAddress: Address
+  relayVerifierAddress: Address
   workerMinBalance: number
   workerTargetBalance: number
   managerMinBalance: number
@@ -43,6 +44,7 @@ export interface ServerConfigParams {
   minHubWithdrawalBalance: number
   refreshStateTimeoutBlocks: number
   pendingTransactionTimeoutBlocks: number
+  successfulRoundsForReady: number
   confirmationsNeeded: number
   retryGasPriceFactor: number
   maxGasPrice: string
@@ -64,7 +66,9 @@ const serverDefaultConfiguration: ServerConfigParams = {
   maxAlertedDelayMS: 0,
   maxAcceptanceBudget: 2e5,
   relayHubAddress: constants.ZERO_ADDRESS,
-  trustedPaymasters: [],
+  relayVerifierAddress: constants.ZERO_ADDRESS,
+  deployVerifierAddress: constants.ZERO_ADDRESS,
+  trustedVerifiers: [],
   gasPriceFactor: 1,
   registrationBlockRate: 0,
   workerMinBalance: 0.1e18,
@@ -86,11 +90,12 @@ const serverDefaultConfiguration: ServerConfigParams = {
   workdir: '',
   refreshStateTimeoutBlocks: 5,
   pendingTransactionTimeoutBlocks: 30, // around 5 minutes with 10 seconds block times
+  successfulRoundsForReady: 3, // successful mined blocks to become ready after exception
   confirmationsNeeded: 12,
   retryGasPriceFactor: 1.2,
   defaultGasLimit: 500000,
   maxGasPrice: 100e9.toString(),
-  estimateGasFactor: 1.5
+  estimateGasFactor: 1.2
 }
 
 const ConfigParamsTypes = {
@@ -121,7 +126,9 @@ const ConfigParamsTypes = {
   minHubWithdrawalBalance: 'number',
   defaultGasLimit: 'number',
 
-  trustedPaymasters: 'list'
+  trustedVerifiers: 'string',
+  relayVerifierAddress: 'string',
+  deployVerifierAddress: 'string'
 
 } as any
 

@@ -1,6 +1,6 @@
 import Web3 from 'web3'
 import { HttpProvider } from 'web3-core'
-import { toBN, toHex } from 'web3-utils'
+import { toBN } from 'web3-utils'
 
 import ContractInteractor from '../../src/relayclient/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'
@@ -35,7 +35,7 @@ contract('RegistrationManager', function (accounts) {
     serverWorkdirs = getTemporaryWorkdirs()
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await env.init({}, { minimumUnstakeDelay: unstakeDelay })
-    env.newServerInstanceNoFunding({}, serverWorkdirs)
+    env.newServerInstanceNoFunding({}, serverWorkdirs, env.defaultReplenishFunction)
     await env.clearServerStorage()
     relayServer = env.relayServer
   })
@@ -58,7 +58,7 @@ contract('RegistrationManager', function (accounts) {
       latestBlock = await env.web3.eth.getBlock('latest')
       transactionHashes = await relayServer._worker(latestBlock.number)
       assert.equal(transactionHashes.length, 0)
-      assert.equal(relayServer.ready, false, 'relay should not be ready yet')
+      assert.equal(relayServer.isReady(), false, 'relay should not be ready yet')
       assert.equal((await relayServer.getManagerBalance()).cmp(toBN(expectedBalance)), 0)
       await evmMine()
     })
@@ -67,7 +67,7 @@ contract('RegistrationManager', function (accounts) {
       let latestBlock = await env.web3.eth.getBlock('latest')
       const transactionHashes = await relayServer._worker(latestBlock.number)
       assert.equal(transactionHashes.length, 0)
-      assert.equal(relayServer.ready, false, 'relay should not be ready yet')
+      assert.equal(relayServer.isReady(), false, 'relay should not be ready yet')
       const res = await env.stakeManager.stakeForAddress(relayServer.managerAddress, unstakeDelay, {
         from: relayOwner,
         value: oneEther
@@ -85,7 +85,7 @@ contract('RegistrationManager', function (accounts) {
       assert.deepEqual(relayServer.registrationManager.stakeRequired.currentValue, oneEther)
       assert.equal(relayServer.registrationManager.ownerAddress, relayOwner)
       assert.equal(workerBalanceAfter.toString(), relayServer.config.workerTargetBalance.toString())
-      assert.equal(relayServer.ready, true, 'relay not ready?')
+      assert.equal(relayServer.isReady(), true, 'relay not ready?')
       await assertRelayAdded(receipts, relayServer)
     })
 
@@ -114,11 +114,11 @@ contract('RegistrationManager', function (accounts) {
         gasPriceFactor: 1,
         checkInterval: 10
       }
-      const newRelayServer = new RelayServer(params, serverDependencies)
+      const newRelayServer = new RelayServer(params, serverDependencies, env.defaultReplenishFunction)
       await newRelayServer.init()
       const latestBlock = await env.web3.eth.getBlock('latest')
       await newRelayServer._worker(latestBlock.number)
-      assert.equal(relayServer.ready, true, 'relay not ready?')
+      assert.equal(relayServer.isReady(), true, 'relay not ready?')
     })
   })
 
@@ -134,7 +134,7 @@ contract('RegistrationManager', function (accounts) {
 
     let newServer: RelayServer
     it('should initialize relay after staking and funding it', async function () {
-      await env.newServerInstanceNoInit({}, undefined, unstakeDelay)
+      await env.newServerInstanceNoInit({}, undefined, unstakeDelay, env.defaultReplenishFunction)
       newServer = env.relayServer
       await newServer.init()
       assert.equal(newServer.registrationManager.ownerAddress, undefined)
@@ -143,7 +143,7 @@ contract('RegistrationManager', function (accounts) {
       assert.equal(newServer.registrationManager.ownerAddress, relayOwner, 'owner should be set after refreshing stake')
 
       const expectedGasPrice = parseInt(await env.web3.eth.getGasPrice()) * newServer.config.gasPriceFactor
-      assert.equal(newServer.ready, false)
+      assert.equal(newServer.isReady(), false)
       assert.equal(newServer.lastScannedBlock, 0)
       const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
       assert.equal(workerBalanceBefore.toString(), '0')
@@ -152,7 +152,7 @@ contract('RegistrationManager', function (accounts) {
       await newServer._worker(latestBlock.number + 1)
       assert.equal(newServer.lastScannedBlock, latestBlock.number + 1)
       assert.equal(newServer.gasPrice, expectedGasPrice)
-      assert.equal(newServer.ready, true, 'relay no ready?')
+      assert.equal(newServer.isReady(), true, 'relay no ready?')
       const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
       assert.deepEqual(newServer.registrationManager.stakeRequired.currentValue, oneEther)
       assert.equal(newServer.registrationManager.ownerAddress, relayOwner)
@@ -170,7 +170,7 @@ contract('RegistrationManager', function (accounts) {
     let relayServer: RelayServer
 
     before(async function () {
-      await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
+      await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
       relayServer = env.relayServer
     })
 
@@ -208,7 +208,6 @@ contract('RegistrationManager', function (accounts) {
     describe('Withdrawn event', function () {
       async function assertSendBalancesToOwner (
         server: RelayServer,
-        managerHubBalanceBefore: BN,
         managerBalanceBefore: BN,
         workerBalanceBefore: BN): Promise<void> {
         const gasPrice = await env.web3.eth.getGasPrice()
@@ -223,15 +222,13 @@ contract('RegistrationManager', function (accounts) {
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
-          managerHubBalanceBefore.add(managerBalanceBefore).add(workerBalanceBefore)
+          managerBalanceBefore.add(workerBalanceBefore)
             .sub(totalTxCosts).toString(),
           `ownerBalanceAfter(${ownerBalanceAfter.toString()}) - ownerBalanceBefore(${ownerBalanceBefore.toString()}) !=
-         managerHubBalanceBefore(${managerHubBalanceBefore.toString()}) + managerBalanceBefore(${managerBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
+          + managerBalanceBefore(${managerBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
          - totalTxCosts(${totalTxCosts.toString()})`)
-        const managerHubBalanceAfter = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceAfter = await newServer.getManagerBalance()
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(managerBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
         // TODO
@@ -241,13 +238,11 @@ contract('RegistrationManager', function (accounts) {
       let newServer: RelayServer
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
+        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
         newServer = env.relayServer
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
         await newServer._worker(latestBlock.number + 1)
-
-        await env.relayHub.depositFor(newServer.managerAddress, { value: 1e18.toString() })
         await env.stakeManager.unlockStake(newServer.managerAddress, { from: relayOwner })
         await evmMineMany(unstakeDelay)
         await env.stakeManager.withdrawStake(newServer.managerAddress, { from: relayOwner })
@@ -258,36 +253,11 @@ contract('RegistrationManager', function (accounts) {
       })
 
       it('send balances to owner when all balances > tx costs', async function () {
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
-        await assertSendBalancesToOwner(newServer, managerHubBalanceBefore, managerBalanceBefore, workerBalanceBefore)
-      })
-
-      it('send balances to owner when manager hub balance < tx cost ', async function () {
-        const workerAddress = newServer.workerAddress
-        const managerHubBalance = await env.relayHub.balanceOf(newServer.managerAddress)
-        const method = env.relayHub.contract.methods.withdraw(toHex(managerHubBalance), workerAddress)
-        const gasLimit = await newServer.transactionManager.attemptEstimateGas('Withdraw', method, newServer.managerAddress)
-        await newServer.transactionManager.sendTransaction({
-          signer: newServer.managerAddress,
-          serverAction: ServerAction.DEPOSIT_WITHDRAWAL,
-          destination: env.relayHub.address,
-          creationBlockNumber: 0,
-          // FIX for RSK: gas estimation works a bit different, requiring to increase estimated gas limit in a factor of 1.5
-          gasLimit: Math.round(gasLimit * 1.5),
-          method
-        })
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
-        const managerBalanceBefore = await newServer.getManagerBalance()
-        const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.eqn(0))
-        assert.isTrue(managerBalanceBefore.gtn(0))
-        assert.isTrue(workerBalanceBefore.gtn(0))
-        await assertSendBalancesToOwner(newServer, managerHubBalanceBefore, managerBalanceBefore, workerBalanceBefore)
+        await assertSendBalancesToOwner(newServer, managerBalanceBefore, workerBalanceBefore)
       })
     })
 
@@ -295,7 +265,7 @@ contract('RegistrationManager', function (accounts) {
       let newServer: RelayServer
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({}, undefined, unstakeDelay)
+        await env.newServerInstanceNoInit({}, undefined, unstakeDelay, env.defaultReplenishFunction)
         newServer = env.relayServer
       })
 
@@ -314,12 +284,11 @@ contract('RegistrationManager', function (accounts) {
       let newServer: RelayServer
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
+        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
         newServer = env.relayServer
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
         await newServer._worker(latestBlock.number + 1)
-        await env.relayHub.depositFor(newServer.managerAddress, { value: 1e18.toString() })
       })
 
       afterEach(async function () {
@@ -361,10 +330,8 @@ contract('RegistrationManager', function (accounts) {
       it('send only workers\' balances to owner (not manager hub, rbtc balance) - after unstake delay', async function () {
         await env.stakeManager.unauthorizeHubByOwner(newServer.managerAddress, env.relayHub.address, { from: relayOwner })
 
-        const managerHubBalanceBefore = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
         const ownerBalanceBefore = toBN(await env.web3.eth.getBalance(relayOwner))
@@ -375,21 +342,18 @@ contract('RegistrationManager', function (accounts) {
         assert.isFalse(newServer.registrationManager.isHubAuthorized, 'Hub should not be authorized in server')
         const gasPrice = await env.web3.eth.getGasPrice()
         // TODO: these two hard-coded indexes are dependent on the order of operations in 'withdrawAllFunds'
-        const workerEthTxCost = await getTotalTxCosts([receipts[1]], gasPrice)
-        const managerHubSendTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
+        const workerEthTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
         const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(relayOwner))
-        const managerHubBalanceAfter = await env.relayHub.balanceOf(newServer.managerAddress)
         const managerBalanceAfter = await newServer.getManagerBalance()
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
-        assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.sub(managerHubSendTxCost).toString())
+        assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.toString())
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
-          managerHubBalanceBefore.add(workerBalanceBefore).sub(workerEthTxCost).toString(),
+          workerBalanceBefore.sub(workerEthTxCost).toString(),
           `ownerBalanceAfter(${ownerBalanceAfter.toString()}) - ownerBalanceBefore(${ownerBalanceBefore.toString()}) != 
-         managerHubBalanceBefore(${managerHubBalanceBefore.toString()}) + workerBalanceBefore(${workerBalanceBefore.toString()})
+          + workerBalanceBefore(${workerBalanceBefore.toString()})
          - workerEthTxCost(${workerEthTxCost.toString()})`)
       })
     })
@@ -429,7 +393,7 @@ contract('RegistrationManager', function (accounts) {
     describe('without re-registration', function () {
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({}, undefined, unstakeDelay)
+        await env.newServerInstanceNoInit({}, undefined, unstakeDelay, env.defaultReplenishFunction)
         await env.relayServer.init()
         newServer = env.relayServer
         // TODO: this is horrible!!!

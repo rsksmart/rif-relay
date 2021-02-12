@@ -2,7 +2,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import ow from 'ow'
 
 import { Address } from './Aliases'
-import RelayRequest from '../../common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../../common/EIP712/RelayRequest'
 
 export interface RelayMetadata {
   approvalData: PrefixedHexString
@@ -16,31 +16,62 @@ export interface RelayTransactionRequest {
   metadata: RelayMetadata
 }
 
-export const RelayTransactionRequestShape = {
+export interface DeployTransactionRequest {
+  relayRequest: DeployRequest
+  metadata: RelayMetadata
+}
+export const DeployTransactionRequestShape = {
   relayRequest: {
     request: {
+      relayHub: ow.string,
       from: ow.string,
       to: ow.string,
-      data: ow.string,
       value: ow.string,
-      nonce: ow.string,
       gas: ow.string,
-      tokenRecipient: ow.string,
+      nonce: ow.string,
+      data: ow.string,
       tokenContract: ow.string,
       tokenAmount: ow.string,
-      factory: ow.string, // only set if this is a deploy request
-      recoverer: ow.string, // only used if factory is set
-      index: ow.string // only used if factory is set
+      tokenGas: ow.string,
+      recoverer: ow.string,
+      index: ow.string
     },
     relayData: {
       gasPrice: ow.string,
-      pctRelayFee: ow.string,
-      baseRelayFee: ow.string,
+      domainSeparator: ow.string,
       relayWorker: ow.string,
-      paymaster: ow.string,
-      paymasterData: ow.string,
-      clientId: ow.string,
-      forwarder: ow.string
+      callForwarder: ow.string,
+      callVerifier: ow.string
+    }
+  },
+  metadata: {
+    approvalData: ow.string,
+    relayHubAddress: ow.string,
+    relayMaxNonce: ow.number,
+    signature: ow.string
+  }
+}
+
+export const RelayTransactionRequestShape = {
+  relayRequest: {
+    request: {
+      relayHub: ow.string,
+      from: ow.string,
+      to: ow.string,
+      value: ow.string,
+      gas: ow.string,
+      nonce: ow.string,
+      data: ow.string,
+      tokenContract: ow.string,
+      tokenAmount: ow.string,
+      tokenGas: ow.string
+    },
+    relayData: {
+      gasPrice: ow.string,
+      domainSeparator: ow.string,
+      relayWorker: ow.string,
+      callForwarder: ow.string,
+      callVerifier: ow.string
     }
   },
   metadata: {

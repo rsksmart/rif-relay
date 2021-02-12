@@ -8,21 +8,8 @@ import "../utils/GsnUtils.sol";
 
 contract TestUtil {
 
-    function libRelayRequestName() public pure returns (string memory) {
-        return "RelayRequest";
-    }
 
-    function libRelayRequestType() public pure returns (string memory) {
-        return "RelayRequest(address from,address to,uint256 value,uint256 gas,uint256 nonce,bytes data,address tokenRecipient,address tokenContract,uint256 tokenAmount,address factory,address recoverer,uint256 index,RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
-    }
-
-    function libRelayRequestTypeHash() public pure returns (bytes32) {
-        return GsnEip712Library.RELAY_REQUEST_TYPEHASH;
-    }
-
-    function libRelayRequestSuffix() public pure returns (string memory) {
-        return "RelayData relayData)RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)";
-    }
+     bytes32 public constant RELAY_REQUEST_TYPEHASH = keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)");
 
     //helpers for test to call the library funcs:
     function callForwarderVerify(
@@ -31,7 +18,17 @@ contract TestUtil {
     )
     external
     view {
-        GsnEip712Library.verifySignature(relayRequest, signature);
+
+            //(bool callSuccess,) = 
+           relayRequest.relayData.callForwarder.staticcall(
+            abi.encodeWithSelector(
+                IForwarder.verify.selector,
+                relayRequest.relayData.domainSeparator,
+                GsnEip712Library.hashRelayData(relayRequest.relayData),
+                relayRequest.request,
+                signature
+            )
+        );
     }
 
     function callForwarderVerifyAndCall(
@@ -44,18 +41,21 @@ contract TestUtil {
         bytes memory ret
     ) {
         bool forwarderSuccess;
-        uint256 lastSuccTx;
-        (forwarderSuccess, success, lastSuccTx, ret) = GsnEip712Library.execute(relayRequest, signature);
-        if ( !forwarderSuccess) {
-            GsnUtils.revertWithData(ret);
+
+        (forwarderSuccess, success, ret) = GsnEip712Library.execute(relayRequest, signature);
+        
+       if ( !forwarderSuccess) {
+           GsnUtils.revertWithData(ret);
         }
+        
         emit Called(success, success == false ? ret : bytes(""));
     }
 
     event Called(bool success, bytes error);
 
+
     function splitRequest(
-        GsnTypes.RelayRequest calldata relayRequest
+        GsnTypes.RelayRequest calldata req
     )
     external
     pure
@@ -64,64 +64,30 @@ contract TestUtil {
         bytes32 typeHash,
         bytes32 suffixData
     ) {
-        (forwardRequest, suffixData) = GsnEip712Library.splitRequest(relayRequest);
-        typeHash = GsnEip712Library.RELAY_REQUEST_TYPEHASH;
-    }
-
-    function libDomainSeparator(address forwarder) public pure returns (bytes32) {
-        return GsnEip712Library.domainSeparator(forwarder);
-    }
-
-    function libGetChainID() public pure returns (uint256) {
-        return GsnEip712Library.getChainID();
-    }
-
-    function libEncodedDomain(address forwarder) public pure returns (bytes memory) {
-        GsnEip712Library.EIP712Domain memory req = GsnEip712Library.EIP712Domain({
-            name : "RSK Enveloping Transaction",
-            version : "2",
-            chainId : libGetChainID(),
-            verifyingContract : forwarder
-        });
-        return abi.encode(
-                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"), // EIP712DOMAIN_TYPEHASH
-                keccak256(bytes(req.name)),
-                keccak256(bytes(req.version)),
-                req.chainId,
-                req.verifyingContract
+        forwardRequest = IForwarder.ForwardRequest(
+            req.request.relayHub,
+            req.request.from,
+            req.request.to,
+            req.request.tokenContract,
+            req.request.value,
+            req.request.gas,
+            req.request.nonce,
+            req.request.tokenAmount,
+            req.request.tokenGas,
+            req.request.data
         );
+        suffixData = GsnEip712Library.hashRelayData(req.relayData);
+        typeHash = RELAY_REQUEST_TYPEHASH;
     }
 
-    function libEncodedData(GsnTypes.RelayData memory req) public pure returns (bytes memory) {
-        return abi.encode(
-                keccak256("RelayData(uint256 gasPrice,uint256 pctRelayFee,uint256 baseRelayFee,address relayWorker,address paymaster,address forwarder,bytes paymasterData,uint256 clientId)"), // RELAYDATA_TYPEHASH
-                req.gasPrice,
-                req.pctRelayFee,
-                req.baseRelayFee,
-                req.relayWorker,
-                req.paymaster,
-                req.forwarder,
-                keccak256(req.paymasterData),
-                req.clientId
-        );
+
+
+
+    function libGetChainID() public pure returns (uint256 id) {
+        /* solhint-disable no-inline-assembly */
+        assembly {
+            id := chainid()
+        }
     }
 
-    function libEncodedRequest(
-            IForwarder.ForwardRequest memory req, 
-            bytes32 requestTypeHash,
-            bytes32 suffixData) public pure returns (bytes memory) {
-                
-        return abi.encodePacked(
-            requestTypeHash,
-            abi.encode(
-                req.from,
-                req.to,
-                req.value,
-                req.gas,
-                req.nonce,
-                keccak256(req.data)
-            ),
-            suffixData
-        );
-    }
 }

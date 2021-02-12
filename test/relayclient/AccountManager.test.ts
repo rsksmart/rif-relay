@@ -1,7 +1,7 @@
 import AccountManager, { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { defaultEnvironment } from '../../src/common/Environments'
 import { HttpProvider } from 'web3-core'
-import RelayRequest from '../../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import sinon from 'sinon'
 import sigUtil from 'eth-sig-util'
 import { isSameAddress } from '../../src/common/Utils'
@@ -104,28 +104,23 @@ contract('AccountManager', function (accounts) {
 
     const relayRequest: RelayRequest = {
       request: {
+        relayHub: constants.ZERO_ADDRESS,
         to: constants.ZERO_ADDRESS,
         data: '0x123',
         from: '',
         nonce: '1',
         value: '0',
         gas: '1',
-        tokenRecipient: constants.ZERO_ADDRESS,
         tokenContract: constants.ZERO_ADDRESS,
         tokenAmount: '0',
-        factory: constants.ZERO_ADDRESS, // only set if this is a deploy request
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenGas: '0'
       },
       relayData: {
-        pctRelayFee: '1',
-        baseRelayFee: '1',
         gasPrice: '1',
         relayWorker: constants.ZERO_ADDRESS,
-        forwarder: constants.ZERO_ADDRESS,
-        paymaster: constants.ZERO_ADDRESS,
-        paymasterData: '0x',
-        clientId: '1'
+        callForwarder: constants.ZERO_ADDRESS,
+        callVerifier: constants.ZERO_ADDRESS,
+        domainSeparator: '0x'
       }
     }
     beforeEach(async function () {

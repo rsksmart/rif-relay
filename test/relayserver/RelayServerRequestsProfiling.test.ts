@@ -8,9 +8,9 @@ import { ServerTestEnvironment } from './ServerTestEnvironment'
 
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2
-  const callsPerStateRefresh = 11
+  const callsPerStateRefresh = 8
   const callsPerBlock = 0
-  const callsPerTransaction = 25
+  const callsPerTransaction = 17
 
   let provider: ProfilingProvider
   let relayServer: RelayServer

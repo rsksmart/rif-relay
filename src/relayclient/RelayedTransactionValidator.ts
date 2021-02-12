@@ -5,7 +5,7 @@ import { bufferToHex } from 'ethereumjs-util'
 import { isSameAddress } from '../common/Utils'
 
 import ContractInteractor from './ContractInteractor'
-import { RelayTransactionRequest } from './types/RelayTransactionRequest'
+import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import { GSNConfig } from './GSNConfigurator'
 
 export default class RelayedTransactionValidator {
@@ -24,7 +24,7 @@ export default class RelayedTransactionValidator {
    * transaction is not valid.
    */
   validateRelayResponse (
-    request: RelayTransactionRequest,
+    request: RelayTransactionRequest | DeployTransactionRequest,
     maxAcceptanceBudget: number,
     returnedTx: PrefixedHexString
   ): boolean {
@@ -34,8 +34,11 @@ export default class RelayedTransactionValidator {
 
     const signer = bufferToHex(transaction.getSenderAddress())
 
-    const externalGasLimit = bufferToHex(transaction.gasLimit)
-    const relayRequestAbiEncode = this.contractInteractor.encodeABI(maxAcceptanceBudget, request.relayRequest, request.metadata.signature, request.metadata.approvalData, externalGasLimit)
+    let isDeploy = false
+    if ((request as DeployTransactionRequest).relayRequest.request.recoverer !== undefined) {
+      isDeploy = true
+    }
+    const relayRequestAbiEncode = isDeploy ? this.contractInteractor.encodeDeployCallABI((request as DeployTransactionRequest).relayRequest, request.metadata.signature) : this.contractInteractor.encodeRelayCallABI((request as RelayTransactionRequest).relayRequest, request.metadata.signature)
 
     if (
       isSameAddress(bufferToHex(transaction.to), this.config.relayHubAddress) &&

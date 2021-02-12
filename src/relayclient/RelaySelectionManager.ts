@@ -70,6 +70,18 @@ export default class RelaySelectionManager {
     }
   }
 
+  _getPreferredRelaysNextSlice (index: number): RelayInfoUrl[] {
+    if (!this.isInitialized) { throw new Error('init() not called') }
+    let slice: RelayInfoUrl[] = []
+    if (this.remainingRelays[0].length >= index + 1) {
+      const relays = this.remainingRelays[0].slice(index, this.remainingRelays[0].length)
+      const bulkSize = Math.min(this.config.sliceSize, relays.length)
+      slice = relays.slice(0, bulkSize)
+    }
+
+    return slice
+  }
+
   async _nextRelayInternal (relays: RelayInfoUrl[]): Promise<RelayInfo | undefined> {
     log.info('nextRelay: find fastest relay from: ' + JSON.stringify(relays))
     const raceResult = await this._raceToSuccess(relays)
@@ -120,24 +132,12 @@ export default class RelaySelectionManager {
     return []
   }
 
-  _getPreferredRelaysNextSlice (index: number): RelayInfoUrl[] {
-    if (!this.isInitialized) { throw new Error('init() not called') }
-    let slice: RelayInfoUrl[] = []
-    if (this.remainingRelays[0].length >= index + 1) {
-      const relays = this.remainingRelays[0].slice(index, this.remainingRelays[0].length)
-      const bulkSize = Math.min(this.config.sliceSize, relays.length)
-      slice = relays.slice(0, bulkSize)
-    }
-
-    return slice
-  }
-
   /**
    * @returns JSON response from the relay server, but adds the requested URL to it :'-(
    */
   async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
     log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.paymaster)
+    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.callVerifier)
 
     if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)

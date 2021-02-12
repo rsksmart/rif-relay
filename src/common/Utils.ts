@@ -29,7 +29,7 @@ export function padTo64 (hex: string): string {
   return hex
 }
 
-export function event2topic (contract: any, names: any): any {
+export function event2topic (contract: any, names: string[]): any {
   // for testing: don't crash on mockup..
   // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
   if (!contract.options || !contract.options.jsonInterface) { return names }
@@ -124,15 +124,13 @@ export async function getEip712Signature (
  * @returns maximum possible gas consumption by this relayed call
  */
 export function calculateTransactionMaxPossibleGas (
-  {
-    gasLimits,
-    hubOverhead,
-    relayCallGasLimit
-  }: TransactionGasComponents): number {
+
+  hubOverhead: number,
+  relayCallGasLimit: string,
+  cushion: number
+): number {
   return hubOverhead +
-    parseInt(relayCallGasLimit) +
-    parseInt(gasLimits.preRelayedCallGasLimit) +
-    parseInt(gasLimits.postRelayedCallGasLimit)
+    parseInt(relayCallGasLimit) + cushion
 }
 
 export function getEcRecoverMeta (message: PrefixedHexString, signature: string | Signature): PrefixedHexString {
@@ -203,7 +201,6 @@ export function getLatestEventData (events: EventData[]): EventData | undefined 
 
 export function isRegistrationValid (registerEvent: EventData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
   const portIncluded: boolean = config.url.indexOf(':') > 0
-
   return registerEvent != null &&
     isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
     registerEvent.returnValues.baseRelayFee.toString() === config.baseRelayFee.toString() &&
@@ -219,12 +216,12 @@ export function isRegistrationValid (registerEvent: EventData | undefined, confi
  * @param gtxdatanonzero
  */
 interface TransactionGasComponents {
-  gasLimits: PaymasterGasLimits
+  gasLimits: VerifierGasLimits
   hubOverhead: number
   relayCallGasLimit: string
 }
 
-export interface PaymasterGasLimits {
+export interface VerifierGasLimits {
   acceptanceBudget: string
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string

@@ -1,45 +1,42 @@
 import {
-  DeployPaymasterInstance,
-  RelayPaymasterInstance,
+  DeployVerifierInstance,
+  RelayVerifierInstance,
   TestTokenInstance,
   ProxyFactoryInstance,
   SmartWalletInstance,
-  TestPaymastersInstance
+  TestVerifiersInstance
 } from '../types/truffle-contracts'
 
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
 import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
-import RelayRequest from '../src/common/EIP712/RelayRequest'
+import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
+import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 
-const DeployPaymaster = artifacts.require('DeployPaymaster')
-const RelayPaymaster = artifacts.require('RelayPaymaster')
+const DeployVerifier = artifacts.require('DeployVerifier')
+const RelayVerifier = artifacts.require('RelayVerifier')
 const TestToken = artifacts.require('TestToken')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestPaymasters = artifacts.require('TestPaymasters')
+const TestVerifiers = artifacts.require('TestVerifiers')
 
-const baseRelayFee = '10000'
-const pctRelayFee = '10'
 const gasPrice = '10'
 const gasLimit = '1000000'
 const senderNonce = '0'
-const paymasterData = '0x'
-const clientId = '1'
 const tokensPaid = 1
 let relayRequestData: RelayRequest
 
-contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, senderAddress, other2, paymasterOwner, other3]) {
-  let deployPaymaster: DeployPaymasterInstance
+contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, senderAddress, other2, verifierOwner, other3]) {
+  let deployVerifier: DeployVerifierInstance
   let token: TestTokenInstance
   let template: SmartWalletInstance
   let factory: ProxyFactoryInstance
 
-  let testPaymasters: TestPaymastersInstance
+  let testVerifiers: TestVerifiersInstance
   let expectedAddress: Address
 
   const ownerPrivateKey = toBuffer(bytes32(1))
@@ -57,37 +54,31 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
 
     factory = await createProxyFactory(template)
 
-    deployPaymaster = await DeployPaymaster.new(factory.address, { from: paymasterOwner })
-    testPaymasters = await TestPaymasters.new(deployPaymaster.address)
+    deployVerifier = await DeployVerifier.new(factory.address, { from: verifierOwner })
+    testVerifiers = await TestVerifiers.new(deployVerifier.address)
 
-    // We simulate the testPaymasters contract is a relayHub to make sure
+    // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
 
     relayRequestData = {
       request: {
+        relayHub: relayHub,
         to: logicAddress,
         data: initParams,
         from: ownerAddress,
         nonce: senderNonce,
         value: '0',
         gas: gasLimit,
-        tokenRecipient: dest,
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
-        factory: factory.address,
-        recoverer,
-        index
+        tokenGas: '50000'
       },
       relayData: {
-        pctRelayFee,
-        baseRelayFee,
         gasPrice,
         relayWorker,
-        forwarder: constants.ZERO_ADDRESS,
-        paymaster: deployPaymaster.address,
-        paymasterData,
-        clientId
+        callForwarder: constants.ZERO_ADDRESS,
+        callVerifier: deployVerifier.address,
+        domainSeparator: '0x'
       }
     }
     // we mint tokens to the sender,
@@ -97,9 +88,9 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
-    const { logs } = await testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
+    const { logs } = await testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
 
     expectEvent.inLogs(logs, 'Accepted', {
       tokenAmount: new BN(tokensPaid),
@@ -108,7 +99,7 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
     const toSign: string = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
@@ -148,53 +139,52 @@ contract('DeployPaymaster', function ([relayHub, dest, other1, relayWorker, send
     })
 
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Address already created!')
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await deployPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     relayRequestData.request.data = '0x01'
 
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Token contract not allowed'
     )
   })
 
   it('SHOULD fail when factory is incorrect on preRelayCall', async function () {
-    deployPaymaster = await DeployPaymaster.new(other1, { from: paymasterOwner })
+    deployVerifier = await DeployVerifier.new(other1, { from: verifierOwner })
 
-    // We simulate the testPaymasters contract is a relayHub to make sure
+    // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    await deployPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
-    testPaymasters = await TestPaymasters.new(deployPaymaster.address)
+    testVerifiers = await TestVerifiers.new(deployVerifier.address)
 
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Invalid factory'
     )
   })
 })
 
-contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other, other2, paymasterOwner, relayHub]) {
+contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, other2, verifierOwner, relayHub]) {
   let template: SmartWalletInstance
   let sw: SmartWalletInstance
-  let relayPaymaster: RelayPaymasterInstance
+  let relayVerifier: RelayVerifierInstance
   let token: TestTokenInstance
   let relayRequestData: RelayRequest
   let factory: ProxyFactoryInstance
-  let testPaymasters: TestPaymastersInstance
+  let testVerifiers: TestVerifiersInstance
 
   const senderPrivateKey = toBuffer(bytes32(1))
   let senderAddress: string
@@ -210,41 +200,35 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
 
     factory = await createProxyFactory(template)
 
-    relayPaymaster = await RelayPaymaster.new(factory.address, { from: paymasterOwner })
-    testPaymasters = await TestPaymasters.new(relayPaymaster.address)
+    relayVerifier = await RelayVerifier.new(factory.address, { from: verifierOwner })
+    testVerifiers = await TestVerifiers.new(relayVerifier.address)
 
-    sw = await createSmartWallet(senderAddress, factory, senderPrivateKey, chainId)
+    sw = await createSmartWallet(relayHub, senderAddress, factory, senderPrivateKey, chainId)
     const smartWallet = sw.address
     const recipientContract = await TestRecipient.new()
 
-    // We simulate the testPaymasters contract is a relayHub to make sure
+    // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    await relayPaymaster.setRelayHub(testPaymasters.address, { from: paymasterOwner })
 
     relayRequestData = {
       request: {
+        relayHub: relayHub,
         to: recipientContract.address,
         data: '0x00',
         from: senderAddress,
         nonce: senderNonce,
         value: '0',
         gas: gasLimit,
-        tokenRecipient: dest,
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
-        factory: constants.ZERO_ADDRESS,
-        recoverer: constants.ZERO_ADDRESS,
-        index: '0'
+        tokenGas: '50000'
       },
       relayData: {
-        pctRelayFee,
-        baseRelayFee,
         gasPrice,
         relayWorker,
-        forwarder: smartWallet,
-        paymaster: relayPaymaster.address,
-        paymasterData,
-        clientId
+        callForwarder: smartWallet,
+        callVerifier: relayVerifier.address,
+        domainSeparator: getDomainSeparatorHash(smartWallet, chainId)
       }
     }
     // we mint tokens to the sender,
@@ -252,9 +236,9 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
-    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     // run method
-    const { logs } = await testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
+    const { logs } = await testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
     // All checks should pass
 
     expectEvent.inLogs(logs, 'Accepted', {
@@ -264,31 +248,31 @@ contract('RelayPaymaster', function ([_, dest, relayManager, relayWorker, other,
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
-    relayRequestData.relayData.forwarder = other
+    await relayVerifier.acceptToken(token.address, { from: verifierOwner })
+    relayRequestData.relayData.callForwarder = other
     // run method
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'Token contract not allowed'
     )
   })
 
   it('SHOULD fail on SW different to template of preRelayCall', async function () {
-    await relayPaymaster.acceptToken(token.address, { from: paymasterOwner })
+    await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     // Forwarder needs to be a contract with balance
     // But a different than the template needed
-    relayRequestData.relayData.forwarder = token.address
+    relayRequestData.relayData.callForwarder = token.address
     await token.mint(tokensPaid + 4, token.address)
     // run method
     await expectRevert.unspecified(
-      testPaymasters.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
       'SW different to template'
     )
   })

@@ -2,11 +2,9 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../forwarder/IForwarder.sol";
+import "./ISmartWalletFactory.sol";
 
-interface IProxyFactory {
-
-    function nonce (address from) external view returns(uint256);
+interface IProxyFactory is ISmartWalletFactory{
 
     function createUserSmartWallet(
         address owner,
@@ -14,14 +12,6 @@ interface IProxyFactory {
         address logic,
         uint256 index,
         bytes calldata initParams,
-        bytes calldata sig
-    ) external;
-
-    function relayedUserSmartWalletCreation(
-        IForwarder.ForwardRequest memory req,
-        bytes32 domainSeparator,
-        bytes32 requestTypeHash,
-        bytes32 suffixData,
         bytes calldata sig
     ) external;
 
@@ -33,5 +23,4 @@ interface IProxyFactory {
         uint256 index
     ) external view returns (address);
     
-    event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
 }

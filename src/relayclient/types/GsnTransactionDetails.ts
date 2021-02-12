@@ -6,10 +6,9 @@ export default interface GsnTransactionDetails {
   readonly from: Address
   readonly data: PrefixedHexString
   readonly to: Address
-  readonly tokenRecipient?: Address
   readonly tokenContract?: Address
   readonly tokenAmount?: IntString
-  readonly factory?: Address
+  tokenGas?: IntString
   readonly recoverer?: Address
   readonly index?: IntString
   readonly value?: IntString
@@ -22,10 +21,12 @@ export default interface GsnTransactionDetails {
   gasPrice?: PrefixedHexString
 
   // Required parameters for GSN, but assigned later
-  readonly forwarder?: Address
-  readonly paymaster?: Address
+  readonly relayHub?: Address
+  readonly callForwarder?: Address
+  readonly callVerifier?: Address
+  readonly isSmartWalletDeploy?: boolean
+  smartWalletAddress?: Address
 
-  readonly paymasterData?: PrefixedHexString
   readonly clientId?: IntString
 
   // Optional parameters for RelayProvider only:
@@ -39,5 +40,8 @@ export default interface GsnTransactionDetails {
    */
   readonly forceGasPrice?: PrefixedHexString
 
+  /**
+   * Use this to force the RelayClient to use only the preferred relays when searching for a suitable relay server
+   */
   readonly onlyPreferredRelays?: boolean
 }

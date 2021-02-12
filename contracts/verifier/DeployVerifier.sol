@@ -5,31 +5,34 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../factory/ProxyFactory.sol";
-import "./BasePaymaster.sol";
+import "./BaseVerifier.sol";
 import "../utils/GsnUtils.sol";
 
+import "../interfaces/IDeployVerifier.sol";
+
 /**
- * A paymaster to be used on deploys.
+ * A Verifier to be used on deploys.
  * - We maintain the interface but not the functions, mainly to be
  * - GSN compatible
  */
-contract DeployPaymaster is BasePaymaster {
+contract DeployVerifier is BaseVerifier, IDeployVerifier {
 
     address private factory;
+    uint public override acceptanceBudget;
+    mapping (address => bool) public tokens;
 
     constructor(address proxyFactory) public {
         factory = proxyFactory;
     }
 
-    function versionPaymaster() external override virtual view returns (string memory){
-        return "2.0.1+opengsn.token.ipaymaster";
+    function versionVerifier() external override virtual view returns (string memory){
+        return "rif.enveloping.token.iverifier@2.0.1";
     }
 
-    mapping (address => bool) public tokens;
 
     /* solhint-disable no-unused-vars */
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        GsnTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -37,13 +40,12 @@ contract DeployPaymaster is BasePaymaster {
     external 
     override 
     virtual
-    relayHubOnly
-    returns (bytes memory context, bool revertOnRecipientRevert) {
+    returns (bytes memory context) 
+{
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
-    
-        require(relayRequest.request.factory == factory, "Invalid factory");
+        require(relayRequest.relayData.callForwarder == factory, "Invalid factory");
 
-        address contractAddr = ProxyFactory(relayRequest.request.factory)
+        address contractAddr = ProxyFactory(relayRequest.relayData.callForwarder)
             .getSmartWalletAddress(
             relayRequest.request.from, 
             relayRequest.request.recoverer, 
@@ -51,12 +53,13 @@ contract DeployPaymaster is BasePaymaster {
             keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
-        require(!GsnUtils._isContract(contractAddr), "Address already created");
+        require(!GsnUtils._isContract(contractAddr), "Address already created!");
 
-        IERC20 token = IERC20(relayRequest.request.tokenContract);
-        require(relayRequest.request.tokenAmount <= token.balanceOf(contractAddr), "balance too low");
+        if(relayRequest.request.tokenContract != address(0)){
+            require(relayRequest.request.tokenAmount <= IERC20(relayRequest.request.tokenContract).balanceOf(contractAddr), "balance too low");
+        }
 
-        return (abi.encode(contractAddr, relayRequest.request.tokenAmount, token), false);
+        return (abi.encode(contractAddr, relayRequest.request.tokenAmount, relayRequest.request.tokenContract));
     }
     
     /* solhint-ensable no-unused-vars */
@@ -70,13 +73,16 @@ contract DeployPaymaster is BasePaymaster {
     external
     override
     virtual
-    relayHubOnly {
-        // for now we dont produce any refund
+     {
+     // for now we dont produce any refund
         // so there is nothing to be done here
     }
-    /* solhint-enable no-empty-blocks */
 
     function acceptToken(address token) external onlyOwner {
         tokens[token] = true;
+    }
+
+    function setAcceptanceBudget(uint256 budget) external onlyOwner {
+        acceptanceBudget = budget;
     }
 }

@@ -45,12 +45,12 @@ export function getRelayHubConfiguration (configFile: string): RelayHubConfigura
   return JSON.parse(file)
 }
 
-export function getPaymasterAddress (paymaster?: string): string | undefined {
-  return getAddressFromFile('build/gsn/Paymaster.json', paymaster)
+export function getRelayVerifierAddress (verifier?: string): string | undefined {
+  return getAddressFromFile('build/gsn/RelayVerifier.json', verifier)
 }
 
-export function getDeployPaymasterAddress (deployPaymaster?: string): string | undefined {
-  return getAddressFromFile('build/gsn/DeployPaymaster.json', deployPaymaster)
+export function getDeployVerifierAddress (verifier?: string): string | undefined {
+  return getAddressFromFile('build/gsn/DeployVerifier.json', verifier)
 }
 
 export function getRelayHubAddress (defaultAddress?: string): string | undefined {
@@ -63,6 +63,10 @@ export function getRegistryAddress (defaultAddress?: string): string | undefined
 
 export function getSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
   return getAddressFromFile('build/gsn/ProxyFactory.json', defaultAddress)
+}
+
+export function getSimpleSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
+  return getAddressFromFile('build/gsn/SimpleProxyFactory.json', defaultAddress)
 }
 
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
@@ -84,14 +88,16 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.stakeManagerAddress, workdir, 'StakeManager.json')
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
-  saveContractToFile(deploymentResult.naiveRelayPaymasterAddress, workdir, 'Paymaster.json')
-  saveContractToFile(deploymentResult.naiveDeployPaymasterAddress, workdir, 'DeployPaymaster.json')
+  saveContractToFile(deploymentResult.relayVerifierAddress, workdir, 'RelayVerifier.json')
+  saveContractToFile(deploymentResult.deployVerifierAddress, workdir, 'DeployVerifier.json')
   saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
+  saveContractToFile(deploymentResult.simpleSWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
+  saveContractToFile(deploymentResult.simpleFactoryAddress, workdir, 'SimpleProxyFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
-export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined, paymasterTitle: string | undefined = undefined, deployPaymasterTitle: string | undefined = undefined): void {
+export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined): void {
   if (title != null) {
     console.log(title)
   }
@@ -102,9 +108,8 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
   SmartWallet Template: ${deploymentResult.sWalletTemplateAddress}
   SmartWallet Factory: ${deploymentResult.factoryAddress}
-  RelayPaymaster ${paymasterTitle != null ? '(' + paymasterTitle + ')' : ''}: ${deploymentResult.naiveRelayPaymasterAddress}
-  DeployPaymaster ${deployPaymasterTitle != null ? '(' + deployPaymasterTitle + ')' : ''}: ${deploymentResult.naiveDeployPaymasterAddress}
-  `)
+  Relay Verifier: ${deploymentResult.relayVerifierAddress}
+  Deploy Verifier: ${deploymentResult.deployVerifierAddress}`)
 }
 
 export function loadDeployment (workdir: string): DeploymentResult {
@@ -118,9 +123,11 @@ export function loadDeployment (workdir: string): DeploymentResult {
     penalizerAddress: getAddress('Penalizer'),
     sWalletTemplateAddress: getAddress('SmartWallet'),
     factoryAddress: getAddress('ProxyFactory'),
+    simpleSWalletTemplateAddress: getAddress('SimpleSmartWallet'),
+    simpleFactoryAddress: getAddress('SimpleProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
-    naiveRelayPaymasterAddress: getAddress('RelayPaymaster'),
-    naiveDeployPaymasterAddress: getAddress('DeployPaymaster')
+    relayVerifierAddress: getAddress('RelayVerifier'),
+    deployVerifierAddress: getAddress('DeployVerifier')
   }
 }
 

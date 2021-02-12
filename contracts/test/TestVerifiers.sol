@@ -2,17 +2,17 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../interfaces/IPaymaster.sol";
+import "../interfaces/IVerifier.sol";
 
-contract TestPaymasters {
+contract TestVerifiers {
 
-    event Deposited(address indexed paymaster, address indexed from, uint256 amount);
+    event Deposited(address indexed verifier, address indexed from, uint256 amount);
     event Accepted(uint256 tokenAmount, address from);
 
-    IPaymaster public paymasterContract;
+    IVerifier public verifierContract;
 
-    constructor ( address paymaster) public {
-        paymasterContract =  IPaymaster(paymaster);
+    constructor ( address verifier) public {
+        verifierContract =  IVerifier(verifier);
     }
 
     function preRelayedCall(
@@ -23,8 +23,8 @@ contract TestPaymasters {
     )
     external
     virtual
-    returns (bytes memory context, bool revertOnRecipientRevert) {
-        (context, revertOnRecipientRevert) = paymasterContract.preRelayedCall(relayRequest, signature, approvalData, maxPossibleGas);
+    returns (bytes memory context) {
+        (context) = verifierContract.preRelayedCall(relayRequest, signature, approvalData, maxPossibleGas);
         emit Accepted(relayRequest.request.tokenAmount, relayRequest.request.from);
     }
 

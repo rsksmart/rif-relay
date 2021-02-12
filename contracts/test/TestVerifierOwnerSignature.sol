@@ -4,9 +4,9 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
-import "./TestPaymasterEverythingAccepted.sol";
+import "./TestVerifierEverythingAccepted.sol";
 
-contract TestPaymasterOwnerSignature is TestPaymasterEverythingAccepted {
+contract TestVerifierOwnerSignature is TestVerifierEverythingAccepted {
     using ECDSA for bytes32;
 
     /**
@@ -20,13 +20,13 @@ contract TestPaymasterOwnerSignature is TestPaymasterEverythingAccepted {
     )
     external
     override
-    returns (bytes memory, bool) {
+    returns (bytes memory) {
         (signature, maxPossibleGas);
         address signer =
             keccak256(abi.encodePacked("I approve", relayRequest.request.from))
             .toEthSignedMessageHash()
             .recover(approvalData);
         require(signer == owner(), "test: not approved");
-        return ("",false);
+        return ("");
     }
 }

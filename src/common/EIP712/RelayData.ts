@@ -3,11 +3,8 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 
 export default interface RelayData {
   gasPrice: IntString
-  pctRelayFee: IntString
-  baseRelayFee: IntString
+  domainSeparator: PrefixedHexString
   relayWorker: Address
-  paymaster: Address
-  paymasterData: PrefixedHexString
-  clientId: IntString
-  forwarder: Address
+  callForwarder: Address
+  callVerifier: Address
 }

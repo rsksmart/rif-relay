@@ -27,6 +27,16 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
         unstakeDelay: initialUnstakeDelay
       })
     })
+
+    it('should NOT allow owner to stake for unowned addresses if minimum entry stake is not met', async function () {
+      await expectRevert.unspecified(
+        stakeManager.stakeForAddress(relayManager, initialUnstakeDelay, {
+          value: initialStake.sub(ether('0.00000000000001')), // slighlty less than allowed
+          from: owner
+        }),
+        'Insufficient intitial stake'
+      )
+    })
   }
 
   function testStakeNotValid (): void {
@@ -67,7 +77,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
 
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(ether('1'))
     })
 
     testStakeNotValid()
@@ -94,7 +104,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
 
   describe('with stake deposited for relay server', function () {
     beforeEach(async function () {
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(ether('1'))
       await stakeManager.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
@@ -221,7 +231,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
 
   describe('with authorized hub', function () {
     beforeEach(async function () {
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(ether('1'))
       await stakeManager.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
@@ -307,7 +317,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
 
   describe('with scheduled deauthorization of an authorized hub', function () {
     beforeEach(async function () {
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(ether('1'))
       await stakeManager.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
@@ -338,7 +348,7 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
 
   describe('with scheduled unlock while hub still authorized', function () {
     beforeEach(async function () {
-      stakeManager = await StakeManager.new()
+      stakeManager = await StakeManager.new(ether('1'))
       await stakeManager.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner

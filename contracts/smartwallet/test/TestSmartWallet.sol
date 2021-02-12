@@ -2,18 +2,18 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../SmartWallet.sol";
+import "../../interfaces/IForwarder.sol";
 
 // helper class for testing the forwarder.
 contract TestSmartWallet {
-    function callExecute(SmartWallet sw, SmartWallet.ForwardRequest memory req,
-        bytes32 domainSeparator, bytes32 requestTypeHash, bytes32 suffixData, bytes memory sig) public payable {
-         (bool success, uint256 lastSuccTx, bytes memory ret) = sw.execute{value:msg.value}(req, domainSeparator, requestTypeHash, suffixData, sig);
+    function callExecute(IForwarder sw, IForwarder.ForwardRequest memory req,
+        bytes32 domainSeparator, bytes32 suffixData, bytes memory sig) public payable {
+         (bool relaySuccess, bytes memory ret) = sw.execute{value:msg.value}(domainSeparator, suffixData, req, sig);
        
-        emit Result(success, success ? "" : this.decodeErrorMessage(ret), lastSuccTx);
+        emit Result(relaySuccess, relaySuccess ? "" : this.decodeErrorMessage(ret));
     }
 
-    event Result(bool success, string error, uint256 lastSuccTx);
+    event Result(bool success, string error);
 
     function decodeErrorMessage(bytes calldata ret) external pure returns (string memory message) {
         //decode evert string: assume it has a standard Error(string) signature: simply skip the (selector,offset,length) fields

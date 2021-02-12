@@ -18,7 +18,7 @@ export default class VersionsManager {
    * @return true if {@param version} is same or newer then {@link componentVersion}
    */
   isMinorSameOrNewer (version: string): boolean {
-    // prevent crash with some early paymasters (which are otherwise perfectly valid)
+    // prevent crash with some early verifiers (which are otherwise perfectly valid)
     version = version.replace('_', '-')
 
     const range = '^' + this.componentVersion
