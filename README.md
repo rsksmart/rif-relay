@@ -80,38 +80,7 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 //Using the same parameters as when SW was created.
 ```
 
-<<<<<<< HEAD
-## 4. Run a Relay Server <a id="c04"></a>
-
-### 4.1. Regtest <a id="c04.1"></a>
-
-
-### 4.2. Testnet <a id="c04.2"></a>
-
-
-## 5. Use MetaCoin <a id="c05"></a>
-
-Mint and send tokens without requiring RBTC for gas. Works on Regtest. 
-
-Try it: https://github.com/rsksmart/enveloping-metacoin
-
-## 6. Documentation <a id="c06"></a>
-
-
-
-## 7. Troubleshooting <a id="c07"></a>
-### 7.2. Common errors when testing <a id="c07.2"></a>
-
-#### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
-
-Ensure that you are in the project's root directory and that the test's name has no typos
-
-#### Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
-
-Stop the running node and delete the db used by the node.
-=======
 ## Changelog
->>>>>>> integration section added and development guide wrote
 
 ## Gas Station Network
 
