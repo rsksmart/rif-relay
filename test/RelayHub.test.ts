@@ -450,7 +450,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
           )
         })
 
-        it('gas estimation tests', async function () {
+        it.only('gas estimation tests', async function () {
           const nonceBefore = await forwarderInstance.nonce()
           const TestToken = artifacts.require('TestToken')
           const tokenInstance = await TestToken.new()
@@ -461,7 +461,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
               ...relayRequest.request,
               data: recipientContract.contract.methods.emitMessage2(message).encodeABI(),
               nonce: nonceBefore.toString(),
-              tokenRecipient: senderAddress,
+              tokenRecipient: relayWorker,
               tokenContract: tokenInstance.address,
               tokenAmount: '1'
             },
@@ -518,6 +518,16 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, sender
             }
           }
 
+
+          const callWithoutRelay = await recipientContract.emitMessage2(message)
+          const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
+
+          console.log('--------------- Destination Call Without enveloping------------------------')
+          console.log(`Cummulative Gas Used: ${gasUsed}`)
+          console.log('---------------------------------------')
+          console.log('--------------- Enveloping Overhead ------------------------')
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
+          console.log('---------------------------------------')
           // const trxRespo = await recipientContract.emitMessage2.sendTransaction(message, {
           // from: relayWorker,
           // gas,
