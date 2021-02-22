@@ -28,11 +28,11 @@ import { TypedDataUtils } from 'eth-sig-util'
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { GsnEvent } from '../../src/relayclient/GsnEvents'
-import { Web3Provider } from '../../src/relayclient/ContractInteractor'
+import { Web3Provider } from '../../src/common/ContractInteractor'
 import bodyParser from 'body-parser'
 import { Server } from 'http'
 import HttpClient from '../../src/relayclient/HttpClient'
@@ -43,7 +43,7 @@ import { soliditySha3Raw, toBN, toHex } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
 import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
 import { bufferToHex } from 'ethereumjs-util'
-import { expectEvent } from '@openzeppelin/test-helpers'
+import { expectEvent, ether } from '@openzeppelin/test-helpers'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -55,6 +55,7 @@ const expect = chai.expect
 chai.use(sinonChai)
 
 const localhostOne = 'http://localhost:8090'
+const cheapRelayerUrl = 'http://localhost:54321'
 const underlyingProvider = web3.currentProvider as HttpProvider
 
 class MockHttpClient extends HttpClient {
@@ -92,6 +93,20 @@ contract('RelayClient', function (accounts) {
   let smartWallet: SmartWalletInstance
   let token: TestTokenInstance
   let gaslessAccount: AccountKeypair
+
+  async function registerRelayer (relayHub: RelayHubInstance): Promise<void> {
+    const relayWorker = '0x'.padEnd(42, '2')
+    const relayOwner = accounts[3]
+    const relayManager = accounts[4]
+    await stakeManager.stakeForAddress(relayManager, 1000, {
+      value: ether('2'),
+      from: relayOwner
+    })
+    await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
+
+    await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
+    await relayHub.registerRelayServer(1, 1, cheapRelayerUrl, { from: relayManager })
+  }
 
   before(async function () {
     web3 = new Web3(underlyingProvider)
@@ -278,23 +293,6 @@ contract('RelayClient', function (accounts) {
       assert.equal(pingErrors.size, 0)
       assert.equal(relayingErrors.size, 1)
       assert.match(relayingErrors.values().next().value.message, /verifierData-error/)
-    })
-
-    it.skip('should return errors in callback (scoreCalculator) ', async function () {
-      // can't be used: scoring is completely disabled
-      const relayClient =
-        new RelayClient(underlyingProvider, gsnConfig, {
-          scoreCalculator: async () => { throw new Error('score-error') }
-        })
-
-      // register gasless account in RelayClient to avoid signing with RSKJ
-      relayClient.accountManager.addAccount(gaslessAccount)
-      const ret = await relayClient.relayTransaction(options)
-      const { transaction, relayingErrors, pingErrors } = ret
-      assert.isUndefined(transaction)
-      assert.equal(pingErrors.size, 0)
-      assert.equal(relayingErrors.size, 1)
-      assert.match(relayingErrors.values().next().value.message, /score-error/)
     })
 
     // TODO test other things, for example, if the smart wallet to deploy has no funds, etc
@@ -784,9 +782,9 @@ contract('RelayClient', function (accounts) {
       it('should call events handler', async function () {
         await relayClient.relayTransaction(options)
         assert.equal(gsnEvents.length, 8)
-        assert.equal(gsnEvents[0].step, 1)
+        assert.equal(gsnEvents[0].step, 0)
         assert.equal(gsnEvents[0].total, 8)
-        assert.equal(gsnEvents[7].step, 8)
+        assert.equal(gsnEvents[7].step, 7)
       })
       describe('removing events listener', () => {
         before('registerEventsListener', () => {
@@ -960,6 +958,39 @@ contract('RelayClient', function (accounts) {
       assert.isFalse(hasReceipt)
       assert.isTrue(wrongNonce)
       assert.equal(broadcastError?.message, BadContractInteractor.wrongNonceMessage)
+    })
+  })
+
+  describe('multiple relayers', () => {
+    let id: string
+    before(async () => {
+      id = (await snapshot()).result
+      await registerRelayer(relayHub)
+    })
+    after(async () => {
+      await revert(id)
+    })
+
+    it('should succeed to relay, but report ping error', async () => {
+      const relayingResult = await relayClient.relayTransaction(options)
+      assert.isNotNull(relayingResult.transaction)
+      assert.match(relayingResult.pingErrors.get(cheapRelayerUrl)?.message as string, /ECONNREFUSED/,
+        `relayResult: ${_dumpRelayingResult(relayingResult)}`)
+    })
+
+    it('use preferred relay if one is set', async () => {
+      relayClient = new RelayClient(underlyingProvider, {
+        preferredRelays: ['http://localhost:8090'],
+        ...gsnConfig
+      })
+
+      relayClient.accountManager.addAccount(gaslessAccount)
+
+      const relayingResult = await relayClient.relayTransaction(options)
+      assert.isNotNull(relayingResult.transaction)
+      assert.equal(relayingResult.pingErrors.size, 0)
+
+      console.log(relayingResult)
     })
   })
 })

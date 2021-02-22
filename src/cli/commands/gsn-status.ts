@@ -1,6 +1,6 @@
 import Web3 from 'web3'
 
-import ContractInteractor from '../../relayclient/ContractInteractor'
+import ContractInteractor from '../../common/ContractInteractor'
 import { configureGSN } from '../../relayclient/GSNConfigurator'
 import HttpClient from '../../relayclient/HttpClient'
 import HttpWrapper from '../../relayclient/HttpWrapper'

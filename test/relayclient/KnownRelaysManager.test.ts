@@ -1,8 +1,8 @@
 import { ether } from '@openzeppelin/test-helpers'
 import { HttpProvider } from 'web3-core'
 
-import KnownRelaysManager, { DefaultRelayScore } from '../../src/relayclient/KnownRelaysManager'
-import ContractInteractor from '../../src/relayclient/ContractInteractor'
+import { KnownRelaysManager, DefaultRelayScore } from '../../src/relayclient/KnownRelaysManager'
+import ContractInteractor from '../../src/common/ContractInteractor'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import {
   RelayHubInstance,
@@ -229,8 +229,8 @@ contract('KnownRelaysManager 2', function (accounts) {
 
     it('should consider all relay managers with stake and authorization as active', async function () {
       await knownRelaysManager.refresh()
-      const preferredRelays = knownRelaysManager.knownRelays[0]
-      const activeRelays = knownRelaysManager.knownRelays[1]
+      const preferredRelays = knownRelaysManager.preferredRelayers
+      const activeRelays = knownRelaysManager.allRelayers
       assert.equal(preferredRelays.length, 1)
       assert.equal(preferredRelays[0].relayUrl, 'http://localhost:8090')
       assert.equal(activeRelays.length, 3)
@@ -245,7 +245,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       }
       const knownRelaysManagerWithFilter = new KnownRelaysManager(contractInteractor, config, relayFilter)
       await knownRelaysManagerWithFilter.refresh()
-      const relays = knownRelaysManagerWithFilter.knownRelays[1]
+      const relays = knownRelaysManagerWithFilter.allRelayers
       assert.equal(relays.length, 1)
       assert.equal(relays[0].relayUrl, 'stakeAndAuthorization2')
     })
@@ -299,6 +299,85 @@ contract('KnownRelaysManager 2', function (accounts) {
       })
     })
 
+    describe('#splitRange', () => {
+      let knownRelaysManager: KnownRelaysManager
+      let lastErrorTime: number
+
+      before(async function () {
+        const env = await getTestingEnvironment()
+        knownRelaysManager = new KnownRelaysManager(
+          contractInteractor, configureGSN({ chainId: env.chainId }))
+        knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
+        knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
+        lastErrorTime = Date.now()
+        knownRelaysManager.saveRelayFailure(lastErrorTime, 'rm3', 'url3')
+      })
+
+      it('split 1', () => {
+        assert.deepEqual(knownRelaysManager.splitRange(1, 6, 1),
+          [{ fromBlock: 1, toBlock: 6 }])
+      })
+      it('split 2', () => {
+        assert.deepEqual(knownRelaysManager.splitRange(1, 6, 2),
+          [{ fromBlock: 1, toBlock: 3 }, { fromBlock: 4, toBlock: 6 }])
+      })
+      it('split 2 odd', () => {
+        assert.deepEqual(knownRelaysManager.splitRange(1, 7, 2),
+          [{ fromBlock: 1, toBlock: 4 }, { fromBlock: 5, toBlock: 7 }])
+      })
+      it('split 3', () => {
+        assert.deepEqual(knownRelaysManager.splitRange(1, 9, 3),
+          [{ fromBlock: 1, toBlock: 3 }, { fromBlock: 4, toBlock: 6 }, { fromBlock: 7, toBlock: 9 }])
+      })
+
+      it('split 3 odd', () => {
+        assert.deepEqual(knownRelaysManager.splitRange(1, 10, 3),
+          [{ fromBlock: 1, toBlock: 4 }, { fromBlock: 5, toBlock: 8 }, { fromBlock: 9, toBlock: 10 }])
+      })
+    })
+
+    describe('#getPastEventsForHub', () => {
+      let saveContractInteractor: any
+      let knownRelaysManager: KnownRelaysManager
+      let lastErrorTime: number
+      before(async () => {
+        const env = await getTestingEnvironment()
+        knownRelaysManager = new KnownRelaysManager(
+          contractInteractor, configureGSN({ chainId: env.chainId }))
+        knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
+        knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
+        lastErrorTime = Date.now()
+        knownRelaysManager.saveRelayFailure(lastErrorTime, 'rm3', 'url3')
+
+        saveContractInteractor = (knownRelaysManager as any).contractInteractor;
+        (knownRelaysManager as any).contractInteractor = {
+          async getPastEventsForHub (extra: any, options: { fromBlock: number, toBlock: number }) {
+            if (options.toBlock - options.fromBlock > 100) {
+              throw new Error('query returned more than 100 events')
+            }
+            const ret: any[] = []
+            for (let b = options.fromBlock; b <= options.toBlock; b++) {
+              ret.push({ event: `event${b}-${options.fromBlock}-${options.toBlock}` })
+            }
+            return ret
+          }
+        }
+      })
+      after(() => {
+        (knownRelaysManager as any).contractInteractor = saveContractInteractor
+      })
+
+      it('should break large request into multiple chunks', async () => {
+        (knownRelaysManager as any).relayLookupWindowParts = 1
+        const ret = await knownRelaysManager.getPastEventsForHub(1, 300)
+
+        assert.equal((knownRelaysManager as any).relayLookupWindowParts, 4)
+        assert.equal(ret.length, 300)
+        assert.equal(ret[0].event, 'event1-1-75')
+        assert.equal(ret[299].event, 'event300-226-300')
+      })
+    })
+
     describe('DefaultRelayScore', function () {
       const failure = {
         lastErrorTime: 100,
@@ -332,7 +411,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       const env = await getTestingEnvironment()
       knownRelaysManager = new KnownRelaysManager(
         contractInteractor, configureGSN({ chainId: env.chainId }), undefined, biasedRelayScore)
-      const activeRelays: RelayRegisteredEventInfo[][] = [[], [{
+      const activeRelays: RelayRegisteredEventInfo[] = [{
         relayManager: accounts[0],
         relayUrl: 'alex',
         baseRelayFee: '100000000',
@@ -347,8 +426,8 @@ contract('KnownRelaysManager 2', function (accounts) {
         relayUrl: 'joe',
         baseRelayFee: '10',
         pctRelayFee: '4'
-      }]]
-      sinon.stub(knownRelaysManager, 'knownRelays').value(activeRelays)
+      }]
+      sinon.stub(knownRelaysManager, 'allRelayers').value(activeRelays)
     })
 
     it('should use provided score calculation method to sort the known relays', async function () {

@@ -16,7 +16,7 @@ import {
   getTemporaryWorkdirs,
   ServerWorkdirs
 } from './ServerTestUtils'
-import ContractInteractor from '../../src/relayclient/ContractInteractor'
+import ContractInteractor from '../../src/common/ContractInteractor'
 import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
 import PingResponse from '../../src/common/PingResponse'
 import { KeyManager } from '../../src/relayserver/KeyManager'

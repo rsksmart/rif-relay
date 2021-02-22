@@ -21,7 +21,7 @@ import {
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { getRawTxOptions } from '../src/relayclient/ContractInteractor'
+import { getRawTxOptions } from '../src/common/ContractInteractor'
 
 import TransactionResponse = Truffle.TransactionResponse
 

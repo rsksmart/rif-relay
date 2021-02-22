@@ -1,5 +1,5 @@
 import log from 'loglevel'
-import { IKnownRelaysManager } from './KnownRelaysManager'
+import { KnownRelaysManager } from './KnownRelaysManager'
 import HttpClient from './HttpClient'
 import { isInfoFromEvent, RelayInfoUrl } from './types/RelayRegisteredEventInfo'
 import { PingFilter } from './types/Aliases'
@@ -14,7 +14,7 @@ interface RaceResult {
 }
 
 export default class RelaySelectionManager {
-  private readonly knownRelaysManager: IKnownRelaysManager
+  private readonly knownRelaysManager: KnownRelaysManager
   private readonly httpClient: HttpClient
   private readonly config: GSNConfig
   private readonly pingFilter: PingFilter
@@ -25,7 +25,7 @@ export default class RelaySelectionManager {
 
   public errors: Map<string, Error> = new Map<string, Error>()
 
-  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: IKnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig) {
+  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: KnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig) {
     this.gsnTransactionDetails = gsnTransactionDetails
     this.knownRelaysManager = knownRelaysManager
     this.httpClient = httpClient
@@ -95,9 +95,11 @@ export default class RelaySelectionManager {
         log.info(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayInfo)}`)
         const events = await this.knownRelaysManager.getRelayInfoForManagers(new Set([managerAddress]))
         if (events.length === 1) {
+          const relayInfo = events[0]
+          relayInfo.relayUrl = raceResult.winner.relayInfo.relayUrl
           return {
             pingResponse: raceResult.winner.pingResponse,
-            relayInfo: events[0]
+            relayInfo: relayInfo
           }
         } else {
           // TODO: do not throw! The preferred relay may be removed since.

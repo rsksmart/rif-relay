@@ -2,7 +2,7 @@ import Web3 from 'web3'
 import { HttpProvider } from 'web3-core'
 import { toBN } from 'web3-utils'
 
-import ContractInteractor from '../../src/relayclient/ContractInteractor'
+import ContractInteractor from '../../src/common/ContractInteractor'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
 import { RelayServer } from '../../src/relayserver/RelayServer'

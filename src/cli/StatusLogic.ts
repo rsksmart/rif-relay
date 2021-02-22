@@ -1,4 +1,4 @@
-import ContractInteractor, { RelayServerRegistered } from '../relayclient/ContractInteractor'
+import ContractInteractor, { RelayServerRegistered } from '../common/ContractInteractor'
 import HttpClient from '../relayclient/HttpClient'
 import PingResponse from '../common/PingResponse'
 import { RelayRegisteredEventInfo } from '../relayclient/types/RelayRegisteredEventInfo'

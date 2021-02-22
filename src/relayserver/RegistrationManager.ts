@@ -23,7 +23,7 @@ import ContractInteractor, {
   StakeAdded,
   StakeUnlocked,
   StakeWithdrawn
-} from '../relayclient/ContractInteractor'
+} from '../common/ContractInteractor'
 
 import { SendTransactionDetails, TransactionManager } from './TransactionManager'
 import { ServerConfigParams } from './ServerConfigParams'
