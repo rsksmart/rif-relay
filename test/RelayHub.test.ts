@@ -104,7 +104,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           gas: gasLimit,
           tokenContract: token.address,
           tokenAmount: '1',
-          tokenGas: '50000'
+          tokenGas: '53000'
         },
         relayData: {
           gasPrice,
@@ -482,7 +482,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           )
         })
 
-        it('gas estimation tests for Simple Smart Wallet', async function () {
+        it.only('gas estimation tests for Simple Smart Wallet', async function () {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -564,10 +564,16 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('gas estimation tests', async function () {
-          const nonceBefore = await forwarderInstance.nonce()
+
+          const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+          const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+          const sWalletInstance = await createSmartWallet(_, gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+
+
+          const nonceBefore = await sWalletInstance.nonce()
           const TestToken = artifacts.require('TestToken')
           const tokenInstance = await TestToken.new()
-          await tokenInstance.mint('1000000', forwarder)
+          await tokenInstance.mint('10000', sWalletInstance.address)
 
           const completeReq = {
             request: {
@@ -576,16 +582,19 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
               nonce: nonceBefore.toString(),
               tokenContract: tokenInstance.address,
               tokenAmount: '1',
-              tokenGas: '50000'
+              tokenGas: '53000'
             },
             relayData: {
-              ...relayRequest.relayData
+              ...relayRequest.relayData,
+              callForwarder: sWalletInstance.address,
+              domainSeparator: getDomainSeparatorHash(sWalletInstance.address, chainId)
             }
           }
 
+
           const reqToSign = new TypedRequestData(
             chainId,
-            forwarder,
+            sWalletInstance.address,
             completeReq
           )
 
@@ -600,7 +609,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gasPrice
           })
 
-          const nonceAfter = await forwarderInstance.nonce()
+          const nonceAfter = await sWalletInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
 
           const eventHash = keccak('GasUsed(uint256,uint256)')
@@ -636,9 +645,19 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
           await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
             message,
-            msgSender: forwarder,
+            msgSender: sWalletInstance.address,
             origin: relayWorker
           })
+
+          const callWithoutRelay = await recipientContract.emitMessage2(message)
+          const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
+          // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
+          console.log('--------------- Destination Call Without enveloping------------------------')
+          console.log(`Cummulative Gas Used: ${gasUsed}`)
+          console.log('---------------------------------------')
+          console.log('--------------- Enveloping Overhead ------------------------')
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
+          console.log('---------------------------------------')
         })
 
         it('should fail to relay if the worker has been disabled', async function () {
