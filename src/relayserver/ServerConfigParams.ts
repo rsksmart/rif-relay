@@ -1,7 +1,7 @@
 import parseArgs from 'minimist'
 import * as fs from 'fs'
 import { VersionRegistry } from '../common/VersionRegistry'
-import ContractInteractor from '../relayclient/ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 import { configureGSN } from '../relayclient/GSNConfigurator'
 import { constants } from '../common/Constants'
 import { Address } from '../relayclient/types/Aliases'

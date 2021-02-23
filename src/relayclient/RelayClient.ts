@@ -9,9 +9,9 @@ import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from
 import GsnTransactionDetails from './types/GsnTransactionDetails'
 import { Address, AsyncDataCallback, PingFilter } from './types/Aliases'
 import HttpClient from './HttpClient'
-import ContractInteractor from './ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 import RelaySelectionManager from './RelaySelectionManager'
-import { IKnownRelaysManager } from './KnownRelaysManager'
+import { KnownRelaysManager } from './KnownRelaysManager'
 import AccountManager from './AccountManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { configureGSN, getDependencies, GSNConfig, GSNDependencies } from './GSNConfigurator'
@@ -69,7 +69,7 @@ export class RelayClient {
   readonly config: GSNConfig
   private readonly httpClient: HttpClient
   protected contractInteractor: ContractInteractor
-  protected knownRelaysManager: IKnownRelaysManager
+  protected knownRelaysManager: KnownRelaysManager
   private readonly asyncApprovalData: AsyncDataCallback
   private readonly transactionValidator: RelayedTransactionValidator
   private readonly pingFilter: PingFilter
@@ -245,7 +245,6 @@ export class RelayClient {
     this.emit(new GsnRefreshRelaysEvent())
     await this.knownRelaysManager.refresh()
     gsnTransactionDetails.gasPrice = gsnTransactionDetails.forceGasPrice ?? await this._calculateGasPrice()
-
     if (gsnTransactionDetails.gas === undefined || gsnTransactionDetails.gas == null) {
       if ((gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
         const estimated = await this.calculateSmartWalletDeployGas(gsnTransactionDetails)
@@ -260,7 +259,11 @@ export class RelayClient {
     gsnTransactionDetails.tokenGas = gsnTransactionDetails.tokenGas ?? (await this.estimateTokenTransferGas(gsnTransactionDetails)).toString()
 
     const relaySelectionManager = await new RelaySelectionManager(gsnTransactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
-    this.emit(new GsnDoneRefreshRelaysEvent((relaySelectionManager.relaysLeft().length)))
+    const count = relaySelectionManager.relaysLeft().length
+    this.emit(new GsnDoneRefreshRelaysEvent(count))
+    if (count === 0) {
+      throw new Error('no registered relayers')
+    }
     const relayingErrors = new Map<string, Error>()
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined

@@ -6,7 +6,7 @@ import { Mutex } from 'async-mutex'
 import { PrefixedHexString, Transaction, TransactionOptions } from 'ethereumjs-tx'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
-import ContractInteractor from '../relayclient/ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 
 import { TxStoreManager } from './TxStoreManager'
 import { KeyManager } from './KeyManager'

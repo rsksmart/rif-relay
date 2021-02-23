@@ -4,7 +4,7 @@ import { bufferToHex } from 'ethereumjs-util'
 
 import { isSameAddress } from '../common/Utils'
 
-import ContractInteractor from './ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import { GSNConfig } from './GSNConfigurator'
 

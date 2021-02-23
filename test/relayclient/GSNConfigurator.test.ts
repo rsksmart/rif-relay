@@ -6,7 +6,7 @@ import chaiAsPromised from 'chai-as-promised'
 import { resolveConfigurationGSN } from '../../src/relayclient/GSNConfigurator'
 import { DeploymentResult } from '../../src/cli/CommandsLogic'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import ContractInteractor, { Web3Provider } from '../../src/relayclient/ContractInteractor'
+import ContractInteractor, { Web3Provider } from '../../src/common/ContractInteractor'
 import { HttpProvider } from 'web3-core'
 
 const { assert, expect } = chai.use(chaiAsPromised)

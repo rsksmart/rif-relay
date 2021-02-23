@@ -5,10 +5,10 @@ import { constants } from '../common/Constants'
 import { defaultEnvironment } from '../common/Environments'
 
 import AccountManager from './AccountManager'
-import ContractInteractor, { Web3Provider } from './ContractInteractor'
+import ContractInteractor, { Web3Provider } from '../common/ContractInteractor'
 import HttpClient from './HttpClient'
 import HttpWrapper from './HttpWrapper'
-import KnownRelaysManager, { DefaultRelayScore, EmptyFilter, IKnownRelaysManager } from './KnownRelaysManager'
+import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { Address, AsyncDataCallback, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
 import { EmptyDataCallback, GasPricePingFilter } from './RelayClient'
@@ -21,6 +21,7 @@ const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
 const defaultGsnConfig: GSNConfig = {
   preferredRelays: [],
   onlyPreferredRelays: false,
+  relayLookupWindowParts: 1,
   relayLookupWindowBlocks: DEFAULT_LOOKUP_WINDOW_BLOCKS,
   gasPriceFactorPercent: GAS_PRICE_PERCENT,
   minGasPrice: 1e09,
@@ -98,6 +99,7 @@ export interface GSNConfig {
   preferredRelays: string[]
   onlyPreferredRelays: boolean
   relayLookupWindowBlocks: number
+  relayLookupWindowParts: number
   methodSuffix: string
   jsonStringifyRequest: boolean
   relayTimeoutGrace: number
@@ -117,7 +119,7 @@ export interface GSNConfig {
 export interface GSNDependencies {
   httpClient: HttpClient
   contractInteractor: ContractInteractor
-  knownRelaysManager: IKnownRelaysManager
+  knownRelaysManager: KnownRelaysManager
   accountManager: AccountManager
   transactionValidator: RelayedTransactionValidator
   pingFilter: PingFilter

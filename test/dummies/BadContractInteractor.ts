@@ -1,4 +1,4 @@
-import ContractInteractor, { Web3Provider } from '../../src/relayclient/ContractInteractor'
+import ContractInteractor, { Web3Provider } from '../../src/common/ContractInteractor'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
 import { TransactionReceipt } from 'web3-core'

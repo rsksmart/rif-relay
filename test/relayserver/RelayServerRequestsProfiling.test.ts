@@ -1,7 +1,7 @@
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { evmMine, evmMineMany, getTestingEnvironment } from '../TestUtils'
 import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
-import ContractInteractor from '../../src/relayclient/ContractInteractor'
+import ContractInteractor from '../../src/common/ContractInteractor'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import { ServerTestEnvironment } from './ServerTestEnvironment'

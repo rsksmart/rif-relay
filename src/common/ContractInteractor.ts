@@ -13,21 +13,21 @@ import {
   WebsocketProvider
 } from 'web3-core'
 
-import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
-import verifierAbi from '../common/interfaces/IVerifier.json'
-import deployVerifierAbi from '../common/interfaces/IDeployVerifier.json'
-import baseVerifierAbi from '../common/interfaces/IBaseVerifier.json'
+import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
+import verifierAbi from './interfaces/IVerifier.json'
+import deployVerifierAbi from './interfaces/IDeployVerifier.json'
+import baseVerifierAbi from './interfaces/IBaseVerifier.json'
 
-import relayHubAbi from '../common/interfaces/IRelayHub.json'
-import forwarderAbi from '../common/interfaces/IForwarder.json'
-import stakeManagerAbi from '../common/interfaces/IStakeManager.json'
-import knowForwarderAddressAbi from '../common/interfaces/IKnowForwarderAddress.json'
-import proxyFactoryAbi from '../common/interfaces/ISmartWalletFactory.json'
+import relayHubAbi from './interfaces/IRelayHub.json'
+import forwarderAbi from './interfaces/IForwarder.json'
+import stakeManagerAbi from './interfaces/IStakeManager.json'
+import knowForwarderAddressAbi from './interfaces/IKnowForwarderAddress.json'
+import proxyFactoryAbi from './interfaces/ISmartWalletFactory.json'
 
-import { event2topic } from '../common/Utils'
-import { constants } from '../common/Constants'
-import replaceErrors from '../common/ErrorReplacerJSON'
-import VersionsManager from '../common/VersionsManager'
+import { event2topic } from './Utils'
+import { constants } from './Constants'
+import replaceErrors from './ErrorReplacerJSON'
+import VersionsManager from './VersionsManager'
 import {
   IForwarderInstance,
   IKnowForwarderAddressInstance,
@@ -36,13 +36,15 @@ import {
   IStakeManagerInstance, IDeployVerifierInstance, IBaseVerifierInstance, ISmartWalletFactoryInstance
 } from '../../types/truffle-contracts'
 
-import { Address, IntString } from './types/Aliases'
-import { GSNConfig } from './GSNConfigurator'
-import GsnTransactionDetails from './types/GsnTransactionDetails'
+import { Address, IntString } from '../relayclient/types/Aliases'
+import { GSNConfig } from '../relayclient/GSNConfigurator'
+import GsnTransactionDetails from '../relayclient/types/GsnTransactionDetails'
+import { toBN } from 'web3-utils'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
 import Contract = Truffle.Contract
+import BN = require('bn.js')
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -278,13 +280,13 @@ export default class ContractInteractor {
     signature: PrefixedHexString,
     approvalData: string = '0x'): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
     const relayHub = this.relayHubInstance
-    const externalGasLimit = await this._getBlockGasLimit()
+    const externalGasLimit = await this.getMaxViewableGasLimit(relayRequest)
 
     // First call the verifier
     try {
       await this.relayVerifierInstance.contract.methods.preRelayedCall(relayRequest, signature, approvalData, externalGasLimit).call({
         from: relayRequest.relayData.relayWorker
-      })
+      }, 'pending')
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
@@ -326,7 +328,7 @@ export default class ContractInteractor {
     signature: PrefixedHexString,
     approvalData: string = '0x'): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
     const relayHub = this.relayHubInstance
-    const externalGasLimit = await this._getBlockGasLimit()
+    const externalGasLimit = await this.getMaxViewableGasLimit(relayRequest)
 
     // First call the verifier
     try {
@@ -367,6 +369,13 @@ export default class ContractInteractor {
         returnValue: `view call to 'deployCall' reverted in client: ${message}`
       }
     }
+  }
+
+  async getMaxViewableGasLimit (relayRequest: RelayRequest | DeployRequest): Promise<BN> {
+    const blockGasLimit = await this._getBlockGasLimit()
+    const blockGasWorthOfEther = toBN(relayRequest.relayData.gasPrice).mul(toBN(blockGasLimit))
+    const workerBalance = toBN(await this.getBalance(relayRequest.relayData.relayWorker))
+    return BN.min(blockGasWorthOfEther, workerBalance)
   }
 
   encodeRelayCallABI (relayRequest: RelayRequest, sig: PrefixedHexString): PrefixedHexString {

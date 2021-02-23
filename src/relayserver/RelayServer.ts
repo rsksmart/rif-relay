@@ -8,7 +8,7 @@ import { toBN } from 'web3-utils'
 
 import { IVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '../../types/truffle-contracts'
 
-import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../relayclient/ContractInteractor'
+import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../common/ContractInteractor'
 import { Address, IntString } from '../relayclient/types/Aliases'
 import { DeployTransactionRequest, DeployTransactionRequestShape, RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
 
@@ -34,6 +34,7 @@ import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import Timeout = NodeJS.Timeout
 
 const VERSION = '2.0.1'
+const PARAMETERS_COST = 43782
 
 export class RelayServer extends EventEmitter {
   lastScannedBlock = 0
@@ -210,7 +211,7 @@ export class RelayServer extends EventEmitter {
       log.warn('Verifier acceptance budget not set, using defaults acceptance budget')
     }
 
-    const gasAlreadyUsedBeforeDoingAnythingInRelayCall = 43782 // the hubOverhead needs a cushion, which is the gas used to just receive the parameters
+    const gasAlreadyUsedBeforeDoingAnythingInRelayCall = PARAMETERS_COST // the hubOverhead needs a cushion, which is the gas used to just receive the parameters
     // TODO , move the cushion to the gasOverhead once it is calculated properly
     const hubOverhead = (await this.relayHubContract.gasOverhead()).toNumber()
     const maxPossibleGas = calculateTransactionMaxPossibleGas(
@@ -221,9 +222,9 @@ export class RelayServer extends EventEmitter {
 
     try {
       if (this.isDeployRequest(req)) {
-        await (verifierContract as IDeployVerifierInstance).contract.methods.preRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress })
+        await (verifierContract as IDeployVerifierInstance).contract.methods.preRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress }, 'pending')
       } else {
-        await (verifierContract as IVerifierInstance).contract.methods.preRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress })
+        await (verifierContract as IVerifierInstance).contract.methods.preRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress }, 'pending')
       }
     } catch (e) {
       const error = e as Error
@@ -241,14 +242,14 @@ export class RelayServer extends EventEmitter {
         from: this.workerAddress,
         gasPrice: req.relayRequest.relayData.gasPrice,
         gas: maxPossibleGas
-      })
+      }, 'pending')
     } catch (e) {
       throw new Error(`relayCall (local call) reverted in server: ${(e as Error).message}`)
     }
   }
 
   async createRelayTransaction (req: RelayTransactionRequest | DeployTransactionRequest): Promise<PrefixedHexString> {
-    log.debug('dump request params', arguments[0])
+    log.debug(`dump request params: ${JSON.stringify(req)}`)
     if (!this.isReady()) {
       throw new Error('relay not ready')
     }
@@ -266,8 +267,6 @@ export class RelayServer extends EventEmitter {
       throw new Error('Specified Verifier is not Trusted')
     }
     const { maxPossibleGas, acceptanceBudget } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
-
-    // TODO: relay server must decide wether the trx cost is too much to handle or not
 
     // Send relayed transaction
     log.debug('maxPossibleGas is', maxPossibleGas)
