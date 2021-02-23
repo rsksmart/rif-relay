@@ -1,11 +1,11 @@
-# RIF Enveloping
+# RIF Enveloping - V2
 
 Secure sponsored transaction system to enable users to pay fees using ERC-20 tokens.
 
 [![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 ## Description
 
-The following information discribes the version 1 of RIF Enveloping. This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
+This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn. In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dApps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dApp usability without sacrificing security.
 
 RIF Enveloping expands the GSN capabilities and security model while reducing gas costs by:
 
@@ -13,7 +13,7 @@ RIF Enveloping expands the GSN capabilities and security model while reducing ga
 - Elimination of interaction with Uniswap: relay providers receive tokens in a worker address under their control to later on decide what to do with funds.
 - Reducing gas costs by optimizing the existing GSN architecture.
 
-Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, removing the need get RBTC.
+Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, removing the need to get RBTC.
 
 The RIF Enveloping team is working on a new architecture to further reduce gas costs while simplifying the entire design of the solution. This changes will be part of the upcoming version 2.
 
@@ -105,6 +105,18 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 ```
 
 ## Changelog
+
+### V2
+
+* In V2 the Relay Hub contract doesn't accept native-currency for payments.
+
+* Paymasters were renamed as Verifiers.
+
+* Since the changes in the Smart wallet's design and the taken out of the Relay Hub balance, the Verifiers become off-chain components.
+
+* Gas cost optimization
+
+* Security issues fixed.
 
 ## Gas Station Network
 

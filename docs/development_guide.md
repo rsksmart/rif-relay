@@ -6,16 +6,16 @@ To use Enveloping, we explained [here](docs/launching_enveloping.md) the basic s
 
 ## Project structure
 
-The project is divided in on-chain and off-chain components. 
+The project has on-chain and off-chain components.
 
-- In the `contracts` folder on the root directory you can find all the smart contracts involved in Enveloping.
+- In the `contracts` folder on the root directory, you can find all the smart contracts involved in Enveloping.
     - Those could be compiled with `yarn prepare` and it changes will be reflected in the `build/contracts` folder.
     - If a new contract is created, it's important to add it in `migrations/2_deploy_contracts.js` for deploying it.
-    - The current of solidity compiler is `^0.6.12`.
+    - The current solidity version is `^0.6.12`.
 - In `src` you can find off-chain components such as `cli`, `relayclient` and `relayserver`. Everything here is coded in `typescript`.
     - To compile typescript, you should use `yarn tsc` and the changes will be in the `dist` folder.
-- In the `jsrelay` you can find all related for running a Relay Server. You can see [here](docs/launching_enveloping.md) for more details in how to.
-- In `test` are all the suit of testing. You can read below for knowing how to test Enveloping.
+- In the `jsrelay`, there are all related to run a Relay Server. You can see [here](docs/launching_enveloping.md) for more details.
+- In `test` is all the suit of testing. You can read below for knowing how to test Enveloping.
 
 ## Testing
 
@@ -27,13 +27,13 @@ When a new test is added before running the tests you should run `yarn tsc` for 
 
 Note: It takes time, the script will run an RSK node in regtest, and then run all the tests.
 
-- To run an specific test:
+- To run a specific test:
 
 Once the project is built, we can test it with truffle
 `yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
-## Commiting changes
+## Committing changes
 
-For contributing in the project, you should create a branch with the name of the new feature you are implementing (e.g. `gas-optimization`). When you commit to git, a hook is executed. The hook executes a linter and all the tests.
+For contributing to the project, you should create a branch with the name of the new feature you are implementing (e.g. `gas-optimization`). When you commit to git, a hook is executed. The hook executes a linter and all the tests.
 ## Troubleshooting <a id="c07"></a>
 ### Common errors when testing
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
