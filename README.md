@@ -29,7 +29,31 @@ The following technical content are available:
 - Development guide [docs/development_guide](docs/development_guide.md)
 - Integration guide [docs/integration_guide](docs/integration_guide.md)
 
-## Testnet Contracts
+
+## Testnet Contracts - V2
+
+| Contract          | Address                                    |
+|-------------------|--------------------------------------------|
+| [StakeManager]    | 0xb059f16a6BDa9D8372AF8699b1d256dB630aBD3e |
+| [Penalizer]       | 0xD44B83F6c1F7FD6832617F5090251995e8ceA526 |
+| [RelayHub]        | 0x0fD966aE0b39EC5177d04348D92391E2571523cD |
+| [SmartWallet]     | 0x06Abd711C3AdD1363C8DcAB6aB3e58477818C043 |
+| [ProxyFactory]    | 0xc546898f17226ccC271f5060339c3b74733b2B62 |
+| [SSmartWallet]    | 0xE94B9C5Bb2B323F7D748cAb397E64a5d3D774201 |
+| [SProxyFactory]   | 0x70279F9Ed7222AcEf62e6794Db762Fa43e51043E |
+| [DeployVerifier]  | 0x515Daa4c05B65C5FfBC4cddcc10F26aa8B7ABF62 |
+| [RelayVerifier]   | 0x5316C84AB67Eff7f09e376d5caA2df77ad585717 |
+
+[StakeManager]:(https://explorer.testnet.rsk.co/address/0xb059f16a6BDa9D8372AF8699b1d256dB630aBD3e)
+[Penalizer]:(https://explorer.testnet.rsk.co/address/0xD44B83F6c1F7FD6832617F5090251995e8ceA526)
+[RelayHub]:(https://explorer.testnet.rsk.co/address/0x0fD966aE0b39EC5177d04348D92391E2571523cD)
+[SmartWallet]:(https://explorer.testnet.rsk.co/address/0x06Abd711C3AdD1363C8DcAB6aB3e58477818C043)
+[ProxyFactory]:(https://explorer.testnet.rsk.co/address/0xc546898f17226ccC271f5060339c3b74733b2B62)
+[SSmartWallet]:(https://explorer.testnet.rsk.co/address/0xE94B9C5Bb2B323F7D748cAb397E64a5d3D774201)
+[SProxyFactory]:(https://explorer.testnet.rsk.co/address/0x70279F9Ed7222AcEf62e6794Db762Fa43e51043E)
+[DeployVerifier]:(https://explorer.testnet.rsk.co/address/0x515Daa4c05B65C5FfBC4cddcc10F26aa8B7ABF62)
+[RelayVerifier]:(https://explorer.testnet.rsk.co/address/0x5316C84AB67Eff7f09e376d5caA2df77ad585717)
+## Testnet Contracts - V1
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
