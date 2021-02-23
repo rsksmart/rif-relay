@@ -784,7 +784,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
             await token.mint('10000', swInstance.address)
             const balance = await token.balanceOf(swInstance.address)
-            assert.isTrue(balance.toNumber() == 10000)
+            assert.isTrue(balance.toNumber() === 10000)
           }
 
           const requests: RelayRequest[] = []
@@ -892,7 +892,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
             await token.mint('10000', swInstance.address)
             const balance = await token.balanceOf(swInstance.address)
-            assert.isTrue(balance.toNumber() == 10000)
+            assert.isTrue(balance.toNumber() === 10000)
 
             testRecipients[index] = await TestRecipient.new()
             assert.isFalse(testRecipientAddresses.has(testRecipients[index].address.toLowerCase()))
@@ -1019,7 +1019,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
             await token.mint('10000', swInstance.address)
             const balance = await token.balanceOf(swInstance.address)
-            assert.isTrue(balance.toNumber() == 10000)
+            assert.isTrue(balance.toNumber() === 10000)
 
             testRecipients[index] = await TestRecipient.new()
             assert.isFalse(testRecipientAddresses.has(testRecipients[index].address.toLowerCase()))
