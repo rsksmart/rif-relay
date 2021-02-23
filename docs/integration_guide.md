@@ -1,10 +1,25 @@
 # Integration guide
 
-Enveloping allows the user to pay fees with token. To achieve this, Enveloping exposes functions that dApps and wallets can consume in order to enable the option to pay the transaction adopting directly Enveloping.
+Enveloping allows the user to pay fees with a token. For this purpose, Enveloping exposes methods that dApps and wallets can consume to provide Enveloping as a service.
 
+## Relay Client & Relay Server
+
+The Relay Server is the off-chain component in charge of receiving transactions and sending them to the on-chain component, a Relay Manager. This owns Relay Workers accounts with funds, then to relay a transaction, Worker signs it and sends it to the Relay Hub paying for the gas consumed.
+
+A user can opt to communicate with a Relay Server through a Relay Client. Since the Relay Client knows addresses of different Relay Managers, it sends to the more active one. Then, the Client sends to the server via HTTP request sending the transaction to be sponsored.
+## Using the Relay Server directly
+
+The simplest option to use Enveloping in your wallet or dApp is calling the Relay Server directly. The instructions for running a Relayer are [here](docs/launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
+
+The order for relaying or deploying a transaction through the Relay Server is
+1. Create a relay or deploy request.
+2. Sign the structure using the EIP712 signature.
+3. Create the metadata with the signature.
+4. With the relay or deploy request and the metadata, creating an HTTP request.
+5. Call the HTTP Server `/relay` method using an HTTP POST request.
 ## Using the Relay Provider
 
-An option is to adopt Enveloping is through the Relay Provider. It wraps web3, so all the transaction and calls are made through the Relay Provider. HABLAR DE RELAY CLIENT Y RELAY SERVER.
+An option is to use Enveloping through the Relay Provider. The latter wraps web3, then all the transactions and calls are made through the Relay Provider. To achieve that, the Relay Provider, if not provided, instance its Relay Client.
 
 ```typescript
     this.config = await resolveConfigurationGSN(web3.currentProvider, {
@@ -31,24 +46,9 @@ An option is to adopt Enveloping is through the Relay Provider. It wraps web3, s
         onlyPreferredRelays: true //It will read the preferredRelays on the config.
     })
 ```
-
-## Using the Relay Server directly
-
-Another option to use Enveloping in your wallet or dApp is using the Relay Server directly. The instructions for running a Relayer are [here](docs/launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
-
-The order for relaying or deploying a transaction through the Relay Server is
-1. Create a relay or deploy request.
-2. Sign the structure using the EIP712 signature.
-3. Create the metadata with the signature.
-4. With the relay or deploy request and the metadata, creating an HTTP request.
-5. Call the HTTP Server `/relay` method using an HTTP POST request.
-
-
 ### Example of deploying a Smart Wallet using Enveloping
 
-As we mentioned in the [documentation]() an advantage of the Enveloping's solution is the chance to have a token's wallet without deploying it. Only when a user wants to use her tokens, it needs to request the deployment of the smart wallet using a deploy request.
-
-
+As we mentioned in the [documentation](), one advantage of the Enveloping's solution is the chance to have a token's wallet without deploying it. Only when a user wants to use her tokens, it needs to request the deployment of the smart wallet using a deploy request.
 
 
 ```typescript
@@ -108,18 +108,6 @@ from: this.smartWalletOwner,                  // EOA who will be the owner of th
     }
     ​
     call '/relay' with httpRequest
-
-
-const enveloping = new Enveloping(GSNConfig)   
-
-//Create a deploy request
-const deployRequest = enveloping.createDeployRequest(from, gasLimit, tokenContract, tokenAmount, index)
-
-//Signed the deploy request
-const signature = enveloping.signRequest(deployRequest)
-
-//Send http request
-const status = enveloping.sendHttpRequest(deployRequest, signature)
 ```
 
 ### Example of relaying a transaction using Enveloping
