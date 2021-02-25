@@ -490,7 +490,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           )
         })
 
-        it.only('gas estimation tests for Simple Smart Wallet', async function () {
+        it('gas estimation tests for Simple Smart Wallet', async function () {
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -572,7 +572,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('gas estimation tests for Simple Smart Wallet using batch, happy scenario', async function () {
-          const txAmount: number = 10
+          const txAmount: number = 6
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -658,9 +658,96 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             assert.equal(element.events[1].value.toLowerCase(), sWalletInstance.address.toLowerCase())
           }
         })
+        it('gas estimation tests for Smart Wallet using batch, happy scenario', async function () {
+          const txAmount: number = 30
+          const SmartWallet = artifacts.require('SmartWallet')
+          const SWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+          const factory: ProxyFactoryInstance = await createProxyFactory(SWalletTemplate)
+          const sWalletInstance = await createSmartWallet(_, gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+
+          const nonceBefore = await sWalletInstance.nonce()
+          await token.mint('10000', sWalletInstance.address)
+
+          const requests: RelayRequest[] = []
+          const signatures: string[] = []
+          let nextNonce: number = nonceBefore.toNumber()
+
+          for (let index = 0; index < txAmount; index++) {
+            const clonedReq = cloneRelayRequest(sharedRelayRequestData)
+            clonedReq.request.data = recipientContract.contract.methods.emitMessage2(message).encodeABI()
+            clonedReq.request.nonce = nextNonce.toString()
+            clonedReq.relayData.callForwarder = sWalletInstance.address
+            clonedReq.relayData.domainSeparator = getDomainSeparatorHash(sWalletInstance.address, chainId)
+            requests[index] = clonedReq
+            nextNonce++
+
+            const reqToSign = new TypedRequestData(
+              chainId,
+              sWalletInstance.address,
+              clonedReq
+            )
+
+            const sig = getLocalEip712Signature(
+              reqToSign,
+              gaslessAccount.privateKey
+            )
+
+            signatures[index] = sig
+          }
+
+          const { tx, logs } = await relayHubInstance.batchRelayCall(requests, signatures, {
+            from: relayWorker,
+            gas: '6600000',
+            gasPrice
+          })
+
+          const nonceAfter = await sWalletInstance.nonce() // it should be increased by two
+          assert.equal(nonceBefore.addn(txAmount).toNumber(), nonceAfter.toNumber(), 'Incorrect nonce after execution')
+
+          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          console.log('---------------Simple SmartWallet: RelayCall metrics------------------------')
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
+
+          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
+            message,
+            msgSender: sWalletInstance.address,
+            origin: relayWorker
+          })
+
+          web3.eth.abi.encodeParameter('string', 'emitMessage return value')
+
+          expectEvent.inLogs(logs, 'TransactionRelayed')
+          const callWithoutRelay = await recipientContract.emitMessage2(message)
+          const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed * txAmount
+
+          console.log('--------------- Destination Call Without enveloping------------------------')
+          console.log(`Cummulative Gas Used: ${gasUsed}`)
+          console.log('---------------------------------------')
+          console.log('--------------- Enveloping Overhead ------------------------')
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
+          console.log(`Overhead Gas per tx: ${(txReceipt.cumulativeGasUsed - gasUsed) / txAmount}`)
+          console.log('---------------------------------------')
+
+          const decodedLogs = abiDecoder.decodeLogs(txReceipt.logs)
+          const SampleRecipient = decodedLogs.filter((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+          const Transfer = decodedLogs.filter((e: any) => e != null && e.name === 'Transfer')
+          const TransactionRelayed = decodedLogs.filter((e: any) => e != null && e.name === 'TransactionRelayed')
+
+          assert.equal(SampleRecipient.length, txAmount, `SampleRecipient events must be ${txAmount}`)
+          assert.equal(Transfer.length, txAmount, `Transfer events must be ${txAmount}`)
+          assert.equal(TransactionRelayed.length, txAmount, `TransactionRelayed events must be ${txAmount}`)
+
+          for (let index = 0; index < SampleRecipient.length; index++) {
+            const element = SampleRecipient[index]
+            assert.equal(element.events[0].name, 'message')
+            assert.equal(element.events[0].value, message)
+            assert.equal(element.events[1].name, 'msgSender')
+            assert.equal(element.events[1].value.toLowerCase(), sWalletInstance.address.toLowerCase())
+          }
+        })
 
         it('gas estimation tests for Simple Smart Wallet using batch, happy scenario with different destination contracts', async function () {
-          const txAmount: number = 10
+          const txAmount: number = 6
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -763,7 +850,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('gas estimation tests for Simple Smart Wallet using batch, happy scenario with all different wallets', async function () {
-          const txAmount: number = 10
+          const txAmount: number = 1
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -869,7 +956,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('gas estimation tests for Simple Smart Wallet using batch, happy scenario with all different wallets and destination contracts', async function () {
-          const txAmount: number = 10
+          const txAmount: number = 6
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
@@ -986,9 +1073,127 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             assert.isFalse(testRecipientAddresses.has(testRecipientInstance))
           }
         })
+        it('gas estimation tests for  Smart Wallet using batch, happy scenario with all different wallets and destination contracts', async function () {
+          const txAmount: number = 30
+          const SmartWallet = artifacts.require('SmartWallet')
+          const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+          const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+          const smartWallets: SmartWalletInstance[] = []
+          const gaslessAccounts: AccountKeypair[] = []
+          const swalletsAddresses: Set<string> = new Set()
+          const testRecipients: TestRecipientInstance[] = []
+          const testRecipientAddresses: Set<string> = new Set()
 
-        it('gas estimation tests for Simple Smart Wallet using batch, happy scenario with all different wallets, destination contracts, and payment token contracts', async function () {
-          const txAmount: number = 10
+          for (let index = 0; index < txAmount; index++) {
+            const gaslessAccount = await getGaslessAccount()
+            gaslessAccounts[index] = gaslessAccount
+
+            const swInstance = await createSmartWallet(_, gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
+            smartWallets[index] = swInstance
+
+            assert.isFalse(swalletsAddresses.has(swInstance.address.toLowerCase()))
+            swalletsAddresses.add(swInstance.address.toLowerCase())
+            assert.isTrue(swalletsAddresses.has(swInstance.address.toLowerCase()))
+
+            await token.mint('10000', swInstance.address)
+            const balance = await token.balanceOf(swInstance.address)
+            assert.isTrue(balance.toNumber() === 10000)
+
+            testRecipients[index] = await TestRecipient.new()
+            assert.isFalse(testRecipientAddresses.has(testRecipients[index].address.toLowerCase()))
+            testRecipientAddresses.add(testRecipients[index].address.toLowerCase())
+            assert.isTrue(testRecipientAddresses.has(testRecipients[index].address.toLowerCase()))
+          }
+
+          const requests: RelayRequest[] = []
+          const signatures: string[] = []
+
+          for (let index = 0; index < txAmount; index++) {
+            const swToUse = smartWallets[index]
+            const clonedReq = cloneRelayRequest(sharedRelayRequestData)
+            clonedReq.request.from = gaslessAccounts[index].address
+            clonedReq.request.to = testRecipients[index].address
+            clonedReq.request.data = testRecipients[index].contract.methods.emitMessage2(message).encodeABI()
+            clonedReq.request.nonce = (await swToUse.nonce()).toNumber().toString()
+            clonedReq.relayData.callForwarder = swToUse.address
+            clonedReq.relayData.domainSeparator = getDomainSeparatorHash(swToUse.address, chainId)
+            requests[index] = clonedReq
+
+            const reqToSign = new TypedRequestData(
+              chainId,
+              swToUse.address,
+              clonedReq
+            )
+
+            const sig = getLocalEip712Signature(
+              reqToSign,
+              gaslessAccounts[index].privateKey
+            )
+
+            signatures[index] = sig
+          }
+
+          const { tx, logs } = await relayHubInstance.batchRelayCall(requests, signatures, {
+            from: relayWorker,
+            gas: '6600000',
+            gasPrice
+          })
+
+          for (let index = 0; index < txAmount; index++) {
+            const nonceAfter = await smartWallets[index].nonce()
+            assert.equal(nonceAfter.toNumber(), 1, 'Incorrect nonce after execution')
+
+            await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
+              message,
+              msgSender: smartWallets[index].address,
+              origin: relayWorker
+            })
+          }
+
+          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          console.log('--------------- SmartWallet: RelayCall metrics------------------------')
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
+
+          expectEvent.inLogs(logs, 'TransactionRelayed')
+          const callWithoutRelay = await recipientContract.emitMessage2(message)
+          const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed * txAmount
+
+          console.log('--------------- Destination Call Without enveloping------------------------')
+          console.log(`Cummulative Gas Used: ${gasUsed}`)
+          console.log('---------------------------------------')
+          console.log('--------------- Enveloping Overhead ------------------------')
+          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
+          console.log(`Overhead Gas per tx: ${(txReceipt.cumulativeGasUsed - gasUsed) / txAmount}`)
+          console.log('---------------------------------------')
+
+          const decodedLogs = abiDecoder.decodeLogs(txReceipt.logs)
+          const SampleRecipient = decodedLogs.filter((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+          const Transfer = decodedLogs.filter((e: any) => e != null && e.name === 'Transfer')
+          const TransactionRelayed = decodedLogs.filter((e: any) => e != null && e.name === 'TransactionRelayed')
+
+          assert.equal(SampleRecipient.length, txAmount, `SampleRecipient events must be ${txAmount}`)
+          assert.equal(Transfer.length, txAmount, `Transfer events must be ${txAmount}`)
+          assert.equal(TransactionRelayed.length, txAmount, `TransactionRelayed events must be ${txAmount}`)
+
+          for (let index = 0; index < SampleRecipient.length; index++) {
+            const element = SampleRecipient[index]
+            assert.equal(element.events[0].name, 'message')
+            assert.equal(element.events[0].value, message)
+            assert.equal(element.events[1].name, 'msgSender')
+            const sender = element.events[1].value.toLowerCase()
+            assert.isTrue(swalletsAddresses.has(sender))
+            swalletsAddresses.delete(sender)
+            assert.isFalse(swalletsAddresses.has(sender))
+
+            const testRecipientInstance = element.address.toLowerCase()
+            assert.isTrue(testRecipientAddresses.has(testRecipientInstance))
+            testRecipientAddresses.delete(testRecipientInstance)
+            assert.isFalse(testRecipientAddresses.has(testRecipientInstance))
+          }
+        })
+
+        it.only('gas estimation tests for Simple Smart Wallet using batch, happy scenario with all different wallets, destination contracts, and payment token contracts', async function () {
+          const txAmount: number = 9
           const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
           const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
           const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
