@@ -28,6 +28,7 @@ The following technical content are available:
 - Launching enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
 - Development guide [docs/development_guide](docs/development_guide.md)
 - Integration guide [docs/integration_guide](docs/integration_guide.md)
+- RIF Enveloping gas costs [docs/overhead_tx_costs](docs/overhead_tx_costs.md)
 
 
 ## Testnet Contracts - V2
