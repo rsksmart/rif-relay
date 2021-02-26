@@ -12,7 +12,7 @@ import { toBN, toChecksumAddress } from 'web3-utils'
 import abiDecoder from 'abi-decoder'
 
 import { BaseTransactionReceipt, RelayProvider } from '../../src/relayclient/RelayProvider'
-import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
   RelayHubInstance,
   StakeManagerInstance,
@@ -30,7 +30,7 @@ import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
 import { constants } from '../../src/common/Constants'
-import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
@@ -84,7 +84,12 @@ contract('RelayProvider', function (accounts) {
       relayOwner: accounts[1],
       rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifierInstance.address,
-      relayVerifierAddress: verifierInstance.address
+      relayVerifierAddress: verifierInstance.address,
+      workerMinBalance: 0.1e18,
+      workerTargetBalance: 0.3e18,
+      managerMinBalance: 0.1e18,
+      managerTargetBalance: 0.3e18,
+      minHubWithdrawalBalance: 0.1e18
     })
   })
 
@@ -100,7 +105,7 @@ contract('RelayProvider', function (accounts) {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new()
       testRecipient2 = await TestRecipient.new()
-      const gsnConfig = configureGSN({
+      const config = configure({
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: env.chainId,
@@ -117,7 +122,7 @@ contract('RelayProvider', function (accounts) {
         websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       }
 
-      relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
+      relayProvider = new RelayProvider(websocketProvider as any, config)
 
       // NOTE: in real application its enough to set the provider in web3.
       // however, in Truffle, all contracts are built BEFORE the test have started, and COPIED the web3,
@@ -193,16 +198,16 @@ contract('RelayProvider', function (accounts) {
     it('should calculate the correct smart wallet address', async function () {
       assert.isTrue(relayProvider != null)
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({
+      const config = configure({
         relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId
       })
-      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
+      config.forwarderAddress = constants.ZERO_ADDRESS
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
       const walletIndex: number = 0
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
 
-      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      const rProvider = new RelayProvider(underlyingProvider, config)
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
 
       const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, customLogic, constants.SHA3_NULL_S, walletIndex)
@@ -218,10 +223,10 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: deployVerifierInstance.address })
+      const config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: deployVerifierInstance.address })
       assert.isTrue(relayProvider != null)
-      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
-      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      config.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
@@ -231,7 +236,7 @@ contract('RelayProvider', function (accounts) {
       const expectedCode = await web3.eth.getCode(swAddress)
       assert.equal('0x00', expectedCode)
 
-      const trxData: GsnTransactionDetails = {
+      const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
@@ -260,10 +265,10 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
+      const config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
       assert.isTrue(relayProvider != null)
-      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
-      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      config.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
@@ -272,7 +277,7 @@ contract('RelayProvider', function (accounts) {
       let expectedCode = await web3.eth.getCode(swAddress)
       assert.equal('0x00', expectedCode)
 
-      const trxData: GsnTransactionDetails = {
+      const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
@@ -311,10 +316,10 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
+      const config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
       assert.isTrue(relayProvider != null)
-      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
-      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      config.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
@@ -323,7 +328,7 @@ contract('RelayProvider', function (accounts) {
       let expectedCode = await web3.eth.getCode(swAddress)
       assert.equal('0x00', expectedCode)
 
-      const trxData: GsnTransactionDetails = {
+      const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
@@ -363,10 +368,10 @@ contract('RelayProvider', function (accounts) {
       const logicData = '0x'
       const walletIndex = 0
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
+      const config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, deployVerifierAddress: deployVerifierInstance.address, relayVerifierAddress: verifierInstance.address })
       assert.isTrue(relayProvider != null)
-      gsnConfig.forwarderAddress = constants.ZERO_ADDRESS
-      const rProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      config.forwarderAddress = constants.ZERO_ADDRESS
+      const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
       const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
@@ -375,7 +380,7 @@ contract('RelayProvider', function (accounts) {
       const expectedCode = await web3.eth.getCode(swAddress)
       assert.equal('0x00', expectedCode)
 
-      const trxData: GsnTransactionDetails = {
+      const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
@@ -423,7 +428,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     // note that the revert reason here was discovered via some truffle/ganache magic (see truffle/reason.js)
-    // this is not the way the revert reason is being reported by GSN solidity contracts
+    // this is not the way the revert reason is being reported by Enveloping solidity contracts
     it('should fail if transaction failed', async () => {
       await expectRevert.unspecified(testRecipient.testRevert({
         from: gaslessAccount.address,
@@ -435,7 +440,7 @@ contract('RelayProvider', function (accounts) {
   describe('_ethSendTransaction', function () {
     const id = 777
     let testRecipient: TestRecipientInstance
-    let gsnConfig: GSNConfig
+    let config: EnvelopingConfig
     let jsonRpcPayload: JsonRpcPayload
 
     before(async function () {
@@ -443,8 +448,8 @@ contract('RelayProvider', function (accounts) {
       testRecipient = await TestRecipient.new()
 
       const env = await getTestingEnvironment()
-      gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
-      gsnConfig.forwarderAddress = smartWallet.address
+      config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId })
+      config.forwarderAddress = smartWallet.address
 
       // call to emitMessage('hello world')
       jsonRpcPayload = {
@@ -466,8 +471,8 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should call callback with error if relayTransaction throws', async function () {
-      const badRelayClient = new BadRelayClient(true, false, underlyingProvider, gsnConfig)
-      const relayProvider = new RelayProvider(underlyingProvider, gsnConfig, {}, badRelayClient)
+      const badRelayClient = new BadRelayClient(true, false, underlyingProvider, config)
+      const relayProvider = new RelayProvider(underlyingProvider, config, {}, badRelayClient)
       const promisified = new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null): void => {
         reject(error)
       }))
@@ -475,8 +480,8 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should call callback with error containing relaying results dump if relayTransaction does not return a transaction object', async function () {
-      const badRelayClient = new BadRelayClient(false, true, underlyingProvider, gsnConfig)
-      const relayProvider = new RelayProvider(underlyingProvider, gsnConfig, {}, badRelayClient)
+      const badRelayClient = new BadRelayClient(false, true, underlyingProvider, config)
+      const relayProvider = new RelayProvider(underlyingProvider, config, {}, badRelayClient)
       const promisified = new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null): void => {
         reject(error)
       }))
@@ -485,16 +490,16 @@ contract('RelayProvider', function (accounts) {
 
     it('should convert a returned transaction to a compatible rpc transaction hash response', async function () {
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({
+      const config = configure({
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: env.chainId,
         relayVerifierAddress: verifierInstance.address,
         deployVerifierAddress: deployVerifierInstance.address
       })
-      gsnConfig.forwarderAddress = smartWallet.address
+      config.forwarderAddress = smartWallet.address
 
-      const relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      const relayProvider = new RelayProvider(underlyingProvider, config)
       relayProvider.addAccount(gaslessAccount)
       const response: JsonRpcResponse = await new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null, result?: JsonRpcResponse): void => {
         if (error != null) {
@@ -513,7 +518,7 @@ contract('RelayProvider', function (accounts) {
   })
 
   // TODO: most of this code is copy-pasted from the RelayHub.test.ts. Maybe extract better utils?
-  describe('_getTranslatedGsnResponseResult', function () {
+  describe('_getTranslatedResponseResult', function () {
     let relayProvider: RelayProvider
     let testRecipient: TestRecipientInstance
     let innerTxSucceedReceipt: BaseTransactionReceipt
@@ -525,14 +530,14 @@ contract('RelayProvider', function (accounts) {
       const TestRecipient = artifacts.require('TestRecipient')
       testRecipient = await TestRecipient.new()
       const env = await getTestingEnvironment()
-      const gsnConfig = configureGSN({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: verifierInstance.address, forwarderAddress: smartWallet.address })
+      const config = configure({ relayHubAddress: relayHub.address, logLevel: 5, chainId: env.chainId, relayVerifierAddress: verifierInstance.address, deployVerifierAddress: verifierInstance.address, forwarderAddress: smartWallet.address })
 
       // @ts-ignore
       Object.keys(TestRecipient.events).forEach(function (topic) {
         // @ts-ignore
         relayHub.constructor.network.events[topic] = TestRecipient.events[topic]
       })
-      relayProvider = new RelayProvider(underlyingProvider, gsnConfig)
+      relayProvider = new RelayProvider(underlyingProvider, config)
       relayProvider.addAccount(gaslessAccount)
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
@@ -625,13 +630,13 @@ contract('RelayProvider', function (accounts) {
 
     it('should not modify relayed transactions receipt with successful internal transaction', function () {
       assert.equal(innerTxSucceedReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedGsnResponseResult(innerTxSucceedReceipt)
+      const modifiedReceipt = relayProvider._getTranslatedResponseResult(innerTxSucceedReceipt)
       assert.equal(modifiedReceipt.status, true)
     })
 
     it('should not modify receipts for all other transactions ', function () {
       assert.equal(notRelayedTxReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedGsnResponseResult(notRelayedTxReceipt)
+      const modifiedReceipt = relayProvider._getTranslatedResponseResult(notRelayedTxReceipt)
       assert.equal(modifiedReceipt.status, true)
     })
   })
@@ -660,12 +665,12 @@ contract('RelayProvider', function (accounts) {
     before(async function () {
       TestRecipient = artifacts.require('TestRecipient')
 
-      const gsnConfig = configureGSN({
+      const config = configure({
         logLevel: 5,
         relayHubAddress: relayHub.address,
         chainId: (await getTestingEnvironment()).chainId
       })
-      gsnConfig.forwarderAddress = smartWallet.address
+      config.forwarderAddress = smartWallet.address
 
       let websocketProvider: WebsocketProvider
 
@@ -675,19 +680,19 @@ contract('RelayProvider', function (accounts) {
         websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       }
 
-      relayProvider = new RelayProvider(websocketProvider as any, gsnConfig)
+      relayProvider = new RelayProvider(websocketProvider as any, config)
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
     })
 
-    it('should throw on calling .new without useGSN: false', async function () {
-      await expect(TestRecipient.new()).to.be.eventually.rejectedWith('GSN cannot relay contract deployment transactions. Add {from: accountWithRBTC, useGSN: false}.')
+    it('should throw on calling .new without useEnveloping: false', async function () {
+      await expect(TestRecipient.new()).to.be.eventually.rejectedWith('Enveloping cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.')
     })
 
-    it('should deploy a contract without GSN on calling .new with useGSN: false', async function () {
+    it('should deploy a contract without Enveloping on calling .new with useEnveloping: false', async function () {
       const testRecipient = await TestRecipient.new({
         from: accounts[0],
-        useGSN: false
+        useEnveloping: false
       })
       const receipt = await web3.eth.getTransactionReceipt(testRecipient.transactionHash)
       assert.equal(receipt.from.toLowerCase(), accounts[0].toLowerCase())

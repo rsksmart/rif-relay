@@ -29,7 +29,7 @@ The following information discribes the version 1 of RIF Enveloping. This versio
 RIF Enveloping expands the GSN capabilities and security model while reducing gas costs by:
 
 - Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
-- Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
+- Elimination of interaction with Uniswap: relay providers receive tokens in a worker address under their control to later on decide what to do with funds.
 - Reducing gas costs by optimizing the existing GSN architecture.
 
 Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, removing the need get RBTC.
@@ -104,7 +104,7 @@ As mentioned before, the moment we need to use the Enveloping system, we have to
 
 1. **Use your address to deploy a Smart Wallet (SW)**
 ```typescript
-      const trxData: GsnTransactionDetails = {
+      const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
         to: customLogic,
         data: logicData,
@@ -137,7 +137,7 @@ In order to run an Enveloping instance in Regtest, clone the project then run th
 2. On the jsrelay directory `npx webpack`
 3. On the project's root directory, run `docker-compose build` (Optional)
 4. Run `docker-compose up -d rskj` (Optional: it runs an RSK node in regtest)
-5. Run '`node dist/src/cli/commands/gsn.js boot-test -n rsk-regtest`
+5. Run '`node dist/src/cli/commands/enveloping.js boot-test -n rsk-regtest`
 
 For checking if it's working, run `curl http://localhost:8090/getaddr` (The port 8090 should be changed by the relay's port).
 
@@ -146,7 +146,7 @@ For checking if it's working, run `curl http://localhost:8090/getaddr` (The port
 In order to run an Enveloping instance in Testnet, clone the project then run the following from the project's root directory:
 
 1. Create the project home folder, in this folder the jsrelay databases will be placed: mkdir enveloping_relay
-2. In a terminal run `node dist/src/cli/commands/gsn.js relayer-run  --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8090 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8091/jsrelay`)
+2. In a terminal run `node dist/src/cli/commands/enveloping.js relayer-run  --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8090 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8091/jsrelay`)
 3. In another terminal run `curl http://localhost:8090/getaddr` which will return a JSON with information of the running jsRelay Server, for example:
 ```json
 {"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
@@ -155,7 +155,7 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 ```
 4. Send to relayManagerAddress at least 0.1 tRBTC to set it up
 5. Send to relayWorkerAddress at least 0.1 tRBTC to set it up
-6. Once both addresses have been funded, run `node dist/src/cli/commands/gsn.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds 1e17 --stake 3e17 --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
+6. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds 1e17 --stake 3e17 --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
 7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
 ## 5. Use MetaCoin <a id="c05"></a>
@@ -197,10 +197,3 @@ Stop the running node and delete the db used by the node.
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
 
-## 7. Gas Station Network <a id="c07"></a>
-
-This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
-- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
-- Elimination of interaction with Uniswap: relay providers accumulate tokens on a Verifier under their control to later on decide what to do with funds.
-
-Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 

@@ -1,9 +1,9 @@
 // test possible client errors
 
-import { GsnTestEnvironment, TestEnvironment } from '../../src/relayclient/GsnTestEnvironment'
+import { TestEnvironment, TestEnvironmentInfo } from '../../src/relayclient/TestEnvironment'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { resolveConfigurationGSN } from '../../src/relayclient/GSNConfigurator'
+import { resolveConfiguration } from '../../src/relayclient/Configurator'
 import { DeploymentResult } from '../../src/cli/CommandsLogic'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import ContractInteractor, { Web3Provider } from '../../src/common/ContractInteractor'
@@ -12,33 +12,33 @@ import { HttpProvider } from 'web3-core'
 const { assert, expect } = chai.use(chaiAsPromised)
 
 contract('client-configuration', () => {
-  let env: TestEnvironment
+  let env: TestEnvironmentInfo
   let deploymentResult: DeploymentResult
   let relayVerifierAddress: PrefixedHexString
   let deployVerifierAddress: PrefixedHexString
   before(async () => {
     const host = (web3.currentProvider as HttpProvider).host
-    env = await GsnTestEnvironment.startGsn(host)
+    env = await TestEnvironment.start(host)
     deploymentResult = env.deploymentResult
-    // deploymentResult = loadDeployment('./build/gsn')
+    // deploymentResult = loadDeployment('./build/enveloping')
     relayVerifierAddress = deploymentResult.relayVerifierAddress
     deployVerifierAddress = deploymentResult.deployVerifierAddress
   })
-  describe('#resolveConfigurationGSN', () => {
+  describe('#resolveConfiguration', () => {
     describe('failures', () => {
       it('should fail with no params', async () => {
         // @ts-ignore
-        await expect(resolveConfigurationGSN()).to.eventually.rejectedWith(/Cannot read property/)
+        await expect(resolveConfiguration()).to.eventually.rejectedWith(/Cannot read property/)
       })
 
       it('should throw if the first arg not provider', async () => {
         // @ts-ignore
-        await expect(resolveConfigurationGSN({})).to.eventually.rejectedWith(/First param is not a web3 provider/)
+        await expect(resolveConfiguration({})).to.eventually.rejectedWith(/First param is not a web3 provider/)
       })
 
       it.skip('should throw if wrong contract verifier version', async () => {
         // instead of deploying a new verifier with a different version, we make our client version older
-        // since resolveConfigurationGSN creates its own ContractInteractor, we have to hook the class to modify the version
+        // since resolveConfiguration creates its own ContractInteractor, we have to hook the class to modify the version
         // after it is created...
 
         const saveCPM = ContractInteractor.prototype._createBaseVerifier
@@ -49,7 +49,7 @@ contract('client-configuration', () => {
             return await saveCPM.call(this, addr)
           }
 
-          await expect(resolveConfigurationGSN(web3.currentProvider as Web3Provider, { relayVerifierAddress, deployVerifierAddress }))
+          await expect(resolveConfiguration(web3.currentProvider as Web3Provider, { relayVerifierAddress, deployVerifierAddress }))
             .to.eventually.rejectedWith(/Provided.*version.*is not supported/)
         } finally {
           ContractInteractor.prototype._createBaseVerifier = saveCPM
@@ -57,7 +57,7 @@ contract('client-configuration', () => {
       })
     })
 
-    describe('with successful resolveConfigurationGSN', () => {
+    describe('with successful resolveConfiguration', () => {
       it('should set metamask defaults', async () => {
         const metamaskProvider = {
           isMetaMask: true,
@@ -65,9 +65,9 @@ contract('client-configuration', () => {
             (web3.currentProvider as any).send(options, cb)
           }
         } as any
-        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, {})
-        assert.equal(gsnConfig.methodSuffix, '_v4')
-        assert.equal(gsnConfig.jsonStringifyRequest, true)
+        const config = await resolveConfiguration(metamaskProvider, {})
+        assert.equal(config.methodSuffix, '_v4')
+        assert.equal(config.jsonStringifyRequest, true)
       })
 
       it('should allow to override metamask defaults', async () => {
@@ -80,9 +80,9 @@ contract('client-configuration', () => {
 
         // note: to check boolean override, we explicitly set it to something that
         // is not in the defaults..
-        const gsnConfig = await resolveConfigurationGSN(metamaskProvider, { methodSuffix: 'suffix', jsonStringifyRequest: 5 as unknown as boolean })
-        assert.equal(gsnConfig.methodSuffix, 'suffix')
-        assert.equal(gsnConfig.jsonStringifyRequest as any, 5)
+        const config = await resolveConfiguration(metamaskProvider, { methodSuffix: 'suffix', jsonStringifyRequest: 5 as unknown as boolean })
+        assert.equal(config.methodSuffix, 'suffix')
+        assert.equal(config.jsonStringifyRequest as any, 5)
       })
     })
   })

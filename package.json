@@ -22,7 +22,7 @@
     }
   ],
   "bin": {
-    "gsn": "dist/src/cli/commands/gsn.js"
+    "enveloping": "dist/src/cli/commands/enveloping.js"
   },
   "prepublish": "npm run prepare",
   "scripts": {

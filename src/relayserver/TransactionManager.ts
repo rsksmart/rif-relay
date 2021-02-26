@@ -87,7 +87,7 @@ created at   | block #${creationBlockNumber}
 hash         | 0x${transaction.hash().toString('hex')}
 from         | ${from}
 to           | 0x${transaction.to.toString('hex')}
-value        | ${valueString} (${valueHumanReadable} eth)
+value        | ${valueString} (${valueHumanReadable} RBTC)
 nonce        | ${nonceString}
 gasPrice     | ${gasPriceString} (${gasPriceHumanReadable} gwei)
 gasLimit     | ${parseInt('0x' + transaction.gasLimit.toString('hex'))}
@@ -199,7 +199,7 @@ data         | 0x${transaction.data.toString('hex')}
   _resolveNewGasPrice (oldGasPrice: number): { newGasPrice: number, isMaxGasPriceReached: boolean } {
     let isMaxGasPriceReached = false
     let newGasPrice = oldGasPrice * this.config.retryGasPriceFactor
-    // TODO: use BN for ETH values
+    // TODO: use BN for RBTC values
     // Sanity check to ensure we are not burning all our balance in gas fees
     if (newGasPrice > parseInt(this.config.maxGasPrice)) {
       isMaxGasPriceReached = true

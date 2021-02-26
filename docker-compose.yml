@@ -17,13 +17,13 @@ services:
     container_name: jsrelay
     environment:
       workdir: /app/data
-      config: /app/config/gsn-relay-config.json
+      config: /app/config/relay-config.json
       url: http://localhost:8090
       port: 8090
     ports:
       - "8090:8090"
     volumes:
-      - ./jsrelay/gsndata:/app/data
+      - ./jsrelay/data:/app/data
       - ./jsrelay/config:/app/config
     depends_on:
       - rskj

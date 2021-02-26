@@ -6,11 +6,11 @@ import { HttpProvider } from 'web3-core'
 
 import relayHubAbi from '../common/interfaces/IRelayHub.json'
 import { _dumpRelayingResult, RelayClient } from './RelayClient'
-import GsnTransactionDetails from './types/GsnTransactionDetails'
-import { configureGSN, GSNConfig, GSNDependencies } from './GSNConfigurator'
+import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
+import { configure, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
-import { GsnEvent } from './GsnEvents'
+import { RelayEvent } from './RelayEvents'
 import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
 import { toChecksumAddress } from 'web3-utils'
@@ -31,7 +31,7 @@ interface ISendAsync {
 export class RelayProvider implements HttpProvider {
   protected readonly origProvider: HttpProvider & ISendAsync
   private readonly origProviderSend: any
-  protected readonly config: GSNConfig
+  protected readonly config: EnvelopingConfig
 
   readonly relayClient: RelayClient
 
@@ -40,10 +40,10 @@ export class RelayProvider implements HttpProvider {
    * @param overrideDependencies
    * @param relayClient
    * @param origProvider - the underlying web3 provider
-   * @param gsnConfig
+   * @param envelopingConfig
    */
-  constructor (origProvider: HttpProvider, gsnConfig: Partial<GSNConfig>, overrideDependencies?: Partial<GSNDependencies>, relayClient?: RelayClient) {
-    const config = configureGSN(gsnConfig)
+  constructor (origProvider: HttpProvider, envelopingConfig: Partial<EnvelopingConfig>, overrideDependencies?: Partial<EnvelopingDependencies>, relayClient?: RelayClient) {
+    const config = configure(envelopingConfig)
     this.host = origProvider.host
     this.connected = origProvider.connected
 
@@ -54,16 +54,16 @@ export class RelayProvider implements HttpProvider {
     } else {
       this.origProviderSend = this.origProvider.send.bind(this.origProvider)
     }
-    this.relayClient = relayClient ?? new RelayClient(origProvider, gsnConfig, overrideDependencies)
+    this.relayClient = relayClient ?? new RelayClient(origProvider, envelopingConfig, overrideDependencies)
 
     this._delegateEventsApi(origProvider)
   }
 
-  registerEventListener (handler: (event: GsnEvent) => void): void {
+  registerEventListener (handler: (event: RelayEvent) => void): void {
     this.relayClient.registerEventListener(handler)
   }
 
-  unregisterEventListener (handler: (event: GsnEvent) => void): void {
+  unregisterEventListener (handler: (event: RelayEvent) => void): void {
     this.relayClient.unregisterEventListener(handler)
   }
 
@@ -80,10 +80,10 @@ export class RelayProvider implements HttpProvider {
   }
 
   send (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
-    if (this._useGSN(payload)) {
+    if (this._useEnveloping(payload)) {
       if (payload.method === 'eth_sendTransaction') {
         if (payload.params[0].to === undefined) {
-          throw new Error('GSN cannot relay contract deployment transactions. Add {from: accountWithRBTC, useGSN: false}.')
+          throw new Error('Enveloping cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.')
         }
         this._ethSendTransaction(payload, callback)
         return
@@ -105,7 +105,7 @@ export class RelayProvider implements HttpProvider {
 
   /**
    * Generates a Enveloping deploy transaction, to deploy the Smart Wallet of the requester
-   * @param gsnTransactionDetails All the necessary information for creating the deploy request
+   * @param transactionDetails All the necessary information for creating the deploy request
    * from:address => EOA of the Smart Wallet owner
    * to:address => Optional custom logic address
    * data:bytes => init params for the optional custom logic
@@ -125,37 +125,37 @@ export class RelayProvider implements HttpProvider {
    *
    * @returns The transaction hash
    */
-  async deploySmartWallet (gsnTransactionDetails: GsnTransactionDetails): Promise<string> {
-    if (gsnTransactionDetails.isSmartWalletDeploy === undefined || gsnTransactionDetails.isSmartWalletDeploy === null) {
-      gsnTransactionDetails = { ...gsnTransactionDetails, isSmartWalletDeploy: true }
+  async deploySmartWallet (transactionDetails: EnvelopingTransactionDetails): Promise<string> {
+    if (transactionDetails.isSmartWalletDeploy === undefined || transactionDetails.isSmartWalletDeploy === null) {
+      transactionDetails = { ...transactionDetails, isSmartWalletDeploy: true }
     }
 
-    if (!(gsnTransactionDetails.isSmartWalletDeploy ?? false)) {
+    if (!(transactionDetails.isSmartWalletDeploy ?? false)) {
       throw new Error('Request is not for SmartWallet deploy')
     }
 
-    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
-      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    if (transactionDetails.relayHub === undefined || transactionDetails.relayHub === null || transactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      transactionDetails = { ...transactionDetails, relayHub: this.config.relayHubAddress }
     }
 
-    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
-      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
+    if (transactionDetails.onlyPreferredRelays === undefined || transactionDetails.onlyPreferredRelays === null) {
+      transactionDetails = { ...transactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
     }
 
-    const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
-    const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
+    const tokenGas = transactionDetails.tokenGas ?? '0'
+    const tokenContract = transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
 
     if (tokenContract !== constants.ZERO_ADDRESS && tokenGas === '0') {
       // There is a token payment involved
       // The user expects the client to estimate the gas required for the token call
-      const swAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
+      const swAddress = transactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
       if (swAddress === constants.ZERO_ADDRESS) {
         throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
       }
     }
 
     try {
-      const relayingResult = await this.relayClient.relayTransaction(gsnTransactionDetails)
+      const relayingResult = await this.relayClient.relayTransaction(transactionDetails)
       if (relayingResult.transaction != null) {
         const txHash: string = relayingResult.transaction.hash(true).toString('hex')
         const hash = `0x${txHash}`
@@ -232,28 +232,28 @@ export class RelayProvider implements HttpProvider {
         callback(error, rpcResponse)
         return
       }
-      rpcResponse.result = this._getTranslatedGsnResponseResult(rpcResponse.result)
+      rpcResponse.result = this._getTranslatedResponseResult(rpcResponse.result)
       callback(error, rpcResponse)
     })
   }
 
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
-    let gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
+    let transactionDetails: EnvelopingTransactionDetails = payload.params[0]
 
-    if (gsnTransactionDetails.callForwarder === undefined || gsnTransactionDetails.callForwarder === null || gsnTransactionDetails.callForwarder === constants.ZERO_ADDRESS) {
-      gsnTransactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
+    if (transactionDetails.callForwarder === undefined || transactionDetails.callForwarder === null || transactionDetails.callForwarder === constants.ZERO_ADDRESS) {
+      transactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
     }
 
-    if (gsnTransactionDetails.relayHub === undefined || gsnTransactionDetails.relayHub === null || gsnTransactionDetails.relayHub === constants.ZERO_ADDRESS) {
-      gsnTransactionDetails = { ...gsnTransactionDetails, relayHub: this.config.relayHubAddress }
+    if (transactionDetails.relayHub === undefined || transactionDetails.relayHub === null || transactionDetails.relayHub === constants.ZERO_ADDRESS) {
+      transactionDetails = { ...transactionDetails, relayHub: this.config.relayHubAddress }
     }
 
-    if (gsnTransactionDetails.onlyPreferredRelays === undefined || gsnTransactionDetails.onlyPreferredRelays === null) {
-      gsnTransactionDetails = { ...gsnTransactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
+    if (transactionDetails.onlyPreferredRelays === undefined || transactionDetails.onlyPreferredRelays === null) {
+      transactionDetails = { ...transactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
     }
 
-    this.relayClient.relayTransaction(gsnTransactionDetails)
+    this.relayClient.relayTransaction(transactionDetails)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
           const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(relayingResult.transaction, payload)
@@ -282,7 +282,7 @@ export class RelayProvider implements HttpProvider {
   }
 
   // TODO: Seems not used anymore, double check and remove
-  _getTranslatedGsnResponseResult (respResult: BaseTransactionReceipt): BaseTransactionReceipt {
+  _getTranslatedResponseResult (respResult: BaseTransactionReceipt): BaseTransactionReceipt {
     const fixedTransactionReceipt = Object.assign({}, respResult)
     if (respResult.logs === null || respResult.logs.length === 0) {
       return fixedTransactionReceipt
@@ -307,15 +307,15 @@ export class RelayProvider implements HttpProvider {
     return fixedTransactionReceipt
   }
 
-  _useGSN (payload: JsonRpcPayload): boolean {
+  _useEnveloping (payload: JsonRpcPayload): boolean {
     if (payload.method === 'eth_accounts') {
       return true
     }
     if (payload.params[0] === undefined) {
       return false
     }
-    const gsnTransactionDetails: GsnTransactionDetails = payload.params[0]
-    return gsnTransactionDetails?.useGSN ?? true
+    const transactionDetails: EnvelopingTransactionDetails = payload.params[0]
+    return transactionDetails?.useEnveloping ?? true
   }
 
   /* wrapping HttpProvider interface */
@@ -350,18 +350,18 @@ export class RelayProvider implements HttpProvider {
   }
 
   // The RSKJ node doesn't support additional parameters in RPC calls.
-  // When using the original provider with the RSKJ node it is necessary to remove the additional useGSN property.
+  // When using the original provider with the RSKJ node it is necessary to remove the additional useEnveloping property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
     let p: JsonRpcPayload = payload
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    if (payload.params[0]?.hasOwnProperty('useGSN') || payload.params[0]?.hasOwnProperty('callVerifier')) {
-      // Deep copy the payload to safely remove the useGSN property
+    if (payload.params[0]?.hasOwnProperty('useEnveloping') || payload.params[0]?.hasOwnProperty('callVerifier')) {
+      // Deep copy the payload to safely remove the useEnveloping property
       p = JSON.parse(JSON.stringify(payload))
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-      if (payload.params[0]?.hasOwnProperty('useGSN')) {
-        delete p.params[0].useGSN
+      if (payload.params[0]?.hasOwnProperty('useEnveloping')) {
+        delete p.params[0].useEnveloping
       }
 
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions

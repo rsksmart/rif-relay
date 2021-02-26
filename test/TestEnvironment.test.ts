@@ -1,4 +1,4 @@
-import { GsnTestEnvironment, TestEnvironment } from '../src/relayclient/GsnTestEnvironment'
+import { TestEnvironment, TestEnvironmentInfo } from '../src/relayclient/TestEnvironment'
 import { HttpProvider } from 'web3-core'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
@@ -11,25 +11,25 @@ const ProxyFactory = artifacts.require('ProxyFactory')
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
 
-contract('GsnTestEnvironment', function (accounts) {
-  describe('#startGsn()', function () {
+contract('TestEnvironment', function (accounts) {
+  describe('#start()', function () {
     it('should create a valid test environment for other tests to rely on', async function () {
       const host = (web3.currentProvider as HttpProvider).host
-      const testEnv = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
+      const testEnv = await TestEnvironment.start(host, await getTestingEnvironment())
       assert.equal(testEnv.deploymentResult.relayHubAddress.length, 42)
     })
 
     after(async function () {
-      await GsnTestEnvironment.stopGsn()
+      await TestEnvironment.stop()
     })
   })
 
   describe('using RelayClient', () => {
-    let testEnvironment: TestEnvironment
+    let testEnvironment: TestEnvironmentInfo
 
     before(async () => {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
-      testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
+      testEnvironment = await TestEnvironment.start(host, await getTestingEnvironment())
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
       await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)
@@ -37,7 +37,7 @@ contract('GsnTestEnvironment', function (accounts) {
     })
 
     after(async () => {
-      await GsnTestEnvironment.stopGsn()
+      await TestEnvironment.stop()
     })
 
     it('should relay using relayTransaction', async () => {
@@ -87,11 +87,11 @@ contract('GsnTestEnvironment', function (accounts) {
   })
 
   describe('using RelayProvider', () => {
-    let testEnvironment: TestEnvironment
+    let testEnvironment: TestEnvironmentInfo
 
     before(async function () {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
-      testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
+      testEnvironment = await TestEnvironment.start(host, await getTestingEnvironment())
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
       await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)
@@ -99,7 +99,7 @@ contract('GsnTestEnvironment', function (accounts) {
     })
 
     after(async () => {
-      await GsnTestEnvironment.stopGsn()
+      await TestEnvironment.stop()
     })
 
     it('should send relayed transaction through RelayProvider', async () => {

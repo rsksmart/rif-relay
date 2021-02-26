@@ -20,11 +20,11 @@ cache
 /opengsn-gsn-*.tgz
 /RelayClient.ts
 /RelayProvider.ts
-/GSNConfigurator.ts
-/GsnTestEnvironment.ts
+/Configurator.ts
+/TestEnvironment.ts
 artifacts
 /yarn-error.log
-/jsrelay/gsndata/
+/jsrelay/data/
 /jsrelay/dist/relayserver.js
 /json-input.json
 rsknode/db/

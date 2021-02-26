@@ -1,11 +1,11 @@
 import CommandsLogic from '../CommandsLogic'
-import { configureGSN } from '../../relayclient/GSNConfigurator'
+import { configure } from '../../relayclient/Configurator'
 import DateFormatter from 'date-format'
 import {
   getMnemonic,
   getNetworkUrl,
   getRegistryAddress,
-  gsnCommander
+  envelopingCommander
 } from '../utils'
 import { VersionInfo, VersionRegistry } from '../../common/VersionRegistry'
 
@@ -32,7 +32,7 @@ function parseTime (t: string): number {
   }
 }
 
-const commander = gsnCommander(['n', 'f', 'm', 'g'])
+const commander = envelopingCommander(['n', 'f', 'm', 'g'])
   .option('--registry <address>', 'versionRegistry')
   .option('-i, --id <string>', 'id to edit/change')
   .option('--list', 'list all registered ids')
@@ -54,7 +54,7 @@ function formatVersion (id: string, versionInfo: VersionInfo, showDate = false):
   const nodeURL = getNetworkUrl(commander.network)
 
   const mnemonic = getMnemonic(commander.mnemonic)
-  const logic = new CommandsLogic(nodeURL, configureGSN({}), mnemonic)
+  const logic = new CommandsLogic(nodeURL, configure({}), mnemonic)
   const provider = (logic as any).web3.currentProvider
   const versionRegistryAddress = getRegistryAddress(commander.registry) ?? error('must specify --registry')
   console.log('Using registry at address: ', versionRegistryAddress)

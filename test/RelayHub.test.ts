@@ -354,7 +354,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     context('with staked and registered relay', function () {
       const url = 'http://relay.com'
-      const message = 'GSN RelayHub'
+      const message = 'Enveloping RelayHub'
       const messageWithNoParams = 'Method with no parameters'
 
       let relayRequest: RelayRequest
