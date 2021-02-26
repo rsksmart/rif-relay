@@ -1,23 +1,23 @@
 # RIF Enveloping - V2
 
-Secure sponsored transaction system to enable users to pay fees using ERC-20 tokens.
+A secure sponsored-transaction system to enable users to pay fees using ERC-20 tokens.
 
 [![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
 ## Description
 
-This version is based on the Gas Station Network (GSN) project (https://github.com/opengsn/gsn. In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dApps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dApp usability without sacrificing security.
+This version is based on the [Gas Station Network (GSN) project](https://github.com/opengsn/gsn). The GSN is a decentralized system that improves dApp usability without sacrificing security. In a nutshell, GSN abstracts away gas (used to pay transaction fees) to minimize onboarding & UX friction for dApps. With GSN, "gasless clients" can interact with Ethereum contracts without having to acquire ETH to pay for gas.
 
-RIF Enveloping expands the GSN capabilities and security model while reducing gas costs by:
+RIF Enveloping expands the GSN's capabilities and enhances the security model while reducing gas costs. It achieves this by:
 
-- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
-- Elimination of interaction with Uniswap: relay providers accumulate tokens on a paymaster under their control to later on decide what to do with funds.
+- Securely deploying counterfactual Smart Wallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
+- Elimination of interaction with Uniswap: relay providers accumulate tokens using a paymaster contract under their control and decide what to do with funds at some later point in time.
 - Reducing gas costs by optimizing the existing GSN architecture.
 
-Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, removing the need to get RBTC.
+Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokes, and thereby remove the need to acquire RBTC in advance.
 
-The RIF Enveloping team is working on a new architecture to further reduce gas costs while simplifying the entire design of the solution. This changes will be part of the upcoming version 2.
+The RIF Enveloping team is working on a new architecture to further reduce gas costs while simplifying the entire design of the solution. These changes will be part of the upcoming version 2.
 
-It is important to mention that in version 1 the contracts deployed on Mainnet have as security measure **kill()**, **pause()** and **unpause()** functions and limits to the amount of RBTC that can be staked. These functions and limits will be removed in the upcoming version 2.
+It is important to recall that  - as a security measure - the contracts deployed on Mainnet in version 1 have some functions (**kill()**, **pause()**, **unpause()**) and some limits on the amount of RBTC that can be staked. These functions and limits will be removed in the upcoming version 2.
 
 ## Technical Documentation
 
@@ -118,11 +118,3 @@ factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, byt
 * Gas cost optimization
 
 * Security issues fixed.
-
-## Gas Station Network
-
-This project is based on GSN and expands its capabilities and security model while reducing gas costs. It does this by:
-- Securely deploying counterfactual SmartWallet proxies for each user account: this eliminates the need for relying on _msgSender() and _msgData() functions.
-- Elimination of interaction with Uniswap: relay providers accumulate tokens on a Verifier under their control to later on decide what to do with funds.
-
-Code here is based on [Gas Stations Network](https://github.com/opengsn/gsn) (GSN). In a nutshell, GSN abstracts away gas to minimize onboarding & UX friction for dapps. With GSN, gasless clients can interact with Ethereum contracts without users needing ETH for transaction fees. The GSN is a decentralized system that improves dapp usability without sacrificing security. 
