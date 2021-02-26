@@ -1,7 +1,7 @@
 import { GsnTestEnvironment, TestEnvironment } from '../src/relayclient/GsnTestEnvironment'
 import { HttpProvider } from 'web3-core'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { TestRecipientInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
+import { TestRecipientInstance, ProxyFactoryInstance, TestTokenInstance } from '../types/truffle-contracts'
 import { getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { toHex } from 'web3-utils'
@@ -10,6 +10,7 @@ const TestRecipient = artifacts.require('TestRecipient')
 const ProxyFactory = artifacts.require('ProxyFactory')
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
+const TestToken = artifacts.require('TestToken')
 
 contract('GsnTestEnvironment', function (accounts) {
   describe('#startGsn()', function () {
@@ -26,14 +27,15 @@ contract('GsnTestEnvironment', function (accounts) {
 
   describe('using RelayClient', () => {
     let testEnvironment: TestEnvironment
-
+    let tToken: TestTokenInstance
     before(async () => {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
+      tToken = await TestToken.new()
       testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
-      await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
+      await dVerifier.acceptToken(tToken.address, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)
-      await rVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
+      await rVerifier.acceptToken(tToken.address, { from: accounts[0] })
     })
 
     after(async () => {
@@ -53,7 +55,7 @@ contract('GsnTestEnvironment', function (accounts) {
         value: '0',
         gas: toHex('400000'),
         data: '0x',
-        tokenContract: constants.ZERO_ADDRESS,
+        tokenContract: tToken.address,
         tokenAmount: '0',
         tokenGas: '0',
         recoverer: constants.ZERO_ADDRESS,
@@ -73,7 +75,7 @@ contract('GsnTestEnvironment', function (accounts) {
         data: sr.contract.methods.emitMessage('hello').encodeABI(),
         tokenAmount: '0x00',
         tokenGas: '0',
-        tokenContract: constants.ZERO_ADDRESS,
+        tokenContract: tToken.address,
         isSmartWalletDeploy: false,
         clientId: '1',
         relayHub: testEnvironment.deploymentResult.relayHubAddress
@@ -88,14 +90,15 @@ contract('GsnTestEnvironment', function (accounts) {
 
   describe('using RelayProvider', () => {
     let testEnvironment: TestEnvironment
-
+    let tToken: TestTokenInstance
     before(async function () {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
       testEnvironment = await GsnTestEnvironment.startGsn(host, await getTestingEnvironment())
+      tToken = await TestToken.new()
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
-      await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
+      await dVerifier.acceptToken(tToken.address, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)
-      await rVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
+      await rVerifier.acceptToken(tToken.address, { from: accounts[0] })
     })
 
     after(async () => {
@@ -114,7 +117,7 @@ contract('GsnTestEnvironment', function (accounts) {
         value: '0',
         gas: toHex('400000'),
         data: '0x',
-        tokenContract: constants.ZERO_ADDRESS,
+        tokenContract: tToken.address,
         tokenAmount: '0',
         tokenGas: '0',
         recoverer: constants.ZERO_ADDRESS,
@@ -132,7 +135,8 @@ contract('GsnTestEnvironment', function (accounts) {
       const txDetails = {
         from: sender.address,
         callVerifier: testEnvironment.deploymentResult.relayVerifierAddress,
-        callForwarder: wallet
+        callForwarder: wallet,
+        tokenContract: tToken.address
       }
       const ret = await sr.emitMessage('hello', txDetails)
       expectEvent(ret, 'SampleRecipientEmitted', { msgSender: wallet })

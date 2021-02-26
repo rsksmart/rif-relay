@@ -13,20 +13,8 @@ import "../utils/RSKAddrValidator.sol";
 contract SimpleSmartWallet is IForwarder {
     using ECDSA for bytes32;
 
-    bytes32 public currentVersionHash;
     uint256 public override nonce;
-    
-
-    /**It will only work if called through Enveloping */
-    function setVersion(bytes32 versionHash) public {
-       
-        require(
-            address(this) == msg.sender,
-            "Caller must be the SmartWallet"
-        );        
-        
-        currentVersionHash = versionHash;
-    }
+    bytes32 public constant DATA_VERSION_HASH = keccak256("2");    
 
     function verify(
         bytes32 domainSeparator,
@@ -90,7 +78,7 @@ contract SimpleSmartWallet is IForwarder {
         _verifySig(domainSeparator, suffixData, req, sig);
         nonce++;
 
-        if(req.tokenContract != address(0)){
+        if(req.tokenAmount > 0){
             /* solhint-disable avoid-tx-origin */
             (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
                 abi.encodeWithSelector(
@@ -144,7 +132,7 @@ contract SimpleSmartWallet is IForwarder {
             keccak256(abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"), //hex"8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f",
                 keccak256("RSK Enveloping Transaction"), //DOMAIN_NAME hex"d41b7f69f4d7734774d21b5548d74704ad02f9f1545db63927a1d58479c576c8"
-                currentVersionHash,
+                DATA_VERSION_HASH,
                 getChainID(),
                 address(this))) == domainSeparator,
             "Invalid domain separator"
@@ -198,17 +186,16 @@ contract SimpleSmartWallet is IForwarder {
      * This function can only be called once, and it is called by the Factory during deployment
      * @param owner - The EOA that will own the smart wallet
      * @param tokenAddr - The Token used for payment of the deploy
-     * @param versionHash - The version of the domain separator to be used
-     * @param transferData - payment function and params to use when calling the Token.
-     * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
+     * @param tokenRecipient - Recipient of payment
+     * @param tokenAmount - Amount to pay
      */
 
     function initialize(
         address owner,
         address tokenAddr,
-        uint256 tokenGas,
-        bytes32 versionHash,
-        bytes memory transferData
+        address tokenRecipient,
+        uint256 tokenAmount,
+        uint256 tokenGas
     ) external  {
 
         require(getOwner() == bytes32(0), "already initialized");
@@ -225,14 +212,17 @@ contract SimpleSmartWallet is IForwarder {
         }
 
         //we need to initialize the contract
-        if (tokenAddr != address(0)) {
-            (bool success, bytes memory ret ) = tokenAddr.call{gas: tokenGas}(transferData);
+        if (tokenAmount > 0) {
+            (bool success, bytes memory ret ) = tokenAddr.call{gas: tokenGas}(abi.encodeWithSelector(
+                hex"a9059cbb",
+                tokenRecipient,
+                tokenAmount));
+
             require(
             success && (ret.length == 0 || abi.decode(ret, (bool))),
             "Unable to pay for deployment");
         }
 
-        currentVersionHash = versionHash;
     }
 
 /* solhint-disable no-empty-blocks */

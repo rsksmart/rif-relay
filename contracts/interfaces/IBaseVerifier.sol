@@ -8,5 +8,4 @@ interface IBaseVerifier {
 
     function versionVerifier() external view returns (string memory);
 
-    function acceptanceBudget() external view returns (uint256);
 }

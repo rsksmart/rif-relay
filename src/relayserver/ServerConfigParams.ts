@@ -27,7 +27,6 @@ export interface ServerConfigParams {
   readyTimeout: number
   devMode: boolean
   registrationBlockRate: number
-  maxAcceptanceBudget: number
   alertedBlockDelay: number
   minAlertedDelayMS: number
   maxAlertedDelayMS: number
@@ -64,7 +63,6 @@ const serverDefaultConfiguration: ServerConfigParams = {
   alertedBlockDelay: 0,
   minAlertedDelayMS: 0,
   maxAlertedDelayMS: 0,
-  maxAcceptanceBudget: 2e5,
   relayHubAddress: constants.ZERO_ADDRESS,
   relayVerifierAddress: constants.ZERO_ADDRESS,
   deployVerifierAddress: constants.ZERO_ADDRESS,
@@ -116,7 +114,6 @@ const ConfigParamsTypes = {
   devMode: 'boolean',
   logLevel: 'number',
   registrationBlockRate: 'number',
-  maxAcceptanceBudget: 'number',
   alertedBlockDelay: 'number',
 
   workerMinBalance: 'number',

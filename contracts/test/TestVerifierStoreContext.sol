@@ -48,13 +48,12 @@ contract TestVerifierStoreContext is TestVerifierEverythingAccepted {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
     override
     {
-        (context, success, gasUseWithoutPost, relayData);
+        (context, success, relayData);
         emit SampleRecipientPostCallWithValues(string(context));
     }
 }

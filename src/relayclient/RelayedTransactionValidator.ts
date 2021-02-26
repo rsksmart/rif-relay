@@ -25,7 +25,6 @@ export default class RelayedTransactionValidator {
    */
   validateRelayResponse (
     request: RelayTransactionRequest | DeployTransactionRequest,
-    maxAcceptanceBudget: number,
     returnedTx: PrefixedHexString
   ): boolean {
     const transaction = new Transaction(returnedTx, this.contractInteractor.getRawTxOptions())

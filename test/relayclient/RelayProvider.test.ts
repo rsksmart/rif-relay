@@ -182,7 +182,7 @@ contract('RelayProvider', function (accounts) {
           callVerifier: verifierInstance.address
         })
       } catch (error) {
-        const expectedText = 'relayCall (local call) reverted in server'
+        const expectedText = "local view call to 'relayCall()' reverted: view call to 'relayCall' reverted in client"
         const err: string = String(error)
         assert.isTrue(err.includes(expectedText))
         return
@@ -249,7 +249,7 @@ contract('RelayProvider', function (accounts) {
         await rProvider.deploySmartWallet(trxData)
         assert.fail()
       } catch (error) {
-        assert.include(error.message, 'relayCall (local call) reverted in server')
+        assert.include(error.message, 'local view call to \'relayCall()\' reverted: view call to \'deployCall\' reverted in client')
       }
     })
 

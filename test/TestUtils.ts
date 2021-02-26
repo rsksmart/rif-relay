@@ -31,7 +31,6 @@ import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const RelayHub = artifacts.require('RelayHub')
-
 const localhostOne = 'http://localhost:8090'
 export const deployTypeName = `${GsnRequestType.typeName}(${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
 export const deployTypeHash = web3.utils.keccak256(deployTypeName)
@@ -275,14 +274,14 @@ export async function deployHub (
     relayHubConfiguration.minimumStake)
 }
 
-export async function createProxyFactory (template: IForwarderInstance, versionHash: string = web3.utils.keccak256('2')): Promise<ProxyFactoryInstance> {
+export async function createProxyFactory (template: IForwarderInstance): Promise<ProxyFactoryInstance> {
   const ProxyFactory = artifacts.require('ProxyFactory')
-  return await ProxyFactory.new(template.address, versionHash)
+  return await ProxyFactory.new(template.address)
 }
 
-export async function createSimpleProxyFactory (template: IForwarderInstance, versionHash: string = web3.utils.keccak256('2')): Promise<SimpleProxyFactoryInstance> {
+export async function createSimpleProxyFactory (template: IForwarderInstance): Promise<SimpleProxyFactoryInstance> {
   const ProxyFactory = artifacts.require('SimpleProxyFactory')
-  return await ProxyFactory.new(template.address, versionHash)
+  return await ProxyFactory.new(template.address)
 }
 
 export async function createSimpleSmartWallet (relayHub: string, ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,

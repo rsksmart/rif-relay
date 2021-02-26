@@ -837,7 +837,6 @@ contract('RelayClient', function (accounts) {
         relayManagerAddress: relayManager,
         relayHubAddress: relayManager,
         minGasPrice: '',
-        maxAcceptanceBudget: 1e10.toString(),
         ready: true,
         version: ''
       }

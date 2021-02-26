@@ -77,8 +77,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
     bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
     bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
     address public masterCopy; // this is the ForwarderProxy contract that will be proxied
-    address public contractOwner;
-    bytes32 public currentVersionHash;
+    bytes32 public constant DATA_VERSION_HASH = keccak256("2");
 
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
@@ -87,27 +86,15 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
      * @param forwarderTemplate It implements all the payment and execution needs,
      * it pays for the deployment during initialization, and it pays for the transaction
      * execution on each execute() call.
-     * @param versionHash It's the domain version to accept when receiving EIP712 signatures
      */
-    constructor(address forwarderTemplate, bytes32 versionHash) public {
+    constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
-        currentVersionHash = versionHash;
-        contractOwner = msg.sender;
-    }
-
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Sender is not the owner");
-        _;
     }
 
     function runtimeCodeHash() external view returns (bytes32){
         return keccak256(
             abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END)
         );
-    }
-
-    function setVersion(bytes32 versionHash) external onlyOwner {
-        currentVersionHash = versionHash;
     }
 
     function nonce(address from) public override view returns (uint256) {
@@ -129,14 +116,14 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
 
         require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
 
-        //0cf756c2  =>  initialize(address owner,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes transferData)  
+        //a6b63eb8  =>  initialize(address owner,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas)  
         bytes memory initData = abi.encodeWithSelector(
-            hex"0cf756c2",
+            hex"a6b63eb8",
             owner,
             address(0), // This "gas-funded" call does not pay with tokens
-            0, //No token transfer
-            currentVersionHash,
-            hex"00"
+            address(0),
+            0,
+            0 //No token transfer
         );
 
         deploy(getCreationBytecode(), keccak256(
@@ -159,7 +146,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
         _verifySig(req, domainSeparator, suffixData, sig);
         nonces[req.from]++;
 
-        //0cf756c2  =>  initialize(address owner,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes transferData)  
+        //a6b63eb8  =>  initialize(address owner,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas)  
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         /* solhint-disable avoid-tx-origin */
         deploy(getCreationBytecode(), keccak256(
@@ -169,16 +156,12 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
                 req.index
             ) // salt
         ), abi.encodeWithSelector(
-            hex"0cf756c2",
+            hex"a6b63eb8",
             req.from,
             req.tokenContract,
-            req.tokenGas,
-            currentVersionHash,
-            abi.encodeWithSelector(
-                hex"a9059cbb",
-                tx.origin,
-                req.tokenAmount
-            )
+            tx.origin,
+            req.tokenAmount,
+            req.tokenGas
         ));
     }
 
@@ -296,7 +279,7 @@ contract SimpleProxyFactory is ISimpleProxyFactory {
                 abi.encode(
                     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),//EIP712DOMAIN_TYPEHASH
                     keccak256("RSK Enveloping Transaction"),// DOMAIN_NAME
-                    currentVersionHash,
+                    DATA_VERSION_HASH,
                     getChainID(),
                     address(this)
                 )

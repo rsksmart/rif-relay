@@ -222,7 +222,6 @@ interface TransactionGasComponents {
 }
 
 export interface VerifierGasLimits {
-  acceptanceBudget: string
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string
 }

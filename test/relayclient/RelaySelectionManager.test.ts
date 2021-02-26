@@ -36,7 +36,6 @@ contract('RelaySelectionManager', async function (accounts) {
     relayManagerAddress: '',
     relayHubAddress: '',
     minGasPrice: '1',
-    maxAcceptanceBudget: 1e10.toString(),
     ready: true,
     version: '1'
   }
@@ -130,7 +129,6 @@ contract('RelaySelectionManager', async function (accounts) {
           relayManagerAddress: relayManager,
           relayHubAddress: relayManager,
           minGasPrice: '1',
-          maxAcceptanceBudget: 1e10.toString(),
           ready: true,
           version: ''
         }

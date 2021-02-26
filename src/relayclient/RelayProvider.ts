@@ -13,7 +13,7 @@ import { AccountKeypair } from './AccountManager'
 import { GsnEvent } from './GsnEvents'
 import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
-import { toChecksumAddress } from 'web3-utils'
+import { toBN, toChecksumAddress } from 'web3-utils'
 
 abiDecoder.addABI(relayHubAbi)
 
@@ -145,13 +145,13 @@ export class RelayProvider implements HttpProvider {
     const tokenGas = gsnTransactionDetails.tokenGas ?? '0'
     const tokenContract = gsnTransactionDetails.tokenContract ?? constants.ZERO_ADDRESS
 
-    if (tokenContract !== constants.ZERO_ADDRESS && tokenGas === '0') {
+    if (tokenContract !== constants.ZERO_ADDRESS &&
+      toBN(gsnTransactionDetails.tokenAmount ?? '0').toNumber() > 0 &&
+      toBN(tokenGas).toNumber() === 0 &&
+       (gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS) === constants.ZERO_ADDRESS) {
       // There is a token payment involved
       // The user expects the client to estimate the gas required for the token call
-      const swAddress = gsnTransactionDetails.smartWalletAddress ?? constants.ZERO_ADDRESS
-      if (swAddress === constants.ZERO_ADDRESS) {
-        throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
-      }
+      throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
     }
 
     try {

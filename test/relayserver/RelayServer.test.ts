@@ -135,7 +135,7 @@ contract('RelayServer', function (accounts) {
       })
     })
 
-    describe('#validateFees()', function () {
+    describe('#validateVerifier()', function () {
       describe('with trusted forwarder', function () {
         before(async function () {
           await env.relayServer._initTrustedVerifiers([env.relayVerifier.address, env.deployVerifier.address])
@@ -190,7 +190,7 @@ contract('RelayServer', function (accounts) {
         const req = await env.createRelayHttpRequest()
         req.relayRequest.relayData.callVerifier = accounts[1]
         try {
-          env.relayServer.validateFees(req)
+          env.relayServer.validateVerifier(req)
           assert.fail()
         } catch (e) {
           assert.include(e.message, `Invalid verifier: ${accounts[1]}`)
@@ -208,13 +208,10 @@ contract('RelayServer', function (accounts) {
         })
 
         it('should accept a transaction from trusted verifier returning above configured max exposure', async function () {
-          await rejectingVerifier.setGreedyAcceptanceBudget(true)
           const req = await env.createRelayHttpRequest()
           try {
             await env.relayServer._initTrustedVerifiers([rejectingVerifier.address])
-            // const acceptanceBudget = await rejectingVerifier.acceptanceBudget()
-            // assert.equal(parseInt(acceptanceBudget.toString()), verifierExpectedAcceptanceBudget * 9)
-            env.relayServer.validateFees(req)
+            env.relayServer.validateVerifier(req)
           } finally {
             await env.relayServer._initTrustedVerifiers([])
           }

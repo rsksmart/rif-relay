@@ -12,7 +12,6 @@ contract TestDeployVerifierConfigurableMisbehavior is TestDeployVerifierEverythi
     bool public revertPostRelayCall;
     bool public overspendAcceptGas;
     bool public revertPreRelayCall;
-    bool public greedyAcceptanceBudget;
     bool public expensiveGasLimits;
     int public expensiveGasLimitsIterations;
 
@@ -36,9 +35,6 @@ contract TestDeployVerifierConfigurableMisbehavior is TestDeployVerifierEverythi
         overspendAcceptGas = val;
     }
 
-    function setGreedyAcceptanceBudget(bool val) public {
-        greedyAcceptanceBudget = val;
-    }
     function setExpensiveGasLimits(bool val) public {
         expensiveGasLimits = val;
     }
@@ -75,13 +71,12 @@ contract TestDeployVerifierConfigurableMisbehavior is TestDeployVerifierEverythi
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
     override
     {
-        (context, success, gasUseWithoutPost, relayData);
+        (context, success, relayData);
 
         if (revertPostRelayCall) {
             revert("revertPreRelayCall: Reverting");

@@ -31,7 +31,6 @@ contract('ProxyFactory', ([from]) => {
   let chainId: number
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string
-  const versionHash = keccak256('2')
   const recipientPrivateKey = toBuffer(bytes32(1))
   let recipientAddress: string
   let env: Environment
@@ -71,7 +70,7 @@ contract('ProxyFactory', ([from]) => {
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await ProxyFactory.new(fwd.address, versionHash)
+    factory = await ProxyFactory.new(fwd.address)
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
@@ -315,23 +314,23 @@ contract('ProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'address',
+          name: 'tokenRecipient'
+        },
+        {
+          type: 'uint256',
+          name: 'tokenAmount'
+        },
+        {
           type: 'uint256',
           name: 'tokenGas'
         },
         {
-          type: 'bytes32',
-          name: 'versionHash'
-        },
-        {
           type: 'bytes',
           name: 'initParams'
-        },
-        {
-          type: 'bytes',
-          name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, '0x00', versionHash, initParams, '0x00'])
+      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00', initParams])
 
       newTrx.data = initFunc
 
@@ -505,7 +504,6 @@ contract('ProxyFactory', ([from]) => {
       const deployPrice = '0x01' // 1 token
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
-      const versionHash = keccak256('2')
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
         logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
@@ -584,22 +582,6 @@ contract('ProxyFactory', ([from]) => {
       // It should be initialized
       chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
 
-      const transferFunc = await web3.eth.abi.encodeFunctionCall({
-        name: 'transfer',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: '_to'
-        },
-        {
-          type: 'uint256',
-          name: '_value'
-        }
-        ]
-      }, [
-        recipientAddress, deployPrice
-      ])
-
       const initFunc = web3.eth.abi.encodeFunctionCall({
         name: 'initialize',
         type: 'function',
@@ -616,23 +598,23 @@ contract('ProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'address',
+          name: 'tokenRecipient'
+        },
+        {
+          type: 'uint256',
+          name: 'tokenAmount'
+        },
+        {
           type: 'uint256',
           name: 'tokenGas'
         },
         {
-          type: 'bytes32',
-          name: 'versionHash'
-        },
-        {
           type: 'bytes',
           name: 'initParams'
-        },
-        {
-          type: 'bytes',
-          name: 'transferData'
         }
         ]
-      }, [ownerAddress, logicAddress, token.address, '0xD6D8', versionHash, initParams, transferFunc])
+      }, [ownerAddress, logicAddress, token.address, recipientAddress, deployPrice, '0xD6D8', initParams])
 
       newTrx.data = initFunc
 
@@ -659,7 +641,6 @@ contract('SimpleProxyFactory', ([from]) => {
   let chainId: number
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string
-  const versionHash = keccak256('2')
   const recipientPrivateKey = toBuffer(bytes32(1))
   let recipientAddress: string
   const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
@@ -701,7 +682,7 @@ contract('SimpleProxyFactory', ([from]) => {
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await SimpleProxyFactory.new(fwd.address, versionHash)
+    factory = await SimpleProxyFactory.new(fwd.address)
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
@@ -914,19 +895,19 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'address',
+          name: 'tokenRecipient'
+        },
+        {
+          type: 'uint256',
+          name: 'tokenAmount'
+        },
+        {
           type: 'uint256',
           name: 'tokenGas'
-        },
-        {
-          type: 'bytes32',
-          name: 'versionHash'
-        },
-        {
-          type: 'bytes',
-          name: 'transferData'
         }
         ]
-      }, [ownerAddress, constants.ZERO_ADDRESS, '0x00', versionHash, '0x00'])
+      }, [ownerAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00'])
 
       newTrx.data = initFunc
 
@@ -1157,22 +1138,6 @@ contract('SimpleProxyFactory', ([from]) => {
       // It should be initialized
       chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
 
-      const transferFunc = await web3.eth.abi.encodeFunctionCall({
-        name: 'transfer',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: '_to'
-        },
-        {
-          type: 'uint256',
-          name: '_value'
-        }
-        ]
-      }, [
-        recipientAddress, deployPrice
-      ])
-
       const initFunc = await web3.eth.abi.encodeFunctionCall({
         name: 'initialize',
         type: 'function',
@@ -1185,19 +1150,19 @@ contract('SimpleProxyFactory', ([from]) => {
           name: 'tokenAddr'
         },
         {
+          type: 'address',
+          name: 'tokenRecipient'
+        },
+        {
+          type: 'uint256',
+          name: 'tokenAmount'
+        },
+        {
           type: 'uint256',
           name: 'tokenGas'
-        },
-        {
-          type: 'bytes32',
-          name: 'versionHash'
-        },
-        {
-          type: 'bytes',
-          name: 'transferData'
         }
         ]
-      }, [ownerAddress, token.address, '0xD6D8', versionHash, transferFunc])
+      }, [ownerAddress, token.address, recipientAddress, deployPrice, '0xD6D8'])
 
       newTrx.data = initFunc
 

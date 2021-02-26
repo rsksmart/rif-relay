@@ -77,8 +77,7 @@ contract ProxyFactory is IProxyFactory {
     bytes11 private constant RUNTIME_START = hex"363D3D373D3D3D3D363D73";
     bytes14 private constant RUNTIME_END = hex"5AF43D923D90803E602B57FD5BF3";
     address public masterCopy; // this is the ForwarderProxy contract that will be proxied
-    address public contractOwner;
-    bytes32 public currentVersionHash;
+    bytes32 public constant DATA_VERSION_HASH = keccak256("2");
 
     // Nonces of senders, used to prevent replay attacks
     mapping(address => uint256) private nonces;
@@ -88,27 +87,16 @@ contract ProxyFactory is IProxyFactory {
      * it pays for the deployment during initialization, and it pays for the transaction
      * execution on each execute() call.
      * It also acts a a proxy to a logic contract. Any unrecognized function will be forwarded to this custom logic (if it exists)
-     * @param versionHash It's the domain version to accept when receiving EIP712 signatures
      */
-    constructor(address forwarderTemplate, bytes32 versionHash) public {
+    constructor(address forwarderTemplate) public {
         masterCopy = forwarderTemplate;
-        currentVersionHash = versionHash;
-        contractOwner = msg.sender;
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == contractOwner, "Sender is not the owner");
-        _;
-    }
 
     function runtimeCodeHash() external view returns (bytes32){
         return keccak256(
             abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END)
         );
-    }
-
-    function setVersion(bytes32 versionHash) external onlyOwner {
-        currentVersionHash = versionHash;
     }
 
     function nonce(address from) public override view returns (uint256) {
@@ -133,17 +121,17 @@ contract ProxyFactory is IProxyFactory {
         );
         (sig);
         require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
-
-        //07a5b285  =>  initialize(address owner,address logic,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes initParams,bytes transferData)  
+        
+        //e6ddc71a  =>  initialize(address owner,address logic,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas,bytes initParams)
         bytes memory initData = abi.encodeWithSelector(
-            hex"07a5b285",
+            hex"e6ddc71a",
             owner,
             logic,
             address(0), // This "gas-funded" call does not pay with tokens
+            address(0),
+            0,
             0,//No token transfer
-            currentVersionHash,
-            initParams,
-            hex"00"
+            initParams
         );
 
         deploy(getCreationBytecode(), keccak256(
@@ -166,10 +154,10 @@ contract ProxyFactory is IProxyFactory {
 
         (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
-        _verifySig(req, domainSeparator, suffixData, sig);
+        _verifySig(req,domainSeparator, suffixData, sig);
         nonces[req.from]++;
 
-        //07a5b285  =>  initialize(address owner,address logic,address tokenAddr,uint256 tokenGas,bytes32 versionHash,bytes initParams,bytes transferData)  
+        //e6ddc71a  =>  initialize(address owner,address logic,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas,bytes initParams)
         //a9059cbb = transfer(address _to, uint256 _value) public returns (bool success)
         //initParams (req.data) must not contain the function selector for the logic initialization function
         /* solhint-disable avoid-tx-origin */
@@ -182,18 +170,14 @@ contract ProxyFactory is IProxyFactory {
                 req.index
             )
         ), abi.encodeWithSelector(
-            hex"07a5b285",
+            hex"e6ddc71a",
             req.from,
             req.to,
             req.tokenContract,
+            tx.origin,
+            req.tokenAmount,
             req.tokenGas,
-            currentVersionHash,
-            req.data,
-            abi.encodeWithSelector(
-                hex"a9059cbb",
-                tx.origin,
-                req.tokenAmount
-            )
+            req.data
         ));
     }
 
@@ -256,8 +240,7 @@ contract ProxyFactory is IProxyFactory {
         /* solhint-disable-next-line avoid-low-level-calls */
         (bool success, ) = addr.call(initdata);
 
-        /* solhint-disable-next-line reason-string */
-        require(success);
+        require(success, "Unable to initialize SW");
 
         //No info is returned, an event is emitted to inform the new deployment
         emit Deployed(addr, uint256(salt));
@@ -317,7 +300,7 @@ contract ProxyFactory is IProxyFactory {
                 abi.encode(
                     keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),//EIP712DOMAIN_TYPEHASH
                     keccak256("RSK Enveloping Transaction"),// DOMAIN_NAME
-                    currentVersionHash,
+                    DATA_VERSION_HASH,
                     getChainID(),
                     address(this)
                 )
