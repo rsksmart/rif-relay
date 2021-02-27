@@ -127,7 +127,8 @@ contract('RelayClient', function (accounts) {
       relayOwner: accounts[1],
       rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifier.address,
-      relayVerifierAddress: relayVerifier.address
+      relayVerifierAddress: relayVerifier.address,
+      workerTargetBalance: 0.6e18
     })
 
     config = {

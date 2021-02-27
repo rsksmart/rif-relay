@@ -15,7 +15,7 @@ contract('TestEnvironment', function (accounts) {
   describe('#start()', function () {
     it('should create a valid test environment for other tests to rely on', async function () {
       const host = (web3.currentProvider as HttpProvider).host
-      const testEnv = await TestEnvironment.start(host, await getTestingEnvironment())
+      const testEnv = await TestEnvironment.start(host, 0.6e18, await getTestingEnvironment())
       assert.equal(testEnv.deploymentResult.relayHubAddress.length, 42)
     })
 
@@ -29,7 +29,7 @@ contract('TestEnvironment', function (accounts) {
 
     before(async () => {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
-      testEnvironment = await TestEnvironment.start(host, await getTestingEnvironment())
+      testEnvironment = await TestEnvironment.start(host, 0.6e18, await getTestingEnvironment())
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
       await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)
@@ -91,7 +91,7 @@ contract('TestEnvironment', function (accounts) {
 
     before(async function () {
       const host = (web3.currentProvider as HttpProvider).host ?? 'localhost'
-      testEnvironment = await TestEnvironment.start(host, await getTestingEnvironment())
+      testEnvironment = await TestEnvironment.start(host, 0.6e18, await getTestingEnvironment())
       const dVerifier = await DeployVerifier.at(testEnvironment.deploymentResult.deployVerifierAddress)
       await dVerifier.acceptToken(constants.ZERO_ADDRESS, { from: accounts[0] })
       const rVerifier = await RelayVerifier.at(testEnvironment.deploymentResult.relayVerifierAddress)

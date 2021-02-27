@@ -48,7 +48,8 @@ contract('RelayServer', function (accounts) {
     await env.init(relayClientConfig)
     const overrideParams: Partial<ServerConfigParams> = {
       alertedBlockDelay,
-      baseRelayFee
+      baseRelayFee,
+      workerTargetBalance: 0.6e18
     }
     await env.newServerInstance(overrideParams)
     await env.clearServerStorage()
@@ -388,7 +389,8 @@ contract('RelayServer', function (accounts) {
     before(async function () {
       await env.newServerInstance({
         registrationBlockRate,
-        refreshStateTimeoutBlocks
+        refreshStateTimeoutBlocks,
+        workerTargetBalance: 0.6e18
       })
       relayServer = env.relayServer
       sinon.spy(relayServer.registrationManager, 'handlePastEvents')
@@ -491,7 +493,8 @@ contract('RelayServer', function (accounts) {
         alertedBlockDelay,
         refreshStateTimeoutBlocks,
         relayVerifierAddress: rejectingVerifier.address,
-        deployVerifierAddress: rejectingDeployVerifier.address
+        deployVerifierAddress: rejectingDeployVerifier.address,
+        workerTargetBalance: 0.6e18
       })
       newServer = env.relayServer
       await attackTheServer(newServer)

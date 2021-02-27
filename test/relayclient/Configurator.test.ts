@@ -18,7 +18,7 @@ contract('client-configuration', () => {
   let deployVerifierAddress: PrefixedHexString
   before(async () => {
     const host = (web3.currentProvider as HttpProvider).host
-    env = await TestEnvironment.start(host)
+    env = await TestEnvironment.start(host, 0.6e18)
     deploymentResult = env.deploymentResult
     // deploymentResult = loadDeployment('./build/enveloping')
     relayVerifierAddress = deploymentResult.relayVerifierAddress

@@ -36,7 +36,7 @@ class TestEnvironmentClass {
    * @param debug
    * @return
    */
-  async start (host?: string, environment = defaultEnvironment): Promise<TestEnvironmentInfo> {
+  async start (host?: string, workerTargetBalance?: number, environment = defaultEnvironment): Promise<TestEnvironmentInfo> {
     await this.stop()
     const _host: string = getNetworkUrl(host)
     console.log('_host=', _host)
@@ -56,7 +56,7 @@ class TestEnvironmentClass {
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
 
-    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction)
+    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction, workerTargetBalance)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -178,6 +178,7 @@ class TestEnvironmentClass {
     relayUrl: string,
     port: number,
     replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>,
+    workerTargetBalance?: number,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
     if (this.httpServer !== undefined) {
@@ -212,8 +213,10 @@ class TestEnvironmentClass {
       checkInterval: 10,
       // refreshStateTimeoutBlocks:1,
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
-      deployVerifierAddress: deploymentResult.deployVerifierAddress
+      deployVerifierAddress: deploymentResult.deployVerifierAddress,
+      workerTargetBalance: workerTargetBalance
     }
+
     const relayServer = new RelayServer(relayServerParams, relayServerDependencies, replenishStrategy ?? this.defaultReplenishFunction)
     await relayServer.init()
 

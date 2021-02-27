@@ -78,6 +78,7 @@ options.forEach(params => {
         process.env.relaylog = 'true'
 
         relayproc = await startRelay(rhub.address, sm, {
+          workerTargetBalance: 0.6e18,
           stake: 1e18,
           delay: 3600 * 24 * 7,
           pctRelayFee: 12,

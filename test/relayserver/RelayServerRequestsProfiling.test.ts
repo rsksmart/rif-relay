@@ -18,13 +18,13 @@ contract('RelayServerRequestsProfiling', function (accounts) {
   let env: ServerTestEnvironment
 
   before(async function () {
-    let serverConfig: Partial<ServerConfigParams> = {  
+    const serverConfig: Partial<ServerConfigParams> = {
       refreshStateTimeoutBlocks,
       workerMinBalance: 0.1e18,
       workerTargetBalance: 0.3e18,
       managerMinBalance: 0.1e18,
       managerTargetBalance: 0.3e18,
-      minHubWithdrawalBalance: 0.1e18,
+      minHubWithdrawalBalance: 0.1e18
     }
 
     provider = new ProfilingProvider(web3.currentProvider as HttpProvider)

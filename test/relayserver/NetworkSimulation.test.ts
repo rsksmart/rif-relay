@@ -20,7 +20,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await env.init({ chainId: (await getTestingEnvironment()).chainId }, {}, contractFactory)
-    await env.newServerInstance()
+    await env.newServerInstance({ workerTargetBalance: 0.6e18 })
     provider.setDelayTransactions(true)
   })
 
