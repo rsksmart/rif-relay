@@ -18,7 +18,7 @@ const MAX_RELAY_NONCE_GAP = 3
 const DEFAULT_RELAY_TIMEOUT_GRACE_SEC = 1800
 const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
 
-const defaultGsnConfig: GSNConfig = {
+const defaultEnvelopingConfig: EnvelopingConfig = {
   preferredRelays: [],
   onlyPreferredRelays: false,
   relayLookupWindowParts: 1,
@@ -40,20 +40,20 @@ const defaultGsnConfig: GSNConfig = {
 }
 
 /**
- * All classes in GSN must be configured correctly with non-null values.
+ * All classes in Enveloping must be configured correctly with non-null values.
  * Yet it is tedious to provide default values to all configuration fields on new instance creation.
  * This helper allows users to provide only the overrides and the remainder of values will be set automatically.
  */
-export function configureGSN (partialConfig: Partial<GSNConfig>): GSNConfig {
-  return Object.assign({}, defaultGsnConfig, partialConfig) as GSNConfig
+export function configure (partialConfig: Partial<EnvelopingConfig>): EnvelopingConfig {
+  return Object.assign({}, defaultEnvelopingConfig, partialConfig) as EnvelopingConfig
 }
 
 /**
- * Same as {@link configureGSN} but also resolves the GSN deployment from Verifier
+ * Same as {@link configure} but also resolves the Enveloping deployment from Verifier
  * @param provider - web3 provider needed to query blockchain
  * @param partialConfig
  */
-export async function resolveConfigurationGSN (provider: Web3Provider, partialConfig: Partial<GSNConfig>): Promise<GSNConfig> {
+export async function resolveConfiguration (provider: Web3Provider, partialConfig: Partial<EnvelopingConfig>): Promise<EnvelopingConfig> {
   // @ts-ignore
   if (provider.send == null && provider.sendAsync == null) {
     throw new Error('First param is not a web3 provider')
@@ -63,7 +63,7 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
     throw new Error('Resolve cannot override passed values')
   }
 
-  const contractInteractor = new ContractInteractor(provider, defaultGsnConfig)
+  const contractInteractor = new ContractInteractor(provider, defaultEnvelopingConfig)
 
   const [
     chainId, forwarderAddress
@@ -75,8 +75,8 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
   const isMetamask: boolean = (provider as any).isMetaMask
 
   // provide defaults valid for metamask (unless explicitly specified values)
-  const methodSuffix = partialConfig.methodSuffix ?? (isMetamask ? '_v4' : defaultGsnConfig.methodSuffix)
-  const jsonStringifyRequest = partialConfig.jsonStringifyRequest ?? (isMetamask ? true : defaultGsnConfig.jsonStringifyRequest)
+  const methodSuffix = partialConfig.methodSuffix ?? (isMetamask ? '_v4' : defaultEnvelopingConfig.methodSuffix)
+  const jsonStringifyRequest = partialConfig.jsonStringifyRequest ?? (isMetamask ? true : defaultEnvelopingConfig.jsonStringifyRequest)
 
   const resolvedConfig = {
     forwarderAddress,
@@ -85,7 +85,7 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
     jsonStringifyRequest
   }
   return {
-    ...defaultGsnConfig,
+    ...defaultEnvelopingConfig,
     ...partialConfig,
     ...resolvedConfig
   }
@@ -95,7 +95,7 @@ export async function resolveConfigurationGSN (provider: Web3Provider, partialCo
  * @field methodSuffix - allows use of versioned methods, i.e. 'eth_signTypedData_v4'. Should be '_v4' for Metamask
  * @field jsonStringifyRequest - should be 'true' for Metamask, false for ganache
  */
-export interface GSNConfig {
+export interface EnvelopingConfig {
   preferredRelays: string[]
   onlyPreferredRelays: boolean
   relayLookupWindowBlocks: number
@@ -116,7 +116,7 @@ export interface GSNConfig {
   clientId: IntString
 }
 
-export interface GSNDependencies {
+export interface EnvelopingDependencies {
   httpClient: HttpClient
   contractInteractor: ContractInteractor
   knownRelaysManager: KnownRelaysManager
@@ -127,10 +127,10 @@ export interface GSNDependencies {
   asyncApprovalData: AsyncDataCallback
   asyncVerifierData: AsyncDataCallback
   scoreCalculator: AsyncScoreCalculator
-  config: GSNConfig
+  config: EnvelopingConfig
 }
 
-export function getDependencies (config: GSNConfig, provider?: HttpProvider, overrideDependencies?: Partial<GSNDependencies>): GSNDependencies {
+export function getDependencies (config: EnvelopingConfig, provider?: HttpProvider, overrideDependencies?: Partial<EnvelopingDependencies>): EnvelopingDependencies {
   let contractInteractor = overrideDependencies?.contractInteractor
   if (contractInteractor == null) {
     if (provider != null) {

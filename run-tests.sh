@@ -79,7 +79,7 @@ run_batch \
     test/regressions/PayableWithEmit.test.ts \
     test/relayclient/AccountManager.test.ts \
     test/relayclient/ContractInteractor.test.ts \
-    test/relayclient/GSNConfigurator.test.ts  
+    test/relayclient/Configurator.test.ts  
 
 # Test_Group_2
 run_batch test/relayclient/RelaySelectionManager.test.ts
@@ -96,7 +96,7 @@ run_batch test/RSKAddressValidator.test.ts
 # Test_Group_3
 run_batch \
     test/Flows.test.ts \
-    test/GsnTestEnvironment.test.ts \
+    test/TestEnvironment.test.ts \
     test/HttpWrapper.test.ts \
     test/KeyManager.test.ts \
     test/PaymasterCommitment.test.ts \

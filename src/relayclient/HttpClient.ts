@@ -4,13 +4,13 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import PingResponse from '../common/PingResponse'
 import HttpWrapper from './HttpWrapper'
 import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
-import { GSNConfig } from './GSNConfigurator'
+import { EnvelopingConfig } from './Configurator'
 
 export default class HttpClient {
   private readonly httpWrapper: HttpWrapper
-  private readonly config: Partial<GSNConfig>
+  private readonly config: Partial<EnvelopingConfig>
 
-  constructor (httpWrapper: HttpWrapper, config: Partial<GSNConfig>) {
+  constructor (httpWrapper: HttpWrapper, config: Partial<EnvelopingConfig>) {
     this.httpWrapper = httpWrapper
     this.config = config
   }

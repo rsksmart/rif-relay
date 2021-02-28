@@ -17,7 +17,10 @@ contract('TransactionManager', function (accounts) {
     const chainId = (await getTestingEnvironment()).chainId
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await env.init({ chainId })
-    await env.newServerInstance({ pendingTransactionTimeoutBlocks })
+    await env.newServerInstance({
+      pendingTransactionTimeoutBlocks,
+      workerTargetBalance: 0.6e18
+    })
     relayServer = env.relayServer
   })
 

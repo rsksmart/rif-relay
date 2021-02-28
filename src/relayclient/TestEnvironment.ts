@@ -4,7 +4,7 @@ import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic, { DeploymentResult } from '../cli/CommandsLogic'
 import { KeyManager } from '../relayserver/KeyManager'
 
-import { configureGSN } from './GSNConfigurator'
+import { configure } from './Configurator'
 import { getNetworkUrl, supportedNetworks } from '../cli/utils'
 import { TxStoreManager } from '../relayserver/TxStoreManager'
 import { RelayServer } from '../relayserver/RelayServer'
@@ -20,14 +20,14 @@ import { toBN, toHex } from 'web3-utils'
 import { ServerAction } from '../relayserver/StoredTransaction'
 import { SendTransactionDetails } from '../relayserver/TransactionManager'
 
-export interface TestEnvironment {
+export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult
   relayProvider: RelayProvider
   httpServer: HttpServer
   relayUrl: string
 }
 
-class GsnTestEnvironmentClass {
+class TestEnvironmentClass {
   private httpServer?: HttpServer
 
   /**
@@ -36,17 +36,17 @@ class GsnTestEnvironmentClass {
    * @param debug
    * @return
    */
-  async startGsn (host?: string, environment = defaultEnvironment): Promise<TestEnvironment> {
-    await this.stopGsn()
+  async start (host?: string, workerTargetBalance?: number, environment = defaultEnvironment): Promise<TestEnvironmentInfo> {
+    await this.stop()
     const _host: string = getNetworkUrl(host)
     console.log('_host=', _host)
     if (_host == null) {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`startGsn: expected network (${supportedNetworks().join('|')}) or url`)
+      throw new Error(`start: expected network (${supportedNetworks().join('|')}) or url`)
     }
-    const commandsLogic = new CommandsLogic(_host, configureGSN({ chainId: environment.chainId }))
+    const commandsLogic = new CommandsLogic(_host, configure({ chainId: environment.chainId }))
     const from = await commandsLogic.findWealthyAccount()
-    const deploymentResult = await commandsLogic.deployGsnContracts({
+    const deploymentResult = await commandsLogic.deployContracts({
       from,
       gasPrice: '1',
       skipConfirmation: true,
@@ -56,7 +56,7 @@ class GsnTestEnvironmentClass {
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
 
-    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction)
+    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction, workerTargetBalance)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -79,7 +79,7 @@ class GsnTestEnvironmentClass {
 
     await commandsLogic.waitForRelay(relayUrl)
 
-    const config = configureGSN({
+    const config = configure({
       relayHubAddress: deploymentResult.relayHubAddress,
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
       deployVerifierAddress: deploymentResult.deployVerifierAddress,
@@ -88,7 +88,7 @@ class GsnTestEnvironmentClass {
     })
 
     const relayProvider = new RelayProvider(new Web3.providers.HttpProvider(_host), config)
-    console.error('== startGSN: ready.')
+    console.error('== start: ready.')
     return {
       deploymentResult,
       relayProvider,
@@ -116,7 +116,7 @@ class GsnTestEnvironmentClass {
     return relayListenPort
   }
 
-  async stopGsn (): Promise<void> {
+  async stop (): Promise<void> {
     if (this.httpServer !== undefined) {
       this.httpServer.stop()
       this.httpServer.close()
@@ -178,6 +178,7 @@ class GsnTestEnvironmentClass {
     relayUrl: string,
     port: number,
     replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>,
+    workerTargetBalance?: number,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
     if (this.httpServer !== undefined) {
@@ -188,7 +189,7 @@ class GsnTestEnvironmentClass {
     const workersKeyManager = new KeyManager(1)
     const txStoreManager = new TxStoreManager({ inMemory: true })
     const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host),
-      configureGSN({
+      configure({
         relayHubAddress: deploymentResult.relayHubAddress,
         chainId: environment.chainId,
         relayVerifierAddress: deploymentResult.relayVerifierAddress,
@@ -212,8 +213,10 @@ class GsnTestEnvironmentClass {
       checkInterval: 10,
       // refreshStateTimeoutBlocks:1,
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
-      deployVerifierAddress: deploymentResult.deployVerifierAddress
+      deployVerifierAddress: deploymentResult.deployVerifierAddress,
+      workerTargetBalance: workerTargetBalance
     }
+
     const relayServer = new RelayServer(relayServerParams, relayServerDependencies, replenishStrategy ?? this.defaultReplenishFunction)
     await relayServer.init()
 
@@ -225,4 +228,4 @@ class GsnTestEnvironmentClass {
   }
 }
 
-export const GsnTestEnvironment = new GsnTestEnvironmentClass()
+export const TestEnvironment = new TestEnvironmentClass()

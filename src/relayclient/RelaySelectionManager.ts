@@ -3,9 +3,9 @@ import { KnownRelaysManager } from './KnownRelaysManager'
 import HttpClient from './HttpClient'
 import { isInfoFromEvent, RelayInfoUrl } from './types/RelayRegisteredEventInfo'
 import { PingFilter } from './types/Aliases'
-import GsnTransactionDetails from './types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import replaceErrors from '../common/ErrorReplacerJSON'
-import { GSNConfig } from './GSNConfigurator'
+import { EnvelopingConfig } from './Configurator'
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo'
 
 interface RaceResult {
@@ -16,17 +16,17 @@ interface RaceResult {
 export default class RelaySelectionManager {
   private readonly knownRelaysManager: KnownRelaysManager
   private readonly httpClient: HttpClient
-  private readonly config: GSNConfig
+  private readonly config: EnvelopingConfig
   private readonly pingFilter: PingFilter
-  private readonly gsnTransactionDetails: GsnTransactionDetails
+  private readonly transactionDetails: EnvelopingTransactionDetails
 
   private remainingRelays: RelayInfoUrl[][] = []
   private isInitialized = false
 
   public errors: Map<string, Error> = new Map<string, Error>()
 
-  constructor (gsnTransactionDetails: GsnTransactionDetails, knownRelaysManager: KnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: GSNConfig) {
-    this.gsnTransactionDetails = gsnTransactionDetails
+  constructor (transactionDetails: EnvelopingTransactionDetails, knownRelaysManager: KnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: EnvelopingConfig) {
+    this.transactionDetails = transactionDetails
     this.knownRelaysManager = knownRelaysManager
     this.httpClient = httpClient
     this.pingFilter = pingFilter
@@ -38,7 +38,7 @@ export default class RelaySelectionManager {
    * @returns the first relay to respond to a ping message. Note: will never return the same relay twice.
    */
   async selectNextRelay (): Promise<RelayInfo | undefined> {
-    if (this.gsnTransactionDetails.onlyPreferredRelays ?? false) {
+    if (this.transactionDetails.onlyPreferredRelays ?? false) {
       log.info('Only using preferred relays')
       let index: number = 0
 
@@ -110,7 +110,7 @@ export default class RelaySelectionManager {
   }
 
   async init (): Promise<this> {
-    this.remainingRelays = await this.knownRelaysManager.getRelaysSortedForTransaction(this.gsnTransactionDetails)
+    this.remainingRelays = await this.knownRelaysManager.getRelaysSortedForTransaction(this.transactionDetails)
     this.isInitialized = true
     return this
   }
@@ -139,12 +139,12 @@ export default class RelaySelectionManager {
    */
   async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
     log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.gsnTransactionDetails.callVerifier)
+    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.transactionDetails.callVerifier)
 
     if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)
     }
-    this.pingFilter(pingResponse, this.gsnTransactionDetails)
+    this.pingFilter(pingResponse, this.transactionDetails)
     return {
       pingResponse,
       relayInfo

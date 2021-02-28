@@ -8,12 +8,12 @@ import { ether } from '@openzeppelin/test-helpers'
 import { RelayHubInstance, StakeManagerInstance, SimpleProxyFactoryInstance, ProxyFactoryInstance, IForwarderInstance, SimpleSmartWalletInstance, SmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
-import { configureGSN } from '../src/relayclient/GSNConfigurator'
+import { configure } from '../src/relayclient/Configurator'
 import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { getLocalEip712Signature, sleep } from '../src/common/Utils'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
-import TypedRequestData, { GsnRequestType, getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType, DEPLOY_PARAMS } from '../src/common/EIP712/TypedRequestData'
+import TypedRequestData, { RequestType, getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType, DEPLOY_PARAMS } from '../src/common/EIP712/TypedRequestData'
 import { soliditySha3Raw } from 'web3-utils'
 
 // @ts-ignore
@@ -33,7 +33,7 @@ require('source-map-support').install({ errorFormatterForce: true })
 const RelayHub = artifacts.require('RelayHub')
 
 const localhostOne = 'http://localhost:8090'
-export const deployTypeName = `${GsnRequestType.typeName}(${DEPLOY_PARAMS},${GsnRequestType.typeSuffix}`
+export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`
 export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 
 // start a background relay process.
@@ -47,7 +47,7 @@ export async function startRelay (
   options: any): Promise<ChildProcessWithoutNullStreams> {
   const args = []
 
-  const serverWorkDir = '/tmp/gsn/test/server'
+  const serverWorkDir = '/tmp/enveloping/test/server'
 
   fs.rmdirSync(serverWorkDir, { recursive: true })
   args.push('--workdir', serverWorkDir)
@@ -82,6 +82,30 @@ export async function startRelay (
 
   if (options.trustedVerifiers) {
     args.push('--trustedVerifiers', options.trustedVerifiers)
+  }
+
+  if (options.workerMinBalance) {
+    args.push('--workerMinBalance', options.workerMinBalance)
+  }
+
+  if (options.workerTargetBalance) {
+    args.push('--workerTargetBalance', options.workerTargetBalance)
+  }
+
+  if (options.managerMinBalance) {
+    args.push('--managerMinBalance', options.managerMinBalance)
+  }
+
+  if (options.managerMinStake) {
+    args.push('--managerMinStake', options.managerMinStake)
+  }
+
+  if (options.managerTargetBalance) {
+    args.push('--managerTargetBalance', options.managerTargetBalance)
+  }
+
+  if (options.minHubWithdrawalBalance) {
+    args.push('--minHubWithdrawalBalance', options.minHubWithdrawalBalance)
   }
 
   const runServerPath = path.resolve(__dirname, '../src/relayserver/runServer.ts')
@@ -119,7 +143,7 @@ export async function startRelay (
   })
 
   let res: any
-  const http = new HttpClient(new HttpWrapper(), configureGSN({}))
+  const http = new HttpClient(new HttpWrapper(), configure({}))
   let count1 = 3
   while (count1-- > 0) {
     try {

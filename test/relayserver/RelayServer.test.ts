@@ -7,7 +7,7 @@ import sinon from 'sinon'
 import sinonChai from 'sinon-chai'
 import chaiAsPromised from 'chai-as-promised'
 
-import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
@@ -38,7 +38,7 @@ contract('RelayServer', function (accounts) {
 
   before(async function () {
     globalId = (await snapshot()).result
-    const relayClientConfig: Partial<GSNConfig> = {
+    const relayClientConfig: Partial<EnvelopingConfig> = {
       preferredRelays: [LocalhostOne],
       maxRelayNonceGap: 0,
       chainId: (await getTestingEnvironment()).chainId
@@ -48,7 +48,8 @@ contract('RelayServer', function (accounts) {
     await env.init(relayClientConfig)
     const overrideParams: Partial<ServerConfigParams> = {
       alertedBlockDelay,
-      baseRelayFee
+      baseRelayFee,
+      workerTargetBalance: 0.6e18
     }
     await env.newServerInstance(overrideParams)
     await env.clearServerStorage()
@@ -314,7 +315,7 @@ contract('RelayServer', function (accounts) {
       assert.equal(currentBlockNumber, await env.web3.eth.getBlockNumber())
     })
 
-    it('should use eth balance to fund workers', async function () {
+    it('should use RBTC balance to fund workers', async function () {
       await relayServer.transactionManager.sendTransaction({
         signer: relayServer.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
@@ -332,7 +333,7 @@ contract('RelayServer', function (accounts) {
         { from: accounts[0], to: relayServer.managerAddress, value: toBN(relayServer.config.managerTargetBalance).add(refill), gasPrice: 1 })
       const managerEthBalanceBefore = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceBefore.gt(toBN(relayServer.config.managerTargetBalance.toString())),
-        'manager eth balance should be greater than target')
+        'manager RBTC balance should be greater than target')
       const receipts = await relayServer.replenishServer(workerIndex, 0)
       const totalTxCosts = await getTotalTxCosts(receipts, await env.web3.eth.getGasPrice())
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
@@ -340,10 +341,10 @@ contract('RelayServer', function (accounts) {
         `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()})`)
       const managerEthBalanceAfter = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceAfter.eq(managerEthBalanceBefore.sub(refill).sub(totalTxCosts)),
-        'manager eth balance should increase by hub balance minus txs costs')
+        'manager RBTC balance should increase by hub balance minus txs costs')
     })
 
-    it('should fund from manager eth balance when balance is too low', async function () {
+    it('should fund from manager RBTC balance when balance is too low', async function () {
       await env.web3.eth.sendTransaction({
         from: accounts[0],
         to: relayServer.managerAddress,
@@ -352,7 +353,7 @@ contract('RelayServer', function (accounts) {
       const managerEthBalance = await relayServer.getManagerBalance()
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)
       const refill = toBN(relayServer.config.workerTargetBalance).sub(workerBalanceBefore)
-      assert.isTrue(managerEthBalance.gte(refill), 'manager eth balance should be sufficient to replenish worker')
+      assert.isTrue(managerEthBalance.gte(refill), 'manager RBTC balance should be sufficient to replenish worker')
       await relayServer.replenishServer(workerIndex, 0)
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
       assert.isTrue(workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
@@ -372,7 +373,7 @@ contract('RelayServer', function (accounts) {
       const managerEthBalance = await relayServer.getManagerBalance()
       const workerBalanceBefore = await relayServer.getWorkerBalance(workerIndex)
       const refill = toBN(relayServer.config.workerTargetBalance).sub(workerBalanceBefore)
-      assert.isTrue(managerEthBalance.lt(refill), 'manager eth balance should be insufficient to replenish worker')
+      assert.isTrue(managerEthBalance.lt(refill), 'manager RBTC balance should be insufficient to replenish worker')
       let fundingNeededEmitted = false
       relayServer.on('fundingNeeded', () => { fundingNeededEmitted = true })
       await relayServer.replenishServer(workerIndex, 0)
@@ -388,7 +389,8 @@ contract('RelayServer', function (accounts) {
     before(async function () {
       await env.newServerInstance({
         registrationBlockRate,
-        refreshStateTimeoutBlocks
+        refreshStateTimeoutBlocks,
+        workerTargetBalance: 0.6e18
       })
       relayServer = env.relayServer
       sinon.spy(relayServer.registrationManager, 'handlePastEvents')
@@ -491,7 +493,8 @@ contract('RelayServer', function (accounts) {
         alertedBlockDelay,
         refreshStateTimeoutBlocks,
         relayVerifierAddress: rejectingVerifier.address,
-        deployVerifierAddress: rejectingDeployVerifier.address
+        deployVerifierAddress: rejectingDeployVerifier.address,
+        workerTargetBalance: 0.6e18
       })
       newServer = env.relayServer
       await attackTheServer(newServer)

@@ -2,10 +2,10 @@ import log from 'loglevel'
 
 import { addresses2topics } from '../common/Utils'
 
-import GsnTransactionDetails from './types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import RelayFailureInfo from './types/RelayFailureInfo'
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases'
-import { GSNConfig } from './GSNConfigurator'
+import { EnvelopingConfig } from './Configurator'
 import { isInfoFromEvent, RelayInfoUrl, RelayRegisteredEventInfo } from './types/RelayRegisteredEventInfo'
 
 import ContractInteractor, {
@@ -23,7 +23,7 @@ export const EmptyFilter: RelayFilter = (): boolean => {
  * Basic score is reversed transaction fee, higher is better.
  * Relays that failed to respond recently will be downgraded for some period of time.
  */
-export const DefaultRelayScore = async function (relay: RelayRegisteredEventInfo, txDetails: GsnTransactionDetails, failures: RelayFailureInfo[]): Promise<number> {
+export const DefaultRelayScore = async function (relay: RelayRegisteredEventInfo, txDetails: EnvelopingTransactionDetails, failures: RelayFailureInfo[]): Promise<number> {
   const gasLimit = parseInt(txDetails.gas ?? '0')
   const gasPrice = parseInt(txDetails.gasPrice ?? '0')
   const pctFee = parseInt(relay.pctRelayFee)
@@ -36,7 +36,7 @@ export const DefaultRelayScore = async function (relay: RelayRegisteredEventInfo
 
 export class KnownRelaysManager {
   private readonly contractInteractor: ContractInteractor
-  private readonly config: GSNConfig
+  private readonly config: EnvelopingConfig
   private readonly relayFilter: RelayFilter
   private readonly scoreCalculator: AsyncScoreCalculator
 
@@ -47,7 +47,7 @@ export class KnownRelaysManager {
   public preferredRelayers: RelayInfoUrl[] = []
   public allRelayers: RelayInfoUrl[] = []
 
-  constructor (contractInteractor: ContractInteractor, config: GSNConfig, relayFilter?: RelayFilter, scoreCalculator?: AsyncScoreCalculator) {
+  constructor (contractInteractor: ContractInteractor, config: EnvelopingConfig, relayFilter?: RelayFilter, scoreCalculator?: AsyncScoreCalculator) {
     this.config = config
     this.relayFilter = relayFilter ?? EmptyFilter
     this.scoreCalculator = scoreCalculator ?? DefaultRelayScore
@@ -171,20 +171,20 @@ export class KnownRelaysManager {
     this.relayFailures = newMap
   }
 
-  async getRelaysSortedForTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayInfoUrl[][]> {
+  async getRelaysSortedForTransaction (transactionDetails: EnvelopingTransactionDetails): Promise<RelayInfoUrl[][]> {
     const sortedRelays: RelayInfoUrl[][] = []
     sortedRelays[0] = Array.from(this.preferredRelayers)
-    sortedRelays[1] = await this._sortRelaysInternal(gsnTransactionDetails, this.allRelayers)
+    sortedRelays[1] = await this._sortRelaysInternal(transactionDetails, this.allRelayers)
     return sortedRelays
   }
 
-  async _sortRelaysInternal (gsnTransactionDetails: GsnTransactionDetails, activeRelays: RelayInfoUrl[]): Promise<RelayInfoUrl[]> {
+  async _sortRelaysInternal (transactionDetails: EnvelopingTransactionDetails, activeRelays: RelayInfoUrl[]): Promise<RelayInfoUrl[]> {
     const scores = new Map<string, number>()
     for (const activeRelay of activeRelays) {
       let score = 0
       if (isInfoFromEvent(activeRelay)) {
         const eventInfo = activeRelay as RelayRegisteredEventInfo
-        score = await this.scoreCalculator(eventInfo, gsnTransactionDetails, this.relayFailures.get(activeRelay.relayUrl) ?? [])
+        score = await this.scoreCalculator(eventInfo, transactionDetails, this.relayFailures.get(activeRelay.relayUrl) ?? [])
         scores.set(eventInfo.relayManager, score)
       }
     }

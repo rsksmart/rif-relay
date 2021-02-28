@@ -3,7 +3,7 @@ import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
-import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 
 export default class BadHttpClient extends HttpClient {
   static readonly message = 'This is not the relay you are looking for'
@@ -14,7 +14,7 @@ export default class BadHttpClient extends HttpClient {
   private readonly stubRelay: string | undefined
   private readonly stubPing: PingResponse | undefined
 
-  constructor (config: GSNConfig, failPing: boolean, failRelay: boolean, timeoutRelay: boolean, stubPing?: PingResponse, stubRelay?: string) {
+  constructor (config: EnvelopingConfig, failPing: boolean, failRelay: boolean, timeoutRelay: boolean, stubPing?: PingResponse, stubRelay?: string) {
     super(new HttpWrapper(), config)
     this.failPing = failPing
     this.failRelay = failRelay

@@ -16,7 +16,7 @@ import {
 } from '../types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
-import { GSNConfig } from '../src/relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../src/relayclient/Configurator'
 import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
@@ -49,7 +49,7 @@ options.forEach(params => {
     let rhub: RelayHubInstance
     let sm: StakeManagerInstance
     let relayproc: ChildProcessWithoutNullStreams
-    let relayClientConfig: Partial<GSNConfig>
+    let relayClientConfig: Partial<EnvelopingConfig>
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
     let approvalVerifier: TestVerifierPreconfiguredApprovalInstance
@@ -78,6 +78,7 @@ options.forEach(params => {
         process.env.relaylog = 'true'
 
         relayproc = await startRelay(rhub.address, sm, {
+          workerTargetBalance: 0.6e18,
           stake: 1e18,
           delay: 3600 * 24 * 7,
           pctRelayFee: 12,
@@ -196,7 +197,7 @@ options.forEach(params => {
 
             await approvalVerifier.setExpectedApprovalData('0x414243', {
               from: fundedAccount.address,
-              useGSN: false
+              useEnveloping: false
             })
 
             await sr.emitMessage('xxx', {
@@ -209,7 +210,7 @@ options.forEach(params => {
           } finally {
             await approvalVerifier.setExpectedApprovalData('0x', {
               from: fundedAccount.address,
-              useGSN: false
+              useEnveloping: false
             })
           }
         })
@@ -229,7 +230,7 @@ options.forEach(params => {
             // @ts-ignore
             await approvalVerifier.setExpectedApprovalData(Buffer.from('hello1'), {
               from: fundedAccount.address,
-              useGSN: false
+              useEnveloping: false
             })
             await asyncShouldThrow(async () => {
               setRecipientProvider(async () => await Promise.resolve('0x'))
@@ -246,7 +247,7 @@ options.forEach(params => {
             // @ts-ignore
             await approvalVerifier.setExpectedApprovalData(Buffer.from(''), {
               from: fundedAccount.address,
-              useGSN: false
+              useEnveloping: false
             })
           }
         })

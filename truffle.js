@@ -14,65 +14,18 @@ module.exports = {
   // See <http://truffleframework.com/docs/advanced/configuration>
   // to customize your Truffle configuration!
   networks: {
-
-    development: {
-      provider: undefined,
-      verbose: process.env.VERBOSE,
-      host: '127.0.0.1',
-      port: 8545,
-      network_id: '*'
-    },
     coverage: { // coverage/trace provider. note that it currently can't run extrnal-process relay.
       provider: require('./coverage-prov.js'),
       verbose: process.env.VERBOSE,
       network_id: '*'
     },
-    npmtest: { // used from "npm test". see pakcage.json
+    npmtest: { // used from "npm test". see package.json
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
       port: 8544,
       network_id: '*'
     },
-    mainnet: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, 'https://mainnet.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
-      },
-      network_id: 1
-    },
-    rsktestnet: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co')
-      },
-      network_id: 31,
-      gas: 6300000,
-      gasPrice: 60000000 // 0.06 gwei
-    },
-    kovan: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, 'https://kovan.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
-      },
-      network_id: 42
-    },
-    rinkeby: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, 'https://rinkeby.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
-      },
-      network_id: 4
-    },
-    ropsten: {
-      provider: function () {
-        return new HDWalletProvider(mnemonic, 'https://ropsten.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
-      },
-      network_id: 3
-    },
-    xdai_poa_mainnet: {
-      provider: function () {
-        const wallet = new HDWalletProvider(secretMnemonic, 'https://dai.poa.network')
-        return wallet
-      },
-      network_id: 100
-    },
-    rsk: {
+    development: {
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
       port: 4444,
@@ -85,6 +38,30 @@ module.exports = {
       host: 'enveloping-rskj',
       port: 4444,
       network_id: 33,
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
+    },
+    rsk: {
+      verbose: process.env.VERBOSE,
+      host: '127.0.0.1',
+      port: 4444,
+      network_id: 33,
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
+    },
+    rsktestnet: {
+      provider: function () {
+        return new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co')
+      },
+      network_id: 31,
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
+    },
+    rskmainnet: {
+      provider: function () {
+        return new HDWalletProvider(secretMnemonic, 'https://public-node.rsk.co')
+      },
+      network_id: 30,
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     }

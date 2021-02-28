@@ -67,6 +67,6 @@ export class AmountRequired {
     const status = boolString(this.isSatisfied)
     const actual: string = new EthVal(this._currentValue).toEth().toFixed(4)
     const required: string = new EthVal(this._requiredValue).toEth().toFixed(4)
-    return `${this._name.padEnd(14)} | ${status.padEnd(14)} | actual: ${actual.padStart(12)} ETH | required: ${required.padStart(12)} ETH`
+    return `${this._name.padEnd(14)} | ${status.padEnd(14)} | actual: ${actual.padStart(12)} RBTC | required: ${required.padStart(12)} RBTC`
   }
 }

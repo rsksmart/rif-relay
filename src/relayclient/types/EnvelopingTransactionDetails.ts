@@ -1,7 +1,7 @@
 import { Address, IntString } from './Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
-export default interface GsnTransactionDetails {
+export default interface EnvelopingTransactionDetails {
   // Added by the Web3 call stack:
   readonly from: Address
   readonly data: PrefixedHexString
@@ -20,7 +20,7 @@ export default interface GsnTransactionDetails {
   gas?: PrefixedHexString
   gasPrice?: PrefixedHexString
 
-  // Required parameters for GSN, but assigned later
+  // Required parameters for Enveloping, but assigned later
   readonly relayHub?: Address
   readonly callForwarder?: Address
   readonly callVerifier?: Address
@@ -33,7 +33,7 @@ export default interface GsnTransactionDetails {
   /**
    * Set to 'false' to create a direct transaction
    */
-  readonly useGSN?: boolean
+  readonly useEnveloping?: boolean
 
   /**
    * Use this to force the {@link RelayClient} to use provided gas price instead of calculated one.

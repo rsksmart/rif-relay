@@ -1,6 +1,6 @@
 import { RelayClient, RelayingResult } from '../../src/relayclient/RelayClient'
-import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
-import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
+import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { HttpProvider } from 'web3-core'
 
 export default class BadRelayClient extends RelayClient {
@@ -13,14 +13,14 @@ export default class BadRelayClient extends RelayClient {
     failRelay: boolean,
     returnNullTransaction: boolean,
     provider: HttpProvider,
-    config: GSNConfig
+    config: EnvelopingConfig
   ) {
     super(provider, config)
     this.failRelay = failRelay
     this.returnUndefindedTransaction = returnNullTransaction
   }
 
-  async relayTransaction (gsnTransactionDetails: GsnTransactionDetails): Promise<RelayingResult> {
+  async relayTransaction (transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult> {
     if (this.failRelay) {
       throw new Error(BadRelayClient.message)
     }
@@ -31,6 +31,6 @@ export default class BadRelayClient extends RelayClient {
         relayingErrors: new Map<string, Error>()
       }
     }
-    return await super.relayTransaction(gsnTransactionDetails)
+    return await super.relayTransaction(transactionDetails)
   }
 }
