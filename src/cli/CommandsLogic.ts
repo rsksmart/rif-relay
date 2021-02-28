@@ -24,7 +24,7 @@ import SimpleProxyFactory from './compiled/SimpleProxyFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
 import { Address } from '../relayclient/types/Aliases'
 import ContractInteractor from '../common/ContractInteractor'
-import { GSNConfig } from '../relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../relayclient/Configurator'
 import HttpClient from '../relayclient/HttpClient'
 import HttpWrapper from '../relayclient/HttpWrapper'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
@@ -48,8 +48,8 @@ interface DeployOptions {
   relayVerifierAddress?: string
   factoryAddress?: string
   simpleFactoryAddress?: string
-  sWalletTemplateAddress?: string
-  simpleSWalletTemplateAddress?: string
+  smartWalletTemplateAddress?: string
+  simpleSmartWalletTemplateAddress?: string
   relayHubAddress?: string
   stakeManagerAddress?: string
   penalizerAddress?: string
@@ -64,8 +64,8 @@ export interface DeploymentResult {
   relayHubAddress: Address
   stakeManagerAddress: Address
   penalizerAddress: Address
-  sWalletTemplateAddress: Address
-  simpleSWalletTemplateAddress: Address
+  smartWalletTemplateAddress: Address
+  simpleSmartWalletTemplateAddress: Address
   factoryAddress: Address
   simpleFactoryAddress: Address
   versionRegistryAddress: Address
@@ -82,10 +82,10 @@ interface RegistrationResult {
 export default class CommandsLogic {
   private readonly contractInteractor: ContractInteractor
   private readonly httpClient: HttpClient
-  private readonly config: GSNConfig
+  private readonly config: EnvelopingConfig
   private readonly web3: Web3
 
-  constructor (host: string, config: GSNConfig, mnemonic?: string) {
+  constructor (host: string, config: EnvelopingConfig, mnemonic?: string) {
     let provider: HttpProvider | HDWalletProvider = new Web3.providers.HttpProvider(host)
     if (mnemonic != null) {
       // web3 defines provider type quite narrowly
@@ -141,7 +141,7 @@ export default class CommandsLogic {
   async registerRelay (options: RegisterOptions): Promise<RegistrationResult> {
     const transactions: string[] = []
     try {
-      console.log(`Registering GSN relayer at ${options.relayUrl}`)
+      console.log(`Registering Enveloping relayer at ${options.relayUrl}`)
 
       const response = await this.httpClient.getPingResponse(options.relayUrl)
         .catch(() => { throw new Error('could contact not relayer, is it running?') })
@@ -176,8 +176,8 @@ export default class CommandsLogic {
         console.log('Relayer already staked')
       } else {
         const stakeValue = toBN(options.stake.toString()).sub(toBN(stake))
-        console.log(`Staking relayer ${fromWei(stakeValue, 'ether')} eth`,
-          stake === '0' ? '' : ` (already has ${fromWei(stake, 'ether')} eth)`)
+        console.log(`Staking relayer ${fromWei(stakeValue, 'ether')} RBTC`,
+          stake === '0' ? '' : ` (already has ${fromWei(stake, 'ether')} RBTC)`)
 
         const stakeTx = await stakeManager
           .stakeForAddress(relayAddress, options.unstakeDelay.toString(), {
@@ -244,7 +244,7 @@ export default class CommandsLogic {
     return new this.web3.eth.Contract(file.abi, address, { data: file.bytecode })
   }
 
-  async deployGsnContracts (deployOptions: DeployOptions): Promise<DeploymentResult> {
+  async deployContracts (deployOptions: DeployOptions): Promise<DeploymentResult> {
     const options: Required<SendOptions> = {
       from: deployOptions.from,
       gas: 0, // gas limit will be filled in at deployment
@@ -252,28 +252,28 @@ export default class CommandsLogic {
       gasPrice: deployOptions.gasPrice ?? (1e9).toString()
     }
 
-    const sInstance = await this.getContractInstance(StakeManager, {
+    const stakeManager = await this.getContract(StakeManager, {
       arguments: [0]
     }, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const pInstance = await this.getContractInstance(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const swtInstance = await this.getContractInstance(SmartWallet, {}, deployOptions.sWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const pfInstance = await this.getContractInstance(ProxyFactory, {
+    const penalizer = await this.getContract(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const smartWallet = await this.getContract(SmartWallet, {}, deployOptions.smartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const proxyFactory = await this.getContract(ProxyFactory, {
       arguments: [
-        swtInstance.options.address
+        smartWallet.options.address
       ]
     }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
-    const simpleSwtInstance = await this.getContractInstance(SimpleSmartWallet, {}, deployOptions.simpleSWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const simplePfInstance = await this.getContractInstance(SimpleProxyFactory, {
+    const simpleSwtInstance = await this.getContract(SimpleSmartWallet, {}, deployOptions.simpleSmartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const simplePfInstance = await this.getContract(SimpleProxyFactory, {
       arguments: [
         simpleSwtInstance.options.address
       ]
     }, deployOptions.simpleFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
-    const rInstance = await this.getContractInstance(RelayHub, {
+    const rInstance = await this.getContract(RelayHub, {
       arguments: [
-        sInstance.options.address,
-        pInstance.options.address,
+        stakeManager.options.address,
+        penalizer.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
         deployOptions.relayHubConfiguration.gasOverhead,
         deployOptions.relayHubConfiguration.maximumRecipientDeposit,
@@ -281,20 +281,20 @@ export default class CommandsLogic {
         deployOptions.relayHubConfiguration.minimumStake]
     }, deployOptions.relayHubAddress, merge({}, options, { gas: 5e6 }), deployOptions.skipConfirmation)
 
-    const regInstance = await this.getContractInstance(VersionRegistryAbi, {}, deployOptions.registryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const regInstance = await this.getContract(VersionRegistryAbi, {}, deployOptions.registryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     if (deployOptions.registryHubId != null) {
       await regInstance.methods.addVersion(string32(deployOptions.registryHubId), string32('1'), rInstance.options.address).send({ from: deployOptions.from })
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)
     }
 
-    const deployVerifierInstance = await this.getContractInstance(DeployVerifier, {
+    const deployVerifierInstance = await this.getContract(DeployVerifier, {
       arguments: [
-        pfInstance.options.address
+        proxyFactory.options.address
       ]
     }, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const relayVerifierInstance = await this.getContractInstance(RelayVerifier, {
+    const relayVerifierInstance = await this.getContract(RelayVerifier, {
       arguments: [
-        pfInstance.options.address
+        proxyFactory.options.address
       ]
     }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     // Overriding saved configuration with newly deployed instances
@@ -304,11 +304,11 @@ export default class CommandsLogic {
 
     return {
       relayHubAddress: rInstance.options.address,
-      stakeManagerAddress: sInstance.options.address,
-      penalizerAddress: pInstance.options.address,
-      sWalletTemplateAddress: swtInstance.options.address,
-      factoryAddress: pfInstance.options.address,
-      simpleSWalletTemplateAddress: simpleSwtInstance.options.address,
+      stakeManagerAddress: stakeManager.options.address,
+      penalizerAddress: penalizer.options.address,
+      smartWalletTemplateAddress: smartWallet.options.address,
+      factoryAddress: proxyFactory.options.address,
+      simpleSmartWalletTemplateAddress: simpleSwtInstance.options.address,
       simpleFactoryAddress: simplePfInstance.options.address,
       versionRegistryAddress: regInstance.options.address,
       relayVerifierAddress: relayVerifierInstance.options.address,
@@ -316,17 +316,17 @@ export default class CommandsLogic {
     }
   }
 
-  private async getContractInstance (json: any, constructorArgs: any, address: Address | undefined, options: Required<SendOptions>, skipConfirmation: boolean = false): Promise<Contract> {
+  private async getContract (json: any, constructorArgs: any, address: Address | undefined, options: Required<SendOptions>, skipConfirmation: boolean = false): Promise<Contract> {
     const contractName: string = json.contractName
-    let contractInstance
+    let contract
     if (address == null) {
       const sendMethod = this
         .contract(json)
         .deploy(constructorArgs)
       options.gas = await sendMethod.estimateGas()
       const maxCost = new BN(options.gasPrice).muln(options.gas)
-      const oneEther = ether('1')
-      console.log(`Deploying ${contractName} contract with gas limit of ${options.gas.toLocaleString()} and maximum cost of ~ ${maxCost.toNumber() / parseFloat(oneEther.toString())} ETH`)
+      const oneRBTC = ether('1')
+      console.log(`Deploying ${contractName} contract with gas limit of ${options.gas.toLocaleString()} and maximum cost of ~ ${maxCost.toNumber() / parseFloat(oneRBTC.toString())} RBTC`)
       if (!skipConfirmation) {
         await this.confirm()
       }
@@ -335,18 +335,18 @@ export default class CommandsLogic {
       deployPromise.on('transactionHash', function (hash) {
         console.log(`Transaction broadcast: ${hash}`)
       })
-      contractInstance = await deployPromise
-      console.log(`Deployed ${contractName} at address ${contractInstance.options.address}\n\n`)
+      contract = await deployPromise
+      console.log(`Deployed ${contractName} at address ${contract.options.address}\n\n`)
     } else {
       console.log(`Using ${contractName} at given address ${address}\n\n`)
-      contractInstance = this.contract(json, address)
+      contract = this.contract(json, address)
     }
-    return contractInstance
+    return contract
   }
 
   async deployVerifier (options: Required<SendOptions>, skipConfirmation: boolean | undefined): Promise<Contract> {
-    const verifierInstance = await this.getContractInstance(DeployVerifier, {}, undefined, Object.assign({}, options), skipConfirmation)
-    return verifierInstance
+    const verifier = await this.getContract(DeployVerifier, {}, undefined, Object.assign({}, options), skipConfirmation)
+    return verifier
   }
 
   async confirm (): Promise<void> {

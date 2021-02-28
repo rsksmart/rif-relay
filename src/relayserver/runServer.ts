@@ -6,7 +6,7 @@ import { RelayServer } from './RelayServer'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager, TXSTORE_FILENAME } from './TxStoreManager'
 import ContractInteractor from '../common/ContractInteractor'
-import { configureGSN } from '../relayclient/GSNConfigurator'
+import { configure } from '../relayclient/Configurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { SendTransactionDetails } from './TransactionManager'
@@ -23,7 +23,7 @@ async function run (): Promise<void> {
   let config: ServerConfigParams
   let web3provider
   let trustedVerifiers: string[] = []
-  console.log('Starting GSN Relay Server process...\n')
+  console.log('Starting Enveloping Relay Server process...\n')
   try {
     const conf = await parseServerConfig(process.argv.slice(2), process.env)
     console.log(conf)
@@ -52,7 +52,7 @@ async function run (): Promise<void> {
   const managerKeyManager = new KeyManager(1, workdir + '/manager')
   const workersKeyManager = new KeyManager(1, workdir + '/workers')
   const txStoreManager = new TxStoreManager({ workdir })
-  const contractInteractor = new ContractInteractor(web3provider, configureGSN({
+  const contractInteractor = new ContractInteractor(web3provider, configure({
     relayHubAddress: config.relayHubAddress,
     deployVerifierAddress: config.deployVerifierAddress,
     relayVerifierAddress: config.relayVerifierAddress

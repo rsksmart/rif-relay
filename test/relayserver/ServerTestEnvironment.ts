@@ -17,7 +17,7 @@ import {
   ServerWorkdirs
 } from './ServerTestUtils'
 import ContractInteractor from '../../src/common/ContractInteractor'
-import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 import PingResponse from '../../src/common/PingResponse'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -27,7 +27,7 @@ import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegis
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
-import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { removeHexPrefix } from '../../src/common/Utils'
@@ -68,7 +68,7 @@ export const LocalhostOne = 'http://localhost:8090'
 export interface PrepareRelayRequestOption {
   to: string
   from: string
-  verifier: string // TODO Change to relay and deploy verifierS
+  verifier: string // TODO Change to relay and deploy verifiers
   pctRelayFee: number
   baseRelayFee: string
 }
@@ -113,7 +113,7 @@ export class ServerTestEnvironment {
    * @param contractFactory - added for Profiling test, as it requires Test Environment to be using
    * different provider from the contract interactor itself.
    */
-  async init (clientConfig: Partial<GSNConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<GSNConfig>) => Promise<ContractInteractor>): Promise<void> {
+  async init (clientConfig: Partial<EnvelopingConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<EnvelopingConfig>) => Promise<ContractInteractor>): Promise<void> {
     this.stakeManager = await StakeManager.new(0)
     this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
     this.recipient = await TestRecipient.new()
@@ -133,20 +133,20 @@ export class ServerTestEnvironment {
     const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount ?? constants.ZERO_ADDRESS, this.gasLess, factory, gaslessAccount.privateKey, chainId)
     this.forwarder = smartWallet
 
-    const shared: Partial<GSNConfig> = {
+    const shared: Partial<EnvelopingConfig> = {
       logLevel: 5,
       relayHubAddress: this.relayHub.address,
       relayVerifierAddress: this.relayVerifier.address,
       deployVerifierAddress: this.deployVerifier.address
     }
     if (contractFactory == null) {
-      this.contractInteractor = new ContractInteractor(this.provider, configureGSN(shared))
+      this.contractInteractor = new ContractInteractor(this.provider, configure(shared))
       await this.contractInteractor.init()
     } else {
       this.contractInteractor = await contractFactory(shared)
     }
     const mergedConfig = Object.assign({}, shared, clientConfig)
-    this.relayClient = new RelayClient(this.provider, configureGSN(mergedConfig))
+    this.relayClient = new RelayClient(this.provider, configure(mergedConfig))
 
     // Regisgter gasless account to avoid signing with RSKJ
     this.relayClient.accountManager.addAccount(gaslessAccount)
@@ -215,7 +215,7 @@ export class ServerTestEnvironment {
     this.relayServer.config.trustedVerifiers.push(this.deployVerifier.address)
   }
 
-  async createRelayHttpRequest (overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<RelayTransactionRequest> {
+  async createRelayHttpRequest (overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<RelayTransactionRequest> {
     const pingResponse = {
       relayHubAddress: this.relayHub.address,
       relayWorkerAddress: this.relayServer.workerAddress
@@ -231,7 +231,7 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
-    const gsnTransactionDetails: GsnTransactionDetails = {
+    const transactionDetails: EnvelopingTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,
@@ -246,7 +246,7 @@ export class ServerTestEnvironment {
       isSmartWalletDeploy: false
     }
 
-    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, gsnTransactionDetails, overrideDetails))
+    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, transactionDetails, overrideDetails))
   }
 
   async defaultReplenishFunction (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
@@ -295,7 +295,7 @@ export class ServerTestEnvironment {
     return transactionHashes
   }
 
-  async relayTransaction (assertRelayed = true, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<{
+  async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
     reqSigHash: PrefixedHexString
@@ -319,7 +319,7 @@ export class ServerTestEnvironment {
     assert.deepEqual([], await this.relayServer.transactionManager.txStoreManager.getAll())
   }
 
-  async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<GsnTransactionDetails> = {}): Promise<void> {
+  async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<void> {
     const receipt = await web3.eth.getTransactionReceipt(txHash)
     if (receipt == null) {
       throw new Error('Transaction Receipt not found')

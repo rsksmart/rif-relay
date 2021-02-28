@@ -1,11 +1,11 @@
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 import { NetworkSimulatingProvider } from '../../src/common/dev/NetworkSimulatingProvider'
 import { HttpProvider } from 'web3-core'
-import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import ContractInteractor from '../../src/common/ContractInteractor'
 import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment
@@ -13,14 +13,14 @@ contract('Network Simulation for Relay Server', function (accounts) {
 
   before(async function () {
     provider = new NetworkSimulatingProvider(web3.currentProvider as HttpProvider)
-    const contractFactory = async function (partialConfig: Partial<GSNConfig>): Promise<ContractInteractor> {
-      const contractInteractor = new ContractInteractor(provider, configureGSN(partialConfig))
+    const contractFactory = async function (partialConfig: Partial<EnvelopingConfig>): Promise<ContractInteractor> {
+      const contractInteractor = new ContractInteractor(provider, configure(partialConfig))
       await contractInteractor.init()
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await env.init({ chainId: (await getTestingEnvironment()).chainId }, {}, contractFactory)
-    await env.newServerInstance()
+    await env.newServerInstance({ workerTargetBalance: 0.6e18 })
     provider.setDelayTransactions(true)
   })
 
@@ -52,7 +52,7 @@ contract('Network Simulation for Relay Server', function (accounts) {
 
       assert.equal(provider.mempool.size, 0)
       // cannot use the same sender as it will create same request with same forwarder nonce, etc
-      const overrideDetails: Partial<GsnTransactionDetails> = { from: gaslessAccount.address, callForwarder: smartWallet.address }
+      const overrideDetails: Partial<EnvelopingTransactionDetails> = { from: gaslessAccount.address, callForwarder: smartWallet.address }
       // noinspection ES6MissingAwait - done on purpose
       const promises = [env.relayTransaction(false), env.relayTransaction(false, overrideDetails)]
       const txs = await Promise.all(promises)

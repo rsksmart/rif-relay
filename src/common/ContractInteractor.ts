@@ -37,8 +37,8 @@ import {
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
-import { GSNConfig } from '../relayclient/GSNConfigurator'
-import GsnTransactionDetails from '../relayclient/types/GsnTransactionDetails'
+import { EnvelopingConfig } from '../relayclient/Configurator'
+import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
 import { toBN } from 'web3-utils'
 
 // Truffle Contract typings seem to be completely out of their minds
@@ -91,7 +91,7 @@ export default class ContractInteractor {
 
   readonly web3: Web3
   private readonly provider: Web3Provider
-  private readonly config: GSNConfig
+  private readonly config: EnvelopingConfig
   private readonly versionManager: VersionsManager
 
   private rawTxOptions?: TransactionOptions
@@ -99,7 +99,7 @@ export default class ContractInteractor {
   private networkId?: number
   private networkType?: string
 
-  constructor (provider: Web3Provider, config: GSNConfig) {
+  constructor (provider: Web3Provider, config: EnvelopingConfig) {
     this.versionManager = new VersionsManager(this.VERSION)
     this.web3 = new Web3(provider)
     this.config = config
@@ -425,8 +425,8 @@ export default class ContractInteractor {
     return await this.web3.eth.sendSignedTransaction(rawTx)
   }
 
-  async estimateGas (gsnTransactionDetails: GsnTransactionDetails): Promise<number> {
-    return await this.web3.eth.estimateGas(gsnTransactionDetails)
+  async estimateGas (transactionDetails: EnvelopingTransactionDetails): Promise<number> {
+    return await this.web3.eth.estimateGas(transactionDetails)
   }
 
   // TODO: cache response for some time to optimize. It doesn't make sense to optimize these requests in calling code.

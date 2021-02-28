@@ -1,14 +1,14 @@
 import Web3 from 'web3'
 
 import ContractInteractor from '../../common/ContractInteractor'
-import { configureGSN } from '../../relayclient/GSNConfigurator'
+import { configure } from '../../relayclient/Configurator'
 import HttpClient from '../../relayclient/HttpClient'
 import HttpWrapper from '../../relayclient/HttpWrapper'
 
-import { getNetworkUrl, getRelayHubAddress, gsnCommander } from '../utils'
+import { getNetworkUrl, getRelayHubAddress, envelopingCommander } from '../utils'
 import StatusLogic from '../StatusLogic'
 
-const commander = gsnCommander(['n', 'h'])
+const commander = envelopingCommander(['n', 'h'])
   .parse(process.argv);
 
 (async () => {
@@ -26,7 +26,7 @@ const commander = gsnCommander(['n', 'h'])
     relayHubAddress
   }
 
-  const config = configureGSN({ relayHubAddress })
+  const config = configure({ relayHubAddress })
   const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host), config)
   const httpClient = new HttpClient(new HttpWrapper({ timeout: statusConfig.getAddressTimeout }), config)
 
@@ -34,7 +34,7 @@ const commander = gsnCommander(['n', 'h'])
 
   const statistics = await statusLogic.gatherStatistics()
 
-  console.log(`Total stakes by all relays: ${Web3.utils.fromWei(statistics.totalStakesByRelays)} ETH`)
+  console.log(`Total stakes by all relays: ${Web3.utils.fromWei(statistics.totalStakesByRelays)} RBTC`)
   console.log(`Hub address: ${relayHubAddress}`)
 
   console.log('\n# Relays:')
@@ -47,7 +47,7 @@ const commander = gsnCommander(['n', 'h'])
     if (managerBalance == null) {
       res.push('\tbalance: N/A')
     } else {
-      res.push(`\tbalance: ${Web3.utils.fromWei(managerBalance)} ETH`)
+      res.push(`\tbalance: ${Web3.utils.fromWei(managerBalance)} RBTC`)
     }
     const pingResult = statistics.relayPings.get(registeredEvent.relayUrl)
     const status = pingResult?.pingResponse != null ? pingResult.pingResponse.ready.toString() : pingResult?.error?.toString() ?? 'unknown'

@@ -20,11 +20,11 @@ services:
     # creates a mapped volume so that relay server will keep keys outside of the container.
     # can be left out, to keep private-key inside the docker.
     volumes:
-      - ./gsndata:/app/data
+      - ./data:/app/data
       - ./config:/app/config
 
     environment:
       url: https://${HOST}
       port: 80
       workdir: /app/data
-      config: /app/config/gsn-relay-config.json
+      config: /app/config/relay-config.json

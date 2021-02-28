@@ -6,17 +6,11 @@ import path from 'path'
 import { DeploymentResult } from './CommandsLogic'
 import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
 
-const cliInfuraId = '41a7aa85a67641f3bd6e31cb60753698'
 export const networks = new Map<string, string>([
-  ['localhost', 'http://127.0.0.1:8545'],
-  ['xdai', 'https://dai.poa.network'],
-  ['ropsten', 'https://ropsten.infura.io/v3/' + cliInfuraId],
-  ['rinkeby', 'https://rinkeby.infura.io/v3/' + cliInfuraId],
-  ['kovan', 'https://kovan.infura.io/v3/' + cliInfuraId],
-  ['mainnet', 'https://mainnet.infura.io/v3/' + cliInfuraId],
-  ['rsk-regtest', 'http://127.0.0.1:4444'],
-  ['rsk-testnet', 'https://public-node.testnet.rsk.co'],
-  ['rsk-mainnet', 'https://public-node.rsk.co']
+  ['localhost', 'http://127.0.0.1:4444'],
+  ['development', 'http://127.0.0.1:4444'],
+  ['rsktestnet', 'https://public-node.testnet.rsk.co'],
+  ['rskmainnet', 'https://public-node.rsk.co']
 ])
 
 export function supportedNetworks (): string[] {
@@ -46,27 +40,27 @@ export function getRelayHubConfiguration (configFile: string): RelayHubConfigura
 }
 
 export function getRelayVerifierAddress (verifier?: string): string | undefined {
-  return getAddressFromFile('build/gsn/RelayVerifier.json', verifier)
+  return getAddressFromFile('build/enveloping/RelayVerifier.json', verifier)
 }
 
 export function getDeployVerifierAddress (verifier?: string): string | undefined {
-  return getAddressFromFile('build/gsn/DeployVerifier.json', verifier)
+  return getAddressFromFile('build/enveloping/DeployVerifier.json', verifier)
 }
 
 export function getRelayHubAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/gsn/RelayHub.json', defaultAddress)
+  return getAddressFromFile('build/enveloping/RelayHub.json', defaultAddress)
 }
 
 export function getRegistryAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/gsn/VersionRegistry.json', defaultAddress)
+  return getAddressFromFile('build/enveloping/VersionRegistry.json', defaultAddress)
 }
 
 export function getSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/gsn/ProxyFactory.json', defaultAddress)
+  return getAddressFromFile('build/enveloping/ProxyFactory.json', defaultAddress)
 }
 
 export function getSimpleSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/gsn/SimpleProxyFactory.json', defaultAddress)
+  return getAddressFromFile('build/enveloping/SimpleProxyFactory.json', defaultAddress)
 }
 
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
@@ -90,9 +84,9 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
   saveContractToFile(deploymentResult.relayVerifierAddress, workdir, 'RelayVerifier.json')
   saveContractToFile(deploymentResult.deployVerifierAddress, workdir, 'DeployVerifier.json')
-  saveContractToFile(deploymentResult.sWalletTemplateAddress, workdir, 'SmartWallet.json')
+  saveContractToFile(deploymentResult.smartWalletTemplateAddress, workdir, 'SmartWallet.json')
   saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
-  saveContractToFile(deploymentResult.simpleSWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
+  saveContractToFile(deploymentResult.simpleSmartWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
   saveContractToFile(deploymentResult.simpleFactoryAddress, workdir, 'SimpleProxyFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
@@ -106,8 +100,10 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   StakeManager: ${deploymentResult.stakeManagerAddress}
   Penalizer: ${deploymentResult.penalizerAddress}
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
-  SmartWallet Template: ${deploymentResult.sWalletTemplateAddress}
+  SmartWallet Template: ${deploymentResult.smartWalletTemplateAddress}
   SmartWallet Factory: ${deploymentResult.factoryAddress}
+  SimpleSmartWallet Template: ${deploymentResult.simpleSmartWalletTemplateAddress}
+  SimpleSmartWallet Factory: ${deploymentResult.simpleFactoryAddress}
   Relay Verifier: ${deploymentResult.relayVerifierAddress}
   Deploy Verifier: ${deploymentResult.deployVerifierAddress}`)
 }
@@ -121,9 +117,9 @@ export function loadDeployment (workdir: string): DeploymentResult {
     relayHubAddress: getAddress('RelayHub'),
     stakeManagerAddress: getAddress('StakeManager'),
     penalizerAddress: getAddress('Penalizer'),
-    sWalletTemplateAddress: getAddress('SmartWallet'),
+    smartWalletTemplateAddress: getAddress('SmartWallet'),
     factoryAddress: getAddress('ProxyFactory'),
-    simpleSWalletTemplateAddress: getAddress('SimpleSmartWallet'),
+    simpleSmartWalletTemplateAddress: getAddress('SimpleSmartWallet'),
     simpleFactoryAddress: getAddress('SimpleProxyFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
     relayVerifierAddress: getAddress('RelayVerifier'),
@@ -131,19 +127,19 @@ export function loadDeployment (workdir: string): DeploymentResult {
   }
 }
 
-type GsnOption = 'n' | 'f' | 'h' | 'm' | 'g'
+type EnvelopingOption = 'n' | 'f' | 'h' | 'm' | 'g'
 
-export function gsnCommander (options: GsnOption[]): CommanderStatic {
+export function envelopingCommander (options: EnvelopingOption[]): CommanderStatic {
   options.forEach(option => {
     switch (option) {
       case 'n':
-        commander.option('-n, --network <url|name>', 'network name or URL to an Ethereum node', 'localhost')
+        commander.option('-n, --network <url|name>', 'network name or URL to an RSK node', 'localhost')
         break
       case 'f':
         commander.option('-f, --from <address>', 'account to send transactions from (default: the first account with balance)')
         break
       case 'h':
-        commander.option('-h, --hub <address>', 'address of the hub contract (default: the address from build/gsn/RelayHub.json if exists)')
+        commander.option('-h, --hub <address>', 'address of the hub contract (default: the address from build/enveloping/RelayHub.json if exists)')
         break
       case 'm':
         commander.option('-m, --mnemonic <mnemonic>', 'mnemonic file to generate private key for account \'from\' (default: empty)')

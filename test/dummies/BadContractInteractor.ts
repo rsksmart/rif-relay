@@ -1,6 +1,6 @@
 import ContractInteractor, { Web3Provider } from '../../src/common/ContractInteractor'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
-import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { TransactionReceipt } from 'web3-core'
 
 export default class BadContractInteractor extends ContractInteractor {
@@ -9,7 +9,7 @@ export default class BadContractInteractor extends ContractInteractor {
 
   private readonly failValidateARC: boolean
 
-  constructor (provider: Web3Provider, config: GSNConfig, failValidateARC: boolean) {
+  constructor (provider: Web3Provider, config: EnvelopingConfig, failValidateARC: boolean) {
     super(provider, config)
     this.failValidateARC = failValidateARC
   }

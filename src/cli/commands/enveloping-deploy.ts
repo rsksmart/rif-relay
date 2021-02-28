@@ -1,18 +1,18 @@
 import commander from 'commander'
 import CommandsLogic from '../CommandsLogic'
-import { configureGSN } from '../../relayclient/GSNConfigurator'
+import { configure } from '../../relayclient/Configurator'
 import {
   getMnemonic,
   getNetworkUrl,
   getRelayHubConfiguration,
-  gsnCommander,
+  envelopingCommander,
   saveDeployment,
   showDeployment
 } from '../utils'
 import { getEnvironment } from '../../common/Environments'
 
-gsnCommander(['n', 'f', 'm', 'g'])
-  .option('-w, --workdir <directory>', 'relative work directory (defaults to build/gsn/)', 'build/gsn')
+envelopingCommander(['n', 'f', 'm', 'g'])
+  .option('-w, --workdir <directory>', 'relative work directory (defaults to build/enveloping/)', 'build/enveloping')
   .option('--factory <address>', 'address of the Smart Wallet factory deployed to the current network (optional; deploys new one by default)')
   .option('--sWalletTemplate <address>', 'address of the Smart Wallet template to be instantiated by the factory deployed to the current network (optional; deploys new one by default)')
   .option('--deployVerifier <address>', 'address of the logic used to verify a deploy request (optional); deploys new one by default')
@@ -33,7 +33,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
   const mnemonic = getMnemonic(commander.mnemonic)
 
   const relayHubConfiguration = getRelayHubConfiguration(commander.config) ?? getEnvironment(network).relayHubConfiguration
-  const logic = new CommandsLogic(nodeURL, configureGSN({}), mnemonic)
+  const logic = new CommandsLogic(nodeURL, configure({}), mnemonic)
   const from = commander.from ?? await logic.findWealthyAccount()
   async function getGasPrice (): Promise<string> {
     const gasPrice = await web3.eth.getGasPrice()
@@ -43,7 +43,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
 
   const gasPrice = commander.gasPrice ?? await getGasPrice()
 
-  const deploymentResult = await logic.deployGsnContracts({
+  const deploymentResult = await logic.deployContracts({
     from,
     gasPrice,
     relayHubConfiguration,
@@ -52,7 +52,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
     verbose: true,
     skipConfirmation: commander.skipConfirmation,
     factoryAddress: commander.factory,
-    sWalletTemplateAddress: commander.sWalletTemplate,
+    smartWalletTemplateAddress: commander.sWalletTemplate,
     stakeManagerAddress: commander.stakeManager,
     relayHubAddress: commander.relayHub,
     penalizerAddress: commander.penalizer,
@@ -60,7 +60,7 @@ gsnCommander(['n', 'f', 'm', 'g'])
     registryHubId: commander.registryHubId
   })
 
-  showDeployment(deploymentResult, `Deployed GSN to network: ${network}`)
+  showDeployment(deploymentResult, `Enveloping deloyed to network: ${network}`)
   saveDeployment(deploymentResult, commander.workdir)
   process.exit(0)
 })().catch(

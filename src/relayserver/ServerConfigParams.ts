@@ -2,7 +2,7 @@ import parseArgs from 'minimist'
 import * as fs from 'fs'
 import { VersionRegistry } from '../common/VersionRegistry'
 import ContractInteractor from '../common/ContractInteractor'
-import { configureGSN } from '../relayclient/GSNConfigurator'
+import { configure } from '../relayclient/Configurator'
 import { constants } from '../common/Constants'
 import { Address } from '../relayclient/types/Aliases'
 import { KeyManager } from './KeyManager'
@@ -69,12 +69,12 @@ const serverDefaultConfiguration: ServerConfigParams = {
   trustedVerifiers: [],
   gasPriceFactor: 1,
   registrationBlockRate: 0,
-  workerMinBalance: 0.1e18,
-  workerTargetBalance: 0.3e18,
-  managerMinBalance: 0.1e18, // 0.1 eth
+  workerMinBalance: 0.001e18, // 0.001 RBTC
+  workerTargetBalance: 0.003e18, // 0.003 RBTC
+  managerMinBalance: 0.001e18, // 0.001 RBTC
   managerMinStake: '1', // 1 wei
-  managerTargetBalance: 0.3e18,
-  minHubWithdrawalBalance: 0.1e18,
+  managerTargetBalance: 0.003e18, // 0.003 RBTC
+  minHubWithdrawalBalance: 0.001e18, // 0.001 RBTC
   checkInterval: 10000,
   readyTimeout: 30000,
   devMode: false,
@@ -210,7 +210,7 @@ export function parseServerConfig (args: string[], env: any): any {
 
 // resolve params, and validate the resulting struct
 export async function resolveServerConfig (config: Partial<ServerConfigParams>, web3provider: any): Promise<Partial<ServerConfigParams>> {
-  const contractInteractor = new ContractInteractor(web3provider, configureGSN({ relayHubAddress: config.relayHubAddress }))
+  const contractInteractor = new ContractInteractor(web3provider, configure({ relayHubAddress: config.relayHubAddress }))
   if (config.versionRegistryAddress != null) {
     if (config.relayHubAddress != null) {
       error('missing param: must have either relayHubAddress or versionRegistryAddress')

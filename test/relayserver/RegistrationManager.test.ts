@@ -9,7 +9,7 @@ import { RelayServer } from '../../src/relayserver/RelayServer'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { ServerConfigParams, ServerDependencies } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
-import { configureGSN } from '../../src/relayclient/GSNConfigurator'
+import { configure } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 
 import { evmMine, evmMineMany, revert, snapshot } from '../TestUtils'
@@ -95,7 +95,7 @@ contract('RegistrationManager', function (accounts) {
       const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs.workdir })
       const serverWeb3provider = new Web3.providers.HttpProvider((web3.currentProvider as HttpProvider).host)
       const contractInteractor = new ContractInteractor(serverWeb3provider,
-        configureGSN({
+        configure({
           relayHubAddress: env.relayHub.address
         }))
       await contractInteractor.init()

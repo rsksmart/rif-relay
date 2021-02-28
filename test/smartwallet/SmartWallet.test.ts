@@ -518,12 +518,12 @@ options.forEach(element => {
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
             assert.isTrue(BigInt(tokensPaid) === BigInt(tknBalance.sub(tokenBalanceBefore)))
 
-            // The value=1 ether of value transfered should now be in the balance of the called contract (recipient)
+            // The value=1 RBTC of value transfered should now be in the balance of the called contract (recipient)
             const valBalance = await web3.eth.getBalance(recipient.address)
 
             assert.isTrue(BigInt(value.toString()) === (BigInt(valBalance) - BigInt(recipientOriginalBalance)))
 
-            // The rest of value (4-1 = 3 ether), in possession of the smart wallet, must return to the owner EOA once the execute()
+            // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
             // is called
             assert.equal(await web3.eth.getBalance(senderAddress), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value.toString())).toString())
           })
@@ -604,7 +604,7 @@ options.forEach(element => {
             const initialRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
             const initialSenderBalance = await web3.eth.getBalance(otherAccount)
             const ret = await sw.directExecute(recipient.address, func, { from: otherAccount, value: value.toString(), gasPrice: value.toString() })
-            const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 ether
+            const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 RBTC
             const finalRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
             const finalSenderBalance = await web3.eth.getBalance(otherAccount)
             assert.equal(BigInt(finalRecipientEtherBalance).toString(), (BigInt(initialRecipientEtherBalance) + BigInt(value.toString())).toString())
@@ -620,18 +620,18 @@ options.forEach(element => {
             const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
 
             const extraFunds = ether('4')
-            // Put in the smart wallet 4 ethers
+            // Put in the smart wallet 4 RBTC
             await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds })
 
             // note: not transfering value in TX.
             const ret = await sw.directExecute(recipient.address, func, { from: otherAccount, gasPrice: value.toString(), value: value.toString() })
-            const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 ether
+            const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 RBTC
 
-            // The value=1 ether of value transfered should now be in the balance of the called contract (recipient)
+            // The value=1 RBTC of value transfered should now be in the balance of the called contract (recipient)
             const valBalance = await web3.eth.getBalance(recipient.address)
             assert.isTrue(BigInt(value.toString()) === (BigInt(valBalance) - BigInt(recipientOriginalBalance)))
 
-            // The rest of value (4-1 = 3 ether), in possession of the smart wallet, must return to the owner EOA once the execute()
+            // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
             // is called
             assert.equal(await web3.eth.getBalance(otherAccount), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value) - BigInt(gasUsedToCall)).toString())
           })

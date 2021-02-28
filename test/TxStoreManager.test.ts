@@ -4,7 +4,7 @@ import { ServerAction, StoredTransaction } from '../src/relayserver/StoredTransa
 import { TXSTORE_FILENAME, TxStoreManager } from '../src/relayserver/TxStoreManager'
 
 // NOTICE: this dir is removed in 'after', do not use this in any other test
-const workdir = '/tmp/gsn/test/txstore_manager'
+const workdir = '/tmp/enveloping/test/txstore_manager'
 const txStoreFilePath = `${workdir}/${TXSTORE_FILENAME}`
 
 function cleanFolder (): void {

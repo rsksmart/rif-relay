@@ -6,13 +6,13 @@ import { isSameAddress } from '../common/Utils'
 
 import ContractInteractor from '../common/ContractInteractor'
 import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
-import { GSNConfig } from './GSNConfigurator'
+import { EnvelopingConfig } from './Configurator'
 
 export default class RelayedTransactionValidator {
   private readonly contractInteractor: ContractInteractor
-  private readonly config: GSNConfig
+  private readonly config: EnvelopingConfig
 
-  constructor (contractInteractor: ContractInteractor, config: GSNConfig) {
+  constructor (contractInteractor: ContractInteractor, config: EnvelopingConfig) {
     this.contractInteractor = contractInteractor
     this.config = config
   }

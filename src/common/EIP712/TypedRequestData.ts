@@ -67,7 +67,7 @@ interface Types extends EIP712Types {
 }
 
 // use these values in registerDomainSeparator
-export const GsnDomainSeparatorType = {
+export const DomainSeparatorType = {
   prefix: 'string name,string version',
   name: 'RSK Enveloping Transaction',
   version: '2'
@@ -75,8 +75,8 @@ export const GsnDomainSeparatorType = {
 
 export function getDomainSeparator (verifier: Address, chainId: number): EIP712Domain {
   return {
-    name: GsnDomainSeparatorType.name,
-    version: GsnDomainSeparatorType.version,
+    name: DomainSeparatorType.name,
+    version: DomainSeparatorType.version,
     chainId: chainId,
     verifyingContract: verifier
   }
@@ -141,7 +141,7 @@ export class TypedDeployRequestData implements EIP712TypedData {
 export const ENVELOPING_PARAMS = 'address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data'
 export const DEPLOY_PARAMS = 'address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data'
 
-export const GsnRequestType = {
+export const RequestType = {
   typeName: 'RelayRequest',
   typeSuffix: 'RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)'
 }

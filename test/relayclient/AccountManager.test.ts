@@ -7,7 +7,7 @@ import sigUtil from 'eth-sig-util'
 import { isSameAddress } from '../../src/common/Utils'
 import chai from 'chai'
 import sinonChai from 'sinon-chai'
-import { configureGSN } from '../../src/relayclient/GSNConfigurator'
+import { configure } from '../../src/relayclient/Configurator'
 import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import chaiAsPromised from 'chai-as-promised'
 import { constants } from '../../src/common/Constants'
@@ -23,7 +23,7 @@ contract('AccountManager', function (accounts) {
     privateKey: Buffer.from('d353907ab062133759f149a3afcb951f0f746a65a60f351ba05a3ebf26b67f5c', 'hex'),
     address
   }
-  const config = configureGSN({
+  const config = configure({
     methodSuffix: '',
     jsonStringifyRequest: false
   })

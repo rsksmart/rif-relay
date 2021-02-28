@@ -3,7 +3,7 @@ import { HttpProvider } from 'web3-core'
 
 import { KnownRelaysManager, DefaultRelayScore } from '../../src/relayclient/KnownRelaysManager'
 import ContractInteractor from '../../src/common/ContractInteractor'
-import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
   RelayHubInstance,
   StakeManagerInstance,
@@ -18,7 +18,7 @@ import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegis
 import { Environment } from '../../src/common/Environments'
 import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import GsnTransactionDetails from '../../src/relayclient/types/GsnTransactionDetails'
+import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
 const StakeManager = artifacts.require('StakeManager')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
@@ -52,7 +52,7 @@ contract('KnownRelaysManager', function (
   const relayLookupWindowBlocks = 100
 
   describe('#_fetchRecentlyActiveRelayManagers()', function () {
-    let config: GSNConfig
+    let config: EnvelopingConfig
     let contractInteractor: ContractInteractor
     let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
@@ -75,7 +75,7 @@ contract('KnownRelaysManager', function (
       workerNotActive = await web3.eth.personal.newAccount('password')
       stakeManager = await StakeManager.new(0)
       relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
-      config = configureGSN({
+      config = configure({
         relayHubAddress: relayHub.address,
         relayLookupWindowBlocks,
         chainId: env.chainId
@@ -163,7 +163,7 @@ contract('KnownRelaysManager', function (
 
 contract('KnownRelaysManager 2', function (accounts) {
   let contractInteractor: ContractInteractor
-  const transactionDetails: GsnTransactionDetails = {
+  const transactionDetails: EnvelopingTransactionDetails = {
     gas: '0x10000',
     gasPrice: '0x300000',
     from: '',
@@ -179,7 +179,7 @@ contract('KnownRelaysManager 2', function (accounts) {
 
   before(async function () {
     const env = await getTestingEnvironment()
-    contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configureGSN({ chainId: env.chainId }))
+    contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, configure({ chainId: env.chainId }))
     await contractInteractor.init()
   })
 
@@ -189,14 +189,14 @@ contract('KnownRelaysManager 2', function (accounts) {
     let contractInteractor: ContractInteractor
     let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
-    let config: GSNConfig
+    let config: EnvelopingConfig
     let env: Environment
 
     before(async function () {
       env = await getTestingEnvironment()
       stakeManager = await StakeManager.new(0)
       relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
-      config = configureGSN({
+      config = configure({
         preferredRelays: ['http://localhost:8090'],
         relayHubAddress: relayHub.address,
         chainId: env.chainId
@@ -273,7 +273,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       before(async function () {
         const env = await getTestingEnvironment()
         knownRelaysManager = new KnownRelaysManager(
-          contractInteractor, configureGSN({ chainId: env.chainId }))
+          contractInteractor, configure({ chainId: env.chainId }))
         knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
         knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
         lastErrorTime = Date.now()
@@ -306,7 +306,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       before(async function () {
         const env = await getTestingEnvironment()
         knownRelaysManager = new KnownRelaysManager(
-          contractInteractor, configureGSN({ chainId: env.chainId }))
+          contractInteractor, configure({ chainId: env.chainId }))
         knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
         knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
         lastErrorTime = Date.now()
@@ -343,7 +343,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       before(async () => {
         const env = await getTestingEnvironment()
         knownRelaysManager = new KnownRelaysManager(
-          contractInteractor, configureGSN({ chainId: env.chainId }))
+          contractInteractor, configure({ chainId: env.chainId }))
         knownRelaysManager.saveRelayFailure(100, 'rm1', 'url1')
         knownRelaysManager.saveRelayFailure(500, 'rm2', 'url2')
         lastErrorTime = Date.now()
@@ -410,7 +410,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     before(async function () {
       const env = await getTestingEnvironment()
       knownRelaysManager = new KnownRelaysManager(
-        contractInteractor, configureGSN({ chainId: env.chainId }), undefined, biasedRelayScore)
+        contractInteractor, configure({ chainId: env.chainId }), undefined, biasedRelayScore)
       const activeRelays: RelayRegisteredEventInfo[] = [{
         relayManager: accounts[0],
         relayUrl: 'alex',

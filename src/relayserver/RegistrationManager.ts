@@ -350,9 +350,9 @@ export class RegistrationManager {
     const txCost = toBN(gasLimit).mul(toBN(gasPrice))
 
     const managerBalance = toBN(await this.contractInteractor.getBalance(this.managerAddress))
-    // sending manager eth balance to owner
+    // sending manager RBTC balance to owner
     if (managerBalance.gte(txCost)) {
-      log.info(`Sending manager eth balance ${managerBalance.toString()} to owner`)
+      log.info(`Sending manager RBTC balance ${managerBalance.toString()} to owner`)
       const details: SendTransactionDetails = {
         signer: this.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
@@ -378,7 +378,7 @@ export class RegistrationManager {
     const txCost = toBN(gasLimit * parseInt(gasPrice))
     const workerBalance = toBN(await this.contractInteractor.getBalance(this.workerAddress))
     if (workerBalance.gte(txCost)) {
-      log.info(`Sending workers' eth balance ${workerBalance.toString()} to owner`)
+      log.info(`Sending workers' RBTC balance ${workerBalance.toString()} to owner`)
       const details = {
         signer: this.workerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,

@@ -6,7 +6,7 @@ import { RelayClient } from '../../src/relayclient/RelayClient'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import ContractInteractor from '../../src/common/ContractInteractor'
-import { configureGSN } from '../../src/relayclient/GSNConfigurator'
+import { configure } from '../../src/relayclient/Configurator'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import Transaction from 'ethereumjs-tx/dist/transaction'
 import { constants } from '../../src/common/Constants'
@@ -60,7 +60,7 @@ contract('ContractInteractor', function () {
       }
 
       provider = new ProfilingProvider(web3.currentProvider as HttpProvider)
-      contractInteractor = new ContractInteractor(provider, configureGSN({}))
+      contractInteractor = new ContractInteractor(provider, configure({}))
       const nonce = await web3.eth.getTransactionCount(address)
 
       const transaction = new Transaction({ to: constants.ZERO_ADDRESS, gasLimit: '0x5208', gasPrice, nonce }, txOpts)

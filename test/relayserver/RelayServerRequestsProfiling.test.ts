@@ -1,10 +1,11 @@
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { evmMine, evmMineMany, getTestingEnvironment } from '../TestUtils'
-import { configureGSN, GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import ContractInteractor from '../../src/common/ContractInteractor'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
+import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2
@@ -17,15 +18,24 @@ contract('RelayServerRequestsProfiling', function (accounts) {
   let env: ServerTestEnvironment
 
   before(async function () {
+    const serverConfig: Partial<ServerConfigParams> = {
+      refreshStateTimeoutBlocks,
+      workerMinBalance: 0.1e18,
+      workerTargetBalance: 0.3e18,
+      managerMinBalance: 0.1e18,
+      managerTargetBalance: 0.3e18,
+      minHubWithdrawalBalance: 0.1e18
+    }
+
     provider = new ProfilingProvider(web3.currentProvider as HttpProvider)
-    const contractFactory = async function (partialConfig: Partial<GSNConfig>): Promise<ContractInteractor> {
-      const contractInteractor = new ContractInteractor(provider, configureGSN(partialConfig))
+    const contractFactory = async function (partialConfig: Partial<EnvelopingConfig>): Promise<ContractInteractor> {
+      const contractInteractor = new ContractInteractor(provider, configure(partialConfig))
       await contractInteractor.init()
       return contractInteractor
     }
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await env.init({ chainId: (await getTestingEnvironment()).chainId }, {}, contractFactory)
-    await env.newServerInstance({ refreshStateTimeoutBlocks })
+    await env.newServerInstance(serverConfig)
     relayServer = env.relayServer
     const latestBlock = await web3.eth.getBlock('latest')
     await relayServer._worker(latestBlock.number)
