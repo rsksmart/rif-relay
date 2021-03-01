@@ -21,7 +21,7 @@ We use `truffle` for deploying contracts.
 In order to run an Enveloping instance in Regtest:
 
 1. On the jsrelay directory `npx webpack`
-2. On the root directory run `node dist/src/cli/commands/enveloping.js start --network http://localhost:4444/`. (With localhost:4444 a port to an RSK regtest node).
+2. On the root directory run `node dist/src/cli/commands/enveloping.js boot-test --network http://localhost:4444/`. (With localhost:4444 a port to an RSK regtest node).
 3. For checking if it's working, run `curl http://localhost:8090/getaddr`
 
 ## Deploy contracts on testnet
@@ -43,8 +43,8 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 {"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
 "relayHubAddress":"0x38bebd507aBC3D76B10d61f5C95668e1240D087F", "minGasPrice":"6000000000", "chainId":"31", "networkId":"31","ready":false,"version":"2.0.1"}
 ```
-4. Send to relayManagerAddress at least 0.1 tRBTC to set it up
-5. Send to relayWorkerAddress at least 0.1 tRBTC to set it up
+4. Send to relayManagerAddress at least 0.001 tRBTC to set it up
+5. Send to relayWorkerAddress at least 0.001 tRBTC to set it up
 6. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
 7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
