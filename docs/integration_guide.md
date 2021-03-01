@@ -1,6 +1,6 @@
 # Integration guide
 
-Enveloping allows the user to pay fees with a token. For this purpose, Enveloping exposes methods that dApps and wallets can consume to provide Enveloping as a service.
+Enveloping allows users to pay transaction fees with tokens. For this purpose, Enveloping exposes methods that dApps and wallets can consume to provide Enveloping as a service.
 
 ## Relay Client & Relay Server
 
@@ -9,17 +9,17 @@ The Relay Server is the off-chain component in charge of receiving transactions 
 A user can opt to communicate with a Relay Server through a Relay Client. Since the Relay Client knows addresses of different Relay Managers, it sends to the more active one. Then, the Client sends to the server via HTTP request sending the transaction to be sponsored.
 ## Using the Relay Server directly
 
-The simplest option to use Enveloping in your wallet or dApp is calling the Relay Server directly. The instructions for running a Relayer are [here](docs/launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
+The simplest option to use Enveloping in your wallet or dApp is by calling the Relay Server directly. The instructions for running a Relayer are [here](docs/launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
 
 The order for relaying or deploying a transaction through the Relay Server is
 1. Create a relay or deploy request.
 2. Sign the structure using the EIP712 signature.
 3. Create the metadata with the signature.
-4. With the relay or deploy request and the metadata, creating an HTTP request.
+4. With the relay or deploy request and the metadata, create an HTTP request.
 5. Call the HTTP Server `/relay` method using an HTTP POST request.
 ## Using the Relay Provider
 
-An option is to use Enveloping through the Relay Provider. The latter wraps web3, then all the transactions and calls are made through the Relay Provider. To achieve that, the Relay Provider, if not provided, instance its Relay Client.
+One option is to use Enveloping through the Relay Provider. The latter wraps web3, and then all transactions and calls are made through the Relay Provider. To achieve that, the Relay Provider, if not provided, instance its Relay Client.
 
 ```typescript
     this.config = await resolveConfigurationGSN(web3.currentProvider, {
@@ -162,6 +162,6 @@ This is an example for relay a transaction from a gasless account to a contract 
 
 ## MetaCoin
 
-As a complete example, we developed Metacoin for minting and sending tokens without requiring RBTC for gas. Works on Regtest.
+As a complete example (works on Regtest), we developed Metacoin for minting and sending tokens without requiring RBTC for gas.
 
 Try it: https://github.com/rsksmart/enveloping-metacoin
