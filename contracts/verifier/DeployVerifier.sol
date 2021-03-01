@@ -18,7 +18,6 @@ import "../interfaces/IDeployVerifier.sol";
 contract DeployVerifier is BaseVerifier, IDeployVerifier {
 
     address private factory;
-    uint public override acceptanceBudget;
     mapping (address => bool) public tokens;
 
     constructor(address proxyFactory) public {
@@ -67,7 +66,6 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
@@ -79,10 +77,7 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
     }
 
     function acceptToken(address token) external onlyOwner {
+        require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
-    }
-
-    function setAcceptanceBudget(uint256 budget) external onlyOwner {
-        acceptanceBudget = budget;
     }
 }

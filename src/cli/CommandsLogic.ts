@@ -259,16 +259,14 @@ export default class CommandsLogic {
     const smartWallet = await this.getContract(SmartWallet, {}, deployOptions.smartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const proxyFactory = await this.getContract(ProxyFactory, {
       arguments: [
-        smartWallet.options.address,
-        '0xad7c5bef027816a800da1736444fb58a807ef4c9603b7848673f7e3a68eb14a5' // domain version hash (version=2)
+        smartWallet.options.address
       ]
     }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
     const simpleSwtInstance = await this.getContract(SimpleSmartWallet, {}, deployOptions.simpleSmartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const simplePfInstance = await this.getContract(SimpleProxyFactory, {
       arguments: [
-        simpleSwtInstance.options.address,
-        '0xad7c5bef027816a800da1736444fb58a807ef4c9603b7848673f7e3a68eb14a5' // domain version hash (version=2)
+        simpleSwtInstance.options.address
       ]
     }, deployOptions.simpleFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 

@@ -29,6 +29,7 @@ import {
 } from './RelayEvents'
 import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
+import { toBN } from 'web3-utils'
 
 // generate "approvalData" and "verifierData" for a request.
 // both are bytes arrays. verifierData is part of the client request.
@@ -194,7 +195,7 @@ export class RelayClient {
     let gasCost = 0
     const tokenContract = transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
 
-    if (tokenContract !== constants.ZERO_ADDRESS) {
+    if (tokenContract !== constants.ZERO_ADDRESS && toBN(transactionDetails.tokenAmount ?? '0').toNumber() > 0) {
       let tokenOrigin: string
       const tokenDestination = transactionDetails.callVerifier ?? constants.ZERO_ADDRESS // the factory
 
@@ -300,7 +301,6 @@ export class RelayClient {
     transactionDetails: EnvelopingTransactionDetails
   ): Promise<RelayingAttempt> {
     log.info(`attempting relay: ${JSON.stringify(relayInfo)} transaction: ${JSON.stringify(transactionDetails)}`)
-    const maxAcceptanceBudget = parseInt(relayInfo.pingResponse.maxAcceptanceBudget)
     let httpRequest: RelayTransactionRequest | DeployTransactionRequest
     let acceptRelayCallResult
 
@@ -315,15 +315,16 @@ export class RelayClient {
       acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(httpRequest.relayRequest, httpRequest.metadata.signature, httpRequest.metadata.approvalData)
     }
 
-    if (!acceptRelayCallResult.verifierAccepted) {
-      let message: string
-      if (acceptRelayCallResult.reverted) {
-        message = 'local view call to \'relayCall()\' reverted'
-      } else {
-        message = 'verifier rejected in local view call to \'relayCall()\' '
-      }
+    if (acceptRelayCallResult.reverted) {
+      const message = 'local view call to \'relayCall()\' reverted'
       return { error: new Error(`${message}: ${decodeRevertReason(acceptRelayCallResult.returnValue)}`) }
     }
+
+    if (!acceptRelayCallResult.verifierAccepted) {
+      const message = 'verifier rejected in local view call to \'relayCall()\' '
+      return { error: new Error(`${message}: ${decodeRevertReason(acceptRelayCallResult.returnValue)}`) }
+    }
+
     let hexTransaction: PrefixedHexString
     this.emit(new SendToRelayerEvent(relayInfo.relayInfo.relayUrl))
     try {
@@ -336,7 +337,7 @@ export class RelayClient {
       return { error }
     }
     const transaction = new Transaction(hexTransaction, this.contractInteractor.getRawTxOptions())
-    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction)) {
+    if (!this.transactionValidator.validateRelayResponse(httpRequest, hexTransaction)) {
       this.emit(new RelayerResponseEvent(false))
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned transaction did not pass validation') }

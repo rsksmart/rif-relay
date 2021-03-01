@@ -26,7 +26,6 @@ contract RelayVerifier is BaseVerifier, IVerifier{
     using SafeMath for uint256;
 
     address private factory;
-    uint public override acceptanceBudget;
 
     constructor(address proxyFactory) public {
         factory = proxyFactory;
@@ -70,7 +69,6 @@ contract RelayVerifier is BaseVerifier, IVerifier{
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
@@ -80,9 +78,10 @@ contract RelayVerifier is BaseVerifier, IVerifier{
         // for now we dont produce any refund
         // so there is nothing to be done here
     }
-    /* solhint-enable no-empty-blocks */
+
 
     function acceptToken(address token) external onlyOwner {
+        require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
     }
 }

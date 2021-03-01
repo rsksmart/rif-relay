@@ -9,7 +9,7 @@ import { toBN } from 'web3-utils'
 import { IVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '../../types/truffle-contracts'
 
 import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../common/ContractInteractor'
-import { Address, IntString } from '../relayclient/types/Aliases'
+import { Address } from '../relayclient/types/Aliases'
 import { DeployTransactionRequest, DeployTransactionRequestShape, RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
 
 import PingResponse from '../common/PingResponse'
@@ -100,7 +100,6 @@ export class RelayServer extends EventEmitter {
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
       minGasPrice: this.getMinGasPrice().toString(),
-      maxAcceptanceBudget: await this._getVerifierMaxAcceptanceBudget(verifier),
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -126,7 +125,7 @@ export class RelayServer extends EventEmitter {
 
   validateInput (req: RelayTransactionRequest | DeployTransactionRequest): void {
     // Check that the relayHub is the correct one
-    if (req.metadata.relayHubAddress !== this.relayHubContract.address) {
+    if (req.metadata.relayHubAddress.toLowerCase() !== this.relayHubContract.address.toLowerCase()) {
       throw new Error(
         `Wrong hub address.\nRelay server's hub address: ${this.relayHubContract.address}, request's hub address: ${req.metadata.relayHubAddress}\n`)
     }
@@ -144,31 +143,9 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  validateFees (req: RelayTransactionRequest | DeployTransactionRequest): void {
-    if (this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
-
-    } else {
+  validateVerifier (req: RelayTransactionRequest | DeployTransactionRequest): void {
+    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error(`Invalid verifier: ${req.relayRequest.relayData.callVerifier}`)
-    }
-  }
-
-  async _getVerifierMaxAcceptanceBudget (verifier?: string): Promise<IntString> {
-    if (this.trustedVerifiers.has(verifier?.toLowerCase())) {
-      try {
-        const verifierContract = await this.contractInteractor._createBaseVerifier(verifier ?? '')
-        return (await verifierContract.acceptanceBudget()).toString()
-      } catch (e) {
-        const error = e as Error
-        let message = `unknown verifier error: ${error.message}`
-        if (error.message.includes('Returned values aren\'t valid, did it run Out of Gas?')) {
-          message = `incompatible verifier contract: ${verifier}`
-        } else if (error.message.includes('no code at address')) {
-          message = `'non-existent verifier contract: ${verifier}`
-        }
-        throw new Error(message)
-      }
-    } else {
-      return this.config.maxAcceptanceBudget.toString()
     }
   }
 
@@ -180,22 +157,18 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number
-    acceptanceBudget: number}> {
+  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number}> {
     if (!this._isTrustedVerifier(verifier)) {
       throw new Error('Invalid verifier')
     }
 
     let verifierContract: IVerifierInstance | IDeployVerifierInstance
-    let acceptanceBudget: number = this.config.maxAcceptanceBudget
-    let verifierAcceptanceBudget: number
     try {
       if (this.isDeployRequest(req)) {
         verifierContract = await this.contractInteractor._createDeployVerifier(verifier)
       } else {
         verifierContract = await this.contractInteractor._createRelayVerifier(verifier)
       }
-      verifierAcceptanceBudget = (await verifierContract.acceptanceBudget()).toNumber()
     } catch (e) {
       const error = e as Error
       let message = `unknown verifier error: ${error.message}`
@@ -205,10 +178,6 @@ export class RelayServer extends EventEmitter {
         message = `'non-existent verifier contract: ${verifier}`
       }
       throw new Error(message)
-    }
-    acceptanceBudget = verifierAcceptanceBudget > 0 ? verifierAcceptanceBudget : acceptanceBudget
-    if (verifierAcceptanceBudget <= 0) {
-      log.warn('Verifier acceptance budget not set, using defaults acceptance budget')
     }
 
     const gasAlreadyUsedBeforeDoingAnythingInRelayCall = PARAMETERS_COST // the hubOverhead needs a cushion, which is the gas used to just receive the parameters
@@ -231,7 +200,7 @@ export class RelayServer extends EventEmitter {
       throw new Error(`Verification by verifier failed: ${error.message}`)
     }
 
-    return { maxPossibleGas, acceptanceBudget }
+    return { maxPossibleGas }
   }
 
   async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
@@ -260,17 +229,16 @@ export class RelayServer extends EventEmitter {
       await sleep(randomInRange(this.config.minAlertedDelayMS, this.config.maxAlertedDelayMS))
     }
     this.validateInput(req)
-    this.validateFees(req)
+    this.validateVerifier(req)
     await this.validateMaxNonce(req.metadata.relayMaxNonce)
 
     if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error('Specified Verifier is not Trusted')
     }
-    const { maxPossibleGas, acceptanceBudget } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
+    const { maxPossibleGas } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
 
     // Send relayed transaction
     log.debug('maxPossibleGas is', maxPossibleGas)
-    log.debug('acceptanceBudget is', acceptanceBudget) // TODO: Not used, plan to remove
 
     const isDeploy = this.isDeployRequest(req)
 

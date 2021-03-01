@@ -11,7 +11,7 @@ contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2
   const callsPerStateRefresh = 8
   const callsPerBlock = 0
-  const callsPerTransaction = 17
+  const callsPerTransaction = 14
 
   let provider: ProfilingProvider
   let relayServer: RelayServer

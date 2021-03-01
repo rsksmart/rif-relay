@@ -12,20 +12,8 @@ import "../utils/RSKAddrValidator.sol";
 contract SmartWallet is IForwarder {
     using ECDSA for bytes32;
 
-    bytes32 public currentVersionHash;
     uint256 public override nonce;
-    
-
-    /**It will only work if called through Enveloping */
-    function setVersion(bytes32 versionHash) public {
-       
-        require(
-            address(this) == msg.sender,
-            "Caller must be the SmartWallet"
-        );        
-        
-        currentVersionHash = versionHash;
-    }
+    bytes32 public constant DATA_VERSION_HASH = keccak256("2");
 
     function verify(
         bytes32 domainSeparator,
@@ -102,7 +90,7 @@ contract SmartWallet is IForwarder {
         _verifySig(domainSeparator, suffixData, req, sig);
         nonce++;
 
-        if(req.tokenContract != address(0)){
+        if(req.tokenAmount > 0){
             /* solhint-disable avoid-tx-origin */
             (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
                 abi.encodeWithSelector(
@@ -171,7 +159,7 @@ contract SmartWallet is IForwarder {
             keccak256(abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256("RSK Enveloping Transaction"), //DOMAIN_NAME
-                currentVersionHash,
+                DATA_VERSION_HASH,
                 getChainID(),
                 address(this))) == domainSeparator,
             "Invalid domain separator"
@@ -226,9 +214,8 @@ contract SmartWallet is IForwarder {
      * @param owner - The EOA that will own the smart wallet
      * @param logic - The address containing the custom logic where to delegate everything that is not payment-related
      * @param tokenAddr - The Token used for payment of the deploy
-     * @param versionHash - The version of the domain separator to be used
-     * @param transferData - payment function and params to use when calling the Token.
-     * sizeof(transferData) = transfer(4) + _to(20) + _value(32) = 56 bytes = 0x38
+     * @param tokenRecipient - The recipient of the payment
+     * @param tokenAmount - The amount to pay
      * @param initParams - Initialization data to pass to the custom logic's initialize(bytes) function
      */
 
@@ -236,10 +223,10 @@ contract SmartWallet is IForwarder {
         address owner,
         address logic,
         address tokenAddr,
+        address tokenRecipient,
+        uint256 tokenAmount,
         uint256 tokenGas,
-        bytes32 versionHash,
-        bytes memory initParams,
-        bytes memory transferData
+        bytes memory initParams
     ) external {
 
         require(getOwner() == bytes32(0), "already initialized");
@@ -260,14 +247,17 @@ contract SmartWallet is IForwarder {
         }
 
         //we need to initialize the contract
-        if (tokenAddr != address(0)) {
-            (bool success, bytes memory ret ) = tokenAddr.call{gas:tokenGas}(transferData);
+        if (tokenAmount > 0) {
+
+            (bool success, bytes memory ret ) = tokenAddr.call{gas:tokenGas}(abi.encodeWithSelector(
+                hex"a9059cbb",
+                tokenRecipient,
+                tokenAmount));
+
             require(
             success && (ret.length == 0 || abi.decode(ret, (bool))),
             "Unable to pay for deployment");
         }
-
-        currentVersionHash = versionHash;
 
         //If no logic is injected at this point, then the Forwarder will never accept a custom logic (since
         //the initialize function can only be called once)

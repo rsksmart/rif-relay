@@ -14,8 +14,7 @@ contract TestVerifierVariableGasLimits is TestVerifierEverythingAccepted {
     );
 
     event SampleRecipientPostCallWithValues(
-        uint256 gasleft,
-        uint256 gasUseWithoutPost
+        uint256 gasleft
     );
 
     function preRelayedCall(
@@ -37,13 +36,12 @@ contract TestVerifierVariableGasLimits is TestVerifierEverythingAccepted {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
     override
     {
-        (context, success, gasUseWithoutPost, relayData);
-        emit SampleRecipientPostCallWithValues(gasleft(), gasUseWithoutPost);
+        (context, success, relayData);
+        emit SampleRecipientPostCallWithValues(gasleft());
     }
 }

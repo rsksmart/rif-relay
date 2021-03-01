@@ -8,14 +8,12 @@ import "../interfaces/IDeployVerifier.sol";
 contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
 
 
-    uint public override acceptanceBudget;
-
     function versionVerifier() external view override virtual returns (string memory){
         return "2.0.1+opengsn.test-pea.iverifier";
     }
 
     event SampleRecipientPreCall();
-    event SampleRecipientPostCall(bool success, uint actualCharge);
+    event SampleRecipientPostCall(bool success);
 
     function preRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
@@ -37,15 +35,14 @@ contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        uint256 gasUseWithoutPost,
         GsnTypes.RelayData calldata relayData
     )
     external
     override
     virtual
     {
-        (context, gasUseWithoutPost, relayData);
-        emit SampleRecipientPostCall(success, gasUseWithoutPost);
+        (context, relayData);
+        emit SampleRecipientPostCall(success);
     }
 
 }
