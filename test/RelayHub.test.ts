@@ -307,7 +307,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     it('should retrieve version number', async function () {
       const version = await relayHubInstance.versionHub()
-      assert.match(version, /2\.\d*\.\d*-?.*\+opengsn\.hub\.irelayhub/)
+      assert.match(version, /2\.\d*\.\d*-?.*\+enveloping\.hub\.irelayhub/)
     })
 
     // TODO review gasPrice for RSK

@@ -9,7 +9,7 @@ contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
 
 
     function versionVerifier() external view override virtual returns (string memory){
-        return "2.0.1+opengsn.test-pea.iverifier";
+        return "2.0.1+enveloping.test-pea.iverifier";
     }
 
     event SampleRecipientPreCall();
@@ -17,7 +17,7 @@ contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
 
     function preRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
-        GsnTypes.DeployRequest calldata relayRequest,
+        EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -35,7 +35,7 @@ contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override
@@ -44,5 +44,4 @@ contract TestDeployVerifierEverythingAccepted is BaseVerifier, IDeployVerifier {
         (context, relayData);
         emit SampleRecipientPostCall(success);
     }
-
 }

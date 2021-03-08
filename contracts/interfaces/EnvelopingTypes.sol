@@ -3,7 +3,7 @@ pragma solidity ^0.6.12;
 
 import "../interfaces/IForwarder.sol";
 
-interface GsnTypes {
+interface EnvelopingTypes {
     struct RelayData {
         uint256 gasPrice;
         bytes32 domainSeparator;

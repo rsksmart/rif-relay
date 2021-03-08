@@ -16,7 +16,7 @@ contract TestVerifiers {
     }
 
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas

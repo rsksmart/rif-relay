@@ -3,7 +3,7 @@ pragma solidity ^0.6.12;
 
 contract TestForwarderTarget {
 
-    string public  versionRecipient = "2.0.1+opengsn.test.recipient";
+    string public  versionRecipient = "2.0.1+enveloping.test.recipient";
 
 
     // solhint-disable-next-line no-empty-blocks

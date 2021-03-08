@@ -2,18 +2,15 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../interfaces/GsnTypes.sol";
+import "../interfaces/EnvelopingTypes.sol";
 import "../interfaces/IForwarder.sol";
 import "../factory/ISmartWalletFactory.sol";
 import "./MinLibBytes.sol";
 /**
  * Bridge Library to map Enveloping RelayRequest into a call of a SmartWallet
  */
-library GsnEip712Library {
-
-
-
-  function deploy(GsnTypes.DeployRequest calldata relayRequest, bytes calldata signature) internal returns (bool deploySuccess) {
+library Eip712Library {
+    function deploy(EnvelopingTypes.DeployRequest calldata relayRequest, bytes calldata signature) internal returns (bool deploySuccess) {
 
             // The gas limit for the deploy creation is injected here, since the gasCalculation
             // estimate is done against the whole relayedUserSmartWalletCreation function in
@@ -32,7 +29,7 @@ library GsnEip712Library {
     //relaySuccess = Did the destination-contract call revert or not?
     //ret = if !forwarderSuccess it is the revert reason of IForwarder, otherwise it is the destination-contract return data, wich might be
     // a revert reason if !relaySuccess
-    function execute(GsnTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool relaySuccess, bytes memory ret) {
+    function execute(EnvelopingTypes.RelayRequest calldata relayRequest, bytes calldata signature) internal returns (bool forwarderSuccess, bool relaySuccess, bytes memory ret) {
             /* solhint-disable-next-line avoid-low-level-calls */
             (forwarderSuccess, ret) = relayRequest.relayData.callForwarder.call(
                 abi.encodeWithSelector(IForwarder.execute.selector, relayRequest.relayData.domainSeparator,
@@ -46,8 +43,7 @@ library GsnEip712Library {
             MinLibBytes.truncateInPlace(ret, 1024); // maximum length of return value/revert reason for 'execute' method. Will truncate result if exceeded.
     }
 
-
-    function hashRelayData(GsnTypes.RelayData calldata req) internal pure returns (bytes32) {
+    function hashRelayData(EnvelopingTypes.RelayData calldata req) internal pure returns (bytes32) {
         return keccak256(abi.encode(
                 keccak256("RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), // RELAYDATA_TYPEHASH
                 req.gasPrice,

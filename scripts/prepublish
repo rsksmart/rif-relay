@@ -9,7 +9,7 @@ mkdir -p src/cli/compiled/
 
 CONTRACTS="RelayHub StakeManager Penalizer SmartWallet ProxyFactory SimpleSmartWallet SimpleProxyFactory VersionRegistry RelayVerifier DeployVerifier TestVerifierEverythingAccepted TestDeployVerifierEverythingAccepted"
 BUILDFOLDER=./build/contracts
-OUTFOLDER=./src/cli/compiled/
+OUTFOLDER=./src/cli/compiled
 for c in $CONTRACTS; do
   echo copy $OUTFOLDER/$c.json
   cp $BUILDFOLDER/$c.json $OUTFOLDER

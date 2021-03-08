@@ -2,10 +2,9 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./GsnTypes.sol";
+import "./EnvelopingTypes.sol";
 
 interface IRelayHub {
-
     /// Emitted when a relay server registers or updates its details
     /// Looking at these events lets a client discover relay servers
     event RelayServerRegistered(
@@ -28,30 +27,25 @@ interface IRelayHub {
         uint256 workersCount
     );
 
-
     // Emitted when a transaction is relayed. Note that the actual encoded function might be reverted: this will be
     // indicated in the status field.
     // Useful when monitoring a relay's operation and relayed calls to a contract.
     // Charge is the ether value deducted from the recipient's balance, paid to the relay's manager.
-
-  event TransactionRelayed(
+    event TransactionRelayed(
         address indexed relayManager,
         address relayWorker,
         bytes32 relayRequestSigHash,
         bytes relayedCallReturnValue);
 
-        
     event TransactionRelayedButRevertedByRecipient(
         address indexed relayManager,
         address  relayWorker,
         bytes32 relayRequestSigHash,
         bytes reason);
-
     
     event TransactionResult(
         bytes returnValue
     );
-
 
     event Penalized(
         address indexed relayWorker,
@@ -70,8 +64,6 @@ interface IRelayHub {
 
     function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external;
 
-
-
     /// Relays a transaction. For this to succeed, multiple conditions must be met:
     ///  - the sender must be a registered Relay Worker that the user signed
     ///  - the transaction's gas price must be equal or larger than the one that was signed by the sender
@@ -85,23 +77,22 @@ interface IRelayHub {
     ///
     /// Emits a TransactionRelayed event.
     function relayCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     )
     external;
 
     function deployCall(
-        GsnTypes.DeployRequest calldata deployRequest,
+        EnvelopingTypes.DeployRequest calldata deployRequest,
         bytes calldata signature    )
     external;
     
-
     function penalize(address relayWorker, address payable beneficiary) external;
 
     /// The fee is expressed as a base fee in wei plus percentage on actual charge.
     /// E.g. a value of 40 stands for a 40% fee, so the recipient will be
     /// charged for 1.4 times the spent amount.
-    // function calculateCharge(uint256 gasUsed, GsnTypes.RelayData calldata relayData) external view returns (uint256);
+    // function calculateCharge(uint256 gasUsed, EnvelopingTypes.RelayData calldata relayData) external view returns (uint256);
 
     /* getters */
 
@@ -137,4 +128,3 @@ interface IRelayHub {
 
     function versionHub() external view returns (string memory);
 }
-

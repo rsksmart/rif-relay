@@ -73,12 +73,12 @@ export const DomainSeparatorType = {
   version: '2'
 }
 
-export function getDomainSeparator (verifier: Address, chainId: number): EIP712Domain {
+export function getDomainSeparator (verifyingContract: Address, chainId: number): EIP712Domain {
   return {
     name: DomainSeparatorType.name,
     version: DomainSeparatorType.version,
     chainId: chainId,
-    verifyingContract: verifier
+    verifyingContract: verifyingContract
   }
 }
 

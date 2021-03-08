@@ -1,4 +1,5 @@
 // SPDX-License-Identifier:MIT
+// solhint-disable no-inline-assembly
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
@@ -6,7 +7,6 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../factory/ProxyFactory.sol";
 import "./BaseVerifier.sol";
-import "../utils/GsnUtils.sol";
 
 import "../interfaces/IDeployVerifier.sol";
 
@@ -28,10 +28,9 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
         return "rif.enveloping.token.iverifier@2.0.1";
     }
 
-
     /* solhint-disable no-unused-vars */
     function preRelayedCall(
-        GsnTypes.DeployRequest calldata relayRequest,
+        EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -40,7 +39,7 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
     override 
     virtual
     returns (bytes memory context) 
-{
+    {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
         require(relayRequest.relayData.callForwarder == factory, "Invalid factory");
 
@@ -52,7 +51,7 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
             keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
-        require(!GsnUtils._isContract(contractAddr), "Address already created!");
+        require(!_isContract(contractAddr), "Address already created!");
 
         if(relayRequest.request.tokenContract != address(0)){
             require(relayRequest.request.tokenAmount <= IERC20(relayRequest.request.tokenContract).balanceOf(contractAddr), "balance too low");
@@ -66,18 +65,31 @@ contract DeployVerifier is BaseVerifier, IDeployVerifier {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override
     virtual
-     {
-     // for now we dont produce any refund
+    {
+        // for now we dont produce any refund
         // so there is nothing to be done here
     }
 
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
+    }
+
+    /**
+     * Check if a contract has code in it
+     * Should NOT be used on contructor, it fails
+     * See: https://stackoverflow.com/a/54056854
+     */
+    function _isContract(address _addr) internal view returns (bool){
+        uint32 size;
+        assembly {
+            size := extcodesize(_addr)
+        }
+        return (size > 0);
     }
 }

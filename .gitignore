@@ -17,7 +17,6 @@ node_modules
 /dist/
 cache
 /src/cli/compiled/
-/opengsn-gsn-*.tgz
 /RelayClient.ts
 /RelayProvider.ts
 /Configurator.ts

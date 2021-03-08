@@ -2,17 +2,14 @@
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
 
-import "../utils/GsnUtils.sol";
 import "./TestVerifierConfigurableMisbehavior.sol";
-
 
 contract TestRecipient {
 
-    string public versionRecipient = "2.0.1+opengsn.test.irelayrecipient";
+    string public versionRecipient = "2.0.1+enveloping.test.irelayrecipient";
     bool public nextRevert;
 
     event Reverting(string message);
-
 
     function setNextRevert() public {
         nextRevert = true;
@@ -30,8 +27,7 @@ contract TestRecipient {
         }
         else{
             nextRevert = true;
-        }
-        
+        }   
     }
 
     address payable public verifier;
@@ -56,7 +52,6 @@ contract TestRecipient {
         emit SampleRecipientEmitted(message, msg.sender, tx.origin, msg.value, address(this).balance);
         return "emitMessage return value";
     }
-
 
     // solhint-disable-next-line no-empty-blocks
     function dontEmitMessage(string memory message) public {}
@@ -84,5 +79,4 @@ contract TestRecipient {
         /* solhint-disable-next-line reason-string */
         require(!doRevert);
     }
-
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-// minimal bytes manipulation required by GSN
+// minimal bytes manipulation required by Enveloping
 // a minimal subset from 0x/LibBytes
 /* solhint-disable no-inline-assembly */
 pragma solidity ^0.6.12;

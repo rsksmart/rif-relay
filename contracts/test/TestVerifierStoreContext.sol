@@ -24,7 +24,7 @@ contract TestVerifierStoreContext is TestVerifierEverythingAccepted {
      * This demonstrates how preRelayedCall can return 'context' data for reuse in postRelayedCall.
      */
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -48,7 +48,7 @@ contract TestVerifierStoreContext is TestVerifierEverythingAccepted {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override
