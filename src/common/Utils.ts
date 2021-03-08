@@ -277,7 +277,7 @@ export class EnvelopingUtils {
       to: zeroAddr,
       value: '0',
       gas: gasLimit, //overhead (cte) + fee + (estimateDeploy * 1.1)
-      nonce: this.getFactoryNonce(this.config.proxyFactoryAddress, from).toString(),
+      nonce: (await this.getFactoryNonce(this.config.proxyFactoryAddress, from)).toString(),
       data: '0x',
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
@@ -290,7 +290,7 @@ export class EnvelopingUtils {
       relayWorker: this.relayWorkerAddress,
       callForwarder: this.config.proxyFactoryAddress,
       callVerifier: this.config.deployVerifierAddress,
-      domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+      domainSeparator: getDomainSeparatorHash(this.config.proxyFactoryAddress, this.config.chainId)
     }
   }
 
@@ -323,7 +323,31 @@ export class EnvelopingUtils {
     return relayRequest
   }
 
-  signRequest(privKey : Buffer, request : RelayRequest|DeployRequest) : PrefixedHexString {
+  signDeployRequest(privKey : Buffer, request : DeployRequest) : PrefixedHexString {
+    const cloneRequest = { ...request }
+    const dataToSign = new TypedDeployRequestData(
+        this.config.chainId,
+        this.config.forwarderAddress,
+        cloneRequest
+    )
+    // @ts-ignore
+    const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
+    
+    // @ts-ignore
+    const rec = sigUtil.recoverTypedSignature_v4({
+      data: dataToSign,
+      sig: signature
+    })
+
+    if (!isSameAddress(request.request.from.toLowerCase(), rec)) {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`Internal exception: signature is not correct: sender=${request.request.from}, recovered=${rec}`)
+    }
+    
+    return signature
+  }
+
+  signRelayRequest(privKey : Buffer, request : RelayRequest) : PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedRequestData(
         this.config.chainId,
