@@ -4,13 +4,13 @@ import web3Utils from 'web3-utils'
 import sigUtil from 'eth-sig-util'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
-import { PrefixedHexString } from 'ethereumjs-tx'
+import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
-import TypedRequestData, { getDomainSeparatorHash } from './EIP712/TypedRequestData'
-import { getDependencies, EnvelopingConfig, EnvelopingDependencies} from '../relayclient/Configurator'
+import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from './EIP712/TypedRequestData'
+import { getDependencies, EnvelopingConfig, EnvelopingDependencies } from '../relayclient/Configurator'
 import chalk from 'chalk'
 
 import HttpClient from '../relayclient/HttpClient'
@@ -20,6 +20,7 @@ import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from
 import HttpWrapper from '../relayclient/HttpWrapper'
 import { constants } from './Constants'
 import { HttpProvider } from 'web3-core'
+import { RelayingAttempt } from '../relayclient/RelayClient'
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -246,14 +247,12 @@ export function boolString (bool: boolean): string {
 }
 
 export class EnvelopingUtils {
-  
   config: EnvelopingConfig
-  relayWorkerAddress : Address
+  relayWorkerAddress: Address
   dependencies: EnvelopingDependencies
   private initialized: boolean
   
-
-  constructor(_config: EnvelopingConfig, _web3 : Web3, _relayWorkerAddress : Address) {
+  constructor (_config: EnvelopingConfig, _web3: Web3, _relayWorkerAddress: Address) {
     this.config = _config
     this.initialized = false
     this.dependencies = getDependencies(this.config, _web3.currentProvider as HttpProvider)
@@ -261,7 +260,7 @@ export class EnvelopingUtils {
   }
 
   async _init() : Promise<void> {
-    if(!this.initialized) {
+    if (!this.initialized) {
       await this.dependencies.contractInteractor.init()
       this.initialized = true
     } else {
@@ -306,7 +305,7 @@ export class EnvelopingUtils {
       data: data,
       value: '0',
       gas: gasLimit,
-      nonce: this.getSenderNonce(this.config.forwarderAddress).toString(),
+      nonce: (await this.getSenderNonce(this.config.forwarderAddress)).toString(),
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       tokenGas: tokenGas
@@ -319,7 +318,7 @@ export class EnvelopingUtils {
       domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
     }
   }
-  
+
     return relayRequest
   }
 
@@ -327,24 +326,11 @@ export class EnvelopingUtils {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
         this.config.chainId,
-        this.config.forwarderAddress,
+        this.config.proxyFactoryAddress,
         cloneRequest
     )
-    // @ts-ignore
-    const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
-    
-    // @ts-ignore
-    const rec = sigUtil.recoverTypedSignature_v4({
-      data: dataToSign,
-      sig: signature
-    })
 
-    if (!isSameAddress(request.request.from.toLowerCase(), rec)) {
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`Internal exception: signature is not correct: sender=${request.request.from}, recovered=${rec}`)
-    }
-    
-    return signature
+    return this.signAndVerify(request.request.from, privKey, dataToSign)
   }
 
   signRelayRequest(privKey : Buffer, request : RelayRequest) : PrefixedHexString {
@@ -354,9 +340,26 @@ export class EnvelopingUtils {
         this.config.forwarderAddress,
         cloneRequest
     )
-    
+
+    return this.signAndVerify(request.request.from, privKey, dataToSign)
+  }
+
+  signAndVerify(from: Address, privKey: Buffer, dataToSign: TypedRequestData) : PrefixedHexString {
     // @ts-ignore
-    return sigUtil.signTypedData_v4(privKey, { data: dataToSign })
+    const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
+
+    // @ts-ignore
+    const rec = sigUtil.recoverTypedSignature_v4({
+      data: dataToSign,
+      sig: signature
+    })
+
+    if (!isSameAddress(from, rec)) {
+      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+      throw new Error(`Internal exception: signature is not correct: sender=${from}, recovered=${rec}`)
+    }
+    
+    return signature
   }
 
   async generateDeployTransactionRequest(signature : PrefixedHexString, deployRequest: DeployRequest) : Promise<DeployTransactionRequest> {
@@ -388,7 +391,6 @@ export class EnvelopingUtils {
     return metadata
   }
 
-
   async getSenderNonce (sWallet: Address): Promise<IntString> {
     return await this.dependencies.contractInteractor.getSenderNonce(sWallet)
   }
@@ -397,14 +399,19 @@ export class EnvelopingUtils {
     return await this.dependencies.contractInteractor.getFactoryNonce(factoryAddr, from)
   }
 
-  async sendDeployTransaction(relayUrl : string, httpRelayRequest : DeployTransactionRequest) : Promise<void> {
+  async sendTransaction(relayUrl : string, request : DeployTransactionRequest|RelayTransactionRequest) : Promise<RelayingAttempt> {
     const httpClient = new HttpClient(new HttpWrapper(), {})
     try {
-        console.log('AAAAAAA')
-        const hexTransaction = await httpClient.relayTransaction(relayUrl, httpRelayRequest)
+        const hexTransaction = await httpClient.relayTransaction(relayUrl, request)
         console.log(`hexTrx is ${hexTransaction}`)
+        const transaction = new Transaction(hexTransaction, this.dependencies.contractInteractor.getRawTxOptions())
+        const txHash: string = transaction.hash(true).toString('hex')
+        const hash = `0x${txHash}`
+        console.log('tx hash: '+ hash)
+        return { transaction }
     } catch (error) {
         console.log(`GOT ERROR: ${error}`)
+        return { error }
     }
   }
 }
