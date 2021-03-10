@@ -23,28 +23,28 @@ RIF Enveloping V2 also introduces transaction batching
 ## Scenarios
 
 ### A
-Each transaction has a the same smart wallet, token payment and destination contract
+Each transaction has the same smart wallet, token payment and destination contract
 
 ### B
-Each transaction has a the same smart wallet, token payment but each one has a different destination contract
+Each transaction has the same smart wallet, token payment but each has a different destination contract
 
-The gas costs for scenario A and B are the same
+The gas costs for scenarios A and B are the same
 
 ### C
-Each transaction has a different smart wallet, but the same token payment and destination contract
+Each transaction has a different smart wallet, but the token payment and destination contract are the same
 
 ### D
 Each transaction has a different smart wallet and destination contract, but the same token payment 
 
-The gas costs for scenario C and D are the same
+The gas costs for scenarios C and D are the same
 
 ### E
-Each transaction has a different smart wallet and token payment but same destination contract
+Each transaction has a different smart wallet and token payment but the same destination contract
 
 ### F
 Each transaction has a different  smart wallet, token payment and destination contract
 
-The gas costs for scenario E and F are the same
+The gas costs for scenarios E and F are the same
 
 
 ## Overhead costs in batching

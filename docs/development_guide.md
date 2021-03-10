@@ -2,38 +2,41 @@
 
 ## Initializing the project
 
-To use Enveloping, we explained [here](docs/launching_enveloping.md) the basic steps to build the project.
+To use Enveloping, follow these [steps](docs/launching_enveloping.md) to build the project.
 
 ## Project structure
 
 The project has on-chain and off-chain components.
 
-- In the `contracts` folder on the root directory, you can find all the smart contracts involved in Enveloping.
-    - Those could be compiled with `yarn prepare` and it changes will be reflected in the `build/contracts` folder.
-    - If a new contract is created, it's important to add it in `migrations/2_deploy_contracts.js` for deploying it.
-    - The current solidity version is `^0.6.12`.
-- In `src` you can find off-chain components such as `cli`, `relayclient` and `relayserver`. Everything here is coded in `typescript`.
-    - To compile typescript, you should use `yarn tsc` and the changes will be in the `dist` folder.
-- In the `jsrelay`, there are all related to run a Relay Server. You can see [here](docs/launching_enveloping.md) for more details.
-- In `test` is all the suit of testing. You can read below for knowing how to test Enveloping.
+- The `contracts` directory in the root directory, contains all the smart contracts involved in Enveloping.
+    - These can be compiled with `yarn prepare`. The changes will be reflected in the `build/contracts`.
+    - If a new contract is created, it is important to add it to `migrations/2_deploy_contracts.js` for deploying it.
+    - The solidity version used currently is `^0.6.12`.
+- The `src` directory contains the off-chain components such as `cli`, `relayclient` and `relayserver`. Everything here is coded in `typescript`.
+    - To compile these typescript files, use `yarn tsc`. The changes will appear in the `dist` directory.
+- The `jsrelay` directory contains files for running a Relay Server. See [here](docs/launching_enveloping.md) for more details.
+- `test` contains the test suite. See section below to learn how to test Enveloping.
 
 ## Testing
 
-When a new test is added before running the tests you should run `yarn tsc` for compiling.
+When adding new tests, we should compile them first (with `yarn tsc`) before running them.
 
 - To run all the tests:
 
 `./run-tests`
 
-Note: It takes time, the script will run an RSK node in regtest, and then run all the tests.
+Note: The script will start an RSK node in regtest mode and then run all the tests. So it takes some time to run the tests.
 
 - To run a specific test:
 
 Once the project is built, we can test it with truffle
 `yarn generate && npx truffle test --network rsk test/Flows.test.ts` (with [truffle](https://www.trufflesuite.com/))
+
+
 ## Committing changes
 
-For contributing to the project, you should create a branch with the name of the new feature you are implementing (e.g. `gas-optimization`). When you commit to git, a hook is executed. The hook executes a linter and all the tests.
+To contribute to the project, create a branch with the name of the new feature you are implementing (e.g. `gas-optimization`). When you commit to git, a hook is executed. The hook executes a linter and all the tests.
+
 ## Troubleshooting <a id="c07"></a>
 ### Common errors when testing
 #### Running a test throws the Error: Cannot find module 'directory-to-the-project/enveloping/rsknode/test/Flows.test.ts'
