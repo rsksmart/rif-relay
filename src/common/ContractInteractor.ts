@@ -158,7 +158,7 @@ export default class ContractInteractor {
   getProvider (): provider { return this.provider }
 
   async init (): Promise<void> {
-    if (this.rawTxOptions != null) {
+    if (this.isInitialized()) {
       throw new Error('_init was already called')
     }
     await this._initializeContracts()
@@ -169,6 +169,10 @@ export default class ContractInteractor {
     this.networkType = await this.web3.eth.net.getNetworkType()
     // chain === 'private' means we're on ganache, and ethereumjs-tx.Transaction doesn't support that chain type
     this.rawTxOptions = getRawTxOptions(this.chainId, this.networkId, chain)
+  }
+
+  isInitialized (): boolean {
+    return this.rawTxOptions != null
   }
 
   async getAsyncChainId (): Promise<number> {
@@ -212,6 +216,8 @@ export default class ContractInteractor {
     if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
       this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
     }
+
+    console.log('Contracts initialized correctly')
   }
 
   // must use these options when creating Transaction object
