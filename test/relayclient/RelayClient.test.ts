@@ -122,14 +122,14 @@ contract('RelayClient', function (accounts) {
     relayVerifier = await TestRelayVerifier.new()
     deployVerifier = await TestDeployVerifier.new()
 
-    relayProcess = await startRelay(relayHub.address, stakeManager, {
+    relayProcess = (await startRelay(relayHub.address, stakeManager, {
       stake: 1e18,
       relayOwner: accounts[1],
       rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifier.address,
       relayVerifierAddress: relayVerifier.address,
       workerTargetBalance: 0.6e18
-    })
+    })).proc
 
     config = {
       logLevel: 5,

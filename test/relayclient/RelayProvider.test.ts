@@ -77,7 +77,7 @@ contract('RelayProvider', function (accounts) {
     verifierInstance = await TestVerifierConfigurableMisbehavior.new()
     deployVerifierInstance = await TestDeployVerifierConfigurableMisbehavior.new()
 
-    relayProcess = await startRelay(relayHub.address, stakeManager, {
+    relayProcess = (await startRelay(relayHub.address, stakeManager, {
       relaylog: process.env.relaylog,
       stake: 1e18,
       url: 'asd',
@@ -90,7 +90,7 @@ contract('RelayProvider', function (accounts) {
       managerMinBalance: 0.1e18,
       managerTargetBalance: 0.3e18,
       minHubWithdrawalBalance: 0.1e18
-    })
+    })).proc
   })
 
   after(async function () {
