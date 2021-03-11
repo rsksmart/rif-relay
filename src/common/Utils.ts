@@ -271,29 +271,29 @@ export class EnvelopingUtils {
   async createDeployRequest (from: Address, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
     const deployRequest: DeployRequest = {
       request: {
-      relayHub: this.config.relayHubAddress,
-      from: from,
-      to: zeroAddr,
-      value: '0',
-      gas: gasLimit, // overhead (cte) + fee + (estimateDeploy * 1.1)
-      nonce: (await this.getFactoryNonce(this.config.proxyFactoryAddress, from)).toString(),
-      data: '0x',
-      tokenContract: tokenContract,
-      tokenAmount: tokenAmount,
-      tokenGas: tokenGas,
-      recoverer: recoverer ?? constants.ZERO_ADDRESS,
-      index: index ?? '0'
-    },
-    relayData: {
-      gasPrice: gasPrice ?? '0',
-      relayWorker: this.relayWorkerAddress,
-      callForwarder: this.config.proxyFactoryAddress,
-      callVerifier: this.config.deployVerifierAddress,
-      domainSeparator: getDomainSeparatorHash(this.config.proxyFactoryAddress, this.config.chainId)
+        relayHub: this.config.relayHubAddress,
+        from: from,
+        to: zeroAddr,
+        value: '0',
+        gas: gasLimit, // overhead (cte) + fee + (estimateDeploy * 1.1)
+        nonce: (await this.getFactoryNonce(this.config.proxyFactoryAddress, from)).toString(),
+        data: '0x',
+        tokenContract: tokenContract,
+        tokenAmount: tokenAmount,
+        tokenGas: tokenGas,
+        recoverer: recoverer ?? constants.ZERO_ADDRESS,
+        index: index ?? '0'
+      },
+      relayData: {
+        gasPrice: gasPrice ?? '0',
+        relayWorker: this.relayWorkerAddress,
+        callForwarder: this.config.proxyFactoryAddress,
+        callVerifier: this.config.deployVerifierAddress,
+        domainSeparator: getDomainSeparatorHash(this.config.proxyFactoryAddress, this.config.chainId)
+      }
     }
-  }
-    
-  return deployRequest
+
+    return deployRequest
   }
 
   async createRelayRequest (from: Address, to: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString): Promise<RelayRequest> {
@@ -325,9 +325,9 @@ export class EnvelopingUtils {
   signDeployRequest (privKey: Buffer, request: DeployRequest): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
-        this.config.chainId,
-        this.config.proxyFactoryAddress,
-        cloneRequest
+      this.config.chainId,
+      this.config.proxyFactoryAddress,
+      cloneRequest
     )
 
     return this.signAndVerify(request.request.from, privKey, dataToSign)
@@ -347,7 +347,7 @@ export class EnvelopingUtils {
   signAndVerify (from: Address, privKey: Buffer, dataToSign: TypedRequestData): PrefixedHexString {
     // @ts-ignore
     const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
-  
+
     // @ts-ignore
     const rec = sigUtil.recoverTypedSignature_v4({
       data: dataToSign,
@@ -410,8 +410,9 @@ export class EnvelopingUtils {
       console.log('tx hash: ' + hash)
       return { transaction }
     } catch (error) {
-        console.log(`GOT ERROR: ${error}`)
-        return { error }
+      const reasonStr = error instanceof Error ? error.message : JSON.stringify(error)
+      console.log(`GOT ERROR - Reason: ${reasonStr}`)
+      return { error }
     }
   }
 }

@@ -47,7 +47,6 @@ interface RelayServerData {
   manager: Address
 }
 
-
 export async function startRelay (
   relayHubAddress: string,
   stakeManager: StakeManagerInstance,
