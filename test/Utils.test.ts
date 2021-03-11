@@ -6,9 +6,9 @@ import chai from 'chai'
 import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, ProxyFactoryInstance } from '../types/truffle-contracts'
+import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, SmartWalletFactoryInstance } from '../types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { encodeRevertReason, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
+import { encodeRevertReason, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getLocalEip712Signature } from '../src/common/Utils'
@@ -40,8 +40,8 @@ contract('Utils', function (accounts) {
       senderPrivateKey = senderAccount.privateKey
       testUtil = await TestUtil.new()
       chainId = (await testUtil.libGetChainID()).toNumber()
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(smartWalletTemplate)
       forwarderInstance = await createSmartWallet(accounts[0], senderAddress, factory, senderPrivateKey, chainId)
       forwarder = forwarderInstance.address
       recipient = await TestRecipient.new()

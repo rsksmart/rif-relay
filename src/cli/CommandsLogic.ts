@@ -11,16 +11,15 @@ import { merge } from 'lodash'
 import { isSameAddress, sleep } from '../common/Utils'
 
 // compiled folder populated by "prepublish"
-import StakeManager from './compiled/StakeManager.json'
 import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
 import DeployVerifier from './compiled/DeployVerifier.json'
 import RelayVerifier from './compiled/RelayVerifier.json'
 
 import SmartWallet from './compiled/SmartWallet.json'
-import ProxyFactory from './compiled/ProxyFactory.json'
-import SimpleSmartWallet from './compiled/SimpleSmartWallet.json'
-import SimpleProxyFactory from './compiled/SimpleProxyFactory.json'
+import SmartWalletFactory from './compiled/SmartWalletFactory.json'
+import CustomSmartWallet from './compiled/CustomSmartWallet.json'
+import CustomSmartWalletFactory from './compiled/CustomSmartWalletFactory.json'
 import VersionRegistryAbi from './compiled/VersionRegistry.json'
 import { Address } from '../relayclient/types/Aliases'
 import ContractInteractor from '../common/ContractInteractor'
@@ -46,12 +45,11 @@ interface DeployOptions {
   gasPrice: string
   deployVerifierAddress?: string
   relayVerifierAddress?: string
-  factoryAddress?: string
-  simpleFactoryAddress?: string
+  smartWalletFactoryAddress?: string
   smartWalletTemplateAddress?: string
-  simpleSmartWalletTemplateAddress?: string
+  customSmartWalletFactoryAddress?: string
+  customSmartWalletTemplateAddress?: string
   relayHubAddress?: string
-  stakeManagerAddress?: string
   penalizerAddress?: string
   registryAddress?: string
   registryHubId?: string
@@ -62,12 +60,11 @@ interface DeployOptions {
 
 export interface DeploymentResult {
   relayHubAddress: Address
-  stakeManagerAddress: Address
   penalizerAddress: Address
   smartWalletTemplateAddress: Address
-  simpleSmartWalletTemplateAddress: Address
-  factoryAddress: Address
-  simpleFactoryAddress: Address
+  smartWalletFactoryAddress: Address
+  customSmartWalletTemplateAddress: Address
+  customSmartWalletFactoryAddress: Address
   versionRegistryAddress: Address
   deployVerifierAddress: Address
   relayVerifierAddress: Address
@@ -163,11 +160,8 @@ export default class CommandsLogic {
 
       const relayAddress = response.relayManagerAddress
       const relayHubAddress = this.config.relayHubAddress ?? response.relayHubAddress
-
       const relayHub = await this.contractInteractor._createRelayHub(relayHubAddress)
-      const stakeManagerAddress = await relayHub.stakeManager()
-      const stakeManager = await this.contractInteractor._createStakeManager(stakeManagerAddress)
-      const { stake, unstakeDelay, owner } = await stakeManager.getStakeInfo(relayAddress)
+      const { stake, unstakeDelay, owner } = await relayHub.getStakeInfo(relayAddress)
 
       console.log('Current stake info:')
       console.log('Relayer owner: ' + owner)
@@ -187,7 +181,7 @@ export default class CommandsLogic {
         console.log(`Staking relayer ${fromWei(stakeValue, 'ether')} RBTC`,
           stake === '0' ? '' : ` (already has ${fromWei(stake, 'ether')} RBTC)`)
 
-        const stakeTx = await stakeManager
+        const stakeTx = await relayHub
           .stakeForAddress(relayAddress, options.unstakeDelay.toString(), {
             value: stakeValue,
             from: options.from,
@@ -199,15 +193,6 @@ export default class CommandsLogic {
 
       if (isSameAddress(owner, options.from)) {
         console.log('Relayer already authorized')
-      } else {
-        console.log('Authorizing relayer for hub')
-        const authorizeTx = await stakeManager
-          .authorizeHubByOwner(relayAddress, relayHubAddress, {
-            from: options.from,
-            gas: 1e6,
-            gasPrice: options.gasPrice
-          })
-        transactions.push(authorizeTx.tx)
       }
 
       const bal = await this.contractInteractor.getBalance(relayAddress)
@@ -260,31 +245,28 @@ export default class CommandsLogic {
       gasPrice: deployOptions.gasPrice ?? (1e9).toString()
     }
 
-    const stakeManager = await this.getContract(StakeManager, {
-      arguments: [0]
-    }, deployOptions.stakeManagerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const penalizer = await this.getContract(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     const smartWallet = await this.getContract(SmartWallet, {}, deployOptions.smartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const proxyFactory = await this.getContract(ProxyFactory, {
+    const smartWalletFactory = await this.getContract(SmartWalletFactory, {
       arguments: [
         smartWallet.options.address
       ]
-    }, deployOptions.factoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    }, deployOptions.smartWalletFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
-    const simpleSwtInstance = await this.getContract(SimpleSmartWallet, {}, deployOptions.simpleSmartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-    const simplePfInstance = await this.getContract(SimpleProxyFactory, {
+    const customSmartWallet = await this.getContract(CustomSmartWallet, {}, deployOptions.customSmartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const customSmartWalletFactory = await this.getContract(CustomSmartWalletFactory, {
       arguments: [
-        simpleSwtInstance.options.address
+        customSmartWallet.options.address
       ]
-    }, deployOptions.simpleFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    }, deployOptions.customSmartWalletFactoryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
     const rInstance = await this.getContract(RelayHub, {
       arguments: [
-        stakeManager.options.address,
         penalizer.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
         deployOptions.relayHubConfiguration.gasOverhead,
-        deployOptions.relayHubConfiguration.maximumRecipientDeposit,
+        deployOptions.relayHubConfiguration.minimumEntryDepositValue,
         deployOptions.relayHubConfiguration.minimumUnstakeDelay,
         deployOptions.relayHubConfiguration.minimumStake]
     }, deployOptions.relayHubAddress, merge({}, options, { gas: 5e6 }), deployOptions.skipConfirmation)
@@ -297,12 +279,12 @@ export default class CommandsLogic {
 
     const deployVerifierInstance = await this.getContract(DeployVerifier, {
       arguments: [
-        proxyFactory.options.address
+        smartWalletFactory.options.address
       ]
     }, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const relayVerifierInstance = await this.getContract(RelayVerifier, {
       arguments: [
-        proxyFactory.options.address
+        smartWalletFactory.options.address
       ]
     }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     // Overriding saved configuration with newly deployed instances
@@ -312,12 +294,11 @@ export default class CommandsLogic {
 
     return {
       relayHubAddress: rInstance.options.address,
-      stakeManagerAddress: stakeManager.options.address,
       penalizerAddress: penalizer.options.address,
       smartWalletTemplateAddress: smartWallet.options.address,
-      factoryAddress: proxyFactory.options.address,
-      simpleSmartWalletTemplateAddress: simpleSwtInstance.options.address,
-      simpleFactoryAddress: simplePfInstance.options.address,
+      smartWalletFactoryAddress: smartWalletFactory.options.address,
+      customSmartWalletTemplateAddress: customSmartWallet.options.address,
+      customSmartWalletFactoryAddress: customSmartWalletFactory.options.address,
       versionRegistryAddress: regInstance.options.address,
       relayVerifierAddress: relayVerifierInstance.options.address,
       deployVerifierAddress: deployVerifierInstance.options.address

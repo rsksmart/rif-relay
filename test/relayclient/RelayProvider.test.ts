@@ -2,7 +2,7 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
-import proxyFactoryAbi from '../../src/common/interfaces/ISmartWalletFactory.json'
+import walletFactoryAbi from '../../src/common/interfaces/IWalletFactory.json'
 
 import chaiAsPromised from 'chai-as-promised'
 import Web3 from 'web3'
@@ -15,17 +15,16 @@ import { BaseTransactionReceipt, RelayProvider } from '../../src/relayclient/Rel
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
   RelayHubInstance,
-  StakeManagerInstance,
   TestVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestRecipientContract,
   TestRecipientInstance,
-  ProxyFactoryInstance,
+  SmartWalletFactoryInstance,
   SmartWalletInstance,
   TestTokenInstance
 } from '../../types/truffle-contracts'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
@@ -35,7 +34,6 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
-const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
@@ -43,17 +41,16 @@ const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployV
 
 const underlyingProvider = web3.currentProvider as HttpProvider
 const revertReasonEnabled = false // Enable when the RSK node supports revert reason codes
-abiDecoder.addABI(proxyFactoryAbi)
+abiDecoder.addABI(walletFactoryAbi)
 
 contract('RelayProvider', function (accounts) {
   let web3: Web3
   let relayHub: RelayHubInstance
-  let stakeManager: StakeManagerInstance
   let verifierInstance: TestVerifierConfigurableMisbehaviorInstance
   let deployVerifierInstance: TestDeployVerifierConfigurableMisbehaviorInstance
   let relayProcess: ChildProcessWithoutNullStreams
   let relayProvider: RelayProvider
-  let factory: ProxyFactoryInstance
+  let factory: SmartWalletFactoryInstance
   let sWalletTemplate: SmartWalletInstance
   let smartWallet: SmartWalletInstance
   let sender: string
@@ -64,12 +61,11 @@ contract('RelayProvider', function (accounts) {
     sender = accounts[0]
     gaslessAccount = await getGaslessAccount()
     web3 = new Web3(underlyingProvider)
-    stakeManager = await StakeManager.new(0)
-    relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
+    relayHub = await deployHub(constants.ZERO_ADDRESS)
 
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())
-    factory = await createProxyFactory(sWalletTemplate)
+    factory = await createSmartWalletFactory(sWalletTemplate)
     smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     token = await TestToken.new()
     await token.mint('1000', smartWallet.address)
@@ -77,7 +73,7 @@ contract('RelayProvider', function (accounts) {
     verifierInstance = await TestVerifierConfigurableMisbehavior.new()
     deployVerifierInstance = await TestDeployVerifierConfigurableMisbehavior.new()
 
-    relayProcess = (await startRelay(relayHub.address, stakeManager, {
+    relayProcess = (await startRelay(relayHub, {
       relaylog: process.env.relaylog,
       stake: 1e18,
       url: 'asd',
@@ -203,14 +199,13 @@ contract('RelayProvider', function (accounts) {
       })
       config.forwarderAddress = constants.ZERO_ADDRESS
       const recoverer = constants.ZERO_ADDRESS
-      const customLogic = constants.ZERO_ADDRESS
       const walletIndex: number = 0
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
 
       const rProvider = new RelayProvider(underlyingProvider, config)
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, gaslessAccount.address, recoverer, walletIndex, bytecodeHash)
 
-      const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, customLogic, constants.SHA3_NULL_S, walletIndex)
+      const expectedAddress = await factory.getSmartWalletAddress(gaslessAccount.address, recoverer, walletIndex)
 
       assert.equal(swAddress, expectedAddress)
     }
@@ -229,7 +224,7 @@ contract('RelayProvider', function (accounts) {
       const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, walletIndex, bytecodeHash)
 
       assert.isTrue((await token.balanceOf(swAddress)).toNumber() < 10, 'Account must have insufficient funds')
 
@@ -271,7 +266,7 @@ contract('RelayProvider', function (accounts) {
       const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, walletIndex, bytecodeHash)
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
@@ -322,7 +317,7 @@ contract('RelayProvider', function (accounts) {
       const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, walletIndex, bytecodeHash)
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
@@ -374,7 +369,7 @@ contract('RelayProvider', function (accounts) {
       const rProvider = new RelayProvider(underlyingProvider, config)
       rProvider.addAccount(ownerEOA)
       const bytecodeHash = web3.utils.keccak256(await factory.getCreationBytecode())
-      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, customLogic, walletIndex, bytecodeHash)
+      const swAddress = rProvider.calculateSmartWalletAddress(factory.address, ownerEOA.address, recoverer, walletIndex, bytecodeHash)
       await token.mint('10000', swAddress)
 
       const expectedCode = await web3.eth.getCode(swAddress)
@@ -542,11 +537,10 @@ contract('RelayProvider', function (accounts) {
       // @ts-ignore
       TestRecipient.web3.setProvider(relayProvider)
       // add accounts[0], accounts[1] and accounts[2] as worker, manager and owner
-      await stakeManager.stakeForAddress(accounts[1], 1000, {
+      await relayHub.stakeForAddress(accounts[1], 1000, {
         value: ether('1'),
         from: accounts[2]
       })
-      await stakeManager.authorizeHubByOwner(accounts[1], relayHub.address, { from: accounts[2] })
       await relayHub.addRelayWorkers([accounts[0]], {
         from: accounts[1]
       })

@@ -7,25 +7,23 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./utils/MinLibBytes.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./utils/Eip712Library.sol";
 import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
-import "./interfaces/IStakeManager.sol";
- 
+
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
 
     uint256 public override minimumStake;
     uint256 public override minimumUnstakeDelay;
-    uint256 public override maximumRecipientDeposit;
+    uint256 public override minimumEntryDepositValue;
     uint256 public override gasOverhead;
     uint256 public override maxWorkerCount;
-    address override public penalizer;
-    address override public stakeManager;
+    address public override penalizer;
+
     string public override versionHub = "2.0.1+enveloping.hub.irelayhub";
 
     // maps relay worker's address to its manager's address
@@ -34,114 +32,158 @@ contract RelayHub is IRelayHub {
     // maps relay managers to the number of their workers
     mapping(address => uint256) public override workerCount;
 
-    constructor (
-        address _stakeManager,
+    // maps relay managers to their stakes
+    mapping(address => StakeInfo) public stakes;
+
+    constructor(
         address _penalizer,
         uint256 _maxWorkerCount,
         uint256 _gasOverhead,
-        uint256 _maximumRecipientDeposit,
+        uint256 _minimumEntryDepositValue,
         uint256 _minimumUnstakeDelay,
         uint256 _minimumStake
     ) public {
-        stakeManager = _stakeManager;
+        require(
+            _maxWorkerCount > 0 &&
+            _gasOverhead > 0 &&
+            _minimumStake > 0 && 
+            _minimumEntryDepositValue > 0 && 
+            _minimumUnstakeDelay > 0, "invalid hub init params"   
+        );
+
         penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
         gasOverhead = _gasOverhead;
-        maximumRecipientDeposit = _maximumRecipientDeposit;
         minimumUnstakeDelay = _minimumUnstakeDelay;
-        minimumStake =  _minimumStake;
+        minimumStake = _minimumStake;
+        minimumEntryDepositValue = _minimumEntryDepositValue;
     }
 
-    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external override {
+    function registerRelayServer(
+        uint256 baseRelayFee,
+        uint256 pctRelayFee,
+        string calldata url
+    ) external override {
         //relay manager is msg.sender
         //Check if Relay Manager is staked
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                msg.sender,minimumStake,minimumUnstakeDelay));
-        require(succ, "relay manager not staked" );
+        requireManagerStaked(msg.sender);
 
         require(workerCount[msg.sender] > 0, "no relay workers");
         emit RelayServerRegistered(msg.sender, baseRelayFee, pctRelayFee, url);
     }
 
-    function disableRelayWorkers(address[] calldata relayWorkers) external override {
+    function disableRelayWorkers(address[] calldata relayWorkers)
+        external
+        override
+    {
         //relay manager is msg.sender
         uint256 actualWorkerCount = workerCount[msg.sender];
-        require(actualWorkerCount >= relayWorkers.length, "invalid quantity of workers");
+        require(
+            actualWorkerCount >= relayWorkers.length,
+            "invalid quantity of workers"
+        );
         workerCount[msg.sender] = actualWorkerCount - relayWorkers.length;
-        
-        //Check if Relay Manager is staked
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                msg.sender,minimumStake,minimumUnstakeDelay));
-        require(succ, "relay manager not staked" );
 
-        bytes32 enabledWorker = bytes32(uint256(msg.sender) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
+        //Check if Relay Manager is staked
+        requireManagerStaked(msg.sender);
+
+        bytes32 enabledWorker =
+            bytes32(uint256(msg.sender) << 4) |
+                0x0000000000000000000000000000000000000000000000000000000000000001;
         bytes32 disabledWorker = bytes32(uint256(msg.sender) << 4);
-        
+
         for (uint256 i = 0; i < relayWorkers.length; i++) {
             //The relay manager can only disable its relay workers and only if they are enabled (right-most nibble as 1)
-            require(workerToManager[relayWorkers[i]] == enabledWorker, "Incorrect Manager");
+            require(
+                workerToManager[relayWorkers[i]] == enabledWorker,
+                "Incorrect Manager"
+            );
             //Disabling a worker means putting the right-most nibble to 0
             workerToManager[relayWorkers[i]] = disabledWorker;
         }
 
-        emit RelayWorkersDisabled(msg.sender, relayWorkers, workerCount[msg.sender]);
+        emit RelayWorkersDisabled(
+            msg.sender,
+            relayWorkers,
+            workerCount[msg.sender]
+        );
     }
 
     /**
     New relay worker addresses can be added (as enabled workers) as long as they don't have a relay manager aldeady assigned.
      */
-    function addRelayWorkers(address[] calldata newRelayWorkers) external override {
+    function addRelayWorkers(address[] calldata newRelayWorkers)
+        external
+        override
+    {
         address relayManager = msg.sender;
-        workerCount[relayManager] = workerCount[relayManager] + newRelayWorkers.length;
-        require(workerCount[relayManager] <= maxWorkerCount, "too many workers");
+        workerCount[relayManager] =
+            workerCount[relayManager] +
+            newRelayWorkers.length;
+        require(
+            workerCount[relayManager] <= maxWorkerCount,
+            "too many workers"
+        );
 
         //Check if Relay Manager is staked
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                relayManager,minimumStake,minimumUnstakeDelay));
-        require(succ, "relay manager not staked" );
+        requireManagerStaked(relayManager);
 
-        bytes32 enabledWorker = bytes32(uint256(relayManager) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
+        bytes32 enabledWorker =
+            bytes32(uint256(relayManager) << 4) |
+                0x0000000000000000000000000000000000000000000000000000000000000001;
         for (uint256 i = 0; i < newRelayWorkers.length; i++) {
-            require(workerToManager[newRelayWorkers[i]] == bytes32(0), "this worker has a manager");
+            require(
+                workerToManager[newRelayWorkers[i]] == bytes32(0),
+                "this worker has a manager"
+            );
             workerToManager[newRelayWorkers[i]] = enabledWorker;
         }
 
-        emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
+        emit RelayWorkersAdded(
+            relayManager,
+            newRelayWorkers,
+            workerCount[relayManager]
+        );
     }
 
     function deployCall(
         EnvelopingTypes.DeployRequest calldata deployRequest,
-        bytes calldata signature    )
-    external
-    override
-    {
+        bytes calldata signature
+    ) external override {
         (signature);
-        
+
         bytes32 managerEntry = workerToManager[msg.sender];
 
         //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
-        require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
-        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+        require(
+            managerEntry &
+                0x0000000000000000000000000000000000000000000000000000000000000001 ==
+                0x0000000000000000000000000000000000000000000000000000000000000001,
+            "Not an enabled worker"
+        );
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
 
-        require(gasleft() >= gasOverhead.add(deployRequest.request.gas), "Not enough gas left");
+        require(
+            gasleft() >= gasOverhead.add(deployRequest.request.gas),
+            "Not enough gas left"
+        );
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
-        require(msg.sender == deployRequest.relayData.relayWorker, "Not a right worker");
+        require(
+            msg.sender == deployRequest.relayData.relayWorker,
+            "Not a right worker"
+        );
 
-         /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                manager,minimumStake,minimumUnstakeDelay));
-        require(succ, "relay manager not staked" );
-        require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
-      
-        
-        bool deploySuccess = Eip712Library.deploy(deployRequest, signature);          
-        
-        if ( !deploySuccess ) {
+        requireManagerStaked(manager);
+
+        require(
+            deployRequest.relayData.gasPrice <= tx.gasprice,
+            "Invalid gas price"
+        );
+
+        bool deploySuccess = Eip712Library.deploy(deployRequest, signature);
+
+        if (!deploySuccess) {
             assembly {
                 revert(0, 0)
             }
@@ -150,82 +192,215 @@ contract RelayHub is IRelayHub {
 
     function relayCall(
         EnvelopingTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature) 
-    external override
-    {
+        bytes calldata signature
+    ) external override {
         (signature);
-        
-        require(gasleft() >= gasOverhead.add(relayRequest.request.gas), "Not enough gas left");
+
+        require(
+            gasleft() >= gasOverhead.add(relayRequest.request.gas),
+            "Not enough gas left"
+        );
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
-        require(msg.sender == relayRequest.relayData.relayWorker, "Not a right worker");
-        require(relayRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
+        require(
+            msg.sender == relayRequest.relayData.relayWorker,
+            "Not a right worker"
+        );
+        require(
+            relayRequest.relayData.gasPrice <= tx.gasprice,
+            "Invalid gas price"
+        );
 
         bytes32 managerEntry = workerToManager[msg.sender];
         //read last nibble which stores the isWorkerEnabled flag, it must be 1 (true)
-         require(managerEntry & 0x0000000000000000000000000000000000000000000000000000000000000001 
-        == 0x0000000000000000000000000000000000000000000000000000000000000001, "Not an enabled worker");
+        require(
+            managerEntry &
+                0x0000000000000000000000000000000000000000000000000000000000000001 ==
+                0x0000000000000000000000000000000000000000000000000000000000000001,
+            "Not an enabled worker"
+        );
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
+        
+        requireManagerStaked(manager);
 
-         /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(hex"fe716339",   //fe716339  =>  requireManagerStaked(address,uint256,uint256)
-                manager,minimumStake,minimumUnstakeDelay));
-        require(succ, "relay manager not staked" );
-      
         bool forwarderSuccess;
+        bool succ;
         bytes memory relayedCallReturnValue;
         //use succ as relay call success variable
-        (forwarderSuccess, succ, relayedCallReturnValue) = Eip712Library.execute(relayRequest, signature);          
-        
-        if ( !forwarderSuccess ) {
+        (forwarderSuccess, succ, relayedCallReturnValue) = Eip712Library
+            .execute(relayRequest, signature);
+
+        if (!forwarderSuccess) {
             assembly {
-                revert(add(relayedCallReturnValue, 32), mload(relayedCallReturnValue))
+                revert(
+                    add(relayedCallReturnValue, 32),
+                    mload(relayedCallReturnValue)
+                )
             }
         }
-       
-       if (succ) {
-                emit TransactionRelayed(
-                    manager,
-                    msg.sender,
-                    keccak256(signature),
-                    relayedCallReturnValue
-                );
-        }
-        else{
 
-           emit TransactionRelayedButRevertedByRecipient(            
-            manager,
-            msg.sender,
-            keccak256(signature),
-            relayedCallReturnValue);
+        if (succ) {
+            emit TransactionRelayed(
+                manager,
+                msg.sender,
+                keccak256(signature),
+                relayedCallReturnValue
+            );
+        } else {
+            emit TransactionRelayedButRevertedByRecipient(
+                manager,
+                msg.sender,
+                keccak256(signature),
+                relayedCallReturnValue
+            );
         }
     }
 
-    function isRelayManagerStaked(address relayManager) public override returns (bool){
-        /* solhint-disable-next-line avoid-low-level-calls */
-        (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
-                relayManager,minimumStake,minimumUnstakeDelay));
-        
-        //If no revert, then return true
-        require(succ, "relay manager not staked");
-        return true;
-    }
-
-    modifier penalizerOnly () {
+    modifier penalizerOnly() {
         require(msg.sender == penalizer, "Not penalizer");
         _;
     }
 
-    function penalize(address relayWorker, address payable beneficiary) external override penalizerOnly {
+    function penalize(address relayWorker, address payable beneficiary)
+        external
+        override
+        penalizerOnly
+    {
         //Relay worker might be enabled or disabled
-        address relayManager = address(uint160(uint256(workerToManager[relayWorker] >> 4)));
+        address relayManager =
+            address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
 
-        require(
-            isRelayManagerStaked(relayManager),
-            "relay manager not staked"
+        requireManagerStaked(relayManager);
+
+        penalizeRelayManager(relayManager, beneficiary);
+    }
+
+    function getStakeInfo(address relayManager)
+        external
+        view
+        override
+        returns (StakeInfo memory stakeInfo)
+    {
+        return stakes[relayManager];
+    }
+
+    /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.
+    /// @param relayManager - entry to penalize
+    /// @param beneficiary - address that receives half of the penalty amount
+    function penalizeRelayManager(
+        address relayManager,
+        address payable beneficiary
+    ) internal {
+        StakeInfo memory stakeInfo = stakes[relayManager];
+        uint256 amount = stakeInfo.stake;
+
+        // Half of the stake will be burned (sent to address 0)
+        require(stakes[relayManager].stake >= amount, "penalty exceeds stake");
+        stakes[relayManager].stake = SafeMath.sub(
+            stakes[relayManager].stake,
+            amount
         );
-        IStakeManager.StakeInfo memory stakeInfo = IStakeManager(stakeManager).getStakeInfo(relayManager);
-        IStakeManager(stakeManager).penalizeRelayManager(relayManager, beneficiary, stakeInfo.stake);
+
+        uint256 toBurn = SafeMath.div(amount, 2);
+        uint256 reward = SafeMath.sub(amount, toBurn);
+
+        // Ether is burned and transferred
+        address(0).transfer(toBurn);
+        beneficiary.transfer(reward);
+        emit StakePenalized(relayManager, beneficiary, reward);
+    }
+
+    // Put a stake for a relayManager and set its unstake delay.
+    // If the entry does not exist, it is created, and the caller of this function becomes its owner.
+    // If the entry already exists, only the owner can call this function.
+    // @param relayManager - address that represents a stake entry and controls relay registrations on relay hubs
+    // @param unstakeDelay - number of blocks to elapse before the owner can retrieve the stake after calling 'unlock'
+    function stakeForAddress(address relayManager, uint256 unstakeDelay)
+        external
+        payable
+        override
+    {
+        require(
+            stakes[relayManager].owner == address(0) ||
+                stakes[relayManager].owner == msg.sender,
+            "not owner"
+        );
+        require(
+            unstakeDelay >= stakes[relayManager].unstakeDelay,
+            "unstakeDelay cannot be decreased"
+        );
+        require(msg.sender != relayManager, "caller is the relayManager");
+        require(
+            stakes[msg.sender].owner == address(0),
+            "sender is a relayManager itself"
+        );
+
+        //If it is the initial stake, it must meet the entry value
+        if (stakes[relayManager].owner == address(0)) {
+            require(
+                msg.value >= minimumEntryDepositValue,
+                "Insufficient intitial stake"
+            );
+        }
+
+        stakes[relayManager].owner = msg.sender;
+        stakes[relayManager].stake += msg.value;
+        stakes[relayManager].unstakeDelay = unstakeDelay;
+        emit StakeAdded(
+            relayManager,
+            stakes[relayManager].owner,
+            stakes[relayManager].stake,
+            stakes[relayManager].unstakeDelay
+        );
+    }
+
+    function unlockStake(address relayManager) external override {
+        StakeInfo storage info = stakes[relayManager];
+        require(info.owner == msg.sender, "not owner");
+        require(info.withdrawBlock == 0, "already pending");
+        info.withdrawBlock = block.number.add(info.unstakeDelay);
+        emit StakeUnlocked(relayManager, msg.sender, info.withdrawBlock);
+    }
+
+    function withdrawStake(address relayManager) external override {
+        StakeInfo storage info = stakes[relayManager];
+        require(info.owner == msg.sender, "not owner");
+        require(info.withdrawBlock > 0, "Withdrawal is not scheduled");
+        require(info.withdrawBlock <= block.number, "Withdrawal is not due");
+        uint256 amount = info.stake;
+        delete stakes[relayManager];
+        msg.sender.transfer(amount);
+        emit StakeWithdrawn(relayManager, msg.sender, amount);
+    }
+
+    modifier ownerOnly(address relayManager) {
+        StakeInfo storage info = stakes[relayManager];
+        require(info.owner == msg.sender, "not owner");
+        _;
+    }
+
+    modifier managerOnly() {
+        StakeInfo storage info = stakes[msg.sender];
+        require(info.owner != address(0), "not manager");
+        _;
+    }
+
+    function requireManagerStaked(address relayManager) internal view {
+        StakeInfo storage info = stakes[relayManager];
+
+        require(
+            info.stake >= minimumStake && //isAmountSufficient
+                info.unstakeDelay >= minimumUnstakeDelay && //isDelaySufficient
+                info.withdrawBlock == 0, //isStakeLocked
+            "RelayManager not staked"
+        );
+    }
+
+    function isRelayManagerStaked(address relayManager) external view override returns (bool) {
+        StakeInfo storage info = stakes[relayManager];
+        return info.stake >= minimumStake && //isAmountSufficient
+            info.unstakeDelay >= minimumUnstakeDelay && //isDelaySufficient
+            info.withdrawBlock == 0; //isStakeLocked
     }
 }

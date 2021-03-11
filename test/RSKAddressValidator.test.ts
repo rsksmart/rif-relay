@@ -22,10 +22,10 @@ contract('RSKAddressValidator', function (accounts) {
     const signature = `0x${r}${s}${v.toString(16)}`
 
     addressValidator = await TestRSKAddressValidator.new()
-    const addr = await addressValidator.getAddress.call(messageHash, signature)
+    const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
-    const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
+    const res = await addressValidator.compareAddressWithZeroPK(messageHash, signature)
     expect(res).to.be.equal(false)
   })
 
@@ -39,10 +39,10 @@ contract('RSKAddressValidator', function (accounts) {
     const signature = `0x${r}${s}${v.toString(16)}`
 
     addressValidator = await TestRSKAddressValidator.new()
-    const addr = await addressValidator.getAddress.call(messageHash, signature)
+    const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
-    const res = await addressValidator.compareAddressWithZeroPK.call(messageHash, signature)
+    const res = await addressValidator.compareAddressWithZeroPK(messageHash, signature)
     expect(res).to.be.equal(false)
   })
 
@@ -55,7 +55,7 @@ contract('RSKAddressValidator', function (accounts) {
     const signature = `0x${r}${s}${v.toString(16)}`
 
     addressValidator = await TestRSKAddressValidator.new()
-    const addr = await addressValidator.getAddress.call(messageHash, signature)
+    const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.not.equal('0xdcc703c0e500b653ca82273b7bfad8045d85a470')
     console.log('WARN: In testnet or mainnet with EIP1191, the chainID must be added to toChecksumAddress in order to pass')
     expect(addr).to.be.equal(toChecksumAddress('0xdcc703c0e500b653ca82273b7bfad8045d85a470'))
@@ -73,12 +73,12 @@ contract('RSKAddressValidator', function (accounts) {
     const addr = '0xdcc703c0e500b653ca82273b7bfad8045d85a470'
 
     addressValidator = await TestRSKAddressValidator.new()
-    const areEqualSmallCase = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addr)
+    const areEqualSmallCase = await addressValidator.compareAddressWithSigner(messageHash, signature, addr)
     expect(areEqualSmallCase).to.be.true
 
     const addrChecksummed = toChecksumAddress(addr)
 
-    const areEqualChecksummed = await addressValidator.compareAddressWithSigner.call(messageHash, signature, addrChecksummed)
+    const areEqualChecksummed = await addressValidator.compareAddressWithSigner(messageHash, signature, addrChecksummed)
     expect(areEqualChecksummed).to.be.true
   })
 })

@@ -3,7 +3,7 @@ import { NetworkSimulatingProvider } from '../../src/common/dev/NetworkSimulatin
 import { HttpProvider } from 'web3-core'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import ContractInteractor from '../../src/common/ContractInteractor'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
@@ -44,8 +44,8 @@ contract('Network Simulation for Relay Server', function (accounts) {
       const gaslessAccount: AccountKeypair = await getGaslessAccount()
 
       const SmartWallet = artifacts.require('SmartWallet')
-      const sWalletTemplate = await SmartWallet.new()
-      const factory = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate = await SmartWallet.new()
+      const factory = await createSmartWalletFactory(smartWalletTemplate)
       const smartWallet = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, (await getTestingEnvironment()).chainId)
 
       env.relayClient.accountManager.addAccount(gaslessAccount)

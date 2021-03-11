@@ -6,7 +6,7 @@ import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN } from 'web3-utils'
 
-import { IVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '../../types/truffle-contracts'
+import { IRelayVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '../../types/truffle-contracts'
 
 import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../common/ContractInteractor'
 import { Address } from '../relayclient/types/Aliases'
@@ -162,7 +162,7 @@ export class RelayServer extends EventEmitter {
       throw new Error('Invalid verifier')
     }
 
-    let verifierContract: IVerifierInstance | IDeployVerifierInstance
+    let verifierContract: IRelayVerifierInstance | IDeployVerifierInstance
     try {
       if (this.isDeployRequest(req)) {
         verifierContract = await this.contractInteractor._createDeployVerifier(verifier)
@@ -191,9 +191,9 @@ export class RelayServer extends EventEmitter {
 
     try {
       if (this.isDeployRequest(req)) {
-        await (verifierContract as IDeployVerifierInstance).contract.methods.preRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IDeployVerifierInstance).contract.methods.verifyRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
       } else {
-        await (verifierContract as IVerifierInstance).contract.methods.preRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IRelayVerifierInstance).contract.methods.verifyRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
       }
     } catch (e) {
       const error = e as Error
@@ -337,7 +337,7 @@ export class RelayServer extends EventEmitter {
   /***
    * initialize data from trusted verifiers.
    * "Trusted" verifiers means that:
-   * - we trust preRelayedCall to be consistent: off-chain call and on-chain calls should either both succeed
+   * - we trust verifyRelayedCall to be consistent: off-chain call and on-chain calls should either both succeed
    *    or both revert.
    *
    * @param verifiers list of trusted verifiers addresses

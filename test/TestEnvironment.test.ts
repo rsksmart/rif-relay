@@ -1,13 +1,13 @@
 import { TestEnvironment, TestEnvironmentInfo } from '../src/relayclient/TestEnvironment'
 import { HttpProvider } from 'web3-core'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { TestRecipientInstance, ProxyFactoryInstance, TestTokenInstance } from '../types/truffle-contracts'
+import { TestRecipientInstance, SmartWalletFactoryInstance, TestTokenInstance } from '../types/truffle-contracts'
 import { getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { toHex } from 'web3-utils'
 
 const TestRecipient = artifacts.require('TestRecipient')
-const ProxyFactory = artifacts.require('ProxyFactory')
+const SmartWalletFactory = artifacts.require('SmartWalletFactory')
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
 const TestToken = artifacts.require('TestToken')
@@ -44,7 +44,7 @@ contract('TestEnvironment', function (accounts) {
 
     it('should relay using relayTransaction', async () => {
       const sender = await getGaslessAccount()
-      const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
+      const smartWalletFactory: SmartWalletFactoryInstance = await SmartWalletFactory.at(testEnvironment.deploymentResult.smartWalletFactoryAddress)
       const sr: TestRecipientInstance = await TestRecipient.new()
 
       testEnvironment.relayProvider.relayClient.accountManager.addAccount(sender)
@@ -60,12 +60,12 @@ contract('TestEnvironment', function (accounts) {
         tokenGas: '0',
         recoverer: constants.ZERO_ADDRESS,
         index: '0',
-        callForwarder: testEnvironment.deploymentResult.factoryAddress,
+        callForwarder: testEnvironment.deploymentResult.smartWalletFactoryAddress,
         callVerifier: testEnvironment.deploymentResult.deployVerifierAddress,
         clientId: '1'
       })
 
-      const wallet = await proxyFactory.getSmartWalletAddress(sender.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, '0')
+      const wallet = await smartWalletFactory.getSmartWalletAddress(sender.address, constants.ZERO_ADDRESS, '0')
       const ret = await testEnvironment.relayProvider.relayClient.relayTransaction({
         from: sender.address,
         to: sr.address,
@@ -107,7 +107,7 @@ contract('TestEnvironment', function (accounts) {
 
     it('should send relayed transaction through RelayProvider', async () => {
       const sender = await getGaslessAccount()
-      const proxyFactory: ProxyFactoryInstance = await ProxyFactory.at(testEnvironment.deploymentResult.factoryAddress)
+      const smartWalletFactory: SmartWalletFactoryInstance = await SmartWalletFactory.at(testEnvironment.deploymentResult.smartWalletFactoryAddress)
       testEnvironment.relayProvider.addAccount(sender)
 
       const sr: TestRecipientInstance = await TestRecipient.new()
@@ -122,12 +122,13 @@ contract('TestEnvironment', function (accounts) {
         tokenGas: '0',
         recoverer: constants.ZERO_ADDRESS,
         index: '0',
-        callForwarder: proxyFactory.address,
+        isSmartWalletDeploy: true,
+        callForwarder: smartWalletFactory.address,
         callVerifier: testEnvironment.deploymentResult.deployVerifierAddress,
         clientId: '1'
       })
 
-      const wallet = await proxyFactory.getSmartWalletAddress(sender.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, '0')
+      const wallet = await smartWalletFactory.getSmartWalletAddress(sender.address, constants.ZERO_ADDRESS, '0')
 
       // @ts-ignore
       TestRecipient.web3.setProvider(testEnvironment.relayProvider)

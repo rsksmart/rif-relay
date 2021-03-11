@@ -2,7 +2,7 @@ import {
   DeployVerifierInstance,
   RelayVerifierInstance,
   TestTokenInstance,
-  ProxyFactoryInstance,
+  SmartWalletFactoryInstance,
   SmartWalletInstance,
   TestVerifiersInstance
 } from '../types/truffle-contracts'
@@ -10,9 +10,9 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
-import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
+import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../src/common/EIP712/RelayRequest'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32 } from './TestUtils'
+import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
 import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
@@ -34,15 +34,13 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
   let deployVerifier: DeployVerifierInstance
   let token: TestTokenInstance
   let template: SmartWalletInstance
-  let factory: ProxyFactoryInstance
+  let factory: SmartWalletFactoryInstance
 
   let testVerifiers: TestVerifiersInstance
   let expectedAddress: Address
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string
-  const logicAddress = constants.ZERO_ADDRESS
-  const initParams = '0x'
 
   const recoverer = constants.ZERO_ADDRESS
   const index = '0'
@@ -52,7 +50,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     token = await TestToken.new()
     template = await SmartWallet.new()
 
-    factory = await createProxyFactory(template)
+    factory = await createSmartWalletFactory(template)
 
     deployVerifier = await DeployVerifier.new(factory.address, { from: verifierOwner })
     testVerifiers = await TestVerifiers.new(deployVerifier.address)
@@ -63,8 +61,8 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     relayRequestData = {
       request: {
         relayHub: relayHub,
-        to: logicAddress,
-        data: initParams,
+        to: constants.ZERO_ADDRESS,
+        data: '0x',
         from: ownerAddress,
         nonce: senderNonce,
         value: '0',
@@ -81,16 +79,16 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
         domainSeparator: '0x'
       }
     }
-    // we mint tokens to the sender,
-    expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress,
-      soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+
+    // we mint tokens to the sender
+    expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
     await token.mint(tokensPaid + 4, expectedAddress)
   })
 
   it('Should not fail on checks of preRelayCall', async function () {
     await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
-    const { logs } = await testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
+    const { logs } = await testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub })
 
     expectEvent.inLogs(logs, 'Accepted', {
       tokenAmount: new BN(tokensPaid),
@@ -105,9 +103,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
       { t: 'address', v: recoverer },
-      { t: 'address', v: logicAddress },
-      { t: 'uint256', v: index },
-      { t: 'bytes', v: initParams }// Init params is empty
+      { t: 'uint256', v: index }
     ) ?? ''
 
     const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
@@ -115,18 +111,16 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     const signature = signingKey.signDigest(toSignAsBinaryArray)
     const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-    const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-      index, initParams, signatureCollapsed)
+    const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer,
+      index, signatureCollapsed)
 
     relayRequestData.request.from = ownerAddress
-    relayRequestData.request.to = logicAddress
-    relayRequestData.request.data = initParams
+    relayRequestData.request.to = constants.ZERO_ADDRESS
+    relayRequestData.request.data = '0x'
 
     const salt = web3.utils.soliditySha3(
       { t: 'address', v: ownerAddress },
       { t: 'address', v: recoverer },
-      { t: 'address', v: logicAddress },
-      { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
       { t: 'uint256', v: index }
     ) ?? ''
 
@@ -139,7 +133,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     })
 
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'Address already created!')
   })
 
@@ -151,14 +145,14 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     relayRequestData.request.data = '0x01'
 
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'Token contract not allowed'
     )
   })
@@ -171,7 +165,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
     testVerifiers = await TestVerifiers.new(deployVerifier.address)
 
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'Invalid factory'
     )
   })
@@ -183,7 +177,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
   let relayVerifier: RelayVerifierInstance
   let token: TestTokenInstance
   let relayRequestData: RelayRequest
-  let factory: ProxyFactoryInstance
+  let factory: SmartWalletFactoryInstance
   let testVerifiers: TestVerifiersInstance
 
   const senderPrivateKey = toBuffer(bytes32(1))
@@ -198,7 +192,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     token = await TestToken.new()
     template = await SmartWallet.new()
 
-    factory = await createProxyFactory(template)
+    factory = await createSmartWalletFactory(template)
 
     relayVerifier = await RelayVerifier.new(factory.address, { from: verifierOwner })
     testVerifiers = await TestVerifiers.new(relayVerifier.address)
@@ -238,7 +232,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
   it('Should not fail on checks of preRelayCall', async function () {
     await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     // run method
-    const { logs } = await testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub })
+    const { logs } = await testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub })
     // All checks should pass
 
     expectEvent.inLogs(logs, 'Accepted', {
@@ -252,14 +246,14 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     relayRequestData.relayData.callForwarder = other
     // run method
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'Token contract not allowed'
     )
   })
@@ -272,7 +266,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     await token.mint(tokensPaid + 4, token.address)
     // run method
     await expectRevert.unspecified(
-      testVerifiers.preRelayedCall(relayRequestData, '0x00', '0x00', 6, { from: relayHub }),
+      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'SW different to template'
     )
   })

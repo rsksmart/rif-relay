@@ -6,14 +6,14 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../factory/SmartWalletFactory.sol";
+import "../factory/CustomSmartWalletFactory.sol";
 import "../interfaces/IDeployVerifier.sol";
 import "../interfaces/EnvelopingTypes.sol";
 
 /**
  * A Verifier to be used on deploys.
  */
-contract DeployVerifier is IDeployVerifier, Ownable {
+contract DeployVerifierCustomWallet is IDeployVerifier, Ownable {
 
     address private factory;
     mapping (address => bool) public tokens;
@@ -39,10 +39,12 @@ contract DeployVerifier is IDeployVerifier, Ownable {
         require(tokens[relayRequest.request.tokenContract], "Token contract not allowed");
         require(relayRequest.relayData.callForwarder == factory, "Invalid factory");
 
-        address contractAddr = SmartWalletFactory(relayRequest.relayData.callForwarder)
+        address contractAddr = CustomSmartWalletFactory(relayRequest.relayData.callForwarder)
             .getSmartWalletAddress(
             relayRequest.request.from, 
             relayRequest.request.recoverer, 
+            relayRequest.request.to, 
+            keccak256(relayRequest.request.data), 
             relayRequest.request.index);
 
         require(!_isContract(contractAddr), "Address already created!");

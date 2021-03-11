@@ -180,7 +180,7 @@ export class RelayProvider implements HttpProvider {
    * @param logicInitParamsHash If customLogic was defined and it needs initialization params, they are passed as abi-encoded here, do not include the function selector
    * If there are no initParams, logicInitParamsHash must not be passed, or, since (hash of empty byte array = null) must be passed as null or as zero
    */
-  calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, customLogic: Address, walletIndex: number, bytecodeHash: string, logicInitParamsHash?: string): Address {
+  calculateCustomSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, customLogic: Address, walletIndex: number, bytecodeHash: string, logicInitParamsHash?: string): Address {
     const salt: string = web3.utils.soliditySha3(
       { t: 'address', v: ownerEOA },
       { t: 'address', v: recoverer },
@@ -199,7 +199,7 @@ export class RelayProvider implements HttpProvider {
     return toChecksumAddress('0x' + _data.slice(26, _data.length), this.config.chainId)
   }
 
-  calculateSimpleSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+  calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
     const salt: string = web3.utils.soliditySha3(
       { t: 'address', v: ownerEOA },
       { t: 'address', v: recoverer },

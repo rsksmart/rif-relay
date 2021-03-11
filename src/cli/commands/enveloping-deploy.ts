@@ -17,7 +17,6 @@ envelopingCommander(['n', 'f', 'm', 'g'])
   .option('--sWalletTemplate <address>', 'address of the Smart Wallet template to be instantiated by the factory deployed to the current network (optional; deploys new one by default)')
   .option('--deployVerifier <address>', 'address of the logic used to verify a deploy request (optional); deploys new one by default')
   .option('--relayVerifier <address>', 'address of the logic used to verify a relay request (optional); deploys new one by default')
-  .option('--stakeManager <address>', 'stakeManager')
   .option('--relayHub <address>', 'relayHub')
   .option('--penalizer <address>', 'penalizer')
   .option('--registry <address>', 'versionRegistry')
@@ -51,9 +50,8 @@ envelopingCommander(['n', 'f', 'm', 'g'])
     relayVerifierAddress: commander.relayVerifier,
     verbose: true,
     skipConfirmation: commander.skipConfirmation,
-    factoryAddress: commander.factory,
+    smartWalletFactoryAddress: commander.factory,
     smartWalletTemplateAddress: commander.sWalletTemplate,
-    stakeManagerAddress: commander.stakeManager,
     relayHubAddress: commander.relayHub,
     penalizerAddress: commander.penalizer,
     registryAddress: commander.registry,

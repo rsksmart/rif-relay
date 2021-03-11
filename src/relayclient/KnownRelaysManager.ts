@@ -9,7 +9,6 @@ import { EnvelopingConfig } from './Configurator'
 import { isInfoFromEvent, RelayInfoUrl, RelayRegisteredEventInfo } from './types/RelayRegisteredEventInfo'
 
 import ContractInteractor, {
-  HubUnauthorized,
   RelayServerRegistered,
   StakePenalized,
   StakeUnlocked
@@ -69,7 +68,7 @@ export class KnownRelaysManager {
     }
     const topics = addresses2topics(Array.from(relayManagers))
     const relayServerRegisteredEvents = await this.contractInteractor.getPastEventsForHub(topics, { fromBlock: 1 }, [RelayServerRegistered])
-    const relayManagerExitEvents = await this.contractInteractor.getPastEventsForStakeManager([StakeUnlocked, HubUnauthorized, StakePenalized], topics, { fromBlock: 1 })
+    const relayManagerExitEvents = await this.contractInteractor.getPastEventsForStakeManager([StakeUnlocked, StakePenalized], topics, { fromBlock: 1 })
 
     log.info(`== fetchRelaysAdded: found ${relayServerRegisteredEvents.length} unique RelayAdded events`)
 

@@ -13,12 +13,12 @@ import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { isRsk, Environment } from '../src/common/Environments'
 import {
   PenalizerInstance,
-  RelayHubInstance, StakeManagerInstance,
+  RelayHubInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  SmartWalletFactoryInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
+import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getRawTxOptions } from '../src/common/ContractInteractor'
@@ -26,13 +26,11 @@ import { getRawTxOptions } from '../src/common/ContractInteractor'
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
-const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const SmartWallet = artifacts.require('SmartWallet')
 
 contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
-  let stakeManager: StakeManagerInstance
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
   let env: Environment
@@ -77,39 +75,35 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         console.log(addr)
       }
 
-      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
-      relayHub = await deployHub(stakeManager.address, penalizer.address)
+      relayHub = await deployHub(penalizer.address)
       env = await getTestingEnvironment()
       const networkId = await web3.eth.net.getId()
       const chain = await web3.eth.net.getNetworkType()
       transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
 
-      await stakeManager.stakeForAddress(relayManager, 1000, {
+      await relayHub.stakeForAddress(relayManager, 1000, {
         from: relayOwner,
         value: ether('1'),
         gasPrice: '1'
       })
 
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
       await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
       // @ts-ignore
-      Object.keys(StakeManager.events).forEach(function (topic) {
+      Object.keys(RelayHub.events).forEach(function (topic) {
         // @ts-ignore
-        RelayHub.network.events[topic] = StakeManager.events[topic]
+        RelayHub.network.events[topic] = RelayHub.events[topic]
       })
       // @ts-ignore
-      Object.keys(StakeManager.events).forEach(function (topic) {
+      Object.keys(RelayHub.events).forEach(function (topic) {
         // @ts-ignore
-        Penalizer.network.events[topic] = StakeManager.events[topic]
+        Penalizer.network.events[topic] = RelayHub.events[topic]
       })
 
-      await stakeManager.stakeForAddress(reporterRelayManager, 1000, {
+      await relayHub.stakeForAddress(reporterRelayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
-
-      await stakeManager.authorizeHubByOwner(reporterRelayManager, relayHub.address, { from: relayOwner })
     })
 
     describe('penalization access control (relay manager only)', function () {
@@ -138,12 +132,11 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
     describe('penalizable behaviors', function () {
       describe('repeated relay nonce', function () {
         beforeEach('staking for relay', async function () {
-          await stakeManager.stakeForAddress(relayManager, 1000, {
+          await relayHub.stakeForAddress(relayManager, 1000, {
             value: stake,
             from: relayOwner,
             gasPrice: '1'
           })
-          await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
         })
 
         it('penalizes transactions with same nonce and different data', async function () {
@@ -252,13 +245,11 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           )
 
           // stake relayer again to attempt to penalize again with the same set of transactions. It must fail.
-          await stakeManager.stakeForAddress(relayManager, 1000, {
+          await relayHub.stakeForAddress(relayManager, 1000, {
             from: relayOwner,
             value: ether('1'),
             gasPrice: '1'
           })
-
-          await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner, gasPrice: '1' })
 
           await expectRevert.unspecified(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
@@ -375,8 +366,8 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
     async function getSmartWalletAddress (): Promise<SmartWalletInstance> {
       const gaslessAccount: AccountKeypair = await getGaslessAccount()
 
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(smartWalletTemplate)
       const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
 
       return smartWallet
@@ -387,8 +378,8 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
   // emitted event and penalization reward transfer. Returns the transaction receipt.
   async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
     const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
-    const stakeManagerBalanceTracker = await balance.tracker(stakeManager.address)
-    const stakeInfo = await stakeManager.stakes(relayManager)
+    const stakeManagerBalanceTracker = await balance.tracker(relayHub.address)
+    const stakeInfo = await relayHub.stakes(relayManager)
     // @ts-ignore (names)
     const stake = stakeInfo.stake
     const expectedReward = stake.divn(2)

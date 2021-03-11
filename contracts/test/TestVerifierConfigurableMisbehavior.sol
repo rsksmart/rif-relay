@@ -41,17 +41,15 @@ contract TestVerifierConfigurableMisbehavior is TestVerifierEverythingAccepted {
         expensiveGasLimitsIterations = val;
     }
 
-    function preRelayedCall(
+    function verifyRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
         EnvelopingTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint256 maxPossibleGas
+        bytes calldata signature
     )
     external
     override
     returns (bytes memory) {
-        (signature, approvalData, maxPossibleGas);
+        (signature, relayRequest);
         if (overspendAcceptGas) {
             uint i = 0;
             while (true) {
@@ -66,22 +64,6 @@ contract TestVerifierConfigurableMisbehavior is TestVerifierEverythingAccepted {
         }
         return ("");
     }
-
-    function postRelayedCall(
-        bytes calldata context,
-        bool success,
-        EnvelopingTypes.RelayData calldata relayData
-    )
-    external
-    override
-    {
-        (context, success, relayData);
-
-        if (revertPostRelayCall) {
-            revert("revertPreRelayCall: Reverting");
-        }
-    }
-
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}

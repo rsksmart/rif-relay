@@ -9,39 +9,23 @@ contract TestVerifierVariableGasLimits is TestVerifierEverythingAccepted {
     string public override versionVerifier = "2.0.1+enveloping.test-vgl.iverifier";
 
     event SampleRecipientPreCallWithValues(
-        uint256 gasleft,
-        uint256 maxPossibleGas
+        uint256 gasleft
     );
 
     event SampleRecipientPostCallWithValues(
         uint256 gasleft
     );
 
-    function preRelayedCall(
+    function verifyRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
         EnvelopingTypes.RelayRequest calldata relayRequest,
-        bytes calldata signature,
-        bytes calldata approvalData,
-        uint256 maxPossibleGas
+        bytes calldata signature
     )
     external
     override
     returns (bytes memory) {
-        (signature, approvalData);
-        emit SampleRecipientPreCallWithValues(
-            gasleft(), maxPossibleGas);
+        (signature, relayRequest);
+        emit SampleRecipientPreCallWithValues(gasleft());
         return ("");
-    }
-
-    function postRelayedCall(
-        bytes calldata context,
-        bool success,
-        EnvelopingTypes.RelayData calldata relayData
-    )
-    external
-    override
-    {
-        (context, success, relayData);
-        emit SampleRecipientPostCallWithValues(gasleft());
     }
 }

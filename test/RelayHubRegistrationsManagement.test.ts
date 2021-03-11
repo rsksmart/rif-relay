@@ -1,14 +1,13 @@
 import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
+import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
 import {
   PenalizerInstance,
-  RelayHubInstance,
-  StakeManagerInstance
+  RelayHubInstance
 } from '../types/truffle-contracts'
 import { deployHub } from './TestUtils'
 
-const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 
 contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, relayWorker1, relayWorker2, relayWorker3]) {
@@ -17,13 +16,25 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   const relayUrl = 'http://new-relay.com'
 
   let relayHub: RelayHubInstance
-  let stakeManager: StakeManagerInstance
   let penalizer: PenalizerInstance
 
+  const maxWorkerCount = 3
+  const gasOverhead = 1000
+  const minimumEntryDepositValue = ether('1').toString()
+  const minimumStake = ether('1').toString()
+  const minimumUnstakeDelay = 50
+
+  const hubConfig: Partial<RelayHubConfiguration> = {
+    maxWorkerCount,
+    gasOverhead,
+    minimumEntryDepositValue,
+    minimumStake,
+    minimumUnstakeDelay
+  }
+
   beforeEach(async function () {
-    stakeManager = await StakeManager.new(0)
     penalizer = await Penalizer.new()
-    relayHub = await deployHub(stakeManager.address, penalizer.address)
+    relayHub = await deployHub(penalizer.address, hubConfig)
   })
 
   context('without stake for relayManager', function () {
@@ -36,13 +47,12 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
     })
     context('after stake unlocked for relayManager', function () {
       beforeEach(async function () {
-        await stakeManager.stakeForAddress(relayManager, 2000, {
+        await relayHub.stakeForAddress(relayManager, 2000, {
           value: ether('2'),
           from: relayOwner
         })
-        await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
         await relayHub.addRelayWorkers([relayWorker1], { from: relayManager })
-        await stakeManager.unauthorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
+        await relayHub.unlockStake(relayManager, { from: relayOwner })
       })
 
       it('should not allow relayManager to register a relay server', async function () {
@@ -55,11 +65,10 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
   context('with stake for relayManager and no active workers added', function () {
     beforeEach(async function () {
-      await stakeManager.stakeForAddress(relayManager, 2000, {
+      await relayHub.stakeForAddress(relayManager, 2000, {
         value: ether('2'),
         from: relayOwner
       })
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
     })
 
     it('should not allow relayManager to register a relay server', async function () {
@@ -88,11 +97,10 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
   context('with stake for relay manager and active relay workers', function () {
     beforeEach(async function () {
-      await stakeManager.stakeForAddress(relayManager, 2000, {
+      await relayHub.stakeForAddress(relayManager, 2000, {
         value: ether('2'),
         from: relayOwner
       })
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub.address, { from: relayOwner })
       await relayHub.addRelayWorkers([relayWorker1], { from: relayManager })
     })
 

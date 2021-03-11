@@ -101,7 +101,7 @@ run_batch \
     test/HttpWrapper.test.ts \
     test/KeyManager.test.ts \
     test/PaymasterCommitment.test.ts \
-    test/ProxyFactory.test.ts
+    test/WalletFactory.test.ts
 
 # Test_Group_4
 run_batch \
