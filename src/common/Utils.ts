@@ -251,7 +251,7 @@ export class EnvelopingUtils {
   relayWorkerAddress: Address
   dependencies: EnvelopingDependencies
   private initialized: boolean
-  
+
   constructor (_config: EnvelopingConfig, _web3: Web3, _relayWorkerAddress: Address) {
     this.config = _config
     this.initialized = false
@@ -259,7 +259,7 @@ export class EnvelopingUtils {
     this.relayWorkerAddress = _relayWorkerAddress
   }
 
-  async _init() : Promise<void> {
+  async _init (): Promise<void> {
     if (!this.initialized) {
       await this.dependencies.contractInteractor.init()
       this.initialized = true
@@ -268,14 +268,14 @@ export class EnvelopingUtils {
     }
   }
 
-  async createDeployRequest(from: Address, gasLimit: IntString, tokenContract:  Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
-    const deployRequest : DeployRequest = {
+  async createDeployRequest (from: Address, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
+    const deployRequest: DeployRequest = {
       request: {
       relayHub: this.config.relayHubAddress,
       from: from,
       to: zeroAddr,
       value: '0',
-      gas: gasLimit, //overhead (cte) + fee + (estimateDeploy * 1.1)
+      gas: gasLimit, // overhead (cte) + fee + (estimateDeploy * 1.1)
       nonce: (await this.getFactoryNonce(this.config.proxyFactoryAddress, from)).toString(),
       data: '0x',
       tokenContract: tokenContract,
@@ -283,7 +283,7 @@ export class EnvelopingUtils {
       tokenGas: tokenGas,
       recoverer: recoverer ?? constants.ZERO_ADDRESS,
       index: index ?? '0'
-    }, 
+    },
     relayData: {
       gasPrice: gasPrice ?? '0',
       relayWorker: this.relayWorkerAddress,
@@ -292,37 +292,37 @@ export class EnvelopingUtils {
       domainSeparator: getDomainSeparatorHash(this.config.proxyFactoryAddress, this.config.chainId)
     }
   }
+    
+  return deployRequest
+  }
 
-    return deployRequest
-  }
-  
-  async createRelayRequest(from: Address, to: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract:  Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString): Promise<RelayRequest> {
-    const relayRequest : RelayRequest = {
+  async createRelayRequest (from: Address, to: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString): Promise<RelayRequest> {
+    const relayRequest: RelayRequest = {
       request: {
-      relayHub: this.config.relayHubAddress,
-      from: from,
-      to: to,
-      data: data,
-      value: '0',
-      gas: gasLimit,
-      nonce: (await this.getSenderNonce(this.config.forwarderAddress)).toString(),
-      tokenContract: tokenContract,
-      tokenAmount: tokenAmount,
-      tokenGas: tokenGas
-    }, 
-    relayData: {
-      gasPrice: gasPrice ?? '0',
-      relayWorker: this.relayWorkerAddress,
-      callForwarder: this.config.forwarderAddress,
-      callVerifier: this.config.relayVerifierAddress,
-      domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+        relayHub: this.config.relayHubAddress,
+        from: from,
+        to: to,
+        data: data,
+        value: '0',
+        gas: gasLimit,
+        nonce: (await this.getSenderNonce(this.config.forwarderAddress)).toString(),
+        tokenContract: tokenContract,
+        tokenAmount: tokenAmount,
+        tokenGas: tokenGas
+      },
+      relayData: {
+        gasPrice: gasPrice ?? '0',
+        relayWorker: this.relayWorkerAddress,
+        callForwarder: this.config.forwarderAddress,
+        callVerifier: this.config.relayVerifierAddress,
+        domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+      }
     }
-  }
 
     return relayRequest
   }
 
-  signDeployRequest(privKey : Buffer, request : DeployRequest) : PrefixedHexString {
+  signDeployRequest (privKey: Buffer, request: DeployRequest): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
         this.config.chainId,
@@ -333,21 +333,21 @@ export class EnvelopingUtils {
     return this.signAndVerify(request.request.from, privKey, dataToSign)
   }
 
-  signRelayRequest(privKey : Buffer, request : RelayRequest) : PrefixedHexString {
+  signRelayRequest (privKey: Buffer, request: RelayRequest): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedRequestData(
-        this.config.chainId,
-        this.config.forwarderAddress,
-        cloneRequest
+      this.config.chainId,
+      this.config.forwarderAddress,
+      cloneRequest
     )
 
     return this.signAndVerify(request.request.from, privKey, dataToSign)
   }
 
-  signAndVerify(from: Address, privKey: Buffer, dataToSign: TypedRequestData) : PrefixedHexString {
+  signAndVerify (from: Address, privKey: Buffer, dataToSign: TypedRequestData): PrefixedHexString {
     // @ts-ignore
     const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
-
+  
     // @ts-ignore
     const rec = sigUtil.recoverTypedSignature_v4({
       data: dataToSign,
@@ -358,11 +358,11 @@ export class EnvelopingUtils {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new Error(`Internal exception: signature is not correct: sender=${from}, recovered=${rec}`)
     }
-    
+
     return signature
   }
 
-  async generateDeployTransactionRequest(signature : PrefixedHexString, deployRequest: DeployRequest) : Promise<DeployTransactionRequest> {
+  async generateDeployTransactionRequest (signature: PrefixedHexString, deployRequest: DeployRequest): Promise<DeployTransactionRequest> {
     const request: DeployTransactionRequest = {
       relayRequest: deployRequest,
       metadata: await this.generateMetadata(signature)
@@ -371,7 +371,7 @@ export class EnvelopingUtils {
     return request
   }
 
-  async generateRelayTransactionRequest(signature : PrefixedHexString, relayRequest: RelayRequest) : Promise<RelayTransactionRequest> {
+  async generateRelayTransactionRequest (signature: PrefixedHexString, relayRequest: RelayRequest): Promise<RelayTransactionRequest> {
     const request: RelayTransactionRequest = {
       relayRequest,
       metadata: await this.generateMetadata(signature)
@@ -380,7 +380,7 @@ export class EnvelopingUtils {
     return request
   }
 
-  async generateMetadata(signature : PrefixedHexString) : Promise<RelayMetadata> {
+  async generateMetadata (signature: PrefixedHexString): Promise<RelayMetadata> {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature: signature,
@@ -394,21 +394,21 @@ export class EnvelopingUtils {
   async getSenderNonce (sWallet: Address): Promise<IntString> {
     return await this.dependencies.contractInteractor.getSenderNonce(sWallet)
   }
-​
+
   async getFactoryNonce (factoryAddr: Address, from: Address): Promise<IntString> {
     return await this.dependencies.contractInteractor.getFactoryNonce(factoryAddr, from)
   }
 
-  async sendTransaction(relayUrl : string, request : DeployTransactionRequest|RelayTransactionRequest) : Promise<RelayingAttempt> {
+  async sendTransaction (relayUrl: string, request: DeployTransactionRequest|RelayTransactionRequest): Promise<RelayingAttempt> {
     const httpClient = new HttpClient(new HttpWrapper(), {})
     try {
-        const hexTransaction = await httpClient.relayTransaction(relayUrl, request)
-        console.log(`hexTrx is ${hexTransaction}`)
-        const transaction = new Transaction(hexTransaction, this.dependencies.contractInteractor.getRawTxOptions())
-        const txHash: string = transaction.hash(true).toString('hex')
-        const hash = `0x${txHash}`
-        console.log('tx hash: '+ hash)
-        return { transaction }
+      const hexTransaction = await httpClient.relayTransaction(relayUrl, request)
+      console.log(`hexTrx is ${hexTransaction}`)
+      const transaction = new Transaction(hexTransaction, this.dependencies.contractInteractor.getRawTxOptions())
+      const txHash: string = transaction.hash(true).toString('hex')
+      const hash = `0x${txHash}`
+      console.log('tx hash: ' + hash)
+      return { transaction }
     } catch (error) {
         console.log(`GOT ERROR: ${error}`)
         return { error }

@@ -1,16 +1,15 @@
-import { ChildProcessWithoutNullStreams } from "child_process"
-import { BN, toBuffer } from "ethereumjs-util"
-import { configure, EnvelopingConfig } from "../Configurator"
-import { HttpProvider } from "web3-core"
-import { EnvelopingUtils } from "../src/common/Utils"
-import { AccountKeypair } from "../src/relayclient/AccountManager"
-import { Address } from "../src/relayclient/types/Aliases"
-import { ProxyFactoryInstance, RelayHubInstance, SmartWalletInstance, StakeManagerInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from "../types/truffle-contracts"
-import { ServerTestEnvironment } from "./relayserver/ServerTestEnvironment"
-import { createProxyFactory, deployHub, getExistingGaslessAccount, getTestingEnvironment, startRelay, stopRelay } from "./TestUtils"
-import { constants } from "../src/common/Constants"
-import { randomHex, soliditySha3Raw } from "web3-utils"
-import { expectEvent } from "@openzeppelin/test-helpers"
+import { ChildProcessWithoutNullStreams } from 'child_process'
+import { BN, toBuffer } from 'ethereumjs-util'
+import { configure, EnvelopingConfig } from '../Configurator'
+import { HttpProvider } from 'web3-core'
+import { EnvelopingUtils } from '../src/common/Utils'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { Address } from '../src/relayclient/types/Aliases'
+import { ProxyFactoryInstance, RelayHubInstance, SmartWalletInstance, StakeManagerInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
+import { createProxyFactory, deployHub, getExistingGaslessAccount, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
+import { constants } from '../src/common/Constants'
+import { randomHex, soliditySha3Raw } from 'web3-utils'
+import { expectEvent } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestToken = artifacts.require('TestToken')
@@ -22,9 +21,8 @@ const ProxyFactory = artifacts.require('ProxyFactory')
 
 const localhost = 'http://localhost:8090'
 
-contract('Enveloping utils', (accounts) => {
+contract('Enveloping utils', () => {
     let enveloping: EnvelopingUtils
-    let env: ServerTestEnvironment
     let tokenContract: TestTokenInstance
     let relayHub: RelayHubInstance
     let stakeManager: StakeManagerInstance
@@ -44,7 +42,6 @@ contract('Enveloping utils', (accounts) => {
 
     const gasLimit = '160000'
 
-
     before(async () => {
         gaslessAccount = await getExistingGaslessAccount()
         fundedAccount = {
@@ -59,10 +56,9 @@ contract('Enveloping utils', (accounts) => {
         deployVerifier = await TestDeployVerifierEverythingAccepted.new()
         factory = await createProxyFactory(sWalletTemplate)
         chainId = (await getTestingEnvironment()).chainId
-        env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
         tokenContract = await TestToken.new()
         relayHub = await deployHub(stakeManager.address)
-        index =  randomHex(32)
+        index = randomHex(32)
         swAddress = await factory.getSmartWalletAddress(gaslessAccount.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, soliditySha3Raw({ t: 'bytes', v: '0x' }), index)
 
         const partialConfig: Partial<EnvelopingConfig> =
@@ -72,7 +68,7 @@ contract('Enveloping utils', (accounts) => {
             chainId: chainId,
             relayVerifierAddress: verifier.address,
             deployVerifierAddress: deployVerifier.address,
-            preferredRelays:['http://localhost:8090'],
+            preferredRelays: ['http://localhost:8090'],
             forwarderAddress: swAddress
         }
         config = configure(partialConfig)
@@ -97,7 +93,6 @@ contract('Enveloping utils', (accounts) => {
         await stopRelay(relayproc)
       })
 
-    
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
         let expectedCode = await web3.eth.getCode(swAddress)
         assert.equal('0x00', expectedCode)
@@ -107,7 +102,7 @@ contract('Enveloping utils', (accounts) => {
         const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
         const txDeployHash = sentDeployTransaction.transaction?.hash(true).toString('hex')
         await expectEvent.inTransaction(txDeployHash, ProxyFactory, 'Deployed')
-        
+
         const deployedCode = await web3.eth.getCode(swAddress)
         expectedCode = await factory.getCreationBytecode()
         expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
@@ -119,7 +114,7 @@ contract('Enveloping utils', (accounts) => {
         const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
         const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
         const txRelayHash = sentRelayTransaction.transaction?.hash(true).toString('hex')
-        if(txRelayHash != undefined) {
+        if (txRelayHash !== undefined) {
             await expectEvent.inTransaction(txRelayHash, TestRecipient, 'SampleRecipientEmitted', {
                 message: 'hello world'
             })
@@ -134,14 +129,13 @@ contract('Enveloping utils', (accounts) => {
         await tokenContract.mint('100', swAddress)
         const previousBalance = await tokenContract.balanceOf(workerAddress)
 
-        
         const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, tokenContract.address, '10', '50000', '1000000000', index)
         const deploySignature = enveloping.signDeployRequest(gaslessAccount.privateKey, deployRequest)
         const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
         const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
         const txDeployHash = sentDeployTransaction.transaction?.hash(true).toString('hex')
         await expectEvent.inTransaction(txDeployHash, ProxyFactory, 'Deployed')
-       
+
         const deployedCode = await web3.eth.getCode(swAddress)
         expectedCode = await factory.getCreationBytecode()
         expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
@@ -157,7 +151,7 @@ contract('Enveloping utils', (accounts) => {
         const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
         const sentTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
         const txRelayHash = sentTransaction.transaction?.hash(true).toString('hex')
-        if(txRelayHash != undefined) {
+        if(txRelayHash !== undefined) {
             const finalBalance = await tokenContract.balanceOf(workerAddress)
             await expectEvent.inTransaction(txRelayHash, TestRecipient, 'SampleRecipientEmitted', {
                 message: 'hello world'
@@ -168,6 +162,3 @@ contract('Enveloping utils', (accounts) => {
         }
     })
 })
-
-
-
