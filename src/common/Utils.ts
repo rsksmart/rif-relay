@@ -246,6 +246,10 @@ export function boolString (bool: boolean): string {
   return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
 }
 
+export interface SignatureProvider {
+  sign: (dataToSign: TypedRequestData, privKey?: Buffer) => PrefixedHexString
+  verifySign: (signature: PrefixedHexString, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest) => boolean
+}
 export class EnvelopingUtils {
   config: EnvelopingConfig
   relayWorkerAddress: Address
@@ -322,18 +326,17 @@ export class EnvelopingUtils {
     return relayRequest
   }
 
-  signDeployRequest (privKey: Buffer, request: DeployRequest): PrefixedHexString {
+  signDeployRequest (signatureProvider: SignatureProvider, request: DeployRequest, privKey?: Buffer): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
       this.config.chainId,
       this.config.proxyFactoryAddress,
       cloneRequest
     )
-
-    return this.signAndVerify(request.request.from, privKey, dataToSign)
+    return this.signAndVerify(signatureProvider, dataToSign, request, privKey)
   }
 
-  signRelayRequest (privKey: Buffer, request: RelayRequest): PrefixedHexString {
+  signRelayRequest (signatureProvider: SignatureProvider, request: RelayRequest, privKey?: Buffer): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedRequestData(
       this.config.chainId,
@@ -341,24 +344,14 @@ export class EnvelopingUtils {
       cloneRequest
     )
 
-    return this.signAndVerify(request.request.from, privKey, dataToSign)
+    return this.signAndVerify(signatureProvider, dataToSign, request, privKey)
   }
 
-  signAndVerify (from: Address, privKey: Buffer, dataToSign: TypedRequestData): PrefixedHexString {
-    // @ts-ignore
-    const signature = sigUtil.signTypedData_v4(privKey, { data: dataToSign })
-
-    // @ts-ignore
-    const rec = sigUtil.recoverTypedSignature_v4({
-      data: dataToSign,
-      sig: signature
-    })
-
-    if (!isSameAddress(from, rec)) {
-      // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-      throw new Error(`Internal exception: signature is not correct: sender=${from}, recovered=${rec}`)
+  signAndVerify (signatureProvider: SignatureProvider, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest, privKey?: Buffer): PrefixedHexString {
+    const signature = signatureProvider.sign(dataToSign, privKey)
+    if (!signatureProvider.verifySign(signature, dataToSign, request)) {
+      throw new Error('Internal exception: signature is not correct')
     }
-
     return signature
   }
 

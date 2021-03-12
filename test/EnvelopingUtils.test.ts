@@ -1,14 +1,18 @@
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { BN, toBuffer } from 'ethereumjs-util'
 import { configure, EnvelopingConfig } from '../Configurator'
-import { EnvelopingUtils } from '../src/common/Utils'
+import { EnvelopingUtils, isSameAddress, SignatureProvider } from '../src/common/Utils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { Address } from '../src/relayclient/types/Aliases'
+import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { ProxyFactoryInstance, RelayHubInstance, SmartWalletInstance, StakeManagerInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
 import { createProxyFactory, deployHub, getExistingGaslessAccount, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { randomHex, soliditySha3Raw } from 'web3-utils'
 import { expectEvent } from '@openzeppelin/test-helpers'
+import TypedRequestData from '../src/common/EIP712/TypedRequestData'
+import { PrefixedHexString } from 'ethereumjs-tx'
+import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import sigUtil from 'eth-sig-util'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestToken = artifacts.require('TestToken')
@@ -19,6 +23,7 @@ const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeploy
 const ProxyFactory = artifacts.require('ProxyFactory')
 
 const localhost = 'http://localhost:8090'
+const message = 'hello world'
 
 contract('Enveloping utils', () => {
   let enveloping: EnvelopingUtils
@@ -39,6 +44,45 @@ contract('Enveloping utils', () => {
   let swAddress: Address
   let index: string
 
+  const signatureProvider: SignatureProvider = {
+    sign: (dataToSign: TypedRequestData, privKey?: Buffer) => {
+      // @ts-ignore
+      return sigUtil.signTypedData_v4(privKey, { data: dataToSign })
+    },
+    verifySign: (signature: PrefixedHexString, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest) => {
+      // @ts-ignore
+      const rec = sigUtil.recoverTypedSignature_v4({
+        data: dataToSign,
+        sig: signature
+      })
+      return isSameAddress(request.request.from, rec)
+    }
+  }
+
+  const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
+    const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000', index)
+    const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest, gaslessAccount.privateKey)
+    const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
+    const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
+    return sentDeployTransaction.transaction?.hash(true).toString('hex')
+  }
+
+  const assertSmartWalletDeployedCorrectly = async function assertSmartWalletDeployedCorrectly (swAddress: Address): Promise<void> {
+    const deployedCode = await web3.eth.getCode(swAddress)
+    let expectedCode = await factory.getCreationBytecode()
+    expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
+    assert.equal(deployedCode, expectedCode)
+  }
+
+  const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
+    const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
+    const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000')
+    const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest, gaslessAccount.privateKey)
+    const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
+    const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
+    return sentRelayTransaction.transaction?.hash(true).toString('hex')
+  }
+
   const gasLimit = '160000'
 
   before(async () => {
@@ -47,7 +91,6 @@ contract('Enveloping utils', () => {
       privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),
       address: '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
     }
-
     testRecipient = await TestRecipient.new()
     stakeManager = await StakeManager.new(0)
     sWalletTemplate = await SmartWallet.new()
@@ -57,6 +100,9 @@ contract('Enveloping utils', () => {
     chainId = (await getTestingEnvironment()).chainId
     tokenContract = await TestToken.new()
     relayHub = await deployHub(stakeManager.address)
+  })
+
+  beforeEach(async () => {
     index = randomHex(32)
     swAddress = await factory.getSmartWalletAddress(gaslessAccount.address, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, soliditySha3Raw({ t: 'bytes', v: '0x' }), index)
 
@@ -70,6 +116,7 @@ contract('Enveloping utils', () => {
       preferredRelays: ['http://localhost:8090'],
       forwarderAddress: swAddress
     }
+
     config = configure(partialConfig)
     const serverData = await startRelay(relayHub.address, stakeManager, {
       stake: 1e18,
@@ -88,34 +135,22 @@ contract('Enveloping utils', () => {
     await enveloping._init()
   })
 
-  after(async function () {
+  afterEach(async function () {
     await stopRelay(relayproc)
   })
 
   it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
-    let expectedCode = await web3.eth.getCode(swAddress)
-    assert.equal('0x00', expectedCode)
-    const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, constants.ZERO_ADDRESS, '0', '0', '1000000000', index)
-    const deploySignature = enveloping.signDeployRequest(gaslessAccount.privateKey, deployRequest)
-    const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
-    const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
-    const txDeployHash = sentDeployTransaction.transaction?.hash(true).toString('hex')
+    const expectedInitialCode = await web3.eth.getCode(swAddress)
+    assert.equal('0x00', expectedInitialCode)
+
+    const txDeployHash = await deploySmartWallet(constants.ZERO_ADDRESS, '0', '0')
     await expectEvent.inTransaction(txDeployHash, ProxyFactory, 'Deployed')
+    await assertSmartWalletDeployedCorrectly(swAddress)
 
-    const deployedCode = await web3.eth.getCode(swAddress)
-    expectedCode = await factory.getCreationBytecode()
-    expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
-    assert.equal(deployedCode, expectedCode)
-
-    const encodedFunction = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
-    const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, constants.ZERO_ADDRESS, '0', '0', '1000000000')
-    const relaySignature = enveloping.signRelayRequest(gaslessAccount.privateKey, relayRequest)
-    const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
-    const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
-    const txRelayHash = sentRelayTransaction.transaction?.hash(true).toString('hex')
+    const txRelayHash = await relayTransaction(constants.ZERO_ADDRESS, '0', '0')
     if (txRelayHash !== undefined) {
       await expectEvent.inTransaction(txRelayHash, TestRecipient, 'SampleRecipientEmitted', {
-        message: 'hello world'
+        message: message
       })
     } else {
       assert.fail('Transacion has not been send or it threw an error')
@@ -123,39 +158,27 @@ contract('Enveloping utils', () => {
   })
 
   it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
-    let expectedCode = await web3.eth.getCode(swAddress)
-    assert.equal('0x00', expectedCode)
+    const expectedInitialCode = await web3.eth.getCode(swAddress)
+    const balanceTransfered = new BN(10)
+    assert.equal('0x00', expectedInitialCode)
     await tokenContract.mint('100', swAddress)
     const previousBalance = await tokenContract.balanceOf(workerAddress)
 
-    const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, tokenContract.address, '10', '50000', '1000000000', index)
-    const deploySignature = enveloping.signDeployRequest(gaslessAccount.privateKey, deployRequest)
-    const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
-    const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
-    const txDeployHash = sentDeployTransaction.transaction?.hash(true).toString('hex')
+    const txDeployHash = await deploySmartWallet(tokenContract.address, '10', '50000')
     await expectEvent.inTransaction(txDeployHash, ProxyFactory, 'Deployed')
 
-    const deployedCode = await web3.eth.getCode(swAddress)
-    expectedCode = await factory.getCreationBytecode()
-    expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
-    assert.equal(deployedCode, expectedCode)
-    const newBalance = await tokenContract.balanceOf(workerAddress)
-    console.log(newBalance.toNumber())
-    console.log(previousBalance.add(new BN(10)).toNumber())
-    assert.equal(newBalance.toNumber(), previousBalance.add(new BN(10)).toNumber())
+    await assertSmartWalletDeployedCorrectly(swAddress)
 
-    const encodedFunction = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
-    const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract.address, '10', '50000', '1000000000')
-    const relaySignature = enveloping.signRelayRequest(gaslessAccount.privateKey, relayRequest)
-    const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
-    const sentTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
-    const txRelayHash = sentTransaction.transaction?.hash(true).toString('hex')
+    const newBalance = await tokenContract.balanceOf(workerAddress)
+    assert.equal(newBalance.toNumber(), previousBalance.add(balanceTransfered).toNumber())
+
+    const txRelayHash = await relayTransaction(tokenContract.address, '10', '50000')
     if (txRelayHash !== undefined) {
       const finalBalance = await tokenContract.balanceOf(workerAddress)
       await expectEvent.inTransaction(txRelayHash, TestRecipient, 'SampleRecipientEmitted', {
         message: 'hello world'
       })
-      assert.equal(finalBalance.toNumber(), newBalance.add(new BN(10)).toNumber())
+      assert.equal(finalBalance.toNumber(), newBalance.add(balanceTransfered).toNumber())
     } else {
       assert.fail('Transacion has not been send')
     }
