@@ -41,5 +41,4 @@ library GsnUtils {
             revert(add(data,32), mload(data))
         }
     }
-
 }

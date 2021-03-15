@@ -44,7 +44,7 @@ contract TestDeployVerifierConfigurableMisbehavior is TestDeployVerifierEverythi
 
     function preRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
-        GsnTypes.DeployRequest calldata relayRequest,
+        EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -71,7 +71,7 @@ contract TestDeployVerifierConfigurableMisbehavior is TestDeployVerifierEverythi
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override

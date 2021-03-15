@@ -5,14 +5,13 @@ pragma experimental ABIEncoderV2;
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 import "./utils/RLPReader.sol";
-import "./utils/GsnUtils.sol";
 import "./utils/RSKAddrValidator.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
 contract Penalizer is IPenalizer{
 
-    string public override versionPenalizer = "2.0.1+opengsn.penalizer.ipenalizer";
+    string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     
     mapping(bytes32 => bool) public penalizedTransactions;
 

@@ -10,8 +10,8 @@ pragma experimental ABIEncoderV2;
 import "./utils/MinLibBytes.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
-import "./utils/GsnEip712Library.sol";
-import "./interfaces/GsnTypes.sol";
+import "./utils/Eip712Library.sol";
+import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
 import "./interfaces/IStakeManager.sol";
@@ -26,7 +26,7 @@ contract RelayHub is IRelayHub {
     uint256 public override maxWorkerCount;
     address override public penalizer;
     address override public stakeManager;
-    string public override versionHub = "2.0.1+opengsn.hub.irelayhub";
+    string public override versionHub = "2.0.1+enveloping.hub.irelayhub";
 
     // maps relay worker's address to its manager's address
     mapping(address => bytes32) public override workerToManager;
@@ -64,7 +64,6 @@ contract RelayHub is IRelayHub {
         emit RelayServerRegistered(msg.sender, baseRelayFee, pctRelayFee, url);
     }
 
-
     function disableRelayWorkers(address[] calldata relayWorkers) external override {
         //relay manager is msg.sender
         uint256 actualWorkerCount = workerCount[msg.sender];
@@ -76,7 +75,6 @@ contract RelayHub is IRelayHub {
         (bool succ,) = stakeManager.call(abi.encodeWithSelector(IStakeManager.requireManagerStaked.selector,
                 msg.sender,minimumStake,minimumUnstakeDelay));
         require(succ, "relay manager not staked" );
-
 
         bytes32 enabledWorker = bytes32(uint256(msg.sender) << 4) | 0x0000000000000000000000000000000000000000000000000000000000000001;
         bytes32 disabledWorker = bytes32(uint256(msg.sender) << 4);
@@ -114,8 +112,8 @@ contract RelayHub is IRelayHub {
         emit RelayWorkersAdded(relayManager, newRelayWorkers, workerCount[relayManager]);
     }
 
- function deployCall(
-        GsnTypes.DeployRequest calldata deployRequest,
+    function deployCall(
+        EnvelopingTypes.DeployRequest calldata deployRequest,
         bytes calldata signature    )
     external
     override
@@ -141,7 +139,7 @@ contract RelayHub is IRelayHub {
         require(deployRequest.relayData.gasPrice <= tx.gasprice, "Invalid gas price");
       
         
-        bool deploySuccess = GsnEip712Library.deploy(deployRequest, signature);          
+        bool deploySuccess = Eip712Library.deploy(deployRequest, signature);          
         
         if ( !deploySuccess ) {
             assembly {
@@ -150,10 +148,8 @@ contract RelayHub is IRelayHub {
         }
     }
 
-
-
     function relayCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature) 
     external override
     {
@@ -179,7 +175,7 @@ contract RelayHub is IRelayHub {
         bool forwarderSuccess;
         bytes memory relayedCallReturnValue;
         //use succ as relay call success variable
-        (forwarderSuccess, succ, relayedCallReturnValue) = GsnEip712Library.execute(relayRequest, signature);          
+        (forwarderSuccess, succ, relayedCallReturnValue) = Eip712Library.execute(relayRequest, signature);          
         
         if ( !forwarderSuccess ) {
             assembly {

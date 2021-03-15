@@ -43,7 +43,7 @@ contract TestVerifierConfigurableMisbehavior is TestVerifierEverythingAccepted {
 
     function preRelayedCall(
         /* solhint-disable-next-line no-unused-vars */
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -70,7 +70,7 @@ contract TestVerifierConfigurableMisbehavior is TestVerifierEverythingAccepted {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override

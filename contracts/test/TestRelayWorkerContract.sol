@@ -1,5 +1,5 @@
-/* solhint-disable avoid-tx-origin */
 // SPDX-License-Identifier:MIT
+/* solhint-disable avoid-tx-origin */
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
@@ -9,7 +9,7 @@ contract TestRelayWorkerContract {
 
     function relayCall(
         IRelayHub hub,
-        GsnTypes.RelayRequest memory relayRequest,
+        EnvelopingTypes.RelayRequest memory relayRequest,
         bytes memory signature)
     public
     {
@@ -18,7 +18,7 @@ contract TestRelayWorkerContract {
 
     function deployCall(
         IRelayHub hub,
-        GsnTypes.DeployRequest memory deployRequest,
+        EnvelopingTypes.DeployRequest memory deployRequest,
         bytes memory signature)
     public
     {

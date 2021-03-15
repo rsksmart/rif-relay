@@ -2,12 +2,10 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./GsnTypes.sol";
+import "./EnvelopingTypes.sol";
 import "./IBaseVerifier.sol";
 
 interface IDeployVerifier is IBaseVerifier {
-
-
     /**
      * Called by Relay to validate the parameters of the request
      *
@@ -21,12 +19,11 @@ interface IDeployVerifier is IBaseVerifier {
      *         the RelayHub will calculate the maximum possible amount of gas the user may be charged for.
      */
    function preRelayedCall(
-        GsnTypes.DeployRequest calldata relayRequest,
+        EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
     ) external returns (bytes memory context);
-
 
     /**
      * This method may be called by the relayer after the actual relayed function call.
@@ -40,6 +37,6 @@ interface IDeployVerifier is IBaseVerifier {
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     ) external;
 }

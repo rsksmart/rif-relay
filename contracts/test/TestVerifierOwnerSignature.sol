@@ -13,7 +13,7 @@ contract TestVerifierOwnerSignature is TestVerifierEverythingAccepted {
      * This demonstrates how dapps can provide an off-chain signatures to relayed transactions.
      */
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas

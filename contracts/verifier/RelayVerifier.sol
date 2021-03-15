@@ -39,7 +39,7 @@ contract RelayVerifier is BaseVerifier, IVerifier{
 
     /* solhint-disable no-unused-vars */
     function preRelayedCall(
-        GsnTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature,
         bytes calldata approvalData,
         uint256 maxPossibleGas
@@ -69,7 +69,7 @@ contract RelayVerifier is BaseVerifier, IVerifier{
     function postRelayedCall(
         bytes calldata context,
         bool success,
-        GsnTypes.RelayData calldata relayData
+        EnvelopingTypes.RelayData calldata relayData
     )
     external
     override

@@ -2,10 +2,8 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./GsnTypes.sol";
+import "./EnvelopingTypes.sol";
 
 interface IBaseVerifier {
-
     function versionVerifier() external view returns (string memory);
-
 }

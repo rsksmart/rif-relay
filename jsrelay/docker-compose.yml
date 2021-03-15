@@ -8,11 +8,11 @@ services:
       - '443:443'
     restart: always
     environment:
-      DOMAINS: '${HOST} -> http://gsn'
+      DOMAINS: '${HOST} -> http://enveloping'
       STAGE: 'production'
 
-  gsn:
-    image: opengsn/jsrelay:${DOCKERTAG}
+  enveloping:
+    image: enveloping/jsrelay:${DOCKERTAG}
     restart: always
     ports:
       - '8090:80' #needed for debugging without https frontend
