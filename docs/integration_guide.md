@@ -50,118 +50,61 @@ Another option is to use Enveloping through a Relay Provider. The latter wraps w
         onlyPreferredRelays: true //It will read the preferredRelays on the config.
     })
 ```
-### Example of deploying a Smart Wallet using Enveloping
 
-As we mentioned in the [documentation](), one advantage of the Enveloping's solution is the chance to have a token's wallet without deploying it. Only when a user wants to use her tokens, it needs to request the deployment of the smart wallet using a deploy request.
+## Using the Enveloping Utils as a library
 
+As we mentioned in the [documentation](), an advantage of the Enveloping's solution is the chance to have a token's wallet without deploying it. When a user needs to use her tokens, she needs to deploy the smart wallet using a deploy request. Thereby, when a gas-less account sent a transaction through Enveloping, they could use their smart wallet address to pay for the gas.
 
-```typescript
-from: this.smartWalletOwner,                  // EOA who will be the owner of this SmartWallet
-      to: ZERO_ADDR,                                // The SmartWallet will not have custom logic
-      callVerifier: DEPLOY_VERIFIER_ADDR,             // The verifier that will verify the transaction
-      factory: this.contracts.factory,              // The factory contract that will create the SmartWallet proxy
-      tokenContract: this.rifTokenContract.options.address, // The token the user will use to pay for the SmartWallet deploy 
-      tokenRecipient: DEPLOY_VERIFIER_ADDR,        // The deployment cost will be paid in tokens to this paymaster
-      tokenAmount: "0",                             // The user will no pay RIF tokens for the deployment
-      data: '0x',                                   // No initialization params for custom logic
-      index:index,                                 // Index that allows the user to create multiple SmartWallets
-      recoverer: ZERO_ADDR,                         // This SmartWallet instance will not hace recovery support,
-
-    const deployRequest: DeployRequest = {
-        request: {
-            relayHub: RELAY_HUB_ADDRESS,
-            to: PROXY_FACTORY_ADDRESS,  // The factory contract that will create the SmartWallet proxy
-            data: '0x', // No initialization parameters for custom logic
-            from: EOA_ADDRESS, // EOA who will be the owner of this SmartWallet
-            value: '0',
-            nonce: senderNonce, // const senderNonce = await factory.nonce(from)
-            gas: gasLimit,
-            tokenAmount: gsnTransactionDetails.tokenAmount ?? , //Amount of tokens paid for the deployment, can be 0 if the deploy is subsidized
-            tokenContract: gsnTransactionDetails.tokenContract ?? // The token the user will use to pay for the SmartWallet deploy 
-            recoverer: gsnTransactionDetails.recoverer ?? constants.ZERO_ADDRESS, //Optional recoverer account/contract, can be address(0)
-            index: gsnTransactionDetails.index ?? '0' // index:IntString => Numeric value used to generate several SW instances using the same paramaters defined above
-        },
-            relayData: {
-            gasPrice,
-            callVerifier,
-            domainSeparator: getDomainSeparatorHash(forwarderAddress, this.accountManager.chainId),
-            callForwarder: forwarderAddress,
-            relayWorker
-        }
-    }
-
-    const cloneRequest = { ...deployRequest }
-    const signedData = new TypedRequestData(
-        chainId,
-        SMART_WALLET_ADDRESS,
-        cloneRequest
-    )
-
-    const signature =  sigUtil.signTypedData_v4(privKey, { data: signedData })
-
-    const metadata: RelayMetadata = {
-        relayHubAddress: RELAY_HUB_ADDRESS,
-        signature: sign(deployRequest),
-        approvalData: '0x',
-        relayMaxNonce: this.web3.eth.getTransactionCount(RELAY_WORKER_ADDRESS, defaultBlock) + (0 || 3)
-    }
-
-    const httpRequest: DeployTransactionRequest = {
-        relayRequest,
-        metadata
-    }
-    ​
-    call '/relay' with httpRequest
-```
-
-### Example of relaying a transaction using Enveloping
-
-This is an example for relay a transaction from a gasless account to a contract sponsored by a relayer.
+As a simplification of the process, the Enveloping Utils is provided to use as a library. It simplifies the process to create an smart wallet and therefore relay a transaction. It gives the chance to the developers to propose their provider to sign the transaction. The functions that the developer should code on the provider are `sign` and `verifySign`.
 
 ```typescript
-    const relayRequest: RelayRequest = {
-        request: {
-            relayHub: RELAY_HUB_ADDRESS
-            to: ADDRESS_OF_CONTRACT_TO_CALL 
-            data: msg.data //Sponsored transaction encoded
-            from: EOA_ADDRESS_OF_SMARTWALLET,
-            value: ZERO_VALUE, //0 native-currency
-            nonce: getSenderNonce //Sender's nonce in the sender's smart wallet.
-            gas: GAS_OF_USER_CALL, // gas cost of the sponsored transaction
-            tokenAmount: token_amount, //tokens pay to the relayer
-            tokenContract: RIF_CONTRACT_ADDRESS, //address of the token's contract
-            },
-        relayData: {
-            gasPrice: '60000000',
-            domainSeparator: getDomainSeparatorHash(forwarder, chainId)
-            relayWorker: RELAY_WORKER_ADDRESS
-            callForwarder: SMART_WALLET_ADDRESS
-            callVerifier: RELAY_VERIFIER_ADDRESS
-        }
+//Initialize the Enveloping Utils
+const partialConfig: Partial<EnvelopingConfig> =
+    {
+      relayHubAddress: relayHub.address,
+      proxyFactoryAddress: factory.address,
+      chainId: chainId,
+      relayVerifierAddress: relayVerifier.address,  // The verifier that will verify the relayed transaction
+      deployVerifierAddress: deployVerifier.address, // The verifier that will verify the smart wallet deployment
+      preferredRelays: ['http://localhost:8090'], //If there is a preferred relay server.
+      forwarderAddress: swAddress //To get the smart wallet address it's necessary to calculate the smart wallet address.
     }
+    config = configure(partialConfig)
+    enveloping = new EnvelopingUtils(config, web3, workerAddress)
+    await enveloping._init()
 
-    const cloneRequest = { ...relayRequest }
-    const signedData = new TypedRequestData(
-        chainId,
-        SMART_WALLET_ADDRESS,
-        cloneRequest
-    )
+//Instances a signature provider: This is just for test, please DO NOT use in production.
 
-    const signature =  sigUtil.signTypedData_v4(privKey, { data: signedData })
-
-    const metadata: RelayMetadata = {
-        relayHubAddress: RELAY_HUB_ADDRESS,
-        signature: sign(relayRequest),
-        approvalData: '0x',
-        relayMaxNonce: this.web3.eth.getTransactionCount(RELAY_WORKER_ADDRESS, defaultBlock) + (0 || 3)
+const signatureProvider: SignatureProvider = {
+    sign: (dataToSign: TypedRequestData, privKey?: Buffer) => {
+      // @ts-ignore
+      return sigUtil.signTypedData_v4(privKey, { data: dataToSign })
+    },
+    verifySign: (signature: PrefixedHexString, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest) => {
+      // @ts-ignore
+      const rec = sigUtil.recoverTypedSignature_v4({
+        data: dataToSign,
+        sig: signature
+      })
+      return isSameAddress(request.request.from, rec)
     }
+  }
 
-    const httpRequest: RelayTransactionRequest = {
-        relayRequest,
-        metadata
-    }
-    ​
-    call '/relay' with httpRequest
+//Deploying a Smart Wallet
+const deployRequest = await enveloping.createDeployRequest(senderAddress, deploymentGasLimit, tokenContract, tokenAmount, tokenGas, gasPrice, index)
+const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
+const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
+const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
+sentDeployTransaction.transaction?.hash(true).toString('hex') //This is used to get the transaction hash
+
+//Relaying a transaction
+
+const encodedFunction = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
+const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas)
+const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest, gaslessAccount.privateKey)
+const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
+const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
+sentRelayTransaction.transaction?.hash(true).toString('hex') //This is used to get the transaction hash
 ```
 
 ## MetaCoin

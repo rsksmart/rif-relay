@@ -272,6 +272,18 @@ export class EnvelopingUtils {
     }
   }
 
+  /**
+  * creates a deploy request
+  * @param from - gasless account's address
+  * @param gasLimit - gas limit of the relayed transaction
+  * @param tokenContract - if not subsidized the token the user will use to pay to the Worker for the SmartWallet deploy
+  * @param tokenAmount - zero if subsidized, otherwise the token amount the user will use to pay for the SmartWallet deployment
+  * @param tokenGas - gas limit of the token payment
+  * @param  gasPrice - optional: if not settled the gasPrice is calculated in the future through a call to estimateGas
+  * @param  index - optional: allows the user to create multiple SmartWallets
+  * @param  recoverer optional: This SmartWallet instance won't have recovery support
+  * @return a deploy request structure.
+  */
   async createDeployRequest (from: Address, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
     const deployRequest: DeployRequest = {
       request: {
@@ -300,6 +312,18 @@ export class EnvelopingUtils {
     return deployRequest
   }
 
+  /**
+  * creates a relay request
+  * @param from - sender's smart wallet address
+  * @param to - recipient contract
+  * @param data - gasless account's address
+  * @param gasLimit - gas limit of the relayed transaction
+  * @param tokenContract - if not subsidized the token the user will use to pay to the Worker for relaying
+  * @param tokenAmount - zero if subsidized, otherwise the token amount the user will pay for relaying
+  * @param tokenGas - gas limit of the token payment
+  * @param  gasPrice - optional: if not settled the gasPrice is calculated in the future through a call to estimateGas
+  * @return a relay request structure.
+  */
   async createRelayRequest (from: Address, to: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString): Promise<RelayRequest> {
     const relayRequest: RelayRequest = {
       request: {
@@ -326,6 +350,13 @@ export class EnvelopingUtils {
     return relayRequest
   }
 
+  /**
+  * signs a deploy request and verifies if it's correct.
+  * @param signatureProvider - provider provided by the developer
+  * @param request - A deploy request
+  * @param privKey - Optional: IT IS NOT RECOMMEND TO USE A PRIV KEY IN PLAIN TEXT FOR PRODUCTION
+  * @return signature of a deploy request
+  */
   signDeployRequest (signatureProvider: SignatureProvider, request: DeployRequest, privKey?: Buffer): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
@@ -336,6 +367,13 @@ export class EnvelopingUtils {
     return this.signAndVerify(signatureProvider, dataToSign, request, privKey)
   }
 
+  /**
+  * signs a relay request and verifies if it's correct.
+  * @param signatureProvider - provider provided by the developer
+  * @param request - A relay request
+  * @param privKey - Optional: IT IS NOT RECOMMEND TO USE A PRIV KEY IN PLAIN TEXT FOR PRODUCTION
+  * @return signature of a relay request
+  */
   signRelayRequest (signatureProvider: SignatureProvider, request: RelayRequest, privKey?: Buffer): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedRequestData(
@@ -355,6 +393,12 @@ export class EnvelopingUtils {
     return signature
   }
 
+  /**
+  * creates a deploy transaction request ready for sending through http
+  * @param signature - the signature of a deploy request
+  * @param deployRequest - the signed deploy request
+  * @return a deploy transaction request
+  */
   async generateDeployTransactionRequest (signature: PrefixedHexString, deployRequest: DeployRequest): Promise<DeployTransactionRequest> {
     const request: DeployTransactionRequest = {
       relayRequest: deployRequest,
@@ -364,6 +408,12 @@ export class EnvelopingUtils {
     return request
   }
 
+  /**
+  * creates a realy transaction request ready for sending through http
+  * @param signature - the signature of a relay request
+  * @param relayRequest - the signed relay request
+  * @return a relay transaction request
+  */
   async generateRelayTransactionRequest (signature: PrefixedHexString, relayRequest: RelayRequest): Promise<RelayTransactionRequest> {
     const request: RelayTransactionRequest = {
       relayRequest,
@@ -392,6 +442,12 @@ export class EnvelopingUtils {
     return await this.dependencies.contractInteractor.getFactoryNonce(factoryAddr, from)
   }
 
+  /**
+  * sends the request to the relay server.
+  * @param relayUrl - the relay server's url e.g. http:localhost:8090
+  * @param request - the request ready to send through http
+  * @return transaction hash if the sending process was correct, otherwise the error
+  */
   async sendTransaction (relayUrl: string, request: DeployTransactionRequest|RelayTransactionRequest): Promise<RelayingAttempt> {
     const httpClient = new HttpClient(new HttpWrapper(), {})
     try {
