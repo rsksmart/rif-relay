@@ -5,7 +5,7 @@ import { EnvelopingUtils, isSameAddress, SignatureProvider } from '../src/common
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { ProxyFactoryInstance, RelayHubInstance, SmartWalletInstance, StakeManagerInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
-import { createProxyFactory, deployHub, getExistingGaslessAccount, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
+import { createProxyFactory, deployHub, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { randomHex, soliditySha3Raw, toChecksumAddress } from 'web3-utils'
 import { expectEvent } from '@openzeppelin/test-helpers'
