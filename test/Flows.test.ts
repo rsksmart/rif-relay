@@ -77,7 +77,7 @@ options.forEach(params => {
       if (params.relay) {
         process.env.relaylog = 'true'
 
-        relayproc = await startRelay(rhub.address, sm, {
+        relayproc = (await startRelay(rhub.address, sm, {
           workerTargetBalance: 0.6e18,
           stake: 1e18,
           delay: 3600 * 24 * 7,
@@ -91,7 +91,7 @@ options.forEach(params => {
           relayVerifierAddress: verifier.address,
           deployVerifierAddress: deployVerifier.address,
           trustedVerifiers: JSON.stringify([approvalVerifier.address]) // extra verifiers to trust
-        })
+        })).proc
         console.log('relay started')
         from = gaslessAccount.address
       } else {

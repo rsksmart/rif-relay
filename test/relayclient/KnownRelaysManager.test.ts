@@ -201,12 +201,12 @@ contract('KnownRelaysManager 2', function (accounts) {
         relayHubAddress: relayHub.address,
         chainId: env.chainId
       })
-      relayProcess = await startRelay(relayHub.address, stakeManager, {
+      relayProcess = (await startRelay(relayHub.address, stakeManager, {
         stake: 1e18,
         url: 'asd',
         relayOwner: accounts[1],
         rskNodeUrl: (web3.currentProvider as HttpProvider).host
-      })
+      })).proc
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       await contractInteractor.init()
       knownRelaysManager = new KnownRelaysManager(contractInteractor, config)

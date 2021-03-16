@@ -40,10 +40,17 @@ export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 // options:
 //  stake, delay, pctRelayFee, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
 //
+
+interface RelayServerData {
+  proc: ChildProcessWithoutNullStreams
+  worker: Address
+  manager: Address
+}
+
 export async function startRelay (
   relayHubAddress: string,
   stakeManager: StakeManagerInstance,
-  options: any): Promise<ChildProcessWithoutNullStreams> {
+  options: any): Promise<RelayServerData> {
   const args = []
 
   const serverWorkDir = '/tmp/enveloping/test/server'
@@ -188,7 +195,7 @@ export async function startRelay (
   // TODO: this is temporary hack to make helper test work!!!
   // @ts-ignore
   proc.relayManagerAddress = relayManagerAddress
-  return proc
+  return { proc, worker: res.relayWorkerAddress, manager: relayManagerAddress }
 }
 
 export function stopRelay (proc: ChildProcessWithoutNullStreams): void {

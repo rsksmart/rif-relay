@@ -47,7 +47,7 @@ export const GasPricePingFilter: PingFilter = (pingResponse, transactionDetails)
   }
 }
 
-interface RelayingAttempt {
+export interface RelayingAttempt {
   transaction?: Transaction
   error?: Error
 }
