@@ -7,7 +7,7 @@ import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { ProxyFactoryInstance, RelayHubInstance, SmartWalletInstance, StakeManagerInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
 import { createProxyFactory, deployHub, getExistingGaslessAccount, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
 import { constants } from '../src/common/Constants'
-import { randomHex, soliditySha3Raw } from 'web3-utils'
+import { randomHex, soliditySha3Raw, toChecksumAddress } from 'web3-utils'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -45,7 +45,8 @@ contract('Enveloping utils', () => {
   let index: string
 
   const signatureProvider: SignatureProvider = {
-    sign: (dataToSign: TypedRequestData, privKey?: Buffer) => {
+    sign: (dataToSign: TypedRequestData) => {
+      const privKey = toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595')
       // @ts-ignore
       return sigUtil.signTypedData_v4(privKey, { data: dataToSign })
     },
@@ -61,7 +62,7 @@ contract('Enveloping utils', () => {
 
   const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
     const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000', index)
-    const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest, gaslessAccount.privateKey)
+    const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
     const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
     const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
     return sentDeployTransaction.transaction?.hash(true).toString('hex')
@@ -77,7 +78,7 @@ contract('Enveloping utils', () => {
   const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
     const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
     const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000')
-    const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest, gaslessAccount.privateKey)
+    const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
     const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
     const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
     return sentRelayTransaction.transaction?.hash(true).toString('hex')
@@ -86,7 +87,10 @@ contract('Enveloping utils', () => {
   const gasLimit = '160000'
 
   before(async () => {
-    gaslessAccount = await getExistingGaslessAccount()
+    gaslessAccount = {
+      privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),
+      address: toChecksumAddress('0x09a1eda29f664ac8f68106f6567276df0c65d859', (await getTestingEnvironment()).chainId).toLowerCase()
+    }
     fundedAccount = {
       privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),
       address: '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'

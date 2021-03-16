@@ -247,7 +247,7 @@ export function boolString (bool: boolean): string {
 }
 
 export interface SignatureProvider {
-  sign: (dataToSign: TypedRequestData, privKey?: Buffer) => PrefixedHexString
+  sign: (dataToSign: TypedRequestData) => PrefixedHexString
   verifySign: (signature: PrefixedHexString, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest) => boolean
 }
 export class EnvelopingUtils {
@@ -354,17 +354,16 @@ export class EnvelopingUtils {
   * signs a deploy request and verifies if it's correct.
   * @param signatureProvider - provider provided by the developer
   * @param request - A deploy request
-  * @param privKey - Optional: IT IS NOT RECOMMEND TO USE A PRIV KEY IN PLAIN TEXT FOR PRODUCTION
   * @return signature of a deploy request
   */
-  signDeployRequest (signatureProvider: SignatureProvider, request: DeployRequest, privKey?: Buffer): PrefixedHexString {
+  signDeployRequest (signatureProvider: SignatureProvider, request: DeployRequest): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
       this.config.chainId,
       this.config.proxyFactoryAddress,
       cloneRequest
     )
-    return this.signAndVerify(signatureProvider, dataToSign, request, privKey)
+    return this.signAndVerify(signatureProvider, dataToSign, request)
   }
 
   /**
@@ -382,11 +381,11 @@ export class EnvelopingUtils {
       cloneRequest
     )
 
-    return this.signAndVerify(signatureProvider, dataToSign, request, privKey)
+    return this.signAndVerify(signatureProvider, dataToSign, request)
   }
 
-  signAndVerify (signatureProvider: SignatureProvider, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest, privKey?: Buffer): PrefixedHexString {
-    const signature = signatureProvider.sign(dataToSign, privKey)
+  signAndVerify (signatureProvider: SignatureProvider, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest): PrefixedHexString {
+    const signature = signatureProvider.sign(dataToSign)
     if (!signatureProvider.verifySign(signature, dataToSign, request)) {
       throw new Error('Internal exception: signature is not correct')
     }
