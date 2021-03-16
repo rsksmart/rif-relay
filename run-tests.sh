@@ -92,6 +92,7 @@ run_batch test/RelayHubGasCalculations.test.ts
 run_batch test/SampleRecipient.test.ts
 run_batch test/StakeManager.test.ts
 run_batch test/RSKAddressValidator.test.ts
+run_batch test/EnvelopingUtils.test.ts
 
 # Test_Group_3
 run_batch \
