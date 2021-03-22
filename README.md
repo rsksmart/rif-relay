@@ -15,9 +15,9 @@ It achieves this by:
 - Allowing Relay providers to receive tokens in a worker address under their control to later on decide what to do with funds.
 - Reducing gas costs by optimizing the existing GSN architecture.
 
-Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokens, and thereby remove the need to acquire RBTC in advance.
+Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokens (e.g. RIF tokens), and thereby remove the need to acquire RBTC in advance.
 
-It is important to recall that  - as a security measure - the version 1 contracts deployed on Mainnet have limits on the amount of RBTC that can be staked, these  limits were removed in version 2.
+It is important to recall that  - as a security measure - the version 1 contracts deployed on Mainnet have limits on the staked amounts to operate, these limits were removed in version 2.
 
 ## Technical Documentation
 
@@ -78,7 +78,7 @@ The following technical content are available:
 
 ## Create a Smart Wallet
 
-As mentioned before, the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW). 
+At the moment we need to use the Enveloping system, we have to deploy a Smart Wallet (SW).
 
 1. **Use your address to deploy a Smart Wallet (SW)**
 ```typescript
