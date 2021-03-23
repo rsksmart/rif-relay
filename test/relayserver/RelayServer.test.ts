@@ -545,4 +545,24 @@ contract('RelayServer', function (accounts) {
       assert.isFalse(newServer.alerted, 'server alerted')
     })
   })
+
+  describe('Custom replenish function', function () {
+    let relayServer: RelayServer
+    const workerIndex = 0
+
+    before(async function () {
+      await env.newServerInstanceNoInit({
+        customReplenish: true
+      })
+      relayServer = env.relayServer
+    })
+    // This test should be skipped in the case a custom replenish is implemented
+    it('should throw an errror if there is no custom replenish function', async function () {
+      try {
+        await relayServer.replenishServer(workerIndex, 0)
+      } catch (error) {
+        assert.equal(error.message, 'There is any custom replenish function')
+      }
+    })
+  })
 })

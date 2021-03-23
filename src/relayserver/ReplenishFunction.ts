@@ -9,6 +9,8 @@ export async function replenishStrategy (relayServer: RelayServer, workerIndex: 
   let transactionHashes: PrefixedHexString[] = []
   if (relayServer.isCustomReplenish()) {
     // If custom replenish is settled, here should be a call to a custom function for replenish workers strategy.
+    // Delete the next error if a custom replenish fuction is implemented.
+    throw new Error('There is any custom replenish function')
   } else {
     transactionHashes = transactionHashes.concat(await defaultReplenishFunction(relayServer, workerIndex, currentBlock))
   }
