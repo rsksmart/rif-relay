@@ -217,7 +217,7 @@ class TestEnvironmentClass {
       workerTargetBalance: workerTargetBalance
     }
 
-    const relayServer = new RelayServer(relayServerParams, relayServerDependencies, replenishStrategy ?? this.defaultReplenishFunction)
+    const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
     await relayServer.init()
 
     this.httpServer = new HttpServer(

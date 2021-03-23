@@ -26,6 +26,7 @@ export interface ServerConfigParams {
   checkInterval: number
   readyTimeout: number
   devMode: boolean
+  customReplenish: boolean
   registrationBlockRate: number
   alertedBlockDelay: number
   minAlertedDelayMS: number
@@ -78,6 +79,7 @@ const serverDefaultConfiguration: ServerConfigParams = {
   checkInterval: 10000,
   readyTimeout: 30000,
   devMode: false,
+  customReplenish: false,
   logLevel: 1,
   baseRelayFee: '0',
   pctRelayFee: 0,
@@ -112,6 +114,7 @@ const ConfigParamsTypes = {
   checkInterval: 'number',
   readyTimeout: 'number',
   devMode: 'boolean',
+  customReplenish: 'boolean',
   logLevel: 'number',
   registrationBlockRate: 'number',
   alertedBlockDelay: 'number',

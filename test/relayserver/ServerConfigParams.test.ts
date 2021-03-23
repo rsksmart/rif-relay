@@ -58,8 +58,8 @@ context('#ServerConfigParams', () => {
     })
     it('should parse command line params', function () {
       assert.deepEqual(
-        parseServerConfig(['--devMode=true', '--relayHubAddress=123'], {}),
-        { devMode: true, relayHubAddress: '123' })
+        parseServerConfig(['--devMode=true', '--customReplenish=true', '--relayHubAddress=123'], {}),
+        { devMode: true, customReplenish: true, relayHubAddress: '123' })
     })
 
     it('cmdline should override env, which should override file', async () => {

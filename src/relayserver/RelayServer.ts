@@ -32,6 +32,7 @@ import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 
 import Timeout = NodeJS.Timeout
+import { replenishStrategy } from './ReplenishFunction'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -66,9 +67,9 @@ export class RelayServer extends EventEmitter {
 
   workerBalanceRequired: AmountRequired
 
-  private readonly replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>
+  private readonly customReplenish: boolean
 
-  constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies, replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>) {
+  constructor (config: Partial<ServerConfigParams>, dependencies: ServerDependencies) {
     super()
     this.versionManager = new VersionsManager(VERSION)
     this.config = configureServer(config)
@@ -77,7 +78,7 @@ export class RelayServer extends EventEmitter {
     this.transactionManager = new TransactionManager(dependencies, this.config)
     this.managerAddress = this.transactionManager.managerKeyManager.getAddress(0)
     this.workerAddress = this.transactionManager.workersKeyManager.getAddress(0)
-    this.replenishStrategy = replenishStrategy
+    this.customReplenish = this.config.customReplenish
     this.workerBalanceRequired = new AmountRequired('Worker Balance', toBN(this.config.workerMinBalance))
     this.printServerAddresses()
     log.setLevel(this.config.logLevel)
@@ -92,6 +93,10 @@ export class RelayServer extends EventEmitter {
 
   getMinGasPrice (): number {
     return this.gasPrice
+  }
+
+  isCustomReplenish(): boolean {
+    return this.customReplenish
   }
 
   async pingHandler (verifier?: string): Promise<PingResponse> {
@@ -412,13 +417,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
    */
 
   async replenishServer (workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
-    const transactionHashes: PrefixedHexString[] = []
-    // Custom rebalancing logic to fund workers with native crypto currency can be added here
-    if (this.replenishStrategy !== undefined) {
-      return await this.replenishStrategy(this, workerIndex, currentBlock)
-    }
-
-    return transactionHashes
+    return await replenishStrategy(this, workerIndex, currentBlock)
   }
 
   async _worker (blockNumber: number): Promise<PrefixedHexString[]> {
