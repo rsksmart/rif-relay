@@ -23,6 +23,7 @@ import {
   sleep
 } from '../common/Utils'
 
+import { replenishStrategy } from './ReplenishFunction'
 import { RegistrationManager } from './RegistrationManager'
 import { SendTransactionDetails, SignedTransactionDetails, TransactionManager } from './TransactionManager'
 import { ServerAction } from './StoredTransaction'
@@ -32,7 +33,6 @@ import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 
 import Timeout = NodeJS.Timeout
-import { replenishStrategy } from './ReplenishFunction'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -95,7 +95,7 @@ export class RelayServer extends EventEmitter {
     return this.gasPrice
   }
 
-  isCustomReplenish(): boolean {
+  isCustomReplenish (): boolean {
     return this.customReplenish
   }
 

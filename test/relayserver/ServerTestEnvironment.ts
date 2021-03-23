@@ -3,7 +3,7 @@ import abiDecoder from 'abi-decoder'
 import Web3 from 'web3'
 import crypto from 'crypto'
 import { HttpProvider } from 'web3-core'
-import { toHex, toBN, keccak256 } from 'web3-utils'
+import { toHex, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
 import {
@@ -36,11 +36,7 @@ import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
 import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
 
-import { defaultEnvironment } from '../../src/common/Environments'
-
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
-import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import { SendTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ether } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('TestRecipient')
