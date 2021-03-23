@@ -21,6 +21,7 @@ cache
 /RelayProvider.ts
 /Configurator.ts
 /TestEnvironment.ts
+/Utils.ts
 artifacts
 /yarn-error.log
 /jsrelay/data/
