@@ -6,11 +6,11 @@ import { ServerAction } from './StoredTransaction'
 import { SendTransactionDetails } from './TransactionManager'
 
 export async function replenishStrategy (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
-  const transactionHashes: PrefixedHexString[] = []
+  let transactionHashes: PrefixedHexString[] = []
   if (relayServer.isCustomReplenish()) {
     // If custom replenish is settled, here should be a call to a custom function for replenish workers strategy.
   } else {
-    transactionHashes.concat(await defaultReplenishFunction(relayServer, workerIndex, currentBlock))
+    transactionHashes = transactionHashes.concat(await defaultReplenishFunction(relayServer, workerIndex, currentBlock))
   }
 
   return transactionHashes
