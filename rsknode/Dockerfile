@@ -36,5 +36,4 @@ ENTRYPOINT ["java", \
     "-Dlogback.configurationFile=./logback.xml", \
     "-Ddatabase.dir=./db", \
     "-Drpc.providers.web.http.hosts.0=localhost", \
-    "-Drpc.providers.web.http.hosts.1=enveloping-rskj", \
     "-cp", "./rsk.jar", "co.rsk.Start" ]
