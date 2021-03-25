@@ -561,7 +561,7 @@ contract('RelayServer', function (accounts) {
       try {
         await relayServer.replenishServer(workerIndex, 0)
       } catch (error) {
-        assert.equal(error.message, 'There is any custom replenish function')
+        assert.equal(error.message, 'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.')
       }
     })
   })
