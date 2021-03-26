@@ -275,6 +275,8 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: BN): Promise<void> {
+    log.debug('Relay Server - Request sent to the worker')
+    log.debug('Relay Server - req: ', req)
     try {
       await method.call({
         from: this.workerAddress,
@@ -424,12 +426,14 @@ export class RelayServer extends EventEmitter {
     if (this.initialized) {
       throw new Error('_init was already called')
     }
+    log.debug('Relay Server - Relay Server initializing')
 
     await this.transactionManager._init()
+    log.debug('Relay Server - Transaction Manager initialized')
     await this._initTrustedVerifiers(this.config.trustedVerifiers)
     this.relayHubContract = this.contractInteractor.relayHubInstance
-
     const relayHubAddress = this.relayHubContract.address
+    log.debug(`Relay Server - Relay hub: ${relayHubAddress}`)
     const code = await this.contractInteractor.getCode(relayHubAddress)
     if (code.length < 10) {
       this.fatal(`No RelayHub deployed at address ${relayHubAddress}.`)
@@ -445,9 +449,12 @@ export class RelayServer extends EventEmitter {
       this.workerAddress
     )
     await this.registrationManager.init()
+    log.debug('Relay Server - Registration manager initialized')
 
     this.chainId = this.contractInteractor.getChainId()
     this.networkId = this.contractInteractor.getNetworkId()
+    log.debug(`Relay Server - chainId: ${this.chainId}`)
+    log.debug(`Relay Server - networkId: ${this.networkId}`)
 
     /* TODO CHECK against RSK ChainId
     if (this.config.devMode && (this.chainId < 1000 || this.networkId < 1000)) {

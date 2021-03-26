@@ -375,6 +375,8 @@ export class RelayClient {
 
   async relayTransaction (transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult> {
     await this._init()
+    log.debug('Relay Client - Relaying transaction')
+    log.debug(`Relay Client - Relay Hub:${transactionDetails.relayHub}`)
     // TODO: should have a better strategy to decide how often to refresh known relays
     this.emit(new RefreshRelaysEvent())
     await this.knownRelaysManager.refresh()
@@ -390,6 +392,7 @@ export class RelayClient {
     } else if (transactionDetails.gas === undefined || transactionDetails.gas == null) {
       const internalCallCost = await this.contractInteractor.estimateDestinationContractCallGas(this.getEstimateGasParams(transactionDetails))
       transactionDetails.gas = toHex(internalCallCost)
+      log.debug(`Relay Client - Estimated gas for calling: ${transactionDetails.gas}`)
     }
 
     const relaySelectionManager = await new RelaySelectionManager(transactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
@@ -399,6 +402,7 @@ export class RelayClient {
       throw new Error('no registered relayers')
     }
     const relayingErrors = new Map<string, Error>()
+    log.debug('Relay Client - Selecting active relay')
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
@@ -416,6 +420,7 @@ export class RelayClient {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
           continue
         }
+        log.debug('Relay Client - Relayed done')
       }
       return {
         transaction: relayingAttempt?.transaction,

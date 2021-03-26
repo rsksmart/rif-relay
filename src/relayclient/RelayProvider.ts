@@ -89,6 +89,7 @@ export class RelayProvider implements HttpProvider {
           throw new Error('Enveloping cannot relay contract deployment transactions. Add {from: accountWithRBTC, useEnveloping: false}.')
         }
         this._ethSendTransaction(payload, callback)
+        log.debug('Relay Provider - Transaction sent')
         return
       }
       if (payload.method === 'eth_getTransactionReceipt') {
@@ -129,6 +130,7 @@ export class RelayProvider implements HttpProvider {
    * @returns The transaction hash
    */
   async deploySmartWallet (transactionDetails: EnvelopingTransactionDetails): Promise<string> {
+    log.debug('Relay Provider - Deploying Smart wallet')    
     let isSmartWalletDeployValue = transactionDetails.isSmartWalletDeploy
     let relayHubValue = transactionDetails.relayHub
     let onlyPreferredRelaysValue = transactionDetails.onlyPreferredRelays
@@ -162,9 +164,12 @@ export class RelayProvider implements HttpProvider {
       }
     }
 
+    log.debug(`Relay Provider - Relay hub: ${transactionDetails.relayHub}`)
+
     const tokenGas = transactionDetails.tokenGas ?? '0'
     const tokenContract = transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
-
+    log.debug(`Relay Provider - Token gas: ${tokenGas}`)
+    log.debug(`Relay Provider - Token contract: ${tokenContract}`)
     if (tokenContract !== constants.ZERO_ADDRESS &&
       toBN(transactionDetails.tokenAmount ?? '0').gt(toBN('0')) &&
       toBN(tokenGas).isZero() &&
@@ -175,10 +180,12 @@ export class RelayProvider implements HttpProvider {
     }
 
     try {
+      log.debug('Relay Provider - Relaying transaction started')
       const relayingResult = await this.relayClient.relayTransaction(transactionDetails)
       if (relayingResult.transaction != null) {
         const txHash: string = relayingResult.transaction.hash(true).toString('hex')
         const hash = `0x${txHash}`
+        log.debug(`Relay Provider - Transaction relay done, txHash: ${hash}`)
         return hash
       } else {
         const message = `Failed to relay call. Results:\n${_dumpRelayingResult(relayingResult)}`
@@ -259,6 +266,7 @@ export class RelayProvider implements HttpProvider {
 
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
+    log.debug('Relay Provider - _ethSendTransaction called')
     let transactionDetails: EnvelopingTransactionDetails = payload.params[0]
 
     let callForwarderValue = transactionDetails.callForwarder
@@ -298,6 +306,9 @@ export class RelayProvider implements HttpProvider {
       onlyPreferredRelays: onlyPreferredRelaysValue,
       gas: gasToSend // it is either undefined or a user-entered value
     }
+
+    log.debug(`Relay Provider - Relay hub: ${transactionDetails.relayHub}`)
+    log.debug(`Relay Provider - callForwarder: ${transactionDetails.callForwarder}`)
 
     this.relayClient.relayTransaction(transactionDetails)
       .then((relayingResult) => {
@@ -342,6 +353,9 @@ export class RelayProvider implements HttpProvider {
     const txHash: string = transaction.hash(true).toString('hex')
     const hash = `0x${txHash}`
     const id = (typeof request.id === 'string' ? parseInt(request.id) : request.id) ?? -1
+    log.debug('Relay Provider - rpc message sent, jsonRpcResult')
+    log.debug('Relay Provider - txHash: ' + hash)
+    log.debug('Relay Provider - id: ' + id.toString())
     return {
       jsonrpc: '2.0',
       id,
