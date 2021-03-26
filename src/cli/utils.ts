@@ -55,12 +55,12 @@ export function getRegistryAddress (defaultAddress?: string): string | undefined
   return getAddressFromFile('build/enveloping/VersionRegistry.json', defaultAddress)
 }
 
-export function getSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/enveloping/ProxyFactory.json', defaultAddress)
+export function getCustomSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
+  return getAddressFromFile('build/enveloping/CustomSmartWalletFactory.json', defaultAddress)
 }
 
-export function getSimpleSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
-  return getAddressFromFile('build/enveloping/SimpleProxyFactory.json', defaultAddress)
+export function getSmartWalletFactoryAddress (defaultAddress?: string): string | undefined {
+  return getAddressFromFile('build/enveloping/SmartWalletFactory.json', defaultAddress)
 }
 
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
@@ -79,15 +79,14 @@ function saveContractToFile (address: Address, workdir: string, filename: string
 }
 
 export function saveDeployment (deploymentResult: DeploymentResult, workdir: string): void {
-  saveContractToFile(deploymentResult.stakeManagerAddress, workdir, 'StakeManager.json')
   saveContractToFile(deploymentResult.penalizerAddress, workdir, 'Penalizer.json')
   saveContractToFile(deploymentResult.relayHubAddress, workdir, 'RelayHub.json')
   saveContractToFile(deploymentResult.relayVerifierAddress, workdir, 'RelayVerifier.json')
   saveContractToFile(deploymentResult.deployVerifierAddress, workdir, 'DeployVerifier.json')
   saveContractToFile(deploymentResult.smartWalletTemplateAddress, workdir, 'SmartWallet.json')
-  saveContractToFile(deploymentResult.factoryAddress, workdir, 'ProxyFactory.json')
-  saveContractToFile(deploymentResult.simpleSmartWalletTemplateAddress, workdir, 'SimpleSmartWallet.json')
-  saveContractToFile(deploymentResult.simpleFactoryAddress, workdir, 'SimpleProxyFactory.json')
+  saveContractToFile(deploymentResult.smartWalletFactoryAddress, workdir, 'SmartWalletFactory.json')
+  saveContractToFile(deploymentResult.customSmartWalletTemplateAddress, workdir, 'CustomSmartWallet.json')
+  saveContractToFile(deploymentResult.customSmartWalletFactoryAddress, workdir, 'CustomSmartWalletFactory.json')
   saveContractToFile(deploymentResult.versionRegistryAddress, workdir, 'VersionRegistry.json')
 }
 
@@ -97,13 +96,12 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   }
   console.log(`
   RelayHub: ${deploymentResult.relayHubAddress}
-  StakeManager: ${deploymentResult.stakeManagerAddress}
   Penalizer: ${deploymentResult.penalizerAddress}
   VersionRegistry: ${deploymentResult.versionRegistryAddress}
   SmartWallet Template: ${deploymentResult.smartWalletTemplateAddress}
-  SmartWallet Factory: ${deploymentResult.factoryAddress}
-  SimpleSmartWallet Template: ${deploymentResult.simpleSmartWalletTemplateAddress}
-  SimpleSmartWallet Factory: ${deploymentResult.simpleFactoryAddress}
+  SmartWallet Factory: ${deploymentResult.smartWalletFactoryAddress}
+  CustomSmartWallet Template: ${deploymentResult.customSmartWalletTemplateAddress}
+  CustomSmartWallet Factory: ${deploymentResult.customSmartWalletFactoryAddress}
   Relay Verifier: ${deploymentResult.relayVerifierAddress}
   Deploy Verifier: ${deploymentResult.deployVerifierAddress}`)
 }
@@ -115,12 +113,11 @@ export function loadDeployment (workdir: string): DeploymentResult {
 
   return {
     relayHubAddress: getAddress('RelayHub'),
-    stakeManagerAddress: getAddress('StakeManager'),
     penalizerAddress: getAddress('Penalizer'),
     smartWalletTemplateAddress: getAddress('SmartWallet'),
-    factoryAddress: getAddress('ProxyFactory'),
-    simpleSmartWalletTemplateAddress: getAddress('SimpleSmartWallet'),
-    simpleFactoryAddress: getAddress('SimpleProxyFactory'),
+    smartWalletFactoryAddress: getAddress('SmartWalletFactory'),
+    customSmartWalletTemplateAddress: getAddress('CustomSmartWallet'),
+    customSmartWalletFactoryAddress: getAddress('CustomSmartWalletFactory'),
     versionRegistryAddress: getAddress('VersionRegistry'),
     relayVerifierAddress: getAddress('RelayVerifier'),
     deployVerifierAddress: getAddress('DeployVerifier')

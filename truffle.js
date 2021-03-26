@@ -1,6 +1,6 @@
 require('ts-node/register/transpile-only')
 
-var HDWalletProvider = require('truffle-hdwallet-provider')
+var HDWalletProvider = require('@truffle/hdwallet-provider')
 var mnemonic = 'digital unknown jealous mother legal hedgehog save glory december universe spread figure custom found six'
 
 const secretMnemonicFile = './secret_mnemonic'
@@ -17,12 +17,6 @@ module.exports = {
     coverage: { // coverage/trace provider. note that it currently can't run extrnal-process relay.
       provider: require('./coverage-prov.js'),
       verbose: process.env.VERBOSE,
-      network_id: '*'
-    },
-    npmtest: { // used from "npm test". see package.json
-      verbose: process.env.VERBOSE,
-      host: '127.0.0.1',
-      port: 8544,
       network_id: '*'
     },
     development: {

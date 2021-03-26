@@ -7,7 +7,7 @@ import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
-import { Address, AsyncDataCallback, PingFilter } from './types/Aliases'
+import { Address, PingFilter } from './types/Aliases'
 import HttpClient from './HttpClient'
 import ContractInteractor from '../common/ContractInteractor'
 import RelaySelectionManager from './RelaySelectionManager'
@@ -30,13 +30,6 @@ import {
 import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
 import { toBN } from 'web3-utils'
-
-// generate "approvalData" and "verifierData" for a request.
-// both are bytes arrays. verifierData is part of the client request.
-// approvalData is created after request is filled and signed.
-export const EmptyDataCallback: AsyncDataCallback = async (): Promise<PrefixedHexString> => {
-  return '0x'
-}
 
 export const GasPricePingFilter: PingFilter = (pingResponse, transactionDetails) => {
   if (
@@ -71,7 +64,6 @@ export class RelayClient {
   private readonly httpClient: HttpClient
   protected contractInteractor: ContractInteractor
   protected knownRelaysManager: KnownRelaysManager
-  private readonly asyncApprovalData: AsyncDataCallback
   private readonly transactionValidator: RelayedTransactionValidator
   private readonly pingFilter: PingFilter
 
@@ -96,7 +88,6 @@ export class RelayClient {
     this.transactionValidator = dependencies.transactionValidator
     this.accountManager = dependencies.accountManager
     this.pingFilter = dependencies.pingFilter
-    this.asyncApprovalData = dependencies.asyncApprovalData
     log.setLevel(this.config.logLevel)
   }
 
@@ -186,7 +177,7 @@ export class RelayClient {
 
     const suffixData = bufferToHex(TypedDataUtils.encodeData(signedData.primaryType, signedData.message, signedData.types).slice((1 + DeployRequestDataType.length) * 32))
     const domainHash = getDomainSeparatorHash(testInfo.relayRequest.relayData.callForwarder, this.accountManager.chainId)
-    const estimatedGas: number = await this.contractInteractor.proxyFactoryDeployEstimageGas(testInfo.relayRequest,
+    const estimatedGas: number = await this.contractInteractor.walletFactoryDeployEstimageGas(testInfo.relayRequest,
       testInfo.relayRequest.relayData.callForwarder, domainHash, suffixData, testInfo.metadata.signature)
     return estimatedGas
   }
@@ -307,12 +298,12 @@ export class RelayClient {
     if ((transactionDetails.isSmartWalletDeploy ?? false)) {
       const deployRequest = await this._prepareDeployHttpRequest(relayInfo, transactionDetails)
       this.emit(new ValidateRequestEvent())
-      acceptRelayCallResult = await this.contractInteractor.validateAcceptDeployCall(deployRequest.relayRequest, deployRequest.metadata.signature, deployRequest.metadata.approvalData)
+      acceptRelayCallResult = await this.contractInteractor.validateAcceptDeployCall(deployRequest.relayRequest, deployRequest.metadata.signature)
       httpRequest = deployRequest
     } else {
       httpRequest = await this._prepareRelayHttpRequest(relayInfo, transactionDetails)
       this.emit(new ValidateRequestEvent())
-      acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(httpRequest.relayRequest, httpRequest.metadata.signature, httpRequest.metadata.approvalData)
+      acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(httpRequest.relayRequest, httpRequest.metadata.signature)
     }
 
     if (acceptRelayCallResult.reverted) {
@@ -393,7 +384,6 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      approvalData: '',
       relayMaxNonce: 0
     }
     const httpRequest: DeployTransactionRequest = {
@@ -450,10 +440,8 @@ export class RelayClient {
         relayWorker
       }
     }
-    // put verifierData into struct before signing
     this.emit(new SignRequestEvent())
     const signature = await this.accountManager.sign(relayRequest)
-    const approvalData = await this.asyncApprovalData(relayRequest)
     // max nonce is not signed, as contracts cannot access addresses' nonces.
     const transactionCount = await this.contractInteractor.getTransactionCount(relayWorker)
     const relayMaxNonce = transactionCount + this.config.maxRelayNonceGap
@@ -462,7 +450,6 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      approvalData,
       relayMaxNonce
     }
     const httpRequest: DeployTransactionRequest = {
@@ -520,10 +507,8 @@ export class RelayClient {
         relayWorker
       }
     }
-    // put verifierData into struct before signing
     this.emit(new SignRequestEvent())
     const signature = await this.accountManager.sign(relayRequest)
-    const approvalData = await this.asyncApprovalData(relayRequest)
     // max nonce is not signed, as contracts cannot access addresses' nonces.
     const transactionCount = await this.contractInteractor.getTransactionCount(relayWorker)
     const relayMaxNonce = transactionCount + this.config.maxRelayNonceGap
@@ -532,7 +517,6 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      approvalData,
       relayMaxNonce
     }
     const httpRequest: RelayTransactionRequest = {

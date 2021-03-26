@@ -6,12 +6,11 @@ import ContractInteractor from '../../src/common/ContractInteractor'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
   RelayHubInstance,
-  StakeManagerInstance,
   TestVerifierConfigurableMisbehaviorInstance,
   TestRecipientInstance,
-  SmartWalletInstance, ProxyFactoryInstance, TestTokenInstance
+  SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance
 } from '../../types/truffle-contracts'
-import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
+import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
@@ -20,17 +19,15 @@ import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
-const StakeManager = artifacts.require('StakeManager')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')
 
-export async function stake (stakeManager: StakeManagerInstance, relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
-  await stakeManager.stakeForAddress(manager, 1000, {
+export async function stake (relayHub: RelayHubInstance, manager: string, owner: string): Promise<void> {
+  await relayHub.stakeForAddress(manager, 1000, {
     value: ether('1'),
     from: owner
   })
-  await stakeManager.authorizeHubByOwner(manager, relayHub.address, { from: owner })
 }
 
 export async function register (relayHub: RelayHubInstance, manager: string, worker: string, url: string, baseRelayFee?: string, pctRelayFee?: string): Promise<void> {
@@ -54,7 +51,6 @@ contract('KnownRelaysManager', function (
   describe('#_fetchRecentlyActiveRelayManagers()', function () {
     let config: EnvelopingConfig
     let contractInteractor: ContractInteractor
-    let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
     let testRecipient: TestRecipientInstance
     let verifier: TestVerifierConfigurableMisbehaviorInstance
@@ -62,7 +58,7 @@ contract('KnownRelaysManager', function (
     let workerRelayServerRegistered
     let workerNotActive
     const gas = 4e6
-    let factory: ProxyFactoryInstance
+    let factory: SmartWalletFactoryInstance
     let sWalletTemplate: SmartWalletInstance
     let smartWallet: SmartWalletInstance
     let env: Environment
@@ -73,8 +69,7 @@ contract('KnownRelaysManager', function (
       workerRelayWorkersAdded = await web3.eth.personal.newAccount('password')
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
-      stakeManager = await StakeManager.new(0)
-      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
+      relayHub = await deployHub(constants.ZERO_ADDRESS)
       config = configure({
         relayHubAddress: relayHub.address,
         relayLookupWindowBlocks,
@@ -91,7 +86,7 @@ contract('KnownRelaysManager', function (
 
       testRecipient = await TestRecipient.new()
       sWalletTemplate = await SmartWallet.new()
-      factory = await createProxyFactory(sWalletTemplate)
+      factory = await createSmartWalletFactory(sWalletTemplate)
       smartWallet = await createSmartWallet(activeRelayWorkersAdded, senderAddress.address, factory, senderAddress.privateKey, env.chainId)
       await token.mint('1000', smartWallet.address)
 
@@ -99,11 +94,11 @@ contract('KnownRelaysManager', function (
 
       verifier = await TestVerifierConfigurableMisbehavior.new()
       // await verifier.setTrustedForwarder(smartWallet.address)//TODO REMOVE
-      await stake(stakeManager, relayHub, activeRelayWorkersAdded, owner)
-      await stake(stakeManager, relayHub, activeRelayServerRegistered, owner)
-      await stake(stakeManager, relayHub, activeVerifierRejected, owner)
-      await stake(stakeManager, relayHub, activeTransactionRelayed, owner)
-      await stake(stakeManager, relayHub, notActiveRelay, owner)
+      await stake(relayHub, activeRelayWorkersAdded, owner)
+      await stake(relayHub, activeRelayServerRegistered, owner)
+      await stake(relayHub, activeVerifierRejected, owner)
+      await stake(relayHub, activeTransactionRelayed, owner)
+      await stake(relayHub, notActiveRelay, owner)
 
       let nextNonce = (await smartWallet.nonce()).toString()
       const txTransactionRelayed = await prepareTransaction(relayHub.address, testRecipient, senderAddress, workerTransactionRelayed, verifier.address, nextNonce, smartWallet.address, token.address, '1')
@@ -187,40 +182,36 @@ contract('KnownRelaysManager 2', function (accounts) {
     let relayProcess: ChildProcessWithoutNullStreams
     let knownRelaysManager: KnownRelaysManager
     let contractInteractor: ContractInteractor
-    let stakeManager: StakeManagerInstance
     let relayHub: RelayHubInstance
     let config: EnvelopingConfig
     let env: Environment
 
     before(async function () {
       env = await getTestingEnvironment()
-      stakeManager = await StakeManager.new(0)
-      relayHub = await deployHub(stakeManager.address, constants.ZERO_ADDRESS)
+      relayHub = await deployHub(constants.ZERO_ADDRESS)
       config = configure({
         preferredRelays: ['http://localhost:8090'],
         relayHubAddress: relayHub.address,
         chainId: env.chainId
       })
-      relayProcess = (await startRelay(relayHub.address, stakeManager, {
+      relayProcess = (await startRelay(relayHub, {
         stake: 1e18,
         url: 'asd',
         relayOwner: accounts[1],
         rskNodeUrl: (web3.currentProvider as HttpProvider).host
       })).proc
+
       contractInteractor = new ContractInteractor(web3.currentProvider as HttpProvider, config)
       await contractInteractor.init()
       knownRelaysManager = new KnownRelaysManager(contractInteractor, config)
-      await stake(stakeManager, relayHub, accounts[1], accounts[0])
-      await stake(stakeManager, relayHub, accounts[2], accounts[0])
-      await stake(stakeManager, relayHub, accounts[3], accounts[0])
-      await stake(stakeManager, relayHub, accounts[4], accounts[0])
+      await stake(relayHub, accounts[1], accounts[0])
+      await stake(relayHub, accounts[2], accounts[0])
+      await stake(relayHub, accounts[3], accounts[0])
       await register(relayHub, accounts[1], accounts[6], 'stakeAndAuthorization1')
       await register(relayHub, accounts[2], accounts[7], 'stakeAndAuthorization2')
       await register(relayHub, accounts[3], accounts[8], 'stakeUnlocked')
-      await register(relayHub, accounts[4], accounts[9], 'hubUnauthorized')
 
-      await stakeManager.unlockStake(accounts[3])
-      await stakeManager.unauthorizeHubByOwner(accounts[4], relayHub.address)
+      await relayHub.unlockStake(accounts[3])
     })
 
     after(async function () {

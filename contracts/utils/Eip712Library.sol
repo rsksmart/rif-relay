@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../interfaces/EnvelopingTypes.sol";
 import "../interfaces/IForwarder.sol";
-import "../factory/ISmartWalletFactory.sol";
+import "../interfaces/IWalletFactory.sol";
 import "./MinLibBytes.sol";
 /**
  * Bridge Library to map Enveloping RelayRequest into a call of a SmartWallet
@@ -18,7 +18,7 @@ library Eip712Library {
 
             /* solhint-disable-next-line avoid-low-level-calls */
             (deploySuccess,) = relayRequest.relayData.callForwarder.call{gas: relayRequest.request.gas}(
-                abi.encodeWithSelector(ISmartWalletFactory.relayedUserSmartWalletCreation.selector,
+                abi.encodeWithSelector(IWalletFactory.relayedUserSmartWalletCreation.selector,
                 relayRequest.request, relayRequest.relayData.domainSeparator, 
                 hashRelayData(relayRequest.relayData), signature
             ));

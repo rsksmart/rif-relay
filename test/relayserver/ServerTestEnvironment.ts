@@ -9,7 +9,7 @@ import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IForwarderInstance,
   IRelayHubInstance,
-  IStakeManagerInstance, TestVerifierEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance
+  TestVerifierEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 import {
   assertRelayAdded,
@@ -29,12 +29,11 @@ import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
-import { deployHub, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
+import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
-import StakeManagerABI from '../../src/common/interfaces/IStakeManager.json'
-import RelayVerifierABI from '../../src/common/interfaces/IVerifier.json'
+import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
 import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
 
 import { defaultEnvironment } from '../../src/common/Environments'
@@ -44,7 +43,6 @@ import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { SendTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ether } from '@openzeppelin/test-helpers'
 
-const StakeManager = artifacts.require('StakeManager')
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
@@ -52,7 +50,6 @@ const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifi
 const SmartWallet = artifacts.require('SmartWallet')
 
 abiDecoder.addABI(RelayHubABI)
-abiDecoder.addABI(StakeManagerABI)
 abiDecoder.addABI(RelayVerifierABI)
 abiDecoder.addABI(DeployVerifierABI)
 
@@ -74,7 +71,6 @@ export interface PrepareRelayRequestOption {
 }
 
 export class ServerTestEnvironment {
-  stakeManager!: IStakeManagerInstance
   relayHub!: IRelayHubInstance
   forwarder!: IForwarderInstance
   relayVerifier!: TestVerifierEverythingAcceptedInstance
@@ -87,7 +83,6 @@ export class ServerTestEnvironment {
 
   encodedFunction!: PrefixedHexString
 
-  verifierData!: PrefixedHexString
   clientId!: string
 
   options?: PrepareRelayRequestOption
@@ -114,8 +109,7 @@ export class ServerTestEnvironment {
    * different provider from the contract interactor itself.
    */
   async init (clientConfig: Partial<EnvelopingConfig> = {}, relayHubConfig: Partial<RelayHubConfiguration> = {}, contractFactory?: (clientConfig: Partial<EnvelopingConfig>) => Promise<ContractInteractor>): Promise<void> {
-    this.stakeManager = await StakeManager.new(0)
-    this.relayHub = await deployHub(this.stakeManager.address, undefined, relayHubConfig)
+    this.relayHub = await deployHub(undefined, relayHubConfig)
     this.recipient = await TestRecipient.new()
     this.relayVerifier = await TestVerifierEverythingAccepted.new()
     this.deployVerifier = await TestDeployVerifierEverythingAccepted.new()
@@ -126,7 +120,7 @@ export class ServerTestEnvironment {
     this.gasLess = gaslessAccount.address
 
     const sWalletTemplate = await SmartWallet.new()
-    const factory = await createProxyFactory(sWalletTemplate)
+    const factory = await createSmartWalletFactory(sWalletTemplate)
     const chainId = clientConfig.chainId ?? (await getTestingEnvironment()).chainId
 
     const defaultAccount = web3.defaultAccount ?? (await web3.eth.getAccounts())[0]
@@ -178,12 +172,9 @@ export class ServerTestEnvironment {
       value: web3.utils.toWei('2', 'ether')
     })
 
-    await this.stakeManager.stakeForAddress(this.relayServer.managerAddress, unstakeDelay, {
+    await this.relayHub.stakeForAddress(this.relayServer.managerAddress, unstakeDelay, {
       from: this.relayOwner,
       value: ether('1')
-    })
-    await this.stakeManager.authorizeHubByOwner(this.relayServer.managerAddress, this.relayHub.address, {
-      from: this.relayOwner
     })
   }
 

@@ -1,9 +1,9 @@
 import {
   SmartWalletInstance,
   TestTokenInstance,
-  ProxyFactoryInstance,
-  SimpleSmartWalletInstance,
-  SimpleProxyFactoryInstance
+  CustomSmartWalletFactoryInstance,
+  CustomSmartWalletInstance,
+  SmartWalletFactoryInstance
 } from '../types/truffle-contracts'
   // @ts-ignore
 import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
@@ -22,12 +22,12 @@ const keccak256 = web3.utils.keccak256
 
 const TestToken = artifacts.require('TestToken')
 
-contract('ProxyFactory', ([from]) => {
-  const SmartWallet = artifacts.require('SmartWallet')
-  const ProxyFactory = artifacts.require('ProxyFactory')
-  let fwd: SmartWalletInstance
+contract('CustomSmartWalletFactory', ([from]) => {
+  const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+  const CustomSmartWalletFactory = artifacts.require('CustomSmartWalletFactory')
+  let fwd: CustomSmartWalletInstance
   let token: TestTokenInstance
-  let factory: ProxyFactoryInstance
+  let factory: CustomSmartWalletFactoryInstance
   let chainId: number
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string
@@ -65,12 +65,12 @@ contract('ProxyFactory', ([from]) => {
     recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
     request.request.from = ownerAddress
     env = await getTestingEnvironment()
-    fwd = await SmartWallet.new()
+    fwd = await CustomSmartWallet.new()
   })
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await ProxyFactory.new(fwd.address)
+    factory = await CustomSmartWalletFactory.new(fwd.address)
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
@@ -634,17 +634,17 @@ contract('ProxyFactory', ([from]) => {
 
 )
 
-contract('SimpleProxyFactory', ([from]) => {
-  let fwd: SimpleSmartWalletInstance
+contract('SmartWalletFactory', ([from]) => {
+  let fwd: SmartWalletInstance
   let token: TestTokenInstance
-  let factory: SimpleProxyFactoryInstance
+  let factory: SmartWalletFactoryInstance
   let chainId: number
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string
   const recipientPrivateKey = toBuffer(bytes32(1))
   let recipientAddress: string
-  const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
-  const SimpleProxyFactory = artifacts.require('SimpleProxyFactory')
+  const SmartWallet = artifacts.require('SmartWallet')
+  const SmartWalletFactory = artifacts.require('SmartWalletFactory')
   let env: Environment
 
   const request: DeployRequest = {
@@ -677,12 +677,12 @@ contract('SimpleProxyFactory', ([from]) => {
     recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
     request.request.from = ownerAddress
     env = await getTestingEnvironment()
-    fwd = await SimpleSmartWallet.new()
+    fwd = await SmartWallet.new()
   })
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await SimpleProxyFactory.new(fwd.address)
+    factory = await SmartWalletFactory.new(fwd.address)
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })

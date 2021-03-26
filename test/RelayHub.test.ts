@@ -1,11 +1,12 @@
-import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
+import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import chai from 'chai'
 
 import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
 import { RelayRequest, cloneRelayRequest, DeployRequest } from '../src/common/EIP712/RelayRequest'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
-import proxyFactoryAbi from '../src/common/interfaces/ISmartWalletFactory.json'
+import walletFactoryAbi from '../src/common/interfaces/IWalletFactory.json'
+import relayHubAbi from '../src/common/interfaces/IRelayHub.json'
 
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
@@ -13,20 +14,17 @@ import abiDecoder from 'abi-decoder'
 import {
   RelayHubInstance,
   PenalizerInstance,
-  StakeManagerInstance,
   TestRecipientInstance,
   IForwarderInstance,
   TestVerifierEverythingAcceptedInstance,
   TestVerifierConfigurableMisbehaviorInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance,
-  SimpleSmartWalletInstance,
-  SimpleProxyFactoryInstance,
+  SmartWalletFactoryInstance,
   TestTokenInstance,
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createProxyFactory, createSmartWallet, getGaslessAccount, createSimpleProxyFactory, createSimpleSmartWallet } from './TestUtils'
+import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
@@ -35,7 +33,6 @@ import { constants } from '../src/common/Constants'
 import { toBN, toChecksumAddress } from 'web3-utils'
 
 const { assert } = chai.use(chaiAsPromised)
-const StakeManager = artifacts.require('StakeManager')
 const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
@@ -43,12 +40,15 @@ const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifi
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
-abiDecoder.addABI(proxyFactoryAbi)
+
+// @ts-ignore
+abiDecoder.addABI(TestRecipient.abi)
+abiDecoder.addABI(walletFactoryAbi)
+abiDecoder.addABI(relayHubAbi)
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager]) {
   let chainId: number
   let relayHub: string
-  let stakeManager: StakeManagerInstance
   let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
@@ -66,22 +66,21 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   let sharedDeployRequestData: DeployRequest
   let env: Environment
   let token: TestTokenInstance
-  let factory: ProxyFactoryInstance
+  let factory: SmartWalletFactoryInstance
 
   describe('add/disable relay workers', function () {
     beforeEach(async function () {
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      relayHubInstance = await deployHub(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      factory = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createSmartWalletFactory(smartWalletTemplate)
       recipientContract = await TestRecipient.new()
       const testToken = artifacts.require('TestToken')
       token = await testToken.new()
@@ -117,23 +116,22 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
     })
 
     it('should register and allow to disable new relay workers', async function () {
-      await stakeManager.stakeForAddress(relayManager, 1000, {
+      await relayHubInstance.stakeForAddress(relayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
-
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
 
       const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
       assert.equal(relayWorkersBefore.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`)
 
       let txResponse = await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+      let receipt = await web3.eth.getTransactionReceipt(txResponse.tx)
+      let logs = abiDecoder.decodeLogs(receipt.logs)
 
-      expectEvent.inLogs(txResponse.logs, 'RelayWorkersAdded', {
-        relayManager: relayManager,
-        newRelayWorkers: [relayWorker],
-        workersCount: toBN(1)
-      })
+      const relayWorkersAddedEvent = logs.find((e: any) => e != null && e.name === 'RelayWorkersAdded')
+      assert.equal(relayManager.toLowerCase(), relayWorkersAddedEvent.events[0].value.toLowerCase())
+      assert.equal(relayWorker.toLowerCase(), relayWorkersAddedEvent.events[1].value[0].toLowerCase())
+      assert.equal(toBN(1), relayWorkersAddedEvent.events[2].value)
 
       let relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
       assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
@@ -146,11 +144,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       txResponse = await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
 
-      expectEvent.inLogs(txResponse.logs, 'RelayWorkersDisabled', {
-        relayManager: relayManager,
-        relayWorkers: [relayWorker],
-        workersCount: toBN(0)
-      })
+      receipt = await web3.eth.getTransactionReceipt(txResponse.tx)
+      logs = abiDecoder.decodeLogs(receipt.logs)
+      const relayWorkersDisabledEvent = logs.find((e: any) => e != null && e.name === 'RelayWorkersDisabled')
+      assert.equal(relayManager.toLowerCase(), relayWorkersDisabledEvent.events[0].value.toLowerCase())
+      assert.equal(relayWorker.toLowerCase(), relayWorkersDisabledEvent.events[1].value[0].toLowerCase())
+      assert.equal(toBN(0), relayWorkersDisabledEvent.events[2].value)
 
       relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
       assert.equal(relayWorkersAfter.toNumber(), 0, 'Workers must be zero')
@@ -161,23 +160,23 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
     })
 
     it('should fail to disable more relay workers than available', async function () {
-      await stakeManager.stakeForAddress(relayManager, 1000, {
+      await relayHubInstance.stakeForAddress(relayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
-
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
 
       const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
       assert.equal(relayWorkersBefore.toNumber(), 0, `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`)
 
       const txResponse = await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
 
-      expectEvent.inLogs(txResponse.logs, 'RelayWorkersAdded', {
-        relayManager: relayManager,
-        newRelayWorkers: [relayWorker],
-        workersCount: toBN(1)
-      })
+      const receipt = await web3.eth.getTransactionReceipt(txResponse.tx)
+      const logs = abiDecoder.decodeLogs(receipt.logs)
+
+      const relayWorkersAddedEvent = logs.find((e: any) => e != null && e.name === 'RelayWorkersAdded')
+      assert.equal(relayManager.toLowerCase(), relayWorkersAddedEvent.events[0].value.toLowerCase())
+      assert.equal(relayWorker.toLowerCase(), relayWorkersAddedEvent.events[1].value[0].toLowerCase())
+      assert.equal(toBN(1), relayWorkersAddedEvent.events[2].value)
 
       let relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
       assert.equal(relayWorkersAfter.toNumber(), 1, 'Workers must be one')
@@ -201,17 +200,15 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
     })
 
     it('should only allow the corresponding relay manager to disable their respective relay workers', async function () {
-      await stakeManager.stakeForAddress(relayManager, 1000, {
+      await relayHubInstance.stakeForAddress(relayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
 
-      await stakeManager.stakeForAddress(incorrectRelayManager, 1000, {
+      await relayHubInstance.stakeForAddress(incorrectRelayManager, 1000, {
         value: ether('1'),
         from: relayOwner
       })
-      await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
-      await stakeManager.authorizeHubByOwner(incorrectRelayManager, relayHub, { from: relayOwner })
 
       const relayWorkersBefore = await relayHubInstance.workerCount(relayManager)
       const relayWorkersBefore2 = await relayHubInstance.workerCount(incorrectRelayManager)
@@ -262,15 +259,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      relayHubInstance = await deployHub(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      factory = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createSmartWalletFactory(smartWalletTemplate)
       recipientContract = await TestRecipient.new()
       const testToken = artifacts.require('TestToken')
       token = await testToken.new()
@@ -331,15 +327,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       context('with manager stake unlocked', function () {
         beforeEach(async function () {
-          await stakeManager.stakeForAddress(relayManager, 1000, {
+          await relayHubInstance.stakeForAddress(relayManager, 1000, {
             value: ether('1'),
             from: relayOwner
           })
-          await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
           await relayHubInstance.addRelayWorkers([relayWorker], {
             from: relayManager
           })
-          await stakeManager.unauthorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
         })
         it('should not accept a relay call', async function () {
           await expectRevert.unspecified(
@@ -362,11 +356,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       let signatureWithPermissiveVerifier: string
 
       beforeEach(async function () {
-        await stakeManager.stakeForAddress(relayManager, 1000, {
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
           value: ether('2'),
           from: relayOwner
         })
-        await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
 
         // truffle-contract doesn't let us create method data from the class, we need an actual instance
         encodedFunction = recipientContract.contract.methods.emitMessage(message).encodeABI()
@@ -482,11 +475,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           )
         })
 
-        it('gas estimation tests for Simple Smart Wallet', async function () {
-          const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
-          const simpleSWalletTemplate: SimpleSmartWalletInstance = await SimpleSmartWallet.new()
-          const simpleFactory: SimpleProxyFactoryInstance = await createSimpleProxyFactory(simpleSWalletTemplate)
-          const sWalletInstance = await createSimpleSmartWallet(_, gaslessAccount.address, simpleFactory, gaslessAccount.privateKey, chainId)
+        it('gas estimation tests for SmartWallet', async function () {
+          const SmartWallet = artifacts.require('SmartWallet')
+          const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+          const smartWalletFactory: SmartWalletFactoryInstance = await createSmartWalletFactory(smartWalletTemplate)
+          const sWalletInstance = await createSmartWallet(_, gaslessAccount.address, smartWalletFactory, gaslessAccount.privateKey, chainId)
 
           const nonceBefore = await sWalletInstance.nonce()
           await token.mint('10000', sWalletInstance.address)
@@ -508,17 +501,18 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gaslessAccount.privateKey
           )
 
-          const { tx, logs } = await relayHubInstance.relayCall(completeReq, sig, {
+          const { tx } = await relayHubInstance.relayCall(completeReq, sig, {
             from: relayWorker,
             gas,
             gasPrice
           })
+
           const nonceAfter = await sWalletInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber(), 'Incorrect nonce after execution')
 
           const eventHash = keccak('GasUsed(uint256,uint256)')
           const txReceipt = await web3.eth.getTransactionReceipt(tx)
-          console.log('---------------Simple SmartWallet: RelayCall metrics------------------------')
+          console.log('---------------SmartWallet: RelayCall metrics------------------------')
           console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
 
           let previousGas: BigInt = BigInt(0)
@@ -543,15 +537,17 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }
           }
 
-          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
-            message,
-            msgSender: sWalletInstance.address,
-            origin: relayWorker
-          })
+          const logs = abiDecoder.decodeLogs(txReceipt.logs)
+          const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
 
-          web3.eth.abi.encodeParameter('string', 'emitMessage return value')
+          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
+          assert.equal(sWalletInstance.address.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
+          assert.equal(relayWorker.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
 
-          expectEvent.inLogs(logs, 'TransactionRelayed')
+          const transactionRelayedEvent = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
+
+          assert.isNotNull(transactionRelayedEvent)
+
           const callWithoutRelay = await recipientContract.emitMessage2(message)
           const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
           // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
@@ -594,7 +590,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gaslessAccount.privateKey
           )
 
-          const { tx, logs } = await relayHubInstance.relayCall(completeReq, sig, {
+          const { tx } = await relayHubInstance.relayCall(completeReq, sig, {
             from: relayWorker,
             gas,
             gasPrice
@@ -632,13 +628,16 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }
           }
 
-          expectEvent.inLogs(logs, 'TransactionRelayed')
+          const logs = abiDecoder.decodeLogs(txReceipt.logs)
+          const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
 
-          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
-            message,
-            msgSender: forwarder,
-            origin: relayWorker
-          })
+          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
+          assert.equal(forwarder.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
+          assert.equal(relayWorker.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
+
+          const transactionRelayedEvent = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
+
+          assert.isNotNull(transactionRelayedEvent)
         })
 
         it('should fail to relay if the worker has been disabled', async function () {
@@ -665,7 +664,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
           const nonceBefore = await forwarderInstance.nonce()
 
-          const { tx, logs } = await relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
+          const { tx } = await relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
             from: relayWorker,
             gas,
             gasPrice
@@ -674,15 +673,17 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           const nonceAfter = await forwarderInstance.nonce()
           assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
 
-          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
-            message,
-            msgSender: forwarder,
-            origin: relayWorker
-          })
+          const receipt = await web3.eth.getTransactionReceipt(tx)
+          const logs = abiDecoder.decodeLogs(receipt.logs)
+          const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
 
-          web3.eth.abi.encodeParameter('string', 'emitMessage return value')
+          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
+          assert.equal(forwarder.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
+          assert.equal(relayWorker.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
 
-          expectEvent.inLogs(logs, 'TransactionRelayed')
+          const transactionRelayedEvent = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
+
+          assert.isNotNull(transactionRelayedEvent)
         })
 
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
@@ -691,7 +692,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gas,
             gasPrice
           })
-          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted')
+
+          const receipt = await web3.eth.getTransactionReceipt(tx)
+          const logs = abiDecoder.decodeLogs(receipt.logs)
+          const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+
+          assert.isNotNull(sampleRecipientEmittedEvent)
 
           await expectRevert.unspecified(
             relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
@@ -720,11 +726,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             gas,
             gasPrice
           })
-          await expectEvent.inTransaction(tx, TestRecipient, 'SampleRecipientEmitted', {
-            message: messageWithNoParams,
-            msgSender: forwarder,
-            origin: relayWorker
-          })
+
+          const receipt = await web3.eth.getTransactionReceipt(tx)
+          const logs = abiDecoder.decodeLogs(receipt.logs)
+          const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+
+          assert.equal(messageWithNoParams, sampleRecipientEmittedEvent.events[0].value)
+          assert.equal(forwarder.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
+          assert.equal(relayWorker.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
         })
 
         it('relayCall executes a transaction even if recipient call reverts', async function () {
@@ -740,18 +749,21 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             dataToSign,
             gaslessAccount.privateKey
           )
-          const { logs } = await relayHubInstance.relayCall(relayRequestRevert, signature, {
+          const { tx } = await relayHubInstance.relayCall(relayRequestRevert, signature, {
             from: relayWorker,
             gas,
             gasPrice
           })
 
-          const expectedReturnValue = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'always fail'))
+          const reason = '0x08c379a0' + removeHexPrefix(web3.eth.abi.encodeParameter('string', 'always fail'))
 
-          expectEvent.inLogs(logs, 'TransactionRelayedButRevertedByRecipient', {
-            relayWorker: relayWorker,
-            reason: expectedReturnValue
-          })
+          const receipt = await web3.eth.getTransactionReceipt(tx)
+          const logs = abiDecoder.decodeLogs(receipt.logs)
+          const transactionRelayedButRevertedByRecipientEvent =
+            logs.find((e: any) => e != null && e.name === 'TransactionRelayedButRevertedByRecipient')
+
+          assert.equal(relayWorker.toLowerCase(), transactionRelayedButRevertedByRecipientEvent.events[1].value.toLowerCase())
+          assert.equal(reason, transactionRelayedButRevertedByRecipientEvent.events[3].value)
         })
 
         it('should not accept relay requests if passed gas is too low for a relayed transaction', async function () {
@@ -852,15 +864,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      stakeManager = await StakeManager.new(0)
       penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(stakeManager.address, penalizer.address)
+      relayHubInstance = await deployHub(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 
-      const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      factory = await createProxyFactory(sWalletTemplate)
+      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
+      factory = await createSmartWalletFactory(smartWalletTemplate)
       recipientContract = await TestRecipient.new()
       const testToken = artifacts.require('TestToken')
       token = await testToken.new()
@@ -916,15 +927,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       context('with manager stake unlocked', function () {
         beforeEach(async function () {
-          await stakeManager.stakeForAddress(relayManager, 1000, {
+          await relayHubInstance.stakeForAddress(relayManager, 1000, {
             value: ether('1'),
             from: relayOwner
           })
-          await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
           await relayHubInstance.addRelayWorkers([relayWorker], {
             from: relayManager
           })
-          await stakeManager.unauthorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
         })
 
         it('should not accept a deploy call', async function () {
@@ -943,11 +952,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       let deployRequest: DeployRequest
 
       beforeEach(async function () {
-        await stakeManager.stakeForAddress(relayManager, 1000, {
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
           value: ether('2'),
           from: relayOwner
         })
-        await stakeManager.authorizeHubByOwner(relayManager, relayHub, { from: relayOwner })
         await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
         await relayHubInstance.registerRelayServer(baseRelayFee, pctRelayFee, url, { from: relayManager })
 
@@ -1004,7 +1012,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         it('deployCall executes the transaction and increments sender nonce on factory', async function () {
           const nonceBefore = await factory.nonce(gaslessAccount.address)
           const calculatedAddr = await factory.getSmartWalletAddress(gaslessAccount.address,
-            constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, relayRequestMisbehavingVerifier.request.index)
+            constants.ZERO_ADDRESS, relayRequestMisbehavingVerifier.request.index)
           await token.mint('1', calculatedAddr)
 
           const { tx } = await relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
@@ -1052,7 +1060,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
         it('deployCall should refuse to re-send transaction with same nonce', async function () {
           const calculatedAddr = await factory.getSmartWalletAddress(gaslessAccount.address,
-            constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, constants.SHA3_NULL_S, relayRequestMisbehavingVerifier.request.index)
+            constants.ZERO_ADDRESS, relayRequestMisbehavingVerifier.request.index)
           await token.mint('2', calculatedAddr)
 
           const { tx } = await relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {

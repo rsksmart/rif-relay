@@ -1,28 +1,17 @@
 // test possible client errors
 
-import { TestEnvironment, TestEnvironmentInfo } from '../../src/relayclient/TestEnvironment'
+import { TestEnvironment } from '../../src/relayclient/TestEnvironment'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { resolveConfiguration } from '../../src/relayclient/Configurator'
-import { DeploymentResult } from '../../src/cli/CommandsLogic'
-import { PrefixedHexString } from 'ethereumjs-tx'
-import ContractInteractor, { Web3Provider } from '../../src/common/ContractInteractor'
 import { HttpProvider } from 'web3-core'
 
 const { assert, expect } = chai.use(chaiAsPromised)
 
 contract('client-configuration', () => {
-  let env: TestEnvironmentInfo
-  let deploymentResult: DeploymentResult
-  let relayVerifierAddress: PrefixedHexString
-  let deployVerifierAddress: PrefixedHexString
   before(async () => {
     const host = (web3.currentProvider as HttpProvider).host
-    env = await TestEnvironment.start(host, 0.6e18)
-    deploymentResult = env.deploymentResult
-    // deploymentResult = loadDeployment('./build/enveloping')
-    relayVerifierAddress = deploymentResult.relayVerifierAddress
-    deployVerifierAddress = deploymentResult.deployVerifierAddress
+    await TestEnvironment.start(host, 0.6e18)
   })
   describe('#resolveConfiguration', () => {
     describe('failures', () => {
@@ -34,26 +23,6 @@ contract('client-configuration', () => {
       it('should throw if the first arg not provider', async () => {
         // @ts-ignore
         await expect(resolveConfiguration({})).to.eventually.rejectedWith(/First param is not a web3 provider/)
-      })
-
-      it.skip('should throw if wrong contract verifier version', async () => {
-        // instead of deploying a new verifier with a different version, we make our client version older
-        // since resolveConfiguration creates its own ContractInteractor, we have to hook the class to modify the version
-        // after it is created...
-
-        const saveCPM = ContractInteractor.prototype._createBaseVerifier
-        try {
-          ContractInteractor.prototype._createBaseVerifier = async function (addr) {
-            (this as any).versionManager.componentVersion = '1.0.0-old-client'
-            console.log('hooked _createVerifier with version')
-            return await saveCPM.call(this, addr)
-          }
-
-          await expect(resolveConfiguration(web3.currentProvider as Web3Provider, { relayVerifierAddress, deployVerifierAddress }))
-            .to.eventually.rejectedWith(/Provided.*version.*is not supported/)
-        } finally {
-          ContractInteractor.prototype._createBaseVerifier = saveCPM
-        }
       })
     })
 

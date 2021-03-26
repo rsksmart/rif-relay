@@ -292,7 +292,7 @@ export class EnvelopingUtils {
         to: zeroAddr,
         value: '0',
         gas: gasLimit, // overhead (cte) + fee + (estimateDeploy * 1.1)
-        nonce: (await this.getFactoryNonce(this.config.proxyFactoryAddress, from)).toString(),
+        nonce: (await this.getFactoryNonce(this.config.smartWalletFactoryAddress, from)).toString(),
         data: '0x',
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
@@ -303,9 +303,9 @@ export class EnvelopingUtils {
       relayData: {
         gasPrice: gasPrice ?? '0',
         relayWorker: this.relayWorkerAddress,
-        callForwarder: this.config.proxyFactoryAddress,
+        callForwarder: this.config.smartWalletFactoryAddress,
         callVerifier: this.config.deployVerifierAddress,
-        domainSeparator: getDomainSeparatorHash(this.config.proxyFactoryAddress, this.config.chainId)
+        domainSeparator: getDomainSeparatorHash(this.config.smartWalletFactoryAddress, this.config.chainId)
       }
     }
 
@@ -360,7 +360,7 @@ export class EnvelopingUtils {
     const cloneRequest = { ...request }
     const dataToSign = new TypedDeployRequestData(
       this.config.chainId,
-      this.config.proxyFactoryAddress,
+      this.config.smartWalletFactoryAddress,
       cloneRequest
     )
     return this.signAndVerify(signatureProvider, dataToSign, request)
@@ -426,7 +426,6 @@ export class EnvelopingUtils {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature: signature,
-      approvalData: '0x',
       relayMaxNonce: await this.dependencies.contractInteractor.getTransactionCount(this.relayWorkerAddress) + this.config.maxRelayNonceGap
     }
 

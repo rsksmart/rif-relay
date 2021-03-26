@@ -1,9 +1,9 @@
 import {
   TestRecipientInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance
+  SmartWalletFactoryInstance
 } from '../types/truffle-contracts'
-import { createProxyFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
+import { createSmartWalletFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 
 const TestRecipient = artifacts.require('TestRecipient')
@@ -20,7 +20,7 @@ contract('SampleRecipient', function (accounts) {
     const env = await getTestingEnvironment()
     const chainId = env.chainId
     const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-    const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+    const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(sWalletTemplate)
     await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, chainId)
 
     sample = await TestRecipient.new()

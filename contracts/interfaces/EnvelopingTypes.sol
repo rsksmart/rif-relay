@@ -1,7 +1,7 @@
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
 
-import "../interfaces/IForwarder.sol";
+import "./IForwarder.sol";
 
 interface EnvelopingTypes {
     struct RelayData {

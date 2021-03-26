@@ -62,7 +62,7 @@ As a simplification of the process, the Enveloping Utils is provided to use as a
 const partialConfig: Partial<EnvelopingConfig> =
     {
       relayHubAddress: relayHub.address,
-      proxyFactoryAddress: factory.address,
+      smartWalletFactoryAddress: factory.address,
       chainId: chainId,
       relayVerifierAddress: relayVerifier.address,  // The verifier that will verify the relayed transaction
       deployVerifierAddress: deployVerifier.address, // The verifier that will verify the smart wallet deployment

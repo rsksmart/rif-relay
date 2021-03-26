@@ -5,7 +5,6 @@ import { Address } from './Aliases'
 import { DeployRequest, RelayRequest } from '../../common/EIP712/RelayRequest'
 
 export interface RelayMetadata {
-  approvalData: PrefixedHexString
   relayHubAddress: Address
   relayMaxNonce: number
   signature: PrefixedHexString
@@ -45,7 +44,6 @@ export const DeployTransactionRequestShape = {
     }
   },
   metadata: {
-    approvalData: ow.string,
     relayHubAddress: ow.string,
     relayMaxNonce: ow.number,
     signature: ow.string
@@ -75,7 +73,6 @@ export const RelayTransactionRequestShape = {
     }
   },
   metadata: {
-    approvalData: ow.string,
     relayHubAddress: ow.string,
     relayMaxNonce: ow.number,
     signature: ow.string

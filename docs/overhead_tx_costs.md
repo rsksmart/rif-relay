@@ -6,16 +6,16 @@ The overhead gas cost is the extra amount of gas required to process the relay c
 
 RIF Enveloping V1 only has one SmartWallet [template](https://github.com/rsksmart/enveloping/blob/v1.0.1/contracts/forwarder/SmartWallet.sol), which can be used as-is or it can be injected with extra logic during the SmartWallet instance creation.
 
-V2 introduces a cheaper template ([SimpleSmartWallet](https://github.com/rsksmart/enveloping/blob/master/contracts/smartwallet/SimpleSmartWallet.sol)), to be used when there's no need for extra custom-logic in the smart wallets. The behaviour is the same as the SmartWallet [template](https://github.com/rsksmart/enveloping/blob/master/contracts/smartwallet/SmartWallet.sol) of V2, but without this capability.
+V2 introduces a cheaper template ([SmartWallet](https://github.com/rsksmart/enveloping/blob/master/contracts/smartwallet/SmartWallet.sol)), to be used when there's no need for extra custom-logic in the smart wallets. The behaviour is the same as the CustomSmartWallet [template](https://github.com/rsksmart/enveloping/blob/master/contracts/smartwallet/CustomSmartWallet.sol) of V2, but without this capability.
 
 
 | RIF Version | SW Template  | Avg. overhead gas|
 |--|--|--|
 |1| SmartWallet| 172400|
-|2| SmartWallet| 98070 |
-|2| SimpleSmartWallet | 97695|
+|2| CustomSmartWallet| 98070 |
+|2| SmartWallet | 97695|
 
-Note that the instance of SmartWallet used didn't point to any extra custom logic.
+Note that the instance of CustomSmartWallet used didn't point to any extra custom logic.
 
 # Transaction Batching
 RIF Enveloping V2 also introduces transaction batching
@@ -48,8 +48,8 @@ The gas costs for scenarios E and F are the same
 
 
 ## Overhead costs in batching
-The following table depicts the average gas overhead per transaction for the SimpleSmartWallet template when using transaction batching
-The gas difference of using the SmartWallet template without extra logic versus using the SimpleSmartWallet template is approximately an extra of between 200 and 300 gas
+The following table depicts the average gas overhead per transaction for the SmartWallet template when using transaction batching
+The gas difference of using the CustomSmartWallet template without extra logic versus using the SmartWallet template is approximately an extra of between 200 and 300 gas
 
 
 |Tx per batch  | A,B|C,D|E,F|

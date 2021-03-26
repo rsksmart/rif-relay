@@ -18,6 +18,7 @@ node_modules
 cache
 /src/cli/compiled/
 /RelayClient.ts
+/RelayEvents.ts
 /RelayProvider.ts
 /Configurator.ts
 /TestEnvironment.ts

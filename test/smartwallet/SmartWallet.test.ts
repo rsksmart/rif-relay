@@ -1,11 +1,11 @@
 import {
-  SmartWalletInstance,
   TestSmartWalletInstance,
   TestForwarderTargetInstance,
-  ProxyFactoryInstance,
   TestTokenInstance,
-  SimpleSmartWalletInstance,
-  SimpleProxyFactoryInstance,
+  CustomSmartWalletInstance,
+  CustomSmartWalletFactoryInstance,
+  SmartWalletInstance,
+  SmartWalletFactoryInstance,
   TetherTokenInstance,
   NonRevertTestTokenInstance,
   NonCompliantTestTokenInstance
@@ -17,7 +17,7 @@ import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toBN, toChecksumAddress } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
-import { getTestingEnvironment, createProxyFactory, createSmartWallet, bytes32, createSimpleProxyFactory, createSimpleSmartWallet } from '../TestUtils'
+import { getTestingEnvironment, createCustomSmartWalletFactory, createCustomSmartWallet, bytes32, createSmartWalletFactory, createSmartWallet } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
@@ -33,11 +33,11 @@ const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const options = [
   {
-    title: 'SmartWallet',
+    title: 'CustomSmartWallet',
     simple: false
   },
   {
-    title: 'SimpleSmartWallet',
+    title: 'SmartWallet',
     simple: true
   }
 ]
@@ -105,10 +105,10 @@ options.forEach(element => {
       const senderPrivateKey = toBuffer(bytes32(1))
       let chainId: number
       let senderAddress: string
-      let template: SmartWalletInstance | SimpleSmartWalletInstance
-      let factory: ProxyFactoryInstance | SimpleProxyFactoryInstance
+      let template: SmartWalletInstance | CustomSmartWalletInstance
+      let factory: CustomSmartWalletFactoryInstance | SmartWalletFactoryInstance
       let token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance
-      let sw: SmartWalletInstance | SimpleSmartWalletInstance
+      let sw: SmartWalletInstance | CustomSmartWalletInstance
       let domainSeparatorHash: string
 
       const request: RelayRequest = {
@@ -155,15 +155,15 @@ options.forEach(element => {
         request.request.tokenContract = token.address
 
         if (element.simple) {
-          const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
-          template = await SimpleSmartWallet.new()
-          factory = await createSimpleProxyFactory(template)
-          sw = await createSimpleSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
-        } else {
           const SmartWallet = artifacts.require('SmartWallet')
           template = await SmartWallet.new()
-          factory = await createProxyFactory(template)
+          factory = await createSmartWalletFactory(template)
           sw = await createSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
+        } else {
+          const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+          template = await CustomSmartWallet.new()
+          factory = await createCustomSmartWalletFactory(template)
+          sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
         }
 
         request.relayData.callForwarder = sw.address
@@ -532,24 +532,24 @@ options.forEach(element => {
 
       describe('#verifyAndCallByOwner', () => {
         let recipient: TestForwarderTargetInstance
-        let template: SimpleSmartWalletInstance | SmartWalletInstance
-        let factory: SimpleProxyFactoryInstance | ProxyFactoryInstance
-        let sw: SimpleSmartWalletInstance | SmartWalletInstance
+        let template: SmartWalletInstance | CustomSmartWalletInstance
+        let factory: SmartWalletFactoryInstance | CustomSmartWalletFactoryInstance
+        let sw: SmartWalletInstance | CustomSmartWalletInstance
         const otherAccountPrivateKey: Buffer = Buffer.from('0c06818f82e04c564290b32ab86b25676731fc34e9a546108bf109194c8e3aae', 'hex')
 
         before(async () => {
           console.log('Running tests using accont: ', otherAccount)
 
           if (element.simple) {
-            const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
-            template = await SimpleSmartWallet.new()
-            factory = await createSimpleProxyFactory(template)
-            sw = await createSimpleSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId)
-          } else {
             const SmartWallet = artifacts.require('SmartWallet')
             template = await SmartWallet.new()
-            factory = await createProxyFactory(template)
+            factory = await createSmartWalletFactory(template)
             sw = await createSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId)
+          } else {
+            const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+            template = await CustomSmartWallet.new()
+            factory = await createCustomSmartWalletFactory(template)
+            sw = await createCustomSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId)
           }
 
           await fillTokens(tokenToUse.tokenIndex, token, sw.address, '1000')

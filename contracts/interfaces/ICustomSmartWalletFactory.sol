@@ -2,9 +2,9 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "./ISmartWalletFactory.sol";
+import "./IWalletFactory.sol";
 
-interface IProxyFactory is ISmartWalletFactory{
+interface ICustomSmartWalletFactory is IWalletFactory{
 
     function createUserSmartWallet(
         address owner,

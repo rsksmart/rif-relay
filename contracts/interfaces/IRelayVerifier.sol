@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "./EnvelopingTypes.sol";
 
-interface IDeployVerifier {
+interface IRelayVerifier {
     function versionVerifier() external view returns (string memory);
 
     /**
@@ -16,8 +16,8 @@ interface IDeployVerifier {
      *              Note that in most cases the verifier shouldn't try use it at all. It is always checked
      *              by the forwarder immediately after verifyRelayedCall returns.
      */
-   function verifyRelayedCall(
-        EnvelopingTypes.DeployRequest calldata relayRequest,
+    function verifyRelayedCall(
+        EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     ) external returns (bytes memory context);
 }

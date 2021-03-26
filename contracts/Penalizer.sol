@@ -25,7 +25,6 @@ contract Penalizer is IPenalizer{
         transaction.value,
         transaction.data) = RLPReader.decodeTransaction(rawTransaction);
         return transaction;
-
     }
 
     modifier relayManagerOnly(IRelayHub hub) {

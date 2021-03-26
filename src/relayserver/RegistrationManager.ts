@@ -10,14 +10,11 @@ import {
   address2topic,
   getLatestEventData,
   isRegistrationValid,
-  isSameAddress,
   isSecondEventLater,
   boolString
 } from '../common/Utils'
 import { defaultEnvironment } from '../common/Environments'
 import ContractInteractor, {
-  HubAuthorized,
-  HubUnauthorized,
   RelayServerRegistered,
   RelayWorkersAdded,
   StakeAdded,
@@ -42,7 +39,6 @@ const mintxgascost = defaultEnvironment.mintxgascost
 export class RegistrationManager {
   balanceRequired: AmountRequired
   stakeRequired: AmountRequired
-  _isHubAuthorized = false
   _isStakeLocked = false
 
   isInitialized = false
@@ -62,19 +58,6 @@ export class RegistrationManager {
   lastMinedRegisterTransaction?: EventData
   lastWorkerAddedTransaction?: EventData
   private delayedEvents: Array<{ block: number, eventData: EventData }> = []
-
-  get isHubAuthorized (): boolean {
-    return this._isHubAuthorized
-  }
-
-  set isHubAuthorized (newValue: boolean) {
-    const oldValue = this._isHubAuthorized
-    this._isHubAuthorized = newValue
-    if (newValue !== oldValue) {
-      log.info(`Current RelayHub is ${newValue ? 'now' : 'no longer'} authorized`)
-      this.printNotRegisteredMessage()
-    }
-  }
 
   get isStakeLocked (): boolean {
     return this._isStakeLocked
@@ -135,28 +118,19 @@ export class RegistrationManager {
       fromBlock: lastScannedBlock + 1,
       toBlock: 'latest'
     }
-    const eventNames = [HubAuthorized, StakeAdded, HubUnauthorized, StakeUnlocked, StakeWithdrawn]
+    const eventNames = [StakeAdded, StakeUnlocked, StakeWithdrawn]
     const decodedEvents = await this.contractInteractor.getPastEventsForStakeManager(eventNames, topics, options)
     this.printEvents(decodedEvents, options)
     let transactionHashes: PrefixedHexString[] = []
     // TODO: what about 'penalize' events? should send balance to owner, I assume
-    // TODO TODO TODO 'StakeAdded' is not the event you want to cat upon if there was no 'HubAuthorized' event
     for (const eventData of decodedEvents) {
       switch (eventData.event) {
-        case HubAuthorized:
-          await this._handleHubAuthorizedEvent(eventData)
-          break
         case StakeAdded:
           await this.refreshStake()
           break
-        case HubUnauthorized:
-          if (isSameAddress(eventData.returnValues.relayHub, this.hubAddress)) {
-            this.isHubAuthorized = false
-            this.delayedEvents.push({ block: eventData.returnValues.removalBlock.toString(), eventData })
-          }
-          break
         case StakeUnlocked:
           await this.refreshStake()
+          this.delayedEvents.push({ block: eventData.returnValues.withdrawBlock.toString(), eventData })
           break
         case StakeWithdrawn:
           await this.refreshStake()
@@ -183,11 +157,12 @@ export class RegistrationManager {
     // handle HubUnauthorized only after the due time
     for (const eventData of this._extractDuePendingEvents(currentBlock)) {
       switch (eventData.event) {
-        case HubUnauthorized:
-          transactionHashes = transactionHashes.concat(await this._handleHubUnauthorizedEvent(eventData, currentBlock))
+        case StakeUnlocked:
+          transactionHashes = transactionHashes.concat(await this._handleStakeUnlockedEvent(eventData, currentBlock))
           break
       }
     }
+
     const isRegistrationCorrect = await this._isRegistrationCorrect()
     const isRegistrationPending = await this.txStoreManager.isActionPending(ServerAction.REGISTER_SERVER)
     if (!(isRegistrationPending || isRegistrationCorrect) || forceRegistration) {
@@ -233,19 +208,14 @@ export class RegistrationManager {
     }
   }
 
-  async _handleHubAuthorizedEvent (dlog: EventData): Promise<void> {
-    if (dlog.returnValues.relayHub.toLowerCase() === this.hubAddress.toLowerCase()) {
-      this.isHubAuthorized = true
-    }
-  }
-
-  async _handleHubUnauthorizedEvent (dlog: EventData, currentBlock: number): Promise<PrefixedHexString[]> {
-    return await this.withdrawAllFunds(false, currentBlock)
-  }
-
   async _handleStakeWithdrawnEvent (dlog: EventData, currentBlock: number): Promise<PrefixedHexString[]> {
     log.warn('Handling StakeWithdrawn event:', dlog)
     return await this.withdrawAllFunds(true, currentBlock)
+  }
+
+  async _handleStakeUnlockedEvent (dlog: EventData, currentBlock: number): Promise<PrefixedHexString[]> {
+    log.warn('Handling StakeUnlocked event:', dlog)
+    return await this.withdrawAllFunds(false, currentBlock)
   }
 
   /**
@@ -307,7 +277,6 @@ export class RegistrationManager {
   // TODO: extract worker registration sub-flow
   async attemptRegistration (currentBlock: number): Promise<PrefixedHexString[]> {
     const allPrerequisitesOk =
-      this.isHubAuthorized &&
       this.isStakeLocked &&
       this.stakeRequired.isSatisfied &&
       this.balanceRequired.isSatisfied
@@ -415,7 +384,6 @@ export class RegistrationManager {
     const isRegistrationCorrect = this._isRegistrationCorrect()
     return this.stakeRequired.isSatisfied &&
       this.isStakeLocked &&
-      this.isHubAuthorized &&
       isRegistrationCorrect
   }
 
@@ -426,7 +394,6 @@ export class RegistrationManager {
     const message = `\nNot registered yet. Prerequisites:
 ${this.balanceRequired.description}
 ${this.stakeRequired.description}
-Hub authorized | ${boolString(this.isHubAuthorized)}
 Stake locked   | ${boolString(this.isStakeLocked)}
 Manager        | ${this.managerAddress}
 Worker         | ${this.workerAddress}

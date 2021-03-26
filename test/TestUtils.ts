@@ -5,7 +5,7 @@ import path from 'path'
 
 import { ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, StakeManagerInstance, SimpleProxyFactoryInstance, ProxyFactoryInstance, IForwarderInstance, SimpleSmartWalletInstance, SmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configure } from '../src/relayclient/Configurator'
@@ -31,6 +31,7 @@ import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const RelayHub = artifacts.require('RelayHub')
+
 const localhostOne = 'http://localhost:8090'
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`
 export const deployTypeHash = web3.utils.keccak256(deployTypeName)
@@ -48,8 +49,7 @@ interface RelayServerData {
 }
 
 export async function startRelay (
-  relayHubAddress: string,
-  stakeManager: StakeManagerInstance,
+  relayHub: RelayHubInstance,
   options: any): Promise<RelayServerData> {
   const args = []
 
@@ -60,7 +60,7 @@ export async function startRelay (
   args.push('--devMode', true)
   args.push('--checkInterval', 10)
   args.push('--logLevel', 5)
-  args.push('--relayHubAddress', relayHubAddress)
+  args.push('--relayHubAddress', relayHub.address)
   const configFile = path.resolve(__dirname, './server-config.json')
   args.push('--config', configFile)
   if (options.rskNodeUrl) {
@@ -173,13 +173,9 @@ export async function startRelay (
     value: ether('2')
   })
 
-  await stakeManager.stakeForAddress(relayManagerAddress, options.delay || 2000, {
+  await relayHub.stakeForAddress(relayManagerAddress, options.delay || 2000, {
     from: options.relayOwner,
     value: options.stake || ether('1')
-  })
-  await sleep(500)
-  await stakeManager.authorizeHubByOwner(relayManagerAddress, relayHubAddress, {
-    from: options.relayOwner
   })
 
   // now ping server until it "sees" the stake and funding, and gets "ready"
@@ -288,7 +284,6 @@ export async function getTestingEnvironment (): Promise<Environment> {
 }
 
 export async function deployHub (
-  stakeManager: string = constants.ZERO_ADDRESS,
   penalizer: string = constants.ZERO_ADDRESS,
   configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHubInstance> {
   const relayHubConfiguration: RelayHubConfiguration = {
@@ -296,28 +291,22 @@ export async function deployHub (
     ...configOverride
   }
   return await RelayHub.new(
-    stakeManager,
     penalizer,
     relayHubConfiguration.maxWorkerCount,
     relayHubConfiguration.gasOverhead,
-    relayHubConfiguration.maximumRecipientDeposit,
+    relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
 }
 
-export async function createProxyFactory (template: IForwarderInstance): Promise<ProxyFactoryInstance> {
-  const ProxyFactory = artifacts.require('ProxyFactory')
-  return await ProxyFactory.new(template.address)
+export async function createSmartWalletFactory (template: IForwarderInstance): Promise<SmartWalletFactoryInstance> {
+  const SmartWalletFactory = artifacts.require('SmartWalletFactory')
+  return await SmartWalletFactory.new(template.address)
 }
 
-export async function createSimpleProxyFactory (template: IForwarderInstance): Promise<SimpleProxyFactoryInstance> {
-  const ProxyFactory = artifacts.require('SimpleProxyFactory')
-  return await ProxyFactory.new(template.address)
-}
-
-export async function createSimpleSmartWallet (relayHub: string, ownerEOA: string, factory: SimpleProxyFactoryInstance, privKey: Buffer, chainId: number = -1,
+export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: SmartWalletFactoryInstance, privKey: Buffer, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0'): Promise<SimpleSmartWalletInstance> {
+  gas: string = '400000', tokenGas: string = '0'): Promise<SmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -356,18 +345,23 @@ export async function createSimpleSmartWallet (relayHub: string, ownerEOA: strin
   const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), suffixData, deploySignature)
 
-  console.log('Cost of deploying SimpleSmartWallet: ', txResult.receipt.cumulativeGasUsed)
+  console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
   const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, '0')
 
-  const SimpleSmartWallet = artifacts.require('SimpleSmartWallet')
-  const sw: SimpleSmartWalletInstance = await SimpleSmartWallet.at(swAddress)
+  const SmartWallet = artifacts.require('SmartWallet')
+  const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
 
   return sw
 }
 
-export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: ProxyFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
+export async function createCustomSmartWalletFactory (template: IForwarderInstance): Promise<CustomSmartWalletFactoryInstance> {
+  const CustomSmartWalletFactory = artifacts.require('CustomSmartWalletFactory')
+  return await CustomSmartWalletFactory.new(template.address)
+}
+
+export async function createCustomSmartWallet (relayHub: string, ownerEOA: string, factory: CustomSmartWalletFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0'): Promise<SmartWalletInstance> {
+  gas: string = '400000', tokenGas: string = '0'): Promise<CustomSmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -409,8 +403,8 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
 
   const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')
 
-  const SmartWallet = artifacts.require('SmartWallet')
-  const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
+  const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+  const sw: CustomSmartWalletInstance = await CustomSmartWallet.at(swAddress)
 
   return sw
 }

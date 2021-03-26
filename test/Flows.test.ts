@@ -5,16 +5,16 @@
 // the entire 'contract' test is doubled. all tests titles are prefixed by either "Direct:" or "Relay:"
 
 import { RelayProvider } from '../src/relayclient/RelayProvider'
-import { Address, AsyncDataCallback } from '../src/relayclient/types/Aliases'
+import { Address } from '../src/relayclient/types/Aliases'
 import {
-  RelayHubInstance, StakeManagerInstance,
-  TestVerifierEverythingAcceptedInstance, TestVerifierPreconfiguredApprovalInstance,
+  RelayHubInstance,
+  TestVerifierEverythingAcceptedInstance,
   TestRecipientInstance,
   SmartWalletInstance,
-  ProxyFactoryInstance,
+  SmartWalletFactoryInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createProxyFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { EnvelopingConfig } from '../src/relayclient/Configurator'
 import { toBuffer } from 'ethereumjs-util'
@@ -23,9 +23,7 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeployVerifierEverythingAccepted')
-const TestVerifierPreconfiguredApproval = artifacts.require('tests/TestVerifierPreconfiguredApproval')
 
-const StakeManager = artifacts.require('StakeManager')
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 
@@ -47,17 +45,13 @@ options.forEach(params => {
     let verifier: TestVerifierEverythingAcceptedInstance
     let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
     let rhub: RelayHubInstance
-    let sm: StakeManagerInstance
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<EnvelopingConfig>
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
-    let approvalVerifier: TestVerifierPreconfiguredApprovalInstance
 
     before(async () => {
       const gasPriceFactor = 1.2
-
-      approvalVerifier = await TestVerifierPreconfiguredApproval.new()
 
       // An accound already funded on RSK
       fundedAccount = {
@@ -68,16 +62,15 @@ options.forEach(params => {
       // An account from RSK that has been depleted to ensure it has no funds
       gaslessAccount = await getExistingGaslessAccount()
 
-      sm = await StakeManager.new(0)
       const p = await Penalizer.new()
       verifier = await TestVerifierEverythingAccepted.new()
       deployVerifier = await TestDeployVerifierEverythingAccepted.new()
 
-      rhub = await deployHub(sm.address, p.address)
+      rhub = await deployHub(p.address)
       if (params.relay) {
         process.env.relaylog = 'true'
 
-        relayproc = (await startRelay(rhub.address, sm, {
+        relayproc = (await startRelay(rhub, {
           workerTargetBalance: 0.6e18,
           stake: 1e18,
           delay: 3600 * 24 * 7,
@@ -89,8 +82,7 @@ options.forEach(params => {
           gasPriceFactor,
           relaylog: process.env.relaylog,
           relayVerifierAddress: verifier.address,
-          deployVerifierAddress: deployVerifier.address,
-          trustedVerifiers: JSON.stringify([approvalVerifier.address]) // extra verifiers to trust
+          deployVerifierAddress: deployVerifier.address
         })).proc
         console.log('relay started')
         from = gaslessAccount.address
@@ -108,7 +100,7 @@ options.forEach(params => {
       before(params.title + 'enable relay', async function () {
         const env = await getTestingEnvironment()
         const sWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-        const factory: ProxyFactoryInstance = await createProxyFactory(sWalletTemplate)
+        const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(sWalletTemplate)
         const smartWalletInstance: SmartWalletInstance = await createSmartWallet(accounts[0], gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
         relayClientConfig = {
           logLevel: 5,
@@ -172,87 +164,6 @@ options.forEach(params => {
         await sr.testRevert({ from: from })
       }, 'revert')
     })
-
-    if (params.relay) {
-      let relayProvider: RelayProvider
-
-      describe('request with approvaldata', () => {
-        const setRecipientProvider = function (asyncApprovalData: AsyncDataCallback): void {
-          // @ts-ignore
-          relayProvider = new RelayProvider(web3.currentProvider, Object.assign(relayClientConfig, {
-            relayVerifierAddress: approvalVerifier.address,
-            deployVerifierAddress: deployVerifier.address
-          }), { asyncApprovalData })
-
-          TestRecipient.web3.setProvider(relayProvider)
-          TestVerifierPreconfiguredApproval.web3.setProvider(relayProvider)
-          TestVerifierEverythingAccepted.web3.setProvider(relayProvider)
-
-          relayProvider.addAccount(gaslessAccount)
-        }
-
-        it(params.title + 'wait for specific approvalData', async () => {
-          try {
-            setRecipientProvider(async () => await Promise.resolve('0x414243'))
-
-            await approvalVerifier.setExpectedApprovalData('0x414243', {
-              from: fundedAccount.address,
-              useEnveloping: false
-            })
-
-            await sr.emitMessage('xxx', {
-              from: gaslessAccount.address,
-              callVerifier: approvalVerifier.address
-            })
-          } catch (e) {
-            console.log('error1: ', e)
-            throw e
-          } finally {
-            await approvalVerifier.setExpectedApprovalData('0x', {
-              from: fundedAccount.address,
-              useEnveloping: false
-            })
-          }
-        })
-
-        it(params.title + 'fail if asyncApprovalData throws', async () => {
-          setRecipientProvider(() => { throw new Error('approval-exception') })
-          await asyncShouldThrow(async () => {
-            await sr.emitMessage('xxx', {
-              from: gaslessAccount.address,
-              callVerifier: approvalVerifier.address
-            })
-          }, 'approval-exception')
-        })
-
-        it(params.title + 'fail on no approval data', async () => {
-          try {
-            // @ts-ignore
-            await approvalVerifier.setExpectedApprovalData(Buffer.from('hello1'), {
-              from: fundedAccount.address,
-              useEnveloping: false
-            })
-            await asyncShouldThrow(async () => {
-              setRecipientProvider(async () => await Promise.resolve('0x'))
-
-              await sr.emitMessage('xxx', {
-                from: gaslessAccount.address,
-                callVerifier: approvalVerifier.address
-              })
-            }, 'verifier rejected in local view call to \'relayCall()\'')
-          } catch (e) {
-            console.log('error3: ', e)
-            throw e
-          } finally {
-            // @ts-ignore
-            await approvalVerifier.setExpectedApprovalData(Buffer.from(''), {
-              from: fundedAccount.address,
-              useEnveloping: false
-            })
-          }
-        })
-      })
-    }
 
     async function asyncShouldThrow (asyncFunc: () => Promise<any>, str?: string): Promise<void> {
       const msg = str ?? 'Error'

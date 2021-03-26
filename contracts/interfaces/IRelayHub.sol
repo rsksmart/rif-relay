@@ -5,22 +5,22 @@ pragma experimental ABIEncoderV2;
 import "./EnvelopingTypes.sol";
 
 interface IRelayHub {
-    /// Emitted when a relay server registers or updates its details
-    /// Looking at these events lets a client discover relay servers
+    // Emitted when a relay server registers or updates its details
+    // Looking at these events lets a client discover relay servers
     event RelayServerRegistered(
         address indexed relayManager,
         uint256 baseRelayFee,
         uint256 pctRelayFee,
         string relayUrl);
 
-    /// Emitted when relays are added by a relayManager
+    // Emitted when relays are added by a relayManager
     event RelayWorkersAdded(
         address indexed relayManager,
         address[] newRelayWorkers,
         uint256 workersCount
     );
 
-    /// Emitted when relays are removed by a relayManager
+    // Emitted when relays are removed by a relayManager
     event RelayWorkersDisabled(
         address indexed relayManager,
         address[] relayWorkers,
@@ -95,9 +95,6 @@ interface IRelayHub {
     // function calculateCharge(uint256 gasUsed, EnvelopingTypes.RelayData calldata relayData) external view returns (uint256);
 
     /* getters */
-
-    /// Returns the stake manager of this RelayHub.
-    function stakeManager() external view returns(address);
     function penalizer() external view returns(address);
 
     // Minimum stake a relay can have. An attack to the network will never cost less than half this value.
@@ -106,9 +103,6 @@ interface IRelayHub {
     // Minimum unstake delay blocks of a relay manager's stake on the StakeManager
     function minimumUnstakeDelay() external view returns (uint256);
 
-    // Maximum funds that can be deposited at once. Prevents user error by disallowing large deposits.
-    function maximumRecipientDeposit() external view returns (uint256);
-
     // maximum number of worker account allowed per manager
     function maxWorkerCount() external view returns (uint256);
 
@@ -116,7 +110,7 @@ interface IRelayHub {
 
     function workerCount(address manager) external view returns(uint256);
 
-    function isRelayManagerStaked(address relayManager) external returns(bool);
+    function isRelayManagerStaked(address relayManager) external view returns(bool);
 
     /**
     * @dev the total gas overhead of relayCall(), before the first gasleft() and after the last gasleft().
@@ -127,4 +121,61 @@ interface IRelayHub {
     function gasOverhead() external view returns (uint256);
 
     function versionHub() external view returns (string memory);
+
+    /* From IStakeManager */
+        /// Emitted when a stake or unstakeDelay are initialized or increased
+    event StakeAdded(
+        address indexed relayManager,
+        address indexed owner,
+        uint256 stake,
+        uint256 unstakeDelay
+    );
+
+    /// Emitted once a stake is scheduled for withdrawal
+    event StakeUnlocked(
+        address indexed relayManager,
+        address indexed owner,
+        uint256 withdrawBlock
+    );
+
+    /// Emitted when owner withdraws relayManager funds
+    event StakeWithdrawn(
+        address indexed relayManager,
+        address indexed owner,
+        uint256 amount
+    );
+
+    /// Emitted when an authorized Relay Hub penalizes a relayManager
+    event StakePenalized(
+        address indexed relayManager,
+        address indexed beneficiary,
+        uint256 reward
+    );
+
+    // @param stake - amount of ether staked for this relay
+    // @param unstakeDelay - number of blocks to elapse before the owner can retrieve the stake after calling 'unlock'
+    // @param withdrawBlock - first block number 'withdraw' will be callable, or zero if the unlock has not been called
+    // @param owner - address that receives revenue and manages relayManager's stake
+    struct StakeInfo {
+        uint256 stake;
+        uint256 unstakeDelay;
+        uint256 withdrawBlock;
+        address payable owner;
+    }
+
+    // Put a stake for a relayManager and set its unstake delay.
+    // If the entry does not exist, it is created, and the caller of this function becomes its owner.
+    // If the entry already exists, only the owner can call this function.
+    // @param relayManager - address that represents a stake entry and controls relay registrations on relay hubs
+    // @param unstakeDelay - number of blocks to elapse before the owner can retrieve the stake after calling 'unlock'
+    function stakeForAddress(address relayManager, uint256 unstakeDelay) external payable;
+
+    function unlockStake(address relayManager) external;
+
+    function withdrawStake(address relayManager) external;
+
+    function getStakeInfo(address relayManager) external view returns (StakeInfo memory stakeInfo);
+
+    //For initial stakes, this is the minimum stake value allowed for taking ownership of this address' stake
+    function minimumEntryDepositValue() external view returns (uint256);
 }
