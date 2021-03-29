@@ -15,11 +15,6 @@ import Web3 from 'web3'
 import ContractInteractor from '../common/ContractInteractor'
 import { Environment, defaultEnvironment } from '../common/Environments'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
-import { PrefixedHexString } from 'ethereumjs-tx'
-import { toBN, toHex } from 'web3-utils'
-import { ServerAction } from '../relayserver/StoredTransaction'
-import { SendTransactionDetails } from '../relayserver/TransactionManager'
-
 export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult
   relayProvider: RelayProvider
@@ -56,7 +51,7 @@ class TestEnvironmentClass {
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
 
-    await this._runServer(_host, deploymentResult, from, relayUrl, port, this.defaultReplenishFunction, workerTargetBalance)
+    await this._runServer(_host, deploymentResult, from, relayUrl, port, workerTargetBalance)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -125,59 +120,12 @@ class TestEnvironmentClass {
     }
   }
 
-  async defaultReplenishFunction (relayServer: RelayServer, workerIndex: number, currentBlock: number): Promise<PrefixedHexString[]> {
-    const transactionHashes: PrefixedHexString[] = []
-
-    if (relayServer === undefined || relayServer === null) {
-      return transactionHashes
-    }
-
-    let managerEthBalance = await relayServer.getManagerBalance()
-    relayServer.workerBalanceRequired.currentValue = await relayServer.getWorkerBalance(workerIndex)
-
-    if (managerEthBalance.gte(toBN(relayServer.config.managerTargetBalance.toString())) && relayServer.workerBalanceRequired.isSatisfied) {
-      // all filled, nothing to do
-      return transactionHashes
-    }
-    managerEthBalance = await relayServer.getManagerBalance()
-
-    const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
-    const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
-
-    if (mustReplenishWorker && !isReplenishPendingForWorker) {
-      const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
-      console.log(
-        `== replenishServer: mgr balance=${managerEthBalance.toString()}
-          \n${relayServer.workerBalanceRequired.description}\n refill=${refill.toString()}`)
-
-      if (refill.lt(managerEthBalance.sub(toBN(relayServer.config.managerMinBalance)))) {
-        console.log('Replenishing worker balance by manager rbtc balance')
-        const details: SendTransactionDetails = {
-          signer: relayServer.managerAddress,
-          serverAction: ServerAction.VALUE_TRANSFER,
-          destination: relayServer.workerAddress,
-          value: toHex(refill),
-          creationBlockNumber: currentBlock,
-          gasLimit: defaultEnvironment.mintxgascost
-        }
-        const { transactionHash } = await relayServer.transactionManager.sendTransaction(details)
-        transactionHashes.push(transactionHash)
-      } else {
-        const message = `== replenishServer: can't replenish: mgr balance too low ${managerEthBalance.toString()} refill=${refill.toString()}`
-        relayServer.emit('fundingNeeded', message)
-        console.log(message)
-      }
-    }
-    return transactionHashes
-  }
-
   async _runServer (
     host: string,
     deploymentResult: DeploymentResult,
     from: Address,
     relayUrl: string,
     port: number,
-    replenishStrategy?: (relayServer: RelayServer, workerIndex: number, currentBlock: number) => Promise<PrefixedHexString[]>,
     workerTargetBalance?: number,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
@@ -217,7 +165,7 @@ class TestEnvironmentClass {
       workerTargetBalance: workerTargetBalance
     }
 
-    const relayServer = new RelayServer(relayServerParams, relayServerDependencies, replenishStrategy ?? this.defaultReplenishFunction)
+    const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
     await relayServer.init()
 
     this.httpServer = new HttpServer(

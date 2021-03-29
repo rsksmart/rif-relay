@@ -6,5 +6,6 @@
   "gasPriceFactor": 1,
   "rskNodeUrl": "http://rskj:4444",
   "devMode": true,
+  "customReplenish": false,
   "logLevel": 1
 }

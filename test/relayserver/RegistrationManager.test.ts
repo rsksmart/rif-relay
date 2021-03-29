@@ -52,7 +52,7 @@ contract('RegistrationManager', function (accounts) {
     env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
 
     await env.init({}, hubConfig)
-    env.newServerInstanceNoFunding({}, serverWorkdirs, env.defaultReplenishFunction)
+    env.newServerInstanceNoFunding({}, serverWorkdirs)
     await env.clearServerStorage()
     relayServer = env.relayServer
   })
@@ -129,7 +129,7 @@ contract('RegistrationManager', function (accounts) {
         gasPriceFactor: 1,
         checkInterval: 10
       }
-      const newRelayServer = new RelayServer(params, serverDependencies, env.defaultReplenishFunction)
+      const newRelayServer = new RelayServer(params, serverDependencies)
       await newRelayServer.init()
       const latestBlock = await env.web3.eth.getBlock('latest')
       await newRelayServer._worker(latestBlock.number)
@@ -149,7 +149,7 @@ contract('RegistrationManager', function (accounts) {
 
     let newServer: RelayServer
     it('should initialize relay after staking and funding it', async function () {
-      await env.newServerInstanceNoInit({}, undefined, unstakeDelay, env.defaultReplenishFunction)
+      await env.newServerInstanceNoInit({}, undefined, unstakeDelay)
       newServer = env.relayServer
       await newServer.init()
       assert.equal(newServer.registrationManager.ownerAddress, undefined)
@@ -185,7 +185,7 @@ contract('RegistrationManager', function (accounts) {
     let relayServer: RelayServer
 
     before(async function () {
-      await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
+      await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
       relayServer = env.relayServer
     })
 
@@ -253,7 +253,7 @@ contract('RegistrationManager', function (accounts) {
       let newServer: RelayServer
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
+        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
         newServer = env.relayServer
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
@@ -280,7 +280,7 @@ contract('RegistrationManager', function (accounts) {
       let newServer: RelayServer
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay, env.defaultReplenishFunction)
+        await env.newServerInstanceNoInit({ refreshStateTimeoutBlocks: 1 }, undefined, unstakeDelay)
         newServer = env.relayServer
         const latestBlock = await env.web3.eth.getBlock('latest')
         await newServer._worker(latestBlock.number)
@@ -379,7 +379,7 @@ contract('RegistrationManager', function (accounts) {
     describe('without re-registration', function () {
       beforeEach(async function () {
         id = (await snapshot()).result
-        await env.newServerInstanceNoInit({}, undefined, unstakeDelay, env.defaultReplenishFunction)
+        await env.newServerInstanceNoInit({}, undefined, unstakeDelay)
         await env.relayServer.init()
         newServer = env.relayServer
         // TODO: this is horrible!!!
