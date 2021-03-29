@@ -12,7 +12,7 @@ export async function replenishStrategy (relayServer: RelayServer, workerIndex: 
     // Delete the next error if a custom replenish fuction is implemented.
     throw new Error('No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.')
   } else {
-    transactionHashes = transactionHashes.concat(await defaultReplenishFunction(relayServer, workerIndex, currentBlock))
+    transactionHashes = await defaultReplenishFunction(relayServer, workerIndex, currentBlock)
   }
 
   return transactionHashes
