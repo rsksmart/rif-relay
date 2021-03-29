@@ -1,6 +1,6 @@
 # Building
 
-To build the default `PAPYRUS-2.1.0`, run
+To build the default `PAPYRUS-2.1.0`, run in the `rsknode` folder:
 
 ```
 docker build -t rskj:2.1.0-PAPYRUS .
@@ -21,7 +21,7 @@ To run, use the recently generated tag (`-t` parameter for `docker
 build`):
 
 ```
-docker run -p 127.0.0.1:4444:4444 rskj:2.1.0-PAPYRUS --regtest
+docker run -p 127.0.0.1:4444:4444 --name enveloping-rskj rskj:2.1.0-PAPYRUS --regtest
 ```
 
 `--regtest` can be modified to any other of the networks or parameters
