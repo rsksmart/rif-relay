@@ -26,7 +26,7 @@ The order of events for relaying transactions or deploying smart wallets through
 Another option is to use Enveloping through a Relay Provider. The latter wraps web3, and then all transactions and calls are made through the Relay Provider. If a Relay Client is not provided then the Relay Provider creates an instance.
 
 ```typescript
-    this.config = await resolveConfigurationGSN(web3.currentProvider, {
+    this.config = await resolveConfiguration(web3.currentProvider, {
       verbose: window.location.href.includes('verbose'),
       onlyPreferredRelays: false, //If false it will look for a relayer, if true it reads preferred Relays
       chainId: chainId,
