@@ -35,25 +35,26 @@ The following technical content are available:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [Penalizer]       | 0x82F3D69cA3d79E580931D4D58efbDD3D5dB7aB3f |
-| [RelayHub]        | 0x0B5b176d682753DE19935964ca2459Ae324e7bda |
-| [SmartWallet]     | 0xa3aeFc1AF430E830e74B66fA91D6726919cCFEF1 |
-| [SmartWalletFactory]    | 0x71b41C09B8f99dA8b6B71535346c6536f66096c4 |
-| [CustomSmartWallet]     | 0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3 |
-| [CustomSmartWalletFactory]    | 0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2 |
-| [DeployVerifier] | 0xE3A1d035dCe5c40b97b39d774b9AE2739952b763 |
-| [RelayVerifier]  | 0xD72FD5DF821cECbe2Cb0804e84093461Dd24252A |
-| [TestRecipient]   | 0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD |
+| [Penalizer][1]       | 0x82F3D69cA3d79E580931D4D58efbDD3D5dB7aB3f |
+| [RelayHub][2]        | 0x0B5b176d682753DE19935964ca2459Ae324e7bda |
+| [SmartWallet][3]     | 0xa3aeFc1AF430E830e74B66fA91D6726919cCFEF1 |
+| [SmartWalletFactory][4]    | 0x71b41C09B8f99dA8b6B71535346c6536f66096c4 |
+| [CustomSmartWallet][5]     | 0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3 |
+| [CustomSmartWalletFactory][6]    | 0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2 |
+| [DeployVerifier][7] | 0xE3A1d035dCe5c40b97b39d774b9AE2739952b763 |
+| [RelayVerifier][8]  | 0xD72FD5DF821cECbe2Cb0804e84093461Dd24252A |
+| [TestRecipient][9]   | 0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD |
 
-[Penalizer]:(https://explorer.testnet.rsk.co/address/0x82F3D69cA3d79E580931D4D58efbDD3D5dB7aB3f)
-[RelayHub]:(https://explorer.testnet.rsk.co/address/0x0B5b176d682753DE19935964ca2459Ae324e7bda)
-[SmartWallet]:(https://explorer.testnet.rsk.co/address/0xa3aeFc1AF430E830e74B66fA91D6726919cCFEF1)
-[SmartWalletFactory]:(https://explorer.testnet.rsk.co/address/0x71b41C09B8f99dA8b6B71535346c6536f66096c4)
-[CustomSmartWallet]:(https://explorer.testnet.rsk.co/address/0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3)
-[CustomSmartWalletFactory]:(https://explorer.testnet.rsk.co/address/0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2)
-[DeployVerifier]:(https://explorer.testnet.rsk.co/address/0xE3A1d035dCe5c40b97b39d774b9AE2739952b763)
-[RelayVerifier]:(https://explorer.testnet.rsk.co/address/0xD72FD5DF821cECbe2Cb0804e84093461Dd24252A)
-[TestRecipient]:(https://explorer.testnet.rsk.co/address/0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD)
+[1]: https://explorer.testnet.rsk.co/address/0x82F3D69cA3d79E580931D4D58efbDD3D5dB7aB3f
+[2]: https://explorer.testnet.rsk.co/address/0x0B5b176d682753DE19935964ca2459Ae324e7bda
+[3]: https://explorer.testnet.rsk.co/address/0xa3aeFc1AF430E830e74B66fA91D6726919cCFEF1
+[4]: https://explorer.testnet.rsk.co/address/0x71b41C09B8f99dA8b6B71535346c6536f66096c4
+[5]: https://explorer.testnet.rsk.co/address/0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3
+[6]: https://explorer.testnet.rsk.co/address/0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2
+[7]: https://explorer.testnet.rsk.co/address/0xE3A1d035dCe5c40b97b39d774b9AE2739952b763
+[8]: https://explorer.testnet.rsk.co/address/0xD72FD5DF821cECbe2Cb0804e84093461Dd24252A
+[9]: https://explorer.testnet.rsk.co/address/0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD
+
 
 ## Changelog
 
