@@ -51,7 +51,7 @@ class TestEnvironmentClass {
     const port = await this._resolveAvailablePort()
     const relayUrl = 'http://127.0.0.1:' + port.toString()
 
-    await this._runServer(_host, deploymentResult, from, relayUrl, port, workerTargetBalance)
+    await this._runServer(_host, deploymentResult, from, relayUrl, port)
     if (this.httpServer == null) {
       throw new Error('Failed to run a local Relay Server')
     }
@@ -126,7 +126,6 @@ class TestEnvironmentClass {
     from: Address,
     relayUrl: string,
     port: number,
-    workerTargetBalance?: number,
     environment: Environment = defaultEnvironment
   ): Promise<void> {
     if (this.httpServer !== undefined) {
@@ -161,8 +160,7 @@ class TestEnvironmentClass {
       checkInterval: 10,
       // refreshStateTimeoutBlocks:1,
       relayVerifierAddress: deploymentResult.relayVerifierAddress,
-      deployVerifierAddress: deploymentResult.deployVerifierAddress,
-      workerTargetBalance: workerTargetBalance
+      deployVerifierAddress: deploymentResult.deployVerifierAddress
     }
 
     const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
