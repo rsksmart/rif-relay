@@ -105,7 +105,7 @@ export class Enveloping {
         data: data,
         value: '0',
         gas: gasLimit,
-        nonce: (await this.getSenderNonce(this.config.forwarderAddress)).toString(),
+        nonce: (await this.getSenderNonce(forwarder)).toString(),
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas
@@ -115,7 +115,7 @@ export class Enveloping {
         relayWorker: this.relayWorkerAddress,
         callForwarder: forwarder,
         callVerifier: this.config.relayVerifierAddress,
-        domainSeparator: getDomainSeparatorHash(this.config.forwarderAddress, this.config.chainId)
+        domainSeparator: getDomainSeparatorHash(forwarder, this.config.chainId)
       }
     }
 
@@ -142,14 +142,13 @@ export class Enveloping {
     * signs a relay request and verifies if it's correct.
     * @param signatureProvider - provider provided by the developer
     * @param request - A relay request
-    * @param privKey - Optional: IT IS NOT RECOMMEND TO USE A PRIV KEY IN PLAIN TEXT FOR PRODUCTION
     * @return signature of a relay request
     */
-  signRelayRequest (signatureProvider: SignatureProvider, request: RelayRequest, privKey?: Buffer): PrefixedHexString {
+  signRelayRequest (signatureProvider: SignatureProvider, request: RelayRequest): PrefixedHexString {
     const cloneRequest = { ...request }
     const dataToSign = new TypedRequestData(
       this.config.chainId,
-      this.config.forwarderAddress,
+      request.relayData.callForwarder,
       cloneRequest
     )
 
