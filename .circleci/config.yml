@@ -123,7 +123,7 @@ jobs: # a collection of steps
       - run_rskj_test:
           test: "test/SampleRecipient.test.ts"
       - run_rskj_test:
-          test: "test/StakeManager.test.ts"
+          test: "test/StakeManagement.test.ts"
       - run_rskj_test:
           test: "test/RSKAddressValidator.test.ts"
       - run_rskj_test:

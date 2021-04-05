@@ -100,7 +100,7 @@ interface IRelayHub {
     // Minimum stake a relay can have. An attack to the network will never cost less than half this value.
     function minimumStake() external view returns (uint256);
 
-    // Minimum unstake delay blocks of a relay manager's stake on the StakeManager
+    // Minimum unstake delay blocks of a relay manager's stake
     function minimumUnstakeDelay() external view returns (uint256);
 
     // maximum number of worker account allowed per manager
@@ -122,8 +122,7 @@ interface IRelayHub {
 
     function versionHub() external view returns (string memory);
 
-    /* From IStakeManager */
-        /// Emitted when a stake or unstakeDelay are initialized or increased
+    /// Emitted when a stake or unstakeDelay are initialized or increased
     event StakeAdded(
         address indexed relayManager,
         address indexed owner,

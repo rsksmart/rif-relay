@@ -48,14 +48,14 @@ envelopingCommander(['n', 'f', 'm', 'g'])
     relayHubConfiguration,
     deployVerifierAddress: commander.deployVerifier,
     relayVerifierAddress: commander.relayVerifier,
-    verbose: true,
-    skipConfirmation: commander.skipConfirmation,
     smartWalletFactoryAddress: commander.factory,
     smartWalletTemplateAddress: commander.sWalletTemplate,
     relayHubAddress: commander.relayHub,
     penalizerAddress: commander.penalizer,
     registryAddress: commander.registry,
-    registryHubId: commander.registryHubId
+    registryHubId: commander.registryHubId,
+    verbose: true,
+    skipConfirmation: commander.skipConfirmation
   })
 
   showDeployment(deploymentResult, `Enveloping deloyed to network: ${network}`)

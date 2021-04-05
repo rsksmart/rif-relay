@@ -296,7 +296,6 @@ contract RelayHub is IRelayHub {
         uint256 amount = stakeInfo.stake;
 
         // Half of the stake will be burned (sent to address 0)
-        require(stakes[relayManager].stake >= amount, "penalty exceeds stake");
         stakes[relayManager].stake = SafeMath.sub(
             stakes[relayManager].stake,
             amount

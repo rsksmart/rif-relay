@@ -13,7 +13,7 @@ import "../interfaces/EnvelopingTypes.sol";
 /**
  * A Verifier to be used on deploys.
  */
-contract DeployVerifierCustomWallet is IDeployVerifier, Ownable {
+contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
 
     address private factory;
     mapping (address => bool) public tokens;

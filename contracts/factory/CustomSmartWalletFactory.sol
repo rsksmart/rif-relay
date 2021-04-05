@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
@@ -93,7 +93,7 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
     }
 
 
-    function runtimeCodeHash() external view returns (bytes32){
+    function runtimeCodeHash() external override view returns (bytes32){
         return keccak256(
             abi.encodePacked(RUNTIME_START, masterCopy, RUNTIME_END)
         );

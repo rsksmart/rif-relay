@@ -15,6 +15,7 @@ import RelayHub from './compiled/RelayHub.json'
 import Penalizer from './compiled/Penalizer.json'
 import DeployVerifier from './compiled/DeployVerifier.json'
 import RelayVerifier from './compiled/RelayVerifier.json'
+import CustomSmartWalletDeployVerifier from './compiled/CustomSmartWalletDeployVerifier.json'
 
 import SmartWallet from './compiled/SmartWallet.json'
 import SmartWalletFactory from './compiled/SmartWalletFactory.json'
@@ -47,11 +48,12 @@ interface DeployOptions {
   relayVerifierAddress?: string
   smartWalletFactoryAddress?: string
   smartWalletTemplateAddress?: string
-  customSmartWalletFactoryAddress?: string
-  customSmartWalletTemplateAddress?: string
   relayHubAddress?: string
   penalizerAddress?: string
   registryAddress?: string
+  customSmartWalletFactoryAddress?: string
+  customSmartWalletTemplateAddress?: string
+  customSmartWalletDeployVerifierAddress?: string
   registryHubId?: string
   verbose?: boolean
   skipConfirmation?: boolean
@@ -63,11 +65,12 @@ export interface DeploymentResult {
   penalizerAddress: Address
   smartWalletTemplateAddress: Address
   smartWalletFactoryAddress: Address
+  versionRegistryAddress: Address
+  relayVerifierAddress: Address
+  deployVerifierAddress: Address
   customSmartWalletTemplateAddress: Address
   customSmartWalletFactoryAddress: Address
-  versionRegistryAddress: Address
-  deployVerifierAddress: Address
-  relayVerifierAddress: Address
+  customSmartWalletDeployVerifierAddress: Address
 }
 
 interface RegistrationResult {
@@ -282,11 +285,19 @@ export default class CommandsLogic {
         smartWalletFactory.options.address
       ]
     }, deployOptions.deployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
+    const customSmartWalletDeployVerifierInstance = await this.getContract(CustomSmartWalletDeployVerifier, {
+      arguments: [
+        customSmartWalletFactory.options.address
+      ]
+    }, deployOptions.customSmartWalletDeployVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     const relayVerifierInstance = await this.getContract(RelayVerifier, {
       arguments: [
         smartWalletFactory.options.address
       ]
     }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     // Overriding saved configuration with newly deployed instances
     this.config.deployVerifierAddress = deployVerifierInstance.options.address
     this.config.relayVerifierAddress = relayVerifierInstance.options.address
@@ -297,11 +308,12 @@ export default class CommandsLogic {
       penalizerAddress: penalizer.options.address,
       smartWalletTemplateAddress: smartWallet.options.address,
       smartWalletFactoryAddress: smartWalletFactory.options.address,
-      customSmartWalletTemplateAddress: customSmartWallet.options.address,
-      customSmartWalletFactoryAddress: customSmartWalletFactory.options.address,
       versionRegistryAddress: regInstance.options.address,
       relayVerifierAddress: relayVerifierInstance.options.address,
-      deployVerifierAddress: deployVerifierInstance.options.address
+      deployVerifierAddress: deployVerifierInstance.options.address,
+      customSmartWalletTemplateAddress: customSmartWallet.options.address,
+      customSmartWalletFactoryAddress: customSmartWalletFactory.options.address,
+      customSmartWalletDeployVerifierAddress: customSmartWalletDeployVerifierInstance.options.address
     }
   }
 

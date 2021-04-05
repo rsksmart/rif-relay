@@ -16,7 +16,7 @@ export class HttpServer {
 
     this.app.use(bodyParser.urlencoded({ extended: false }))
     this.app.use(bodyParser.json())
-
+    /* eslint-disable @typescript-eslint/no-misused-promises */
     this.app.post('/', this.rootHandler.bind(this))
     this.app.post('/getaddr', this.pingHandler.bind(this))
     this.app.get('/getaddr', this.pingHandler.bind(this))
@@ -24,6 +24,7 @@ export class HttpServer {
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
+    /* eslint-enable */
     this.backend.on('error', (e) => { console.error('httpServer:', e) })
   }
 

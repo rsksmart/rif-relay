@@ -345,7 +345,7 @@ export default class ContractInteractor {
     return await this._getPastEvents(this.relayHubInstance.contract, names, extraTopics, options)
   }
 
-  async getPastEventsForStakeManager (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
+  async getPastEventsForStakeManagement (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
     const relayHub = this.relayHubInstance
     return await this._getPastEvents(relayHub.contract, names, extraTopics, options)
   }

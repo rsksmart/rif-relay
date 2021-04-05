@@ -9,7 +9,7 @@ import { constants } from '../src/common/Constants'
 
 const RelayHub = artifacts.require('RelayHub')
 
-contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwner]) {
+contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonOwner]) {
   const initialUnstakeDelay = new BN(4)
   const initialStake = ether('1')
 
@@ -197,13 +197,6 @@ contract('StakeManager', function ([_, relayManager, anyRelayHub, owner, nonOwne
         const isRelayManagerStaked = await relayHub.isRelayManagerStaked(nonOwner)
         expect(isRelayManagerStaked).to.be.false
       })
-    })
-
-    it('should not allow to penalize for more than the relayManager stake', async function () {
-      await expectRevert.unspecified(
-        relayHub.penalize(relayManager, nonOwner, { from: anyRelayHub }),
-        'penalty exceeds stake'
-      )
     })
 
     it('should allow owner to schedule stake unlock', async function () {

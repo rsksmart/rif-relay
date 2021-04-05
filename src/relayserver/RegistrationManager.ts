@@ -119,7 +119,7 @@ export class RegistrationManager {
       toBlock: 'latest'
     }
     const eventNames = [StakeAdded, StakeUnlocked, StakeWithdrawn]
-    const decodedEvents = await this.contractInteractor.getPastEventsForStakeManager(eventNames, topics, options)
+    const decodedEvents = await this.contractInteractor.getPastEventsForStakeManagement(eventNames, topics, options)
     this.printEvents(decodedEvents, options)
     let transactionHashes: PrefixedHexString[] = []
     // TODO: what about 'penalize' events? should send balance to owner, I assume

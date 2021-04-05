@@ -194,10 +194,13 @@ contract('RelayClient', function (accounts) {
         mockServer.use(bodyParser.urlencoded({ extended: false }))
         mockServer.use(bodyParser.json())
 
+        /* eslint-disable @typescript-eslint/no-misused-promises */
         mockServer.get('/getaddr', async (req, res) => {
           console.log('=== got GET ping', req.query)
           res.send(pingResponse)
         })
+        /* eslint-enable */
+
         mockServer.post('/relay', () => {
           console.log('== got relay.. ignoring')
           // don't answer... keeping client in limbo
