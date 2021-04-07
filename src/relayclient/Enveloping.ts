@@ -14,6 +14,9 @@ import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
 
+import { DiscoveryConfig, SmartWalletDiscovery, Web3Provider, AccountReaderFunction, DiscoveredAccount } from '../relayclient/SmartWalletDiscovery'
+import Web3 from 'web3'
+
 const zeroAddr = '0x0000000000000000000000000000000000000000'
 
 export interface SignatureProvider {
@@ -232,5 +235,58 @@ export class Enveloping {
       console.log(`GOT ERROR - Reason: ${reasonStr}`)
       return { error }
     }
+  }
+
+  /**
+   * Discovers all EOA accounts and their associated Smart Wallet accounts
+   * @param config - Configuration for running the Discovery Algorithm
+   * @param provider - Web3 Provider to use when connecting to the node via RPC
+   * @param mnemonic - Mnemonic phrase from where to recover the account addresses
+   * @param password - If the Mnemonic is password protected, it must be passed
+   * @param supportedTokens - List of tokens to use when searching for accounts' token activity
+   * @returns - List of discovered accounts, discoveredAccount.eoaAccount contains the discovered EOA and discoveredAccount.swAccounts all the discovered Smart Wallets for that EOA
+   */
+  public static async discoverAccountsUsingMnemonic (config: DiscoveryConfig, provider: provider, mnemonic: string, password?: string, supportedTokens?: Address[], providerOverride?: provider):
+  Promise<DiscoveredAccount[]> {
+    const swd = new SmartWalletDiscovery(provider as Web3Provider, supportedTokens)
+    await swd.discoverAccountsFromMnemonic(config, mnemonic, password)
+
+    return swd.accounts
+  }
+
+  /**
+  * Discovers all EOA accounts and their associated Smart Wallet accounts given a predefined list of extended public keys
+  * @param config - Configuration for running the Discovery Algorithm
+  * @param extendedPublicKeys - List of extended public keys representing the Accounts (last hardened key from the path) from which to derive the account addresses.
+  * e.g, for RSK Mainnet it would be the list of keys of the path m/44'/137'/accountIdx'/0 where accountIdx is a numeric value indicating the index of the account key, if the array would
+  * contain Accounts 0 and 1, it must have an array with the extended public keys of  m/44'/137'/0'/0 and  m/44'/137'/1'/0
+  * @param provider - Web3 Provider to use when connecting to the node via RPC
+  * @param supportedTokens - List of tokens to use when searching for accounts' token activity
+  * @returns - List of discovered accounts, discoveredAccount.eoaAccount contains the discovered EOA and discoveredAccount.swAccounts all the discovered Smart Wallets for that EOA
+  */
+  public static async discoverAccountsFromExtendedPublicKeys (config: DiscoveryConfig, provider: provider, extendedPublicKeys: string[], supportedTokens?: Address[]):
+  Promise<DiscoveredAccount[]> {
+    const swd = new SmartWalletDiscovery(provider as Web3Provider, supportedTokens)
+    await swd.discoverAccountsFromExtendedPublicKeys(config, extendedPublicKeys)
+
+    return swd.accounts
+  }
+
+  /**
+* Discovers all EOA accounts and their associated Smart Wallet accounts given a reader function that will fetch the next extended public key to use
+* @param config - Configuration for running the Discovery Algorithm
+* @param accountReader - The reader function. Given an accountIdx:number it should return the next extended public key to use. If the function is
+* left undefined, then it is expected from the library integrator to implement SmartWalletDiscovery::getAccountExtendedPublicKey; otherwise the
+* discovery algorithm won't find any accounts
+* @param provider - Web3 Provider to use when connecting to the node via RPC
+* @param supportedTokens - List of tokens to use when searching for accounts' token activity
+* @returns - List of discovered accounts, discoveredAccount.eoaAccount contains the discovered EOA and discoveredAccount.swAccounts all the discovered Smart Wallets for that EOA
+*/
+  public static async discoverAccounts (config: DiscoveryConfig, provider: provider, accountReader?: AccountReaderFunction, supportedTokens?: Address[]):
+  Promise<DiscoveredAccount[]> {
+    const swd = new SmartWalletDiscovery(provider as Web3Provider, supportedTokens)
+    await swd.discoverAccounts(config, accountReader)
+
+    return swd.accounts
   }
 }

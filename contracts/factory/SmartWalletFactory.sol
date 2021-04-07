@@ -178,19 +178,21 @@ contract SmartWalletFactory is ISmartWalletFactory {
     ) external override view returns (address) {
         return
             address(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xff),
-                            address(this),
-                            keccak256(
-                                abi.encodePacked(
-                                    owner,
-                                    recoverer,
-                                    index
-                                )
-                            ), // salt
-                            keccak256(getCreationBytecode())
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                bytes1(0xff),
+                                address(this),
+                                keccak256(
+                                    abi.encodePacked(
+                                        owner,
+                                        recoverer,
+                                        index
+                                    )
+                                ), // salt
+                                keccak256(getCreationBytecode())
+                            )
                         )
                     )
                 )
@@ -226,7 +228,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
     }
 
     // Returns the proxy code to that is deployed on every Smart Wallet creation
-    function getCreationBytecode() public view returns (bytes memory) {
+    function getCreationBytecode() public override view returns (bytes memory) {
         //The code to install:  constructor, runtime start, master copy, runtime end
         return abi.encodePacked(hex"602D3D8160093D39F3", RUNTIME_START, masterCopy, RUNTIME_END);
     }

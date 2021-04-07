@@ -27,7 +27,7 @@ import { TypedDataUtils } from 'eth-sig-util'
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
+import { stripHex, deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayEvent } from '../../src/relayclient/RelayEvents'
@@ -393,6 +393,7 @@ contract('RelayClient', function (accounts) {
       const senderAddress = `0x${result.transaction?.getSenderAddress().toString('hex')}`
       const senderTokenInitialBalance = await token.balanceOf(senderAddress)
       assert.notEqual(senderAddress, constants.ZERO_ADDRESS)
+      assert.notEqual(await web3.eth.getCode(swAddress), '0x00', 'SmartWalletdeployed, it must have installed code')
 
       const relayOptions = {
         from: eoaWithoutSmartWalletAccount.address,
@@ -494,7 +495,7 @@ contract('RelayClient', function (accounts) {
         index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')
+      const swAddress = (await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')).toLowerCase()
       await token.mint('1000', swAddress)
       deployOptions.smartWalletAddress = swAddress
 
@@ -520,6 +521,11 @@ contract('RelayClient', function (accounts) {
       const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
       const loggedEvent = res.logs[eventIdx]
 
+      const strippedAddr = stripHex(swAddress)
+      assert(loggedEvent.topics.find(data => data.slice(26, data.length).includes(strippedAddr)))
+      let eventSWAddress = loggedEvent.topics[loggedEvent.topics.findIndex(data => data.slice(26, data.length).includes(strippedAddr))]
+      eventSWAddress = '0x'.concat(eventSWAddress.slice(26, eventSWAddress.length).toLowerCase())
+
       const saltSha = web3.utils.soliditySha3(
         { t: 'address', v: eoaWithoutSmartWalletAccount.address },
         { t: 'address', v: constants.ZERO_ADDRESS },
@@ -530,11 +536,10 @@ contract('RelayClient', function (accounts) {
 
       const expectedSalt = web3.utils.toBN(saltSha).toString()
 
-      const obtainedEvent = web3.eth.abi.decodeParameters([{ type: 'address', name: 'sWallet' },
-        { type: 'uint256', name: 'salt' }], loggedEvent.data)
+      const obtainedEventData = web3.eth.abi.decodeParameters([{ type: 'uint256', name: 'salt' }], loggedEvent.data)
 
-      assert.equal(obtainedEvent.salt, expectedSalt, 'salt from Deployed event is not the expected one')
-      assert.equal(obtainedEvent.sWallet, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
+      assert.equal(obtainedEventData.salt, expectedSalt, 'salt from Deployed event is not the expected one')
+      assert.equal(eventSWAddress, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
 
       const destination: string = validTransaction.to.toString('hex')
       assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
@@ -680,7 +685,7 @@ contract('RelayClient', function (accounts) {
         index: '0'
       }
 
-      const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')
+      const swAddress = (await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')).toLowerCase()
       await token.mint('1000', swAddress)
 
       // Note: 0x00 is returned by RSK, in Ethereum it is 0x
@@ -705,6 +710,11 @@ contract('RelayClient', function (accounts) {
       const eventIdx = res.logs.findIndex(log => log.topics.includes(topic))
       const loggedEvent = res.logs[eventIdx]
 
+      const strippedAddr = stripHex(swAddress)
+      assert(loggedEvent.topics.find(data => data.slice(26, data.length).includes(strippedAddr)))
+      let eventSWAddress = loggedEvent.topics[loggedEvent.topics.findIndex(data => data.slice(26, data.length).includes(strippedAddr))]
+      eventSWAddress = '0x'.concat(eventSWAddress.slice(26, eventSWAddress.length).toLowerCase())
+
       const saltSha = web3.utils.soliditySha3(
         { t: 'address', v: eoaWithoutSmartWalletAccount.address },
         { t: 'address', v: constants.ZERO_ADDRESS },
@@ -715,11 +725,10 @@ contract('RelayClient', function (accounts) {
 
       const expectedSalt = web3.utils.toBN(saltSha).toString()
 
-      const obtainedEvent = web3.eth.abi.decodeParameters([{ type: 'address', name: 'sWallet' },
-        { type: 'uint256', name: 'salt' }], loggedEvent.data)
+      const obtainedEventData = web3.eth.abi.decodeParameters([{ type: 'uint256', name: 'salt' }], loggedEvent.data)
 
-      assert.equal(obtainedEvent.salt, expectedSalt, 'salt from Deployed event is not the expected one')
-      assert.equal(obtainedEvent.sWallet, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
+      assert.equal(obtainedEventData.salt, expectedSalt, 'salt from Deployed event is not the expected one')
+      assert.equal(eventSWAddress, swAddress, 'SmartWallet address from the Deployed event is not the expected one')
 
       const destination: string = validTransaction.to.toString('hex')
       assert.equal(`0x${destination}`, relayHub.address.toString().toLowerCase())
