@@ -13,8 +13,6 @@ require('source-map-support').install({ errorFormatterForce: true })
 
 // TODO: is there a way to merge the typescript definition ServerConfigParams with the runtime checking ConfigParamTypes ?
 export interface ServerConfigParams {
-  baseRelayFee: string
-  pctRelayFee: number
   url: string
   port: number
   versionRegistryAddress: string
@@ -81,8 +79,6 @@ const serverDefaultConfiguration: ServerConfigParams = {
   devMode: false,
   customReplenish: false,
   logLevel: 1,
-  baseRelayFee: '0',
-  pctRelayFee: 0,
   url: 'http://localhost:8090',
   rskNodeUrl: '',
   port: 0,
@@ -100,8 +96,6 @@ const serverDefaultConfiguration: ServerConfigParams = {
 
 const ConfigParamsTypes = {
   config: 'string',
-  baseRelayFee: 'number',
-  pctRelayFee: 'number',
   url: 'string',
   port: 'number',
   versionRegistryAddress: 'string',

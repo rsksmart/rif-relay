@@ -51,12 +51,13 @@ The following technical content are available:
 | [CustomSmartWallet][7]     | 0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3 |
 | [CustomSmartWalletFactory][8]    | 0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2 |
 | [CustomSmartWalletDeployVerifier][9] | TBD |
+| [CustomSmartWalletRelayVerifier][10] | TBD |
 
 ### For Testing purposes
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [TestRecipient][10]   | 0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD |
+| [TestRecipient][11]   | 0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD |
 
 [1]: https://explorer.testnet.rsk.co/address/0x82F3D69cA3d79E580931D4D58efbDD3D5dB7aB3f
 [2]: https://explorer.testnet.rsk.co/address/0x0B5b176d682753DE19935964ca2459Ae324e7bda
@@ -67,8 +68,8 @@ The following technical content are available:
 [7]: https://explorer.testnet.rsk.co/address/0x910727b76b08bF9D1FE0B685e71C5e379D1DEBD3
 [8]: https://explorer.testnet.rsk.co/address/0xa63Eb5935Fb2281b506C1789cdAee00BA45E3DE2
 [9]: https://explorer.testnet.rsk.co/address/TBD
-[10]: https://explorer.testnet.rsk.co/address/0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD
-
+[10]: https://explorer.testnet.rsk.co/address/TBD
+[11]: https://explorer.testnet.rsk.co/address/0x7158c388Adc7e21Cd9200B06b29F62eeBa55E9FD
 
 ## Changelog
 

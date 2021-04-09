@@ -67,6 +67,10 @@ export function getCustomSmartWalletDeployVerifierAddress (verifier?: string): s
   return getAddressFromFile('build/enveloping/CustomSmartWalletDeployVerifier.json', verifier)
 }
 
+export function getCustomSmartWalletRelayVerifierAddress (verifier?: string): string | undefined {
+  return getAddressFromFile('build/enveloping/CustomSmartWalletRelayVerifier.json', verifier)
+}
+
 function getAddressFromFile (path: string, defaultAddress?: string): string | undefined {
   if (defaultAddress == null) {
     if (fs.existsSync(path)) {
@@ -93,6 +97,7 @@ export function saveDeployment (deploymentResult: DeploymentResult, workdir: str
   saveContractToFile(deploymentResult.customSmartWalletTemplateAddress, workdir, 'CustomSmartWallet.json')
   saveContractToFile(deploymentResult.customSmartWalletFactoryAddress, workdir, 'CustomSmartWalletFactory.json')
   saveContractToFile(deploymentResult.customSmartWalletDeployVerifierAddress, workdir, 'CustomSmartWalletDeployVerifier.json')
+  saveContractToFile(deploymentResult.customSmartWalletRelayVerifierAddress, workdir, 'CustomSmartWalletRelayVerifier.json')
 }
 
 export function showDeployment (deploymentResult: DeploymentResult, title: string | undefined): void {
@@ -109,7 +114,8 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
   DeployVerifier: ${deploymentResult.deployVerifierAddress}
   CustomSmartWalletTemplate: ${deploymentResult.customSmartWalletTemplateAddress}
   CustomSmartWalletFactory: ${deploymentResult.customSmartWalletFactoryAddress}
-  CustomSmartWalletDeployVerifier: ${deploymentResult.customSmartWalletDeployVerifierAddress}`)
+  CustomSmartWalletDeployVerifier: ${deploymentResult.customSmartWalletDeployVerifierAddress})
+  CustomSmartWalletRelayVerifier: ${deploymentResult.customSmartWalletRelayVerifierAddress}`)
 }
 
 export function loadDeployment (workdir: string): DeploymentResult {
@@ -127,7 +133,8 @@ export function loadDeployment (workdir: string): DeploymentResult {
     deployVerifierAddress: getAddress('DeployVerifier'),
     customSmartWalletTemplateAddress: getAddress('CustomSmartWallet'),
     customSmartWalletFactoryAddress: getAddress('CustomSmartWalletFactory'),
-    customSmartWalletDeployVerifierAddress: getAddress('CustomSmartWalletDeployVerifier')
+    customSmartWalletDeployVerifierAddress: getAddress('CustomSmartWalletDeployVerifier'),
+    customSmartWalletRelayVerifierAddress: getAddress('CustomSmartWalletRelayVerifier')
   }
 }
 

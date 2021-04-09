@@ -24,5 +24,6 @@ module.exports = async function (deployer) {
   await deployer.deploy(CustomSmartWallet)
   await deployer.deploy(CustomSmartWalletFactory, CustomSmartWallet.address)
   await deployer.deploy(CustomSmartWalletDeployVerifier, CustomSmartWalletFactory.address)
+  await deployer.deploy(RelayVerifier, CustomSmartWalletFactory.address)
   await deployer.deploy(SampleRecipient)
 }

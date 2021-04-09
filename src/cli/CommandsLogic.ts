@@ -54,6 +54,7 @@ interface DeployOptions {
   customSmartWalletFactoryAddress?: string
   customSmartWalletTemplateAddress?: string
   customSmartWalletDeployVerifierAddress?: string
+  customSmartWalletRelayVerifierAddress?: string
   registryHubId?: string
   verbose?: boolean
   skipConfirmation?: boolean
@@ -71,6 +72,7 @@ export interface DeploymentResult {
   customSmartWalletTemplateAddress: Address
   customSmartWalletFactoryAddress: Address
   customSmartWalletDeployVerifierAddress: Address
+  customSmartWalletRelayVerifierAddress: Address
 }
 
 interface RegistrationResult {
@@ -298,10 +300,18 @@ export default class CommandsLogic {
       ]
     }, deployOptions.relayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
+    const customSmartWalletRelayVerifierInstance = await this.getContract(RelayVerifier, {
+      arguments: [
+        customSmartWalletFactory.options.address
+      ]
+    }, deployOptions.customSmartWalletRelayVerifierAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+
     // Overriding saved configuration with newly deployed instances
+    this.config.relayHubAddress = rInstance.options.address
     this.config.deployVerifierAddress = deployVerifierInstance.options.address
     this.config.relayVerifierAddress = relayVerifierInstance.options.address
-    this.config.relayHubAddress = rInstance.options.address
+    // this.config.customSmartWalletDeployVerifierAddress = customSmartWalletDeployVerifierInstance.options.address
+    // this.config.customSmartWalletRelayVerifierAddress = customSmartWalletRelayVerifierInstance.options.address
 
     return {
       relayHubAddress: rInstance.options.address,
@@ -313,7 +323,8 @@ export default class CommandsLogic {
       deployVerifierAddress: deployVerifierInstance.options.address,
       customSmartWalletTemplateAddress: customSmartWallet.options.address,
       customSmartWalletFactoryAddress: customSmartWalletFactory.options.address,
-      customSmartWalletDeployVerifierAddress: customSmartWalletDeployVerifierInstance.options.address
+      customSmartWalletDeployVerifierAddress: customSmartWalletDeployVerifierInstance.options.address,
+      customSmartWalletRelayVerifierAddress: customSmartWalletRelayVerifierInstance.options.address
     }
   }
 

@@ -9,8 +9,6 @@ interface IRelayHub {
     // Looking at these events lets a client discover relay servers
     event RelayServerRegistered(
         address indexed relayManager,
-        uint256 baseRelayFee,
-        uint256 pctRelayFee,
         string relayUrl);
 
     // Emitted when relays are added by a relayManager
@@ -62,7 +60,7 @@ interface IRelayHub {
     // Once disabled, a relay worker cannot be re-enabled
     function disableRelayWorkers(address[] calldata relayWorkers) external; 
 
-    function registerRelayServer(uint256 baseRelayFee, uint256 pctRelayFee, string calldata url) external;
+    function registerRelayServer(string calldata url) external;
 
     /// Relays a transaction. For this to succeed, multiple conditions must be met:
     ///  - the sender must be a registered Relay Worker that the user signed
@@ -88,11 +86,6 @@ interface IRelayHub {
     external;
     
     function penalize(address relayWorker, address payable beneficiary) external;
-
-    /// The fee is expressed as a base fee in wei plus percentage on actual charge.
-    /// E.g. a value of 40 stands for a 40% fee, so the recipient will be
-    /// charged for 1.4 times the spent amount.
-    // function calculateCharge(uint256 gasUsed, EnvelopingTypes.RelayData calldata relayData) external view returns (uint256);
 
     /* getters */
     function penalizer() external view returns(address);

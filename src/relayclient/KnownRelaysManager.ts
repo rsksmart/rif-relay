@@ -19,18 +19,11 @@ export const EmptyFilter: RelayFilter = (): boolean => {
   return true
 }
 /**
- * Basic score is reversed transaction fee, higher is better.
+ * Basic score is reversed higher is better.
  * Relays that failed to respond recently will be downgraded for some period of time.
  */
 export const DefaultRelayScore = async function (relay: RelayRegisteredEventInfo, txDetails: EnvelopingTransactionDetails, failures: RelayFailureInfo[]): Promise<number> {
-  const gasLimit = parseInt(txDetails.gas ?? '0')
-  const gasPrice = parseInt(txDetails.gasPrice ?? '0')
-  const pctFee = parseInt(relay.pctRelayFee)
-  const baseFee = parseInt(relay.baseRelayFee)
-  const transactionCost = baseFee + (gasLimit * gasPrice * (100 + pctFee)) / 100
-  let score = Math.max(Number.MAX_SAFE_INTEGER - transactionCost, 0)
-  score = score * Math.pow(0.9, failures.length)
-  return score
+  return Math.pow(0.9, failures.length)
 }
 
 export class KnownRelaysManager {

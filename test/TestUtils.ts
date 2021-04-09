@@ -39,7 +39,7 @@ export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 // start a background relay process.
 // rhub - relay hub contract
 // options:
-//  stake, delay, pctRelayFee, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
+//  stake, delay, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
 //
 
 interface RelayServerData {
@@ -68,12 +68,6 @@ export async function startRelay (
   }
   if (options.gasPriceFactor) {
     args.push('--gasPriceFactor', options.gasPriceFactor)
-  }
-  if (options.pctRelayFee) {
-    args.push('--pctRelayFee', options.pctRelayFee)
-  }
-  if (options.baseRelayFee) {
-    args.push('--baseRelayFee', options.baseRelayFee)
   }
   if (options.checkInterval) {
     args.push('--checkInterval', options.checkInterval)
