@@ -1,11 +1,13 @@
 {
   "baseRelayFee": 70,
   "pctRelayFee": 0,
+  "url": "localhost",
   "port": 8090,
-  "relayHubAddress": "0x73ec81da0C72DD112e06c09A6ec03B5544d26F05",
+  "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701",
   "gasPriceFactor": 1,
-  "rskNodeUrl": "http://rskj:4444",
+  "rskNodeUrl": "http://rsk-node:4444",
   "devMode": true,
   "customReplenish": false,
-  "logLevel": 1
+  "logLevel": 1,
+  "workdir": "/storage/st2/workspace/rsk/enveloping/environment"
 }

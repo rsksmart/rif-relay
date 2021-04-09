@@ -18,4 +18,20 @@ module.exports = async function (deployer) {
   await deployer.deploy(CustomSmartWalletFactory, CustomSmartWallet.address)
   await deployer.deploy(DeployVerifier, SmartWalletFactory.address)
   await deployer.deploy(RelayVerifier, SmartWalletFactory.address)
+
+  console.log('Done! Summary:')
+
+  console.log('|============================|============================================|')
+  console.log('| Contract                   | Address                                    |')
+  console.log('|============================|============================================|')
+  console.log(`| Penalizer                  | ${Penalizer.address} |`)
+  console.log(`| RelayHub                   | ${RelayHub.address} |`)
+  console.log(`| SampleRecipient            | ${SampleRecipient.address} |`)
+  console.log(`| SmartWallet                | ${SmartWallet.address} |`)
+  console.log(`| SmartWalletFactory         | ${SmartWalletFactory.address} |`)
+  console.log(`| CustomSmartWallet          | ${CustomSmartWallet.address} |`)
+  console.log(`| CustomSmartWalletFactory   | ${CustomSmartWalletFactory.address} |`)
+  console.log(`| DeployVerifier             | ${DeployVerifier.address} |`)
+  console.log(`| RelayVerifier              | ${RelayVerifier.address} |`)
+  console.log('|============================|============================================|\n')
 }
