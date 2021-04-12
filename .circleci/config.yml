@@ -128,6 +128,8 @@ jobs: # a collection of steps
           test: "test/RSKAddressValidator.test.ts"
       - run_rskj_test:
           test: "test/EnvelopingUtils.test.ts"
+      - run_rskj_test:
+          test: "test/relayclient/SmartWalletDiscovery.test.ts"
       - store_artifacts:
           path: ~/gls/logs
   Lint_Tsc: # Lint and other prechecks thread

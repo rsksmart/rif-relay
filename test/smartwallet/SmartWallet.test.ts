@@ -100,7 +100,7 @@ async function getTokenBalance (tokenIndex: number, token: TestTokenInstance|Tet
 
 options.forEach(element => {
   tokens.forEach(tokenToUse => {
-    contract(`${element.title} using ${tokenToUse.title}`, ([defaultAccount, otherAccount]) => {
+    contract(`${element.title} using ${tokenToUse.title}`, ([defaultAccount, otherAccount, recovererAccount, payerAccount]) => {
       const countParams = ForwardRequestType.length
       const senderPrivateKey = toBuffer(bytes32(1))
       let chainId: number
@@ -538,7 +538,7 @@ options.forEach(element => {
         const otherAccountPrivateKey: Buffer = Buffer.from('0c06818f82e04c564290b32ab86b25676731fc34e9a546108bf109194c8e3aae', 'hex')
 
         before(async () => {
-          console.log('Running tests using accont: ', otherAccount)
+          console.log('Running tests using account: ', otherAccount)
 
           if (element.simple) {
             const SmartWallet = artifacts.require('SmartWallet')
@@ -635,6 +635,302 @@ options.forEach(element => {
             // is called
             assert.equal(await web3.eth.getBalance(otherAccount), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value) - BigInt(gasUsedToCall)).toString())
           })
+        })
+      })
+
+      describe('#recover', () => {
+        let template: SmartWalletInstance | CustomSmartWalletInstance
+        let factory: SmartWalletFactoryInstance | CustomSmartWalletFactoryInstance
+        let sw: SmartWalletInstance | CustomSmartWalletInstance
+        const otherAccountPrivateKey: Buffer = Buffer.from('0c06818f82e04c564290b32ab86b25676731fc34e9a546108bf109194c8e3aae', 'hex')
+
+        const tokenToSend = 1000
+        before(async () => {
+          if (element.simple) {
+            const SmartWallet = artifacts.require('SmartWallet')
+            template = await SmartWallet.new()
+            factory = await createSmartWalletFactory(template)
+            sw = await createSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0', '400000', '0', recovererAccount)
+          } else {
+            const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+            template = await CustomSmartWallet.new()
+            factory = await createCustomSmartWalletFactory(template)
+            sw = await createCustomSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0x',
+              constants.ZERO_ADDRESS, '0', '400000', '0', recovererAccount)
+          }
+
+          await fillTokens(tokenToUse.tokenIndex, token, sw.address, tokenToSend.toString())
+        })
+
+        it('should recover wallet funds', async () => {
+          const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+          const balanceBefore = await web3.eth.getBalance(sw.address)
+
+          const recovererTokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceBefore = await web3.eth.getBalance(recovererAccount)
+
+          const valueToSend = 1
+          const gasPrice = 60000000
+
+          await web3.eth.sendTransaction({ from: payerAccount, to: sw.address, value: valueToSend, gasPrice })
+
+          let txResp: Truffle.TransactionResponse
+
+          const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
+            name: 'transfer',
+            type: 'function',
+            inputs: [
+              {
+                type: 'address',
+                name: 'recipient'
+              }, {
+                type: 'uint256',
+                name: 'amount'
+              }
+            ]
+          },
+          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+
+          if (element.simple) {
+            txResp = await (sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice })
+          } else {
+            txResp = await (sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice })
+          }
+
+          const recoverCallCostDirectCalculation = new BN(txResp.receipt.cumulativeGasUsed).mul(new BN(gasPrice))
+
+          const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+          const balanceAfter = await web3.eth.getBalance(sw.address)
+
+          const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+          // native crypto balance transferred to recoverer = balanceBefore + valueToSend
+          // recovererBalanceBefore - recoverCost + valueToSend + balanceBefore = recovererBalanceAfter
+          // recovererBalanceBefore + valueToSend + balanceBefore - recovererBalanceAfter = recoverCost
+          const recoverCallCostIndirectCalculation = new BN(recovererBalanceBefore).add(new BN(valueToSend)).add(new BN(balanceBefore)).sub(new BN(recovererBalanceAfter))
+          assert.equal(recoverCallCostDirectCalculation.toString(), recoverCallCostIndirectCalculation.toString(), 'Recover cost mismatch')
+
+          assert.equal(tokenBalanceAfter.toNumber(), 0, 'Token balance of the SmartWallet must be 0')
+          assert.equal(balanceAfter, '0', 'RBTC Balance of the SmartWallet must be 0')
+
+          // valueToSend + balanceBefore  = recovererBalanceAfter + recoverCost - recovererBalanceBefore
+          assert.equal((new BN(valueToSend).add(new BN(balanceBefore)).toString()), (new BN(recovererBalanceAfter).add(recoverCallCostDirectCalculation).sub(new BN(recovererBalanceBefore))).toString(), 'Recoverer must receive all the RBTC funds of the SmartWallet')
+
+          // The final token balance of the recoverer is its initial token balance plus the token balance of the Smart Wallet before the recover() call
+          assert.equal(recovererTokenBalanceAfter.toNumber(), (recovererTokenBalanceBefore.add(tokenBalanceBefore)).toNumber(), 'Recoverer must receive all token funds of the SmartWallet')
+        })
+
+        it('should fail if sender is not the recoverer', async () => {
+          const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+
+          const recovererTokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceBefore = await web3.eth.getBalance(recovererAccount)
+
+          const valueToSend = 1
+
+          const gasPrice = 60000000
+
+          await web3.eth.sendTransaction({ from: payerAccount, to: sw.address, value: valueToSend, gasPrice })
+          const balanceAfterValueSendBeforeRecover = (new BN(await web3.eth.getBalance(sw.address))).toNumber()
+
+          const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
+            name: 'transfer',
+            type: 'function',
+            inputs: [
+              {
+                type: 'address',
+                name: 'recipient'
+              }, {
+                type: 'uint256',
+                name: 'amount'
+              }
+            ]
+          },
+          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+
+          if (element.simple) {
+            await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
+          } else {
+            await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
+          }
+
+          const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+          const balanceAfter = await web3.eth.getBalance(sw.address)
+
+          const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+          assert.equal(tokenBalanceAfter.toNumber(), tokenBalanceBefore.toNumber(), 'Token balance of the SmartWallet must be the same')
+          assert.equal(balanceAfter, balanceAfterValueSendBeforeRecover.toString(), 'RBTC Balance of the SmartWallet must be the same')
+
+          assert.equal(recovererTokenBalanceAfter.toNumber(), recovererTokenBalanceBefore.toNumber(), 'Token balance of the recoverer must be the same')
+
+          assert.equal(recovererBalanceAfter, recovererBalanceBefore, 'Recoverer balance must be be the same')
+        })
+
+        it('should recover wallet RBTC funds even if destination contract call fails', async () => {
+          const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+          const balanceBefore = await web3.eth.getBalance(sw.address)
+
+          const recovererTokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceBefore = await web3.eth.getBalance(recovererAccount)
+
+          const valueToSend = 1
+          const gasPrice = 60000000
+
+          await web3.eth.sendTransaction({ from: payerAccount, to: sw.address, value: valueToSend, gasPrice })
+          const balanceAfterValueSendBeforeRecover = (new BN(await web3.eth.getBalance(sw.address))).toNumber()
+
+          let txResp: Truffle.TransactionResponse
+
+          const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
+            name: 'transfer',
+            type: 'function',
+            inputs: [
+              {
+                type: 'address',
+                name: 'recipient'
+              }, {
+                type: 'uint256',
+                name: 'amount'
+              }
+            ]
+          },
+          [recovererAccount, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens
+
+          if (tokenToUse.tokenIndex !== 1) {
+            if (element.simple) {
+              txResp = await (sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice })
+            } else {
+              txResp = await (sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice })
+            }
+
+            const recoverCallCostDirectCalculation = new BN(txResp.receipt.cumulativeGasUsed).mul(new BN(gasPrice))
+
+            const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+            const balanceAfter = await web3.eth.getBalance(sw.address)
+
+            const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+            const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+            // native crypto balance transferred to recoverer = balanceBefore + valueToSend
+            // recovererBalanceBefore - recoverCost + valueToSend + balanceBefore = recovererBalanceAfter
+            // recovererBalanceBefore + valueToSend + balanceBefore - recovererBalanceAfter = recoverCost
+            const recoverCallCostIndirectCalculation = new BN(recovererBalanceBefore).add(new BN(valueToSend)).add(new BN(balanceBefore)).sub(new BN(recovererBalanceAfter))
+            assert.equal(recoverCallCostDirectCalculation.toString(), recoverCallCostIndirectCalculation.toString(), 'Recover cost mismatch')
+
+            assert.equal(tokenBalanceAfter.toNumber(), tokenBalanceBefore.toNumber(), 'Token balance of the SmartWallet must be the same')
+            assert.equal(balanceAfter, '0', 'RBTC Balance of the SmartWallet must be 0')
+
+            // valueToSend + balanceBefore  = recovererBalanceAfter + recoverCost - recovererBalanceBefore
+            assert.equal((new BN(valueToSend).add(new BN(balanceBefore)).toString()), (new BN(recovererBalanceAfter).add(recoverCallCostDirectCalculation).sub(new BN(recovererBalanceBefore))).toString(), 'Recoverer must receive all the RBTC funds of the SmartWallet')
+
+            assert.equal(recovererTokenBalanceAfter.toNumber(), recovererTokenBalanceBefore.toNumber(), 'Recoverer token balance must be the same')
+          } else { // Tether token depletes the gas on error (it uses 'assert' instead of 'require'), so in this case the whole transaction will revert
+            const maxGas = 100000
+            if (element.simple) {
+              await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+            } else {
+              await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+            }
+
+            const balanceLost = new BN(maxGas).mul(new BN(gasPrice))
+            const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+            const balanceAfter = await web3.eth.getBalance(sw.address)
+
+            const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+            const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+            assert.equal(tokenBalanceAfter.toNumber(), tokenBalanceBefore.toNumber(), 'Token balance of the SmartWallet must be the same')
+            assert.equal(balanceAfter, balanceAfterValueSendBeforeRecover.toString(), 'RBTC Balance of the SmartWallet must be the same')
+
+            assert.equal(recovererTokenBalanceAfter.toNumber(), recovererTokenBalanceBefore.toNumber(), 'Token balance of the recoverer must be the same')
+
+            assert.equal(recovererBalanceAfter, new BN(recovererBalanceBefore).sub(balanceLost).toString(10), 'Recoverer balance must be less due to the lost gas')
+          }
+        })
+
+        it('should recover wallet RBTC funds even if destination contract call fails - 2', async () => {
+          const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+          const balanceBefore = await web3.eth.getBalance(sw.address)
+
+          const recovererTokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+          const recovererBalanceBefore = await web3.eth.getBalance(recovererAccount)
+
+          const valueToSend = 1
+          const gasPrice = 60000000
+
+          await web3.eth.sendTransaction({ from: payerAccount, to: sw.address, value: valueToSend, gasPrice })
+          const balanceAfterValueSendBeforeRecover = (new BN(await web3.eth.getBalance(sw.address))).toNumber()
+
+          let txResp: Truffle.TransactionResponse
+
+          const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
+            name: 'transfer',
+            type: 'function',
+            inputs: [
+              {
+                type: 'address',
+                name: 'recipient'
+              }, {
+                type: 'uint256',
+                name: 'amount'
+              }
+            ]
+          },
+          [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
+
+          if (tokenToUse.tokenIndex !== 1) {
+            if (element.simple) {
+              txResp = await (sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice })
+            } else {
+              txResp = await (sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice })
+            }
+
+            const recoverCallCostDirectCalculation = new BN(txResp.receipt.cumulativeGasUsed).mul(new BN(gasPrice))
+
+            const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+            const balanceAfter = await web3.eth.getBalance(sw.address)
+
+            const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+            const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+            // native crypto balance transferred to recoverer = balanceBefore + valueToSend
+            // recovererBalanceBefore - recoverCost + valueToSend + balanceBefore = recovererBalanceAfter
+            // recovererBalanceBefore + valueToSend + balanceBefore - recovererBalanceAfter = recoverCost
+            const recoverCallCostIndirectCalculation = new BN(recovererBalanceBefore).add(new BN(valueToSend)).add(new BN(balanceBefore)).sub(new BN(recovererBalanceAfter))
+            assert.equal(recoverCallCostDirectCalculation.toString(), recoverCallCostIndirectCalculation.toString(), 'Recover cost mismatch')
+
+            assert.equal(tokenBalanceAfter.toNumber(), tokenBalanceBefore.toNumber(), 'Token balance of the SmartWallet must be the same')
+            assert.equal(balanceAfter, '0', 'RBTC Balance of the SmartWallet must be 0')
+
+            // valueToSend + balanceBefore  = recovererBalanceAfter + recoverCost - recovererBalanceBefore
+            assert.equal((new BN(valueToSend).add(new BN(balanceBefore)).toString()), (new BN(recovererBalanceAfter).add(recoverCallCostDirectCalculation).sub(new BN(recovererBalanceBefore))).toString(), 'Recoverer must receive all the RBTC funds of the SmartWallet')
+
+            assert.equal(recovererTokenBalanceAfter.toNumber(), recovererTokenBalanceBefore.toNumber(), 'Recoverer token balance must be the same')
+          } else { // Tether token depletes the gas on error (it uses 'assert' instead of 'require'), so in this case the whole transaction will revert
+            const maxGas = 100000
+            if (element.simple) {
+              await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+            } else {
+              await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+            }
+
+            const balanceLost = new BN(maxGas).mul(new BN(gasPrice))
+            const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+            const balanceAfter = await web3.eth.getBalance(sw.address)
+
+            const recovererTokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, recovererAccount)
+            const recovererBalanceAfter = await web3.eth.getBalance(recovererAccount)
+
+            assert.equal(tokenBalanceAfter.toNumber(), tokenBalanceBefore.toNumber(), 'Token balance of the SmartWallet must be the same')
+            assert.equal(balanceAfter, balanceAfterValueSendBeforeRecover.toString(), 'RBTC Balance of the SmartWallet must be the same')
+
+            assert.equal(recovererTokenBalanceAfter.toNumber(), recovererTokenBalanceBefore.toNumber(), 'Token balance of the recoverer must be the same')
+
+            assert.equal(recovererBalanceAfter, new BN(recovererBalanceBefore).sub(balanceLost).toString(10), 'Recoverer balance must be less due to the lost gas')
+          }
         })
       })
     })

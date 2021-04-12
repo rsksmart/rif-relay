@@ -154,7 +154,7 @@ export class ServerTestEnvironment {
     if (workdir != null) {
       return new KeyManager(1, workdir)
     } else {
-      return new KeyManager(1, undefined, crypto.randomBytes(32).toString())
+      return new KeyManager(1, undefined, crypto.randomBytes(32))
     }
   }
 

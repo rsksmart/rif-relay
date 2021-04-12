@@ -35,6 +35,39 @@ contract SmartWallet is IForwarder {
     }
     
 
+       function recover(address owner, address factory, address swTemplate, address destinationContract, uint256 index, bytes calldata data) external payable returns (bool success, bytes memory ret){
+
+        address wallet = 
+            address(
+                uint160(
+                    uint256(
+                        keccak256(
+                            abi.encodePacked(
+                                bytes1(0xff),
+                                factory,
+                                keccak256(abi.encodePacked(owner, msg.sender, index)), //salt
+                                keccak256(abi.encodePacked(hex"602D3D8160093D39F3363D3D373D3D3D3D363D73", swTemplate, hex"5AF43D923D90803E602B57FD5BF3"))
+                            )
+                        )
+                    )
+                )
+            );
+
+        require(wallet == address(this), "Invalid recoverer");
+
+        if(destinationContract != address(0)){
+            (success, ret) = destinationContract.call{value: msg.value}(data);
+        }
+        
+        //If any balance has been added then trasfer it to the owner EOA
+        if (address(this).balance > 0) {
+            //sent any value left to the recoverer account
+            payable(msg.sender).transfer(address(this).balance);
+        }
+        
+    }
+
+
     function directExecute(address to, bytes calldata data) external override payable returns (
             bool success,
             bytes memory ret  

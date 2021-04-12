@@ -17,5 +17,9 @@ interface IWalletFactory {
         bytes calldata sig
     ) external;
 
-    event Deployed(address addr, uint256 salt); //Event triggered when a deploy is successful
+
+    function getCreationBytecode() external view returns (bytes memory);
+
+    event Deployed(address indexed addr, uint256 salt); //Event triggered when a deploy is successful
+
 }
