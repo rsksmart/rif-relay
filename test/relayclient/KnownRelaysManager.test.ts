@@ -30,9 +30,9 @@ export async function stake (relayHub: RelayHubInstance, manager: string, owner:
   })
 }
 
-export async function register (relayHub: RelayHubInstance, manager: string, worker: string, url: string, baseRelayFee?: string, pctRelayFee?: string): Promise<void> {
+export async function register (relayHub: RelayHubInstance, manager: string, worker: string, url: string): Promise<void> {
   await relayHub.addRelayWorkers([worker], { from: manager })
-  await relayHub.registerRelayServer(baseRelayFee ?? '0', pctRelayFee ?? '0', url, { from: manager })
+  await relayHub.registerRelayServer(url, { from: manager })
 }
 
 contract('KnownRelaysManager', function (
@@ -116,12 +116,12 @@ contract('KnownRelaysManager', function (
       await relayHub.addRelayWorkers([workerVerifierRejected], {
         from: activeVerifierRejected
       })
-      await relayHub.registerRelayServer('0', '0', '', { from: activeTransactionRelayed })
-      await relayHub.registerRelayServer('0', '0', '', { from: activeVerifierRejected })
+      await relayHub.registerRelayServer('', { from: activeTransactionRelayed })
+      await relayHub.registerRelayServer('', { from: activeVerifierRejected })
 
       await evmMineMany(relayLookupWindowBlocks)
       /** events that are supposed to be visible to the manager */
-      await relayHub.registerRelayServer('0', '0', '', { from: activeRelayServerRegistered })
+      await relayHub.registerRelayServer('', { from: activeRelayServerRegistered })
       await relayHub.addRelayWorkers([workerRelayWorkersAdded], {
         from: activeRelayWorkersAdded
       })
@@ -244,17 +244,9 @@ contract('KnownRelaysManager 2', function (accounts) {
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   describe('#getRelaysSortedForTransaction()', function () {
-    const relayInfoLowFee = {
+    const relayInfo = {
       relayManager: accounts[0],
-      relayUrl: 'lowFee',
-      baseRelayFee: '1000000',
-      pctRelayFee: '10'
-    }
-    const relayInfoHighFee = {
-      relayManager: accounts[0],
-      relayUrl: 'highFee',
-      baseRelayFee: '100000000',
-      pctRelayFee: '50'
+      relayUrl: 'url'
     }
 
     describe('#_refreshFailures()', function () {
@@ -376,13 +368,12 @@ contract('KnownRelaysManager 2', function (accounts) {
         relayUrl: 'url3'
       }
       it('should subtract penalty from a relay for each known failure', async function () {
-        const relayScoreNoFailures = await DefaultRelayScore(relayInfoHighFee, transactionDetails, [])
-        const relayScoreOneFailure = await DefaultRelayScore(relayInfoHighFee, transactionDetails, [failure])
-        const relayScoreTenFailures = await DefaultRelayScore(relayInfoHighFee, transactionDetails, Array(10).fill(failure))
-        const relayScoreLowFees = await DefaultRelayScore(relayInfoLowFee, transactionDetails, [])
+        const relayScoreNoFailures = await DefaultRelayScore(relayInfo, transactionDetails, [])
+        const relayScoreOneFailure = await DefaultRelayScore(relayInfo, transactionDetails, [failure])
+        const relayScoreTenFailures = await DefaultRelayScore(relayInfo, transactionDetails, Array(10).fill(failure))
+
         assert.isAbove(relayScoreNoFailures, relayScoreOneFailure)
         assert.isAbove(relayScoreOneFailure, relayScoreTenFailures)
-        assert.isAbove(relayScoreLowFees, relayScoreNoFailures)
       })
     })
   })
@@ -404,19 +395,13 @@ contract('KnownRelaysManager 2', function (accounts) {
         contractInteractor, configure({ chainId: env.chainId }), undefined, biasedRelayScore)
       const activeRelays: RelayRegisteredEventInfo[] = [{
         relayManager: accounts[0],
-        relayUrl: 'alex',
-        baseRelayFee: '100000000',
-        pctRelayFee: '50'
+        relayUrl: 'alex'
       }, {
         relayManager: accounts[0],
-        relayUrl: 'joe',
-        baseRelayFee: '100',
-        pctRelayFee: '5'
+        relayUrl: 'joe'
       }, {
         relayManager: accounts[1],
-        relayUrl: 'joe',
-        baseRelayFee: '10',
-        pctRelayFee: '4'
+        relayUrl: 'joe'
       }]
       sinon.stub(knownRelaysManager, 'allRelayers').value(activeRelays)
     })
@@ -426,11 +411,7 @@ contract('KnownRelaysManager 2', function (accounts) {
       assert.equal(sortedRelays[1][0].relayUrl, 'alex')
       // checking the relayers are sorted AND they cannot overshadow each other's url
       assert.equal(sortedRelays[1][1].relayUrl, 'joe')
-      assert.equal(sortedRelays[1][1].baseRelayFee, '100')
-      assert.equal(sortedRelays[1][1].pctRelayFee, '5')
       assert.equal(sortedRelays[1][2].relayUrl, 'joe')
-      assert.equal(sortedRelays[1][2].baseRelayFee, '10')
-      assert.equal(sortedRelays[1][2].pctRelayFee, '4')
     })
   })
 })

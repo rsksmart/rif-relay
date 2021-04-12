@@ -155,8 +155,6 @@ class TestEnvironmentClass {
       url: relayUrl,
       relayHubAddress: deploymentResult.relayHubAddress,
       gasPriceFactor: 1,
-      baseRelayFee: '0',
-      pctRelayFee: 0,
       logLevel: 1,
       checkInterval: 10,
       // refreshStateTimeoutBlocks:1,

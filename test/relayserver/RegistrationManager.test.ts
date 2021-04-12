@@ -124,8 +124,6 @@ contract('RegistrationManager', function (accounts) {
         relayHubAddress: env.relayHub.address,
         url: LocalhostOne,
         logLevel: 5,
-        baseRelayFee: '0',
-        pctRelayFee: 0,
         gasPriceFactor: 1,
         checkInterval: 10
       }
@@ -189,7 +187,7 @@ contract('RegistrationManager', function (accounts) {
       relayServer = env.relayServer
     })
 
-    // TODO: separate this into 4 unit tests for 'isRegistrationValid' and 1 test for 'handlePastEvents'
+    // TODO: separate this into 2 unit tests for 'isRegistrationValid' and 1 test for 'handlePastEvents'
     it('should re-register server with new configuration', async function () {
       let latestBlock = await env.web3.eth.getBlock('latest')
       const receipts = await relayServer._worker(latestBlock.number)
@@ -198,17 +196,6 @@ contract('RegistrationManager', function (accounts) {
 
       let transactionHashes = await relayServer.registrationManager.handlePastEvents([], latestBlock.number, 0, false)
       assert.equal(transactionHashes.length, 0, 'should not re-register if already registered')
-
-      relayServer.config.baseRelayFee = (parseInt(relayServer.config.baseRelayFee) + 1).toString()
-      transactionHashes = await relayServer.registrationManager.handlePastEvents([], latestBlock.number, 0, false)
-      await assertRelayAdded(transactionHashes, relayServer, false)
-
-      latestBlock = await env.web3.eth.getBlock('latest')
-      await relayServer._worker(latestBlock.number)
-
-      relayServer.config.pctRelayFee++
-      transactionHashes = await relayServer.registrationManager.handlePastEvents([], latestBlock.number, 0, false)
-      await assertRelayAdded(transactionHashes, relayServer, false)
 
       latestBlock = await env.web3.eth.getBlock('latest')
       await relayServer._worker(latestBlock.number)

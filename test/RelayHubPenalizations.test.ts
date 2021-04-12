@@ -378,7 +378,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
   // emitted event and penalization reward transfer. Returns the transaction receipt.
   async function expectPenalization (penalizeWithOpts: (opts: Truffle.TransactionDetails) => Promise<TransactionResponse>, rskDifference: number = 0): Promise<TransactionResponse> {
     const reporterBalanceTracker = await balance.tracker(reporterRelayManager)
-    const stakeManagerBalanceTracker = await balance.tracker(relayHub.address)
+    const stakeBalanceTracker = await balance.tracker(relayHub.address)
     const stakeInfo = await relayHub.stakes(relayManager)
     // @ts-ignore (names)
     const stake = stakeInfo.stake
@@ -408,7 +408,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
     expect(difference).to.be.bignumber.at.most(new BN(rskDifference))
 
     // The other half is burned, so RelayHub's balance is decreased by the full stake
-    expect(await stakeManagerBalanceTracker.delta()).to.be.bignumber.equals(stake.neg())
+    expect(await stakeBalanceTracker.delta()).to.be.bignumber.equals(stake.neg())
 
     return receipt
   }

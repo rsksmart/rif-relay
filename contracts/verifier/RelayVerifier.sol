@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/math/SafeMath.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-import "../factory/SmartWalletFactory.sol";
+import "../interfaces/IWalletFactory.sol";
 import "../interfaces/IRelayVerifier.sol";
 
 /* solhint-disable no-inline-assembly */
@@ -50,7 +50,7 @@ contract RelayVerifier is IRelayVerifier, Ownable {
         bytes32 smartWalletCodeHash;
         assembly { smartWalletCodeHash := extcodehash(payer) }
 
-        require(SmartWalletFactory(factory).runtimeCodeHash() == smartWalletCodeHash, "SW different to template");
+        require(IWalletFactory(factory).runtimeCodeHash() == smartWalletCodeHash, "SW different to template");
 
         return (abi.encode(payer, relayRequest.request.tokenAmount, relayRequest.request.tokenContract));
     }

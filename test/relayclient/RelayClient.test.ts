@@ -101,7 +101,7 @@ contract('RelayClient', function (accounts) {
     })
 
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
-    await relayHub.registerRelayServer(1, 1, cheapRelayerUrl, { from: relayManager })
+    await relayHub.registerRelayServer(cheapRelayerUrl, { from: relayManager })
   }
 
   before(async function () {
@@ -194,10 +194,13 @@ contract('RelayClient', function (accounts) {
         mockServer.use(bodyParser.urlencoded({ extended: false }))
         mockServer.use(bodyParser.json())
 
+        /* eslint-disable @typescript-eslint/no-misused-promises */
         mockServer.get('/getaddr', async (req, res) => {
           console.log('=== got GET ping', req.query)
           res.send(pingResponse)
         })
+        /* eslint-enable */
+
         mockServer.post('/relay', () => {
           console.log('== got relay.. ignoring')
           // don't answer... keeping client in limbo
@@ -789,7 +792,7 @@ contract('RelayClient', function (accounts) {
         value: (2e18).toString()
       })
       await relayHub.addRelayWorkers([relayWorkerAddress], { from: relayManager })
-      await relayHub.registerRelayServer(2e16.toString(), '10', 'url', { from: relayManager })
+      await relayHub.registerRelayServer('url', { from: relayManager })
       pingResponse = {
         relayWorkerAddress: relayWorkerAddress,
         relayManagerAddress: relayManager,
@@ -801,9 +804,7 @@ contract('RelayClient', function (accounts) {
       relayInfo = {
         relayInfo: {
           relayManager,
-          relayUrl,
-          baseRelayFee: '',
-          pctRelayFee: ''
+          relayUrl
         },
         pingResponse
       }

@@ -4,7 +4,7 @@ import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN, toHex } from 'web3-utils'
 
-import { Address, IntString } from '../relayclient/types/Aliases'
+import { Address } from '../relayclient/types/Aliases'
 import { AmountRequired } from '../common/AmountRequired'
 import {
   address2topic,
@@ -29,8 +29,6 @@ import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'
 
 export interface RelayServerRegistryInfo {
-  baseRelayFee: IntString
-  pctRelayFee: number
   url: string
 }
 
@@ -119,7 +117,7 @@ export class RegistrationManager {
       toBlock: 'latest'
     }
     const eventNames = [StakeAdded, StakeUnlocked, StakeWithdrawn]
-    const decodedEvents = await this.contractInteractor.getPastEventsForStakeManager(eventNames, topics, options)
+    const decodedEvents = await this.contractInteractor.getPastEventsForStakeManagement(eventNames, topics, options)
     this.printEvents(decodedEvents, options)
     let transactionHashes: PrefixedHexString[] = []
     // TODO: what about 'penalize' events? should send balance to owner, I assume
@@ -296,7 +294,7 @@ export class RegistrationManager {
 
     const portIncluded: boolean = this.config.url.indexOf(':') > 0
     const registerUrl = this.config.url + ((!portIncluded && this.config.port > 0) ? ':' + this.config.port.toString() : '')
-    const registerMethod = await this.contractInteractor.getRegisterRelayMethod(this.config.baseRelayFee, this.config.pctRelayFee, registerUrl)
+    const registerMethod = await this.contractInteractor.getRegisterRelayMethod(registerUrl)
     const gasLimit = await this.transactionManager.attemptEstimateGas('RegisterRelay', registerMethod, this.managerAddress)
     const details: SendTransactionDetails = {
       serverAction: ServerAction.REGISTER_SERVER,

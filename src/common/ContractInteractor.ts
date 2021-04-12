@@ -37,11 +37,11 @@ import { Address, IntString } from '../relayclient/types/Aliases'
 import { EnvelopingConfig } from '../relayclient/Configurator'
 import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
 import { toBN } from 'web3-utils'
+import BN from 'bn.js'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
 import Contract = Truffle.Contract
-import BN = require('bn.js')
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -345,7 +345,7 @@ export default class ContractInteractor {
     return await this._getPastEvents(this.relayHubInstance.contract, names, extraTopics, options)
   }
 
-  async getPastEventsForStakeManager (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
+  async getPastEventsForStakeManagement (names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
     const relayHub = this.relayHubInstance
     return await this._getPastEvents(relayHub.contract, names, extraTopics, options)
   }
@@ -455,9 +455,9 @@ export default class ContractInteractor {
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction
-  async getRegisterRelayMethod (baseRelayFee: IntString, pctRelayFee: number, url: string): Promise<any> {
+  async getRegisterRelayMethod (url: string): Promise<any> {
     const hub = this.relayHubInstance
-    return hub.contract.methods.registerRelayServer(baseRelayFee, pctRelayFee, url)
+    return hub.contract.methods.registerRelayServer(url)
   }
 
   async getAddRelayWorkersMethod (workers: Address[]): Promise<any> {

@@ -60,8 +60,6 @@ contract RelayHub is IRelayHub {
     }
 
     function registerRelayServer(
-        uint256 baseRelayFee,
-        uint256 pctRelayFee,
         string calldata url
     ) external override {
         //relay manager is msg.sender
@@ -69,7 +67,7 @@ contract RelayHub is IRelayHub {
         requireManagerStaked(msg.sender);
 
         require(workerCount[msg.sender] > 0, "no relay workers");
-        emit RelayServerRegistered(msg.sender, baseRelayFee, pctRelayFee, url);
+        emit RelayServerRegistered(msg.sender, url);
     }
 
     function disableRelayWorkers(address[] calldata relayWorkers)
@@ -292,15 +290,11 @@ contract RelayHub is IRelayHub {
         address relayManager,
         address payable beneficiary
     ) internal {
-        StakeInfo memory stakeInfo = stakes[relayManager];
+        StakeInfo storage stakeInfo = stakes[relayManager];
         uint256 amount = stakeInfo.stake;
 
         // Half of the stake will be burned (sent to address 0)
-        require(stakes[relayManager].stake >= amount, "penalty exceeds stake");
-        stakes[relayManager].stake = SafeMath.sub(
-            stakes[relayManager].stake,
-            amount
-        );
+        stakeInfo.stake = 0;
 
         uint256 toBurn = SafeMath.div(amount, 2);
         uint256 reward = SafeMath.sub(amount, toBurn);

@@ -1,4 +1,4 @@
-import { Address, IntString } from './Aliases'
+import { Address } from './Aliases'
 
 export interface RelayInfoUrl {
   relayUrl: string
@@ -6,10 +6,8 @@ export interface RelayInfoUrl {
 
 export interface RelayRegisteredEventInfo extends RelayInfoUrl {
   relayManager: Address
-  baseRelayFee: IntString
-  pctRelayFee: IntString
 }
 
 export function isInfoFromEvent (info: RelayInfoUrl): boolean {
-  return 'relayManager' in info && 'baseRelayFee' in info && 'pctRelayFee' in info
+  return 'relayManager' in info
 }

@@ -1,7 +1,8 @@
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { BN, toBuffer } from 'ethereumjs-util'
 import { configure, EnvelopingConfig } from '../Configurator'
-import { EnvelopingUtils, isSameAddress, SignatureProvider } from '../src/common/Utils'
+import { isSameAddress } from '../src/common/Utils'
+import { Enveloping, SignatureProvider } from '../src/relayclient/Enveloping'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
@@ -32,7 +33,7 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(SmartWalletFactory.abi)
 
 contract('Enveloping utils', () => {
-  let enveloping: EnvelopingUtils
+  let enveloping: Enveloping
   let tokenContract: TestTokenInstance
   let relayHub: RelayHubInstance
   let verifier: TestVerifierEverythingAcceptedInstance
@@ -82,7 +83,7 @@ contract('Enveloping utils', () => {
 
   const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
     const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
-    const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000')
+    const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000')
     const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
     const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
     const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
@@ -121,8 +122,7 @@ contract('Enveloping utils', () => {
       chainId: chainId,
       relayVerifierAddress: verifier.address,
       deployVerifierAddress: deployVerifier.address,
-      preferredRelays: ['http://localhost:8090'],
-      forwarderAddress: swAddress
+      preferredRelays: ['http://localhost:8090']
     }
 
     config = configure(partialConfig)
@@ -139,7 +139,7 @@ contract('Enveloping utils', () => {
     })
     relayproc = serverData.proc
     workerAddress = serverData.worker
-    enveloping = new EnvelopingUtils(config, web3, workerAddress)
+    enveloping = new Enveloping(config, web3, workerAddress)
     await enveloping._init()
   })
 

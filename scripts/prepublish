@@ -7,7 +7,7 @@ yarn generate
 
 mkdir -p src/cli/compiled/
 
-CONTRACTS="RelayHub Penalizer SmartWallet SmartWalletFactory CustomSmartWallet CustomSmartWalletFactory VersionRegistry RelayVerifier DeployVerifier RelayVerifierCustomWallet DeployVerifierCustomWallet TestVerifierEverythingAccepted TestDeployVerifierEverythingAccepted"
+CONTRACTS="RelayHub Penalizer SmartWallet SmartWalletFactory CustomSmartWallet CustomSmartWalletFactory VersionRegistry RelayVerifier DeployVerifier CustomSmartWalletDeployVerifier TestVerifierEverythingAccepted TestDeployVerifierEverythingAccepted"
 BUILDFOLDER=./build/contracts
 OUTFOLDER=./src/cli/compiled
 for c in $CONTRACTS; do

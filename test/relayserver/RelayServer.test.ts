@@ -30,7 +30,6 @@ const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployV
 const revertReasonSupported = false
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
-  const baseRelayFee = '12'
 
   let id: string
   let globalId: string
@@ -48,7 +47,6 @@ contract('RelayServer', function (accounts) {
     await env.init(relayClientConfig)
     const overrideParams: Partial<ServerConfigParams> = {
       alertedBlockDelay,
-      baseRelayFee,
       workerTargetBalance: 0.6e18
     }
     await env.newServerInstance(overrideParams)
