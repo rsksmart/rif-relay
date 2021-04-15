@@ -1,8 +1,5 @@
-// @ts-ignore
-import Wallet from 'ethereumjs-wallet'
-// @ts-ignore
-import HDKey, { EthereumHDKey } from 'ethereumjs-wallet/hdkey'
 
+import Wallet, { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
 import fs from 'fs'
 import ow from 'ow'
 import { toHex } from 'web3-utils'
@@ -11,7 +8,7 @@ import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 export const KEYSTORE_FILENAME = 'keystore'
 
 export class KeyManager {
-  private readonly hdkey: EthereumHDKey
+  private readonly hdkey: any
   private _privateKeys: Record<PrefixedHexString, Buffer> = {}
   private nonces: Record<string, number> = {}
 
@@ -20,7 +17,7 @@ export class KeyManager {
    * @param workdir - read seed from keystore file (or generate one and write it)
    * @param seed - if working in memory (no workdir), you can specify a seed - or use randomly generated one.
    */
-  constructor (count: number, workdir?: string, seed?: string) {
+  constructor (count: number, workdir?: string, seed?: Buffer) {
     ow(count, ow.number)
     if (seed != null && workdir != null) {
       throw new Error('Can\'t specify both seed and workdir')
@@ -35,12 +32,12 @@ export class KeyManager {
         let genseed
         const keyStorePath = workdir + '/' + KEYSTORE_FILENAME
         if (fs.existsSync(keyStorePath)) {
-          genseed = JSON.parse(fs.readFileSync(keyStorePath).toString()).seed
+          genseed = Buffer.from(JSON.parse(fs.readFileSync(keyStorePath).toString()).seed, 'hex')
         } else {
-          genseed = Wallet.generate().getPrivateKey().toString('hex')
-          fs.writeFileSync(keyStorePath, JSON.stringify({ seed: genseed }), { flag: 'w' })
+          genseed = Wallet.generate().getPrivateKey()
+          fs.writeFileSync(keyStorePath, JSON.stringify({ seed: genseed.toString('hex') }), { flag: 'w' })
         }
-        this.hdkey = HDKey.fromMasterSeed(genseed)
+        this.hdkey = EthereumHDKey.fromMasterSeed(genseed)
       } catch (e) {
         // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
         if (!e.message.includes('file already exists')) {
@@ -50,9 +47,9 @@ export class KeyManager {
     } else {
       // no workdir: working in-memory
       if (seed == null) {
-        seed = Wallet.generate().getPrivateKey().toString('hex')
+        seed = Wallet.generate().getPrivateKey()
       }
-      this.hdkey = HDKey.fromMasterSeed(seed)
+      this.hdkey = EthereumHDKey.fromMasterSeed(seed ?? Buffer.from(''))
     }
 
     this.generateKeys(count)
@@ -64,7 +61,7 @@ export class KeyManager {
     for (let index = 0; index < count; index++) {
       const w = this.hdkey.deriveChild(index).getWallet()
       const address = toHex(w.getAddress())
-      this._privateKeys[address] = w.privKey
+      this._privateKeys[address] = w.getPrivateKey()
       this.nonces[index] = 0
     }
   }

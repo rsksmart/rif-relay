@@ -21,7 +21,7 @@ contract('KeyManager', function (accounts) {
     let mkm: KeyManager
 
     before(() => {
-      mkm = new KeyManager(10, undefined, 'seed1234')
+      mkm = new KeyManager(10, undefined, Buffer.from('seed1234'))
     })
     it('should return key', () => {
       // for a given seed, the addresses and privkeys are known..

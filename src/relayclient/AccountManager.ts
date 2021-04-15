@@ -45,7 +45,7 @@ export default class AccountManager {
   newAccount (): AccountKeypair {
     const a = ethWallet.generate()
     const keypair = {
-      privateKey: a.privKey,
+      privateKey: a.getPrivateKey(),
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       address: toAddress(a)
     }

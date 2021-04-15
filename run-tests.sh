@@ -90,9 +90,10 @@ run_batch test/relayclient/KnownRelaysManager.test.ts
 run_batch test/smartwallet/SmartWallet.test.ts
 run_batch test/RelayHubGasCalculations.test.ts
 run_batch test/SampleRecipient.test.ts
-run_batch test/StakeManager.test.ts
+run_batch test/StakeManagement.test.ts
 run_batch test/RSKAddressValidator.test.ts
 run_batch test/EnvelopingUtils.test.ts
+run_batch test/relayclient/SmartWalletDiscovery.test.ts
 
 # Test_Group_3
 run_batch \

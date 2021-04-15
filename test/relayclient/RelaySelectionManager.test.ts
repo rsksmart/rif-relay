@@ -27,9 +27,7 @@ contract('RelaySelectionManager', async function (accounts) {
   })
   const eventInfo = {
     relayManager: '',
-    relayUrl: '',
-    baseRelayFee: '1',
-    pctRelayFee: '1'
+    relayUrl: ''
   }
   const pingResponse = {
     relayWorkerAddress: '',
@@ -104,7 +102,7 @@ contract('RelaySelectionManager', async function (accounts) {
         chainId = (await getTestingEnvironment()).chainId
         relayHub = await deployHub(constants.ZERO_ADDRESS)
         await stake(relayHub, relayManager, accounts[0])
-        await register(relayHub, relayManager, accounts[2], preferredRelayUrl, '666', '777')
+        await register(relayHub, relayManager, accounts[2], preferredRelayUrl)
 
         const config = configure({
           relayHubAddress: relayHub.address,
@@ -144,8 +142,6 @@ contract('RelaySelectionManager', async function (accounts) {
         const nextRelay = await relaySelectionManager.selectNextRelay()
         assert.equal(nextRelay!.relayInfo.relayUrl, preferredRelayUrl)
         assert.equal(nextRelay!.relayInfo.relayManager, relayManager)
-        assert.equal(nextRelay!.relayInfo.baseRelayFee, '666')
-        assert.equal(nextRelay!.relayInfo.pctRelayFee, '777')
       })
     })
 

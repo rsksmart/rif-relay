@@ -67,10 +67,9 @@ const partialConfig: Partial<EnvelopingConfig> =
       relayVerifierAddress: relayVerifier.address,  // The verifier that will verify the relayed transaction
       deployVerifierAddress: deployVerifier.address, // The verifier that will verify the smart wallet deployment
       preferredRelays: ['http://localhost:8090'], //If there is a preferred relay server.
-      forwarderAddress: swAddress //To get the smart wallet address it's necessary to calculate the smart wallet address.
     }
     config = configure(partialConfig)
-    enveloping = new EnvelopingUtils(config, web3, workerAddress)
+    enveloping = new Enveloping(config, web3, workerAddress)
     await enveloping._init()
 
 //Instances a signature provider: This is just for test, please DO NOT use in production.
@@ -97,10 +96,8 @@ const httpDeployRequest = await enveloping.generateDeployTransactionRequest(depl
 const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
 sentDeployTransaction.transaction?.hash(true).toString('hex') //This is used to get the transaction hash
 
-//Relaying a transaction
-
 const encodedFunction = testRecipient.contract.methods.emitMessage('hello world').encodeABI()
-const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas)
+const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, smartWalletAddress, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas)
 const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest, gaslessAccount.privateKey)
 const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
 const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)

@@ -42,7 +42,6 @@ const commander = envelopingCommander(['n', 'h'])
     const res = []
     res.push(registeredEvent.relayManager)
     res.push(registeredEvent.relayUrl)
-    res.push(`\tfee: ${registeredEvent.baseRelayFee} wei + ${registeredEvent.pctRelayFee}%`)
     const managerBalance = statistics.balances.get(registeredEvent.relayManager)
     if (managerBalance == null) {
       res.push('\tbalance: N/A')

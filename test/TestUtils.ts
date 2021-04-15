@@ -39,7 +39,7 @@ export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 // start a background relay process.
 // rhub - relay hub contract
 // options:
-//  stake, delay, pctRelayFee, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
+//  stake, delay, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
 //
 
 interface RelayServerData {
@@ -68,12 +68,6 @@ export async function startRelay (
   }
   if (options.gasPriceFactor) {
     args.push('--gasPriceFactor', options.gasPriceFactor)
-  }
-  if (options.pctRelayFee) {
-    args.push('--pctRelayFee', options.pctRelayFee)
-  }
-  if (options.baseRelayFee) {
-    args.push('--baseRelayFee', options.baseRelayFee)
   }
   if (options.checkInterval) {
     args.push('--checkInterval', options.checkInterval)
@@ -306,7 +300,7 @@ export async function createSmartWalletFactory (template: IForwarderInstance): P
 
 export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: SmartWalletFactoryInstance, privKey: Buffer, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0'): Promise<SmartWalletInstance> {
+  gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<SmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -321,7 +315,7 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
-      recoverer: constants.ZERO_ADDRESS,
+      recoverer: recoverer,
       index: '0'
     },
     relayData: {
@@ -346,7 +340,7 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), suffixData, deploySignature)
 
   console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
-  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, '0')
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, recoverer, '0')
 
   const SmartWallet = artifacts.require('SmartWallet')
   const sw: SmartWalletInstance = await SmartWallet.at(swAddress)
@@ -361,7 +355,7 @@ export async function createCustomSmartWalletFactory (template: IForwarderInstan
 
 export async function createCustomSmartWallet (relayHub: string, ownerEOA: string, factory: CustomSmartWalletFactoryInstance, privKey: Buffer, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0'): Promise<CustomSmartWalletInstance> {
+  gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<CustomSmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -376,7 +370,7 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
-      recoverer: constants.ZERO_ADDRESS,
+      recoverer: recoverer,
       index: '0'
     },
     relayData: {
@@ -401,7 +395,7 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), suffixData, deploySignature, { from: relayHub })
   console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
 
-  const swAddress = await factory.getSmartWalletAddress(ownerEOA, constants.ZERO_ADDRESS, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')
+  const swAddress = await factory.getSmartWalletAddress(ownerEOA, recoverer, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')
 
   const CustomSmartWallet = artifacts.require('CustomSmartWallet')
   const sw: CustomSmartWalletInstance = await CustomSmartWallet.at(swAddress)
@@ -412,9 +406,9 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
 export async function getGaslessAccount (): Promise<AccountKeypair> {
   const a = ethWallet.generate()
   const gaslessAccount = {
-    privateKey: a.privKey,
+    privateKey: a.getPrivateKey(),
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    address: toChecksumAddress(bufferToHex(privateToAddress(a.privKey)), (await getTestingEnvironment()).chainId).toLowerCase()
+    address: toChecksumAddress(bufferToHex(privateToAddress(a.getPrivateKey())), (await getTestingEnvironment()).chainId).toLowerCase()
 
   }
 

@@ -74,7 +74,6 @@ options.forEach(params => {
           workerTargetBalance: 0.6e18,
           stake: 1e18,
           delay: 3600 * 24 * 7,
-          pctRelayFee: 12,
           url: 'asd',
           relayOwner: fundedAccount.address,
           // @ts-ignore

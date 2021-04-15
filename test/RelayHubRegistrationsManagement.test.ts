@@ -1,5 +1,4 @@
 import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
-import BN from 'bn.js'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
 import {
@@ -11,8 +10,6 @@ import { deployHub } from './TestUtils'
 const Penalizer = artifacts.require('Penalizer')
 
 contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, relayWorker1, relayWorker2, relayWorker3]) {
-  const baseRelayFee = new BN('10')
-  const pctRelayFee = new BN('20')
   const relayUrl = 'http://new-relay.com'
 
   let relayHub: RelayHubInstance
@@ -57,7 +54,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
       it('should not allow relayManager to register a relay server', async function () {
         await expectRevert.unspecified(
-          relayHub.registerRelayServer(baseRelayFee, pctRelayFee, relayUrl, { from: relayManager }),
+          relayHub.registerRelayServer(relayUrl, { from: relayManager }),
           'relay manager not staked')
       })
     })
@@ -73,7 +70,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
     it('should not allow relayManager to register a relay server', async function () {
       await expectRevert.unspecified(
-        relayHub.registerRelayServer(baseRelayFee, pctRelayFee, relayUrl, { from: relayManager }),
+        relayHub.registerRelayServer(relayUrl, { from: relayManager }),
         'no relay workers')
     })
 
@@ -115,11 +112,9 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
     })
 
     it('should allow relayManager to update transaction fee and url', async function () {
-      const { logs } = await relayHub.registerRelayServer(baseRelayFee, pctRelayFee, relayUrl, { from: relayManager })
+      const { logs } = await relayHub.registerRelayServer(relayUrl, { from: relayManager })
       expectEvent.inLogs(logs, 'RelayServerRegistered', {
         relayManager,
-        pctRelayFee,
-        baseRelayFee,
         relayUrl
       })
     })

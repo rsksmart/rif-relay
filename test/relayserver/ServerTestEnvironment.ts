@@ -62,8 +62,6 @@ export interface PrepareRelayRequestOption {
   to: string
   from: string
   verifier: string // TODO Change to relay and deploy verifiers
-  pctRelayFee: number
-  baseRelayFee: string
 }
 
 export class ServerTestEnvironment {
@@ -156,7 +154,7 @@ export class ServerTestEnvironment {
     if (workdir != null) {
       return new KeyManager(1, workdir)
     } else {
-      return new KeyManager(1, undefined, crypto.randomBytes(32).toString())
+      return new KeyManager(1, undefined, crypto.randomBytes(32))
     }
   }
 
@@ -208,8 +206,6 @@ export class ServerTestEnvironment {
       relayWorkerAddress: this.relayServer.workerAddress
     }
     const eventInfo: RelayRegisteredEventInfo = {
-      baseRelayFee: this.relayServer.config.baseRelayFee,
-      pctRelayFee: this.relayServer.config.pctRelayFee.toString(),
       relayManager: '',
       relayUrl: ''
     }

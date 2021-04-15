@@ -252,9 +252,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   })
 
   describe('relayCall', function () {
-    const baseRelayFee = '10000'
-    const pctRelayFee = '10'
-
     beforeEach(async function () {
       env = await getTestingEnvironment()
       chainId = env.chainId
@@ -365,7 +362,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         encodedFunction = recipientContract.contract.methods.emitMessage(message).encodeABI()
 
         await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
-        await relayHubInstance.registerRelayServer(baseRelayFee, pctRelayFee, url, { from: relayManager })
+        await relayHubInstance.registerRelayServer(url, { from: relayManager })
         relayRequest = cloneRelayRequest(sharedRelayRequestData)
         relayRequest.request.data = encodedFunction
 
@@ -852,8 +849,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   })
 
   describe('deployCall', function () {
-    const baseRelayFee = '10000'
-    const pctRelayFee = '10'
     let min = 0
     let max = 1000000000
     min = Math.ceil(min)
@@ -957,7 +952,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           from: relayOwner
         })
         await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
-        await relayHubInstance.registerRelayServer(baseRelayFee, pctRelayFee, url, { from: relayManager })
+        await relayHubInstance.registerRelayServer(url, { from: relayManager })
 
         deployRequest = cloneRelayRequest(sharedDeployRequestData) as DeployRequest
         deployRequest.request.index = nextWalletIndex.toString()
