@@ -1,6 +1,4 @@
 {
-  "baseRelayFee": 70,
-  "pctRelayFee": 0,
   "url": "localhost",
   "port": 8090,
   "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701",
@@ -9,5 +7,5 @@
   "devMode": true,
   "customReplenish": false,
   "logLevel": 1,
-  "workdir": "/storage/st2/workspace/rsk/enveloping/environment"
+  "workdir": "/home/jonathan/workspace/rsk/enveloping/environment"
 }

@@ -41,7 +41,9 @@
     "test": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network development",
     "test-bail": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network development --bail",
     "tsc": "tsc --noEmit",
-    "relay": "./scripts/startRelayServer"
+    "relay": "./scripts/startRelayServer",
+    "registerRelay": "./scripts/registerRelayServer",
+    "boot-test": "./scripts/startBootTest"
   },
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
