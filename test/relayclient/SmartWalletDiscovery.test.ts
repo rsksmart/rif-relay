@@ -385,7 +385,7 @@ contract('SmartWalletDiscovery', function (accounts) {
       })
     })
 
-    describe(`${params.title} - #smartWalletDiscovery From External Keys`, function () {
+    describe.only(`${params.title} - #smartWalletDiscovery From External Keys`, function () {
       let swd: SmartWalletDiscovery
       let discoverableAccounts: Set<Address>
       const usedPublicKeys: string[] = []
@@ -399,7 +399,8 @@ contract('SmartWalletDiscovery', function (accounts) {
 
         for (let accIdx = 0; accIdx < 2; accIdx++) {
           const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-          usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+
+          usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
           // Fill 20 accounts with balance and for each one 20 swallets with balance
           for (let i = 0; i < 20; i++) {
@@ -462,7 +463,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_1`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {
@@ -523,7 +524,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_2`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {
@@ -585,7 +586,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_3`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         for (let i = 0; i < 20; i++) {
           const accountWallet = firstAccountRoot.deriveChild(i).getWallet()
@@ -671,7 +672,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_4`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {
@@ -758,7 +759,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
         const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_0`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one 20 swallets with balance
         for (let i = 0; i < 20; i++) {
@@ -824,7 +825,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_1`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {
@@ -889,7 +890,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_2`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {
@@ -954,7 +955,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_3`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         for (let i = 0; i < 20; i++) {
           const accountWallet = firstAccountRoot.deriveChild(i).getWallet()
@@ -1044,7 +1045,7 @@ contract('SmartWalletDiscovery', function (accounts) {
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_4`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         // Fill 20 accounts with balance and for each one fill a token to 20 smart wallets
         for (let i = 0; i < 20; i++) {

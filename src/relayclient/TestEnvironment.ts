@@ -100,6 +100,7 @@ class TestEnvironmentClass {
   private async _resolveAvailablePort (): Promise<number> {
     const server = net.createServer()
     await new Promise(resolve => {
+      // @ts-ignore
       server.listen(0, resolve)
     })
     const address = server.address()
