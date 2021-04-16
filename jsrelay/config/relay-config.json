@@ -7,5 +7,5 @@
   "devMode": true,
   "customReplenish": false,
   "logLevel": 1,
-  "workdir": "/home/jonathan/workspace/rsk/enveloping/environment"
+  "workdir": "/home/jonathan/workspace/enveloping/environment"
 }
