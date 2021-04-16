@@ -385,7 +385,7 @@ contract('SmartWalletDiscovery', function (accounts) {
       })
     })
 
-    describe.only(`${params.title} - #smartWalletDiscovery From External Keys`, function () {
+    describe(`${params.title} - #smartWalletDiscovery From External Keys`, function () {
       let swd: SmartWalletDiscovery
       let discoverableAccounts: Set<Address>
       const usedPublicKeys: string[] = []
