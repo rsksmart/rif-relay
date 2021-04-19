@@ -21,8 +21,6 @@ for c in RelayProvider RelayClient RelayEvents Configurator TestEnvironment; do
   echo gen ./$c.ts:
   (echo "// generated during pack";echo "export * from './src/relayclient/$c'") > $c.ts
 done
-echo gen ./Utils.ts:
-(echo "// generated during pack";echo "export * from './src/common/Utils'") > Utils.ts
 
 tsc
 
