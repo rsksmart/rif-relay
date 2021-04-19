@@ -263,7 +263,7 @@ contract('Enveloping utils', function (accounts) {
 
       for (let accIdx = 0; accIdx < 2; accIdx++) {
         const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         for (let i = 0; i < 20; i++) {
           const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
@@ -368,7 +368,7 @@ contract('Enveloping utils', function (accounts) {
 
       for (let accIdx = 0; accIdx < 2; accIdx++) {
         const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         for (let i = 0; i < 20; i++) {
           const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
@@ -474,7 +474,7 @@ contract('Enveloping utils', function (accounts) {
 
       for (let accIdx = 0; accIdx < 2; accIdx++) {
         const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString('base58'))
+        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
 
         for (let i = 0; i < 20; i++) {
           const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
