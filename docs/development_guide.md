@@ -2,7 +2,7 @@
 
 ## Initializing the project
 
-To use Enveloping, follow these [steps](docs/launching_enveloping.md) to build the project.
+To use Enveloping, follow these [steps](../docs/launching_enveloping.md) to build the project.
 
 ## Project structure
 
