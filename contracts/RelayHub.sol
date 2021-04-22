@@ -162,10 +162,10 @@ contract RelayHub is IRelayHub {
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
 
-        require(
+        /*require(
             gasleft() >= gasOverhead.add(deployRequest.request.gas),
             "Not enough gas left"
-        );
+        );*/
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == deployRequest.relayData.relayWorker,
@@ -179,11 +179,16 @@ contract RelayHub is IRelayHub {
             "Invalid gas price"
         );
 
-        bool deploySuccess = Eip712Library.deploy(deployRequest, signature);
+        bool deploySuccess;
+        bytes memory ret;
+        ( deploySuccess, ret) = Eip712Library.deploy(deployRequest, signature);
 
         if (!deploySuccess) {
             assembly {
-                revert(0, 0)
+                revert(
+                    add(ret, 32),
+                    mload(ret)
+                )
             }
         }
     }
@@ -191,13 +196,9 @@ contract RelayHub is IRelayHub {
     function relayCall(
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
-    ) external override {
+    ) external override returns (bool destinationCallSuccess){
         (signature);
 
-        require(
-            gasleft() >= gasOverhead.add(relayRequest.request.gas),
-            "Not enough gas left"
-        );
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == relayRequest.relayData.relayWorker,
@@ -222,10 +223,9 @@ contract RelayHub is IRelayHub {
         requireManagerStaked(manager);
 
         bool forwarderSuccess;
-        bool succ;
         bytes memory relayedCallReturnValue;
         //use succ as relay call success variable
-        (forwarderSuccess, succ, relayedCallReturnValue) = Eip712Library
+        (forwarderSuccess, destinationCallSuccess, relayedCallReturnValue) = Eip712Library
             .execute(relayRequest, signature);
 
         if (!forwarderSuccess) {
@@ -237,7 +237,7 @@ contract RelayHub is IRelayHub {
             }
         }
 
-        if (succ) {
+        if (destinationCallSuccess) {
             emit TransactionRelayed(
                 manager,
                 msg.sender,

@@ -4,8 +4,8 @@ import {
   TestTokenInstance,
   SmartWalletFactoryInstance,
   SmartWalletInstance,
-  TestVerifiersInstance,
-  TestDeployVerifierInstance
+  TestDeployVerifierInstance,
+  TestRelayVerifierInstance
 } from '../types/truffle-contracts'
 
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
@@ -22,7 +22,7 @@ const RelayVerifier = artifacts.require('RelayVerifier')
 const TestToken = artifacts.require('TestToken')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestRecipient = artifacts.require('TestRecipient')
-const TestVerifiers = artifacts.require('TestVerifiers')
+const TestRelayVerifier = artifacts.require('TestRelayVerifier')
 const TestDeployVerifier = artifacts.require('TestDeployVerifier')
 
 const gasPrice = '10'
@@ -66,7 +66,6 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
         from: ownerAddress,
         nonce: senderNonce,
         value: '0',
-        gas: gasLimit,
         recoverer: recoverer,
         index: index,
         tokenContract: token.address,
@@ -165,7 +164,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
 
     // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    testVerifiers = await TestVerifiers.new(deployVerifier.address)
+    testVerifiers = await TestDeployVerifier.new(deployVerifier.address)
 
     await expectRevert.unspecified(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
@@ -181,7 +180,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   let token: TestTokenInstance
   let relayRequestData: RelayRequest
   let factory: SmartWalletFactoryInstance
-  let testVerifiers: TestVerifiersInstance
+  let testRelayVerifier: TestRelayVerifierInstance
 
   const senderPrivateKey = toBuffer(bytes32(1))
   let senderAddress: string
@@ -198,7 +197,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
     factory = await createSmartWalletFactory(template)
 
     relayVerifier = await RelayVerifier.new(factory.address, { from: verifierOwner })
-    testVerifiers = await TestVerifiers.new(relayVerifier.address)
+    testRelayVerifier = await TestRelayVerifier.new(relayVerifier.address)
 
     sw = await createSmartWallet(relayHub, senderAddress, factory, senderPrivateKey, chainId)
     const smartWallet = sw.address
@@ -235,7 +234,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   it('Should not fail on checks of preRelayCall', async function () {
     await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     // run method
-    const { logs } = await testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub })
+    const { logs } = await testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub })
     // All checks should pass
     assert.equal(logs[0].event, 'Accepted')
     assert.equal(logs[0].args[0].toNumber(), new BN(tokensPaid).toNumber())
@@ -250,14 +249,14 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
     relayRequestData.relayData.callForwarder = other
     // run method
     await expectRevert.unspecified(
-      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
+      testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expectRevert.unspecified(
-      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
+      testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'Token contract not allowed'
     )
   })
@@ -269,7 +268,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
     await token.mint(tokensPaid + 4, token.address)
     // run method
     await expectRevert.unspecified(
-      testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
+      testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'SW different to template'
     )
   })

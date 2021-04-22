@@ -5,6 +5,7 @@ const SmartWallet = artifacts.require('SmartWallet')
 const SmartWalletFactory = artifacts.require('SmartWalletFactory')
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
+const TestToken = artifacts.require('TestToken')
 
 // For testing purposes
 const SampleRecipient = artifacts.require('TestRecipient')
@@ -13,6 +14,7 @@ const SampleRecipient = artifacts.require('TestRecipient')
 const CustomSmartWallet = artifacts.require('CustomSmartWallet')
 const CustomSmartWalletFactory = artifacts.require('CustomSmartWalletFactory')
 const CustomSmartWalletDeployVerifier = artifacts.require('CustomSmartWalletDeployVerifier')
+const CustomSmartWalletRelayVerifier = artifacts.require('RelayVerifier')
 
 module.exports = async function (deployer) {
   await deployer.deploy(Penalizer)
@@ -24,6 +26,7 @@ module.exports = async function (deployer) {
   await deployer.deploy(CustomSmartWallet)
   await deployer.deploy(CustomSmartWalletFactory, CustomSmartWallet.address)
   await deployer.deploy(CustomSmartWalletDeployVerifier, CustomSmartWalletFactory.address)
-  await deployer.deploy(RelayVerifier, CustomSmartWalletFactory.address)
+  await deployer.deploy(CustomSmartWalletRelayVerifier, CustomSmartWalletFactory.address)
   await deployer.deploy(SampleRecipient)
+  await deployer.deploy(TestToken)
 }
