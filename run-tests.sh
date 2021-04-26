@@ -7,7 +7,9 @@ run_batch()
 
 	_i=0
 	while [ $_i -lt 30 ]; do
-		nc -z 127.0.0.1 4444 && break
+		curl -Ss -H "Content-type: application/json" \
+		    -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+		    http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
 		sleep 1
 		_i=$((_i + 1))
 	done

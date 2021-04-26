@@ -23,9 +23,9 @@ When adding new tests, we should compile them first (with `yarn tsc`) before run
 
 - To run all the tests:
 
-`./run-tests`
+`./run-tests.sh`
 
-Note: The script will start an RSK node in regtest mode and then run all the tests. So it takes some time to run the tests.
+Note: The script will start an RSK node in regtest mode and then run all the tests. So it takes some time to run the tests. You need to have `curl` in order to run it.
 
 - To run a specific test:
 
