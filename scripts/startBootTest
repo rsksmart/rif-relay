@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo "Building jsrelay server"
+
+cd jsrelay && npx webpack && cd ../
+
+echo "Starting jsrelay server on boot test mode"
+
+node dist/src/cli/commands/enveloping.js boot-test --network http://rsk-node:4444/

@@ -21,9 +21,33 @@ module.exports = async function (deployer) {
   await deployer.deploy(SmartWalletFactory, SmartWallet.address)
   await deployer.deploy(DeployVerifier, SmartWalletFactory.address)
   await deployer.deploy(RelayVerifier, SmartWalletFactory.address)
+
+  const smartWalletRelayVerifierAddress = RelayVerifier.address;
+
   await deployer.deploy(CustomSmartWallet)
   await deployer.deploy(CustomSmartWalletFactory, CustomSmartWallet.address)
   await deployer.deploy(CustomSmartWalletDeployVerifier, CustomSmartWalletFactory.address)
   await deployer.deploy(RelayVerifier, CustomSmartWalletFactory.address)
+
+  const customSmartWalletRelayVerifierAddress = RelayVerifier.address;
+
   await deployer.deploy(SampleRecipient)
+
+  console.log('Done! Summary:')
+
+  console.log('|===================================|============================================|')
+  console.log('| Contract                          | Address                                    |')
+  console.log('|===================================|============================================|')
+  console.log(`| Penalizer                         | ${Penalizer.address} |`)
+  console.log(`| RelayHub                          | ${RelayHub.address} |`)
+  console.log(`| SampleRecipient                   | ${SampleRecipient.address} |`)
+  console.log(`| SmartWallet                       | ${SmartWallet.address} |`)
+  console.log(`| SmartWalletFactory                | ${SmartWalletFactory.address} |`)
+  console.log(`| SmartWalletDeployVerifier         | ${DeployVerifier.address} |`)
+  console.log(`| SmartWalletRelayVerifier          | ${smartWalletRelayVerifierAddress} |`)
+  console.log(`| CustomSmartWallet                 | ${CustomSmartWallet.address} |`)
+  console.log(`| CustomSmartWalletFactory          | ${CustomSmartWalletFactory.address} |`)
+  console.log(`| CustomSmartWalletDeployVerifier   | ${CustomSmartWalletDeployVerifier.address} |`)
+  console.log(`| CustomSmartWalletRelayVerifier    | ${customSmartWalletRelayVerifierAddress} |`)
+  console.log('|===================================|============================================|\n')
 }
