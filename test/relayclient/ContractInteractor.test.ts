@@ -26,13 +26,6 @@ contract('ContractInteractor', function () {
 
   // TODO: these tests create an entire instance of the client to test one method.
   context('#_validateCompatibility()', function () {
-    it.skip('should throw if the hub version is incompatible', async function () {
-      const relayClient = new RelayClient(web3.currentProvider as HttpProvider, {
-        relayHubAddress: testVersions.address
-      })
-      await expect(relayClient._init()).to.be.eventually.rejectedWith('Provided Hub version(3.0.0) is not supported by the current interactor')
-    })
-
     it('should not throw if the hub address is not configured', async function () {
       const relayClient = new RelayClient(web3.currentProvider as HttpProvider, { logLevel: 5 })
       await relayClient._init()
