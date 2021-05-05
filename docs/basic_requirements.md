@@ -1,7 +1,8 @@
 # Basic requirements
-## Typescript
 
-One of the main programming languages in the project is `typescript`. [Here](https://www.typescriptlang.org/#installation) are the instructions for installing it.
+## RSK Node
+
+If you don't use docker you need to have a running RSK node version PAPYRUS-2.2.0 or higher.
 
 ## Yarn
 

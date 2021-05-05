@@ -12,7 +12,7 @@ Users can interact with the Relay Server directly or indirectly.
 
 ## Using the Relay Server directly
 
-The simplest option to use Enveloping in your wallet or dApp is by calling the Relay Server directly. The instructions for running a Relayer are [here](docs/launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
+The simplest option to use Enveloping in your wallet or dApp is by calling the Relay Server directly. The instructions for running a Relayer are [here](launching_enveloping.md). The communication with the Relay Server is through HTTP requests.
 
 The order of events for relaying transactions or deploying smart wallets through the Relay Server is
 1. Create a relay or deploy request.
@@ -26,30 +26,129 @@ The order of events for relaying transactions or deploying smart wallets through
 Another option is to use Enveloping through a Relay Provider. The latter wraps web3, and then all transactions and calls are made through the Relay Provider. If a Relay Client is not provided then the Relay Provider creates an instance.
 
 ```typescript
-    this.config = await resolveConfiguration(web3.currentProvider, {
-      verbose: window.location.href.includes('verbose'),
-      onlyPreferredRelays: false, //If false it will look for a relayer, if true it reads preferred Relays
-      chainId: chainId,
-      relayVerifierAddress: this.contracts.relayVerifier,
-      factory: this.contracts.factory,
-      preferredRelays:[]
-    })
+    import { RelayProvider, resolveConfiguration } from "@rsksmart/enveloping";
+    import Web3 from "web3";
 
-    this.provider = new Enveloping.RelayProvider(web3.currentProvider, this.config)
-    web3.setProvider(this.provider)
+    const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
-    this.provider.deploySmartWallet(trxData)
-    this.provider.calculateSmartWalletAddress(
-    factory.address,gaslessAccount.address, recoverer, customLogic, walletIndex, bytecodeHash)
+    const web3 = new Web3("http://localhost:4444");
+    
+    const smartWalletFactoryAbi = {};// some json containing the abi of the smart wallet factory contract.
+    const smartWalletFactoryAddress = "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"; // the smart wallet factort contract address (can be retrieved from the summary of the deployment).
+    const smartWalletIndex = 0; // the index of the smart wallet
+    const accountAddress = "0xB6009fD7a09cB4C6846ab19Be81d7D0b533cF8B7"; // your account address
+    const accountPrivateKey = "0xc2decf57baed5c1f4e546dc04eab97edb753c72723720af95f14c3ac1e3ef830"; // your account private key
 
-    await testRecipient.emitMessage('hello world', {
-        from: gaslessAccount.address,
-        gas: '100000',
-        gasPrice: '1',
-        callVerifier: verifierInstance.address,
-        onlyPreferredRelays: true //It will read the preferredRelays on the config.
-    })
+    const smartWalletAddress = await new web3.eth.Contract(
+        smartWalletFactoryAbi,
+        smartWalletFactoryAddress
+    ).methods.getSmartWalletAddress(
+        accountAddress,
+        ZERO_ADDRESS,
+        smartWalletIndex
+    ).call();
+    
+    const relayVerifierAddress = "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2"; // the relay verifier contract address (can be retrieved from the summary of the deployment).
+    const deployVerifierAddress = "0x1938517B0762103d52590Ca21d459968c25c9E67"; // the deploy verifier contract address (can be retrieved from the summary of the deployment).
+
+    const config = await resolveConfiguration(web3.currentProvider,
+        {
+            verbose: window.location.href.includes("verbose"),
+            onlyPreferredRelays: true,
+            preferredRelays: ["http://localhost:8090"],
+            factory: smartWalletFactoryAddress,
+            gasPriceFactorPercent: 0,
+            relayLookupWindowBlocks: 1e5,
+            chainId: 33,
+            relayVerifierAddress,
+            deployVerifierAddress,
+            smartWalletFactoryAddress
+        });
+        resolvedConfig.relayHubAddress = "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"; // the relay hub contract address (can be retrieved from the summary of the deployment).
+
+    const provider = new RelayProvider(web3.currentProvider, config);
+    
+    provider.addAccount({
+        address: accountAddress,
+        privateKey: Buffer.from(accountPrivateKey.replaceAll("0x", ""), "hex") 
+    });
+
+    web3.setProvider(provider);
+    
+    const tokenContract = "0x0E569743F573323F430B6E14E5676EB0cCAd03D9"; // token address to use on smart wallet
+    const tokenAmount = "100"; // total token amount for the smart wallet, the smart wallet address should have more than this number before calling the deploy.
+
+    // deploy smart wallet
+    const deployTransaction = await provider.deploySmartWallet({
+        from: accountAddress,
+        to: ZERO_ADDRESS,
+        gas: "0x27100",
+        value: "0",
+        callVerifier: deployVerifierAddress,
+        callForwarder: smartWalletFactoryAddress,
+        tokenContract,
+        tokenAmount,
+        data: "0x",
+        index: smartWalletIndex,
+        recoverer: ZERO_ADDRESS,
+        isSmartWalletDeploy: true,
+        onlyPreferredRelays: true,
+        smartWalletAddress
+    });
+    
+    // relay transaction
+    const unsigned_tx = {
+        // some common web3 transaction with the common parameters.
+    };
+
+    const tokenAmountForRelay = "10";
+    
+    const relayTransaction = web3.eth.sendTransaction({
+        from: accountAddress,
+        callVerifier: relayVerifierAddress,
+        callForwarder: smartWalletAddress,
+        isSmartWalletDeploy: false,
+        onlyPreferredRelays: true,
+        tokenAmount: tokenAmountForRelay,
+        tokenContract,
+        ...unsigned_tx,
+    });
 ```
+
+Before running this example, you need to know a few requirements:
+
+1. The smart wallet address generated by the contract call should be funded with tokens before running the deploy call.
+2. The token address you use should be allowed, to do that you need to make a call to the contracts involved to allow
+   working with your token, only the owner of the contracts can do that, but if you are running this on regtest, then the account[0]
+   is the owner and you can allow tokens by calling the relay verifier and deploy verifier (for both wallets, smart wallet and custom smart wallet) contracts manually with web3.
+   Here is an example of how to allow tokens using web3 on truffle console:
+   ```typescript
+        const smartWalletDeployVerifierAbi = require("../src/cli/compiled/DeployVerifier.json").abi;
+        const customSmartWalletDeployVerifierAbi = require("../src/cli/compiled/CustomSmartWalletDeployVerifier.json").abi;
+        const relayVerifierAbi = require("../src/cli/compiled/RelayVerifier.json").abi;
+        
+        const relayVerifierAddress = "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2"; // the relay verifier contract address (can be retrieved from the summary of the deployment).
+        const deployVerifierAddress = "0x1938517B0762103d52590Ca21d459968c25c9E67"; // the deploy verifier contract address (can be retrieved from the summary of the deployment).
+        const customRelayVerifierAddress = "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2"; // the custom smart wallet relay verifier contract address (can be retrieved from the summary of the deployment).
+        const customDeployVerifierAddress = "0x1938517B0762103d52590Ca21d459968c25c9E67"; // the custom smart wallet deploy verifier contract address (can be retrieved from the summary of the deployment).
+
+        const smartWalletDeployVerifier = await new web3.eth.Contract(smartWalletDeployVerifierAbi, deployVerifierAddress);
+        const smartWalletRelayVerifier = await new web3.eth.Contract(relayVerifierAbi, relayVerifierAddress);
+        const customSmartWalletDeployVerifier = await new web3.eth.Contract(customSmartWalletDeployVerifierAbi, customDeployVerifierAddress);
+        const customSmartWalletRelayVerifier = await new web3.eth.Contract(relayVerifierAbi, customRelayVerifierAddress);
+        const accounts = await web3.eth.getAccounts();
+        
+        const tokenAddress = "0x0E569743F573323F430B6E14E5676EB0cCAd03D9"; // token address to allow
+    
+        await smartWalletDeployVerifier.methods.acceptToken(tokenAddress).send({from: accounts[0]});
+        await smartWalletRelayVerifier.methods.acceptToken(tokenAddress).send({from: accounts[0]});
+        await customSmartWalletDeployVerifier.methods.acceptToken(tokenAddress).send({from: accounts[0]});
+        await customSmartWalletRelayVerifier.methods.acceptToken(tokenAddress).send({from: accounts[0]});
+   ```
+3. Some times you could have troubles with gas estimation on relaying transactions. One thing you can do to
+avoid those problems is to increase a parameter that enveloping uses as cushion for the gas spend by the relay transactions.
+   You can do that by editing the constant `const PARAMETERS_COST = 43782` on file `src/relayserver/RelayServer.ts` and put a higher value
+   like `45000`.
 
 ## Using the Enveloping Utils as a library
 
