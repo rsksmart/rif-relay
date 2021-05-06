@@ -26,7 +26,6 @@
   },
   "prepublish": "npm run prepare",
   "scripts": {
-    "ganache": "ganache-cli --hardfork 'istanbul' --gasLimit 100000000 --defaultBalanceEther 1000 --deterministic --keepAliveTimeout 2147483647",
     "extract_abi": "./scripts/extract_abi.js",
     "lint": "yarn run lint:js && yarn run lint:sol",
     "lint:fix": "yarn run lint:js:fix",
@@ -38,7 +37,7 @@
     "postinstall": "patch-package",
     "postpack": "./scripts/postpack",
     "prepare": "./scripts/prepublish",
-    "test": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network development",
+    "test": "yarn run lint && yarn generate && yarn tsc && ./run-tests.sh",
     "test-bail": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network development --bail",
     "tsc": "tsc --noEmit",
     "relay": "./scripts/startRelayServer",

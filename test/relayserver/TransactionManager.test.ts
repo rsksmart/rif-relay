@@ -1,5 +1,4 @@
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
-import Mutex from 'async-mutex/lib/Mutex'
 import * as ethUtils from 'ethereumjs-util'
 
 import { evmMineMany, getTestingEnvironment } from '../TestUtils'
@@ -26,7 +25,6 @@ contract('TransactionManager', function (accounts) {
 
   describe('nonce counter asynchronous access protection', function () {
     let _pollNonceOrig: (signer: string) => Promise<number>
-    let nonceMutexOrig: Mutex
     let signTransactionOrig: (signer: string, tx: Transaction) => PrefixedHexString
     before(function () {
       _pollNonceOrig = relayServer.transactionManager.pollNonce
@@ -36,44 +34,6 @@ contract('TransactionManager', function (accounts) {
     })
     after(function () {
       relayServer.transactionManager.pollNonce = _pollNonceOrig
-    })
-
-    /**
-     * This is not so much a test but a sanity check that RelayServer code produces two distinct transactions
-     * unless mutex is implemented.
-     */
-    it.skip('should fail if nonce is not mutexed', async function () {
-      nonceMutexOrig = relayServer.transactionManager.nonceMutex
-      relayServer.transactionManager.nonceMutex = {
-        // @ts-ignore
-        acquire: function () {
-          // eslint-disable-next-line @typescript-eslint/no-empty-function
-          return function releaseMutex () {}
-        },
-        isLocked: () => false
-      }
-      try {
-        // noinspection ES6MissingAwait - done on purpose
-        const promises = [env.relayTransaction(), env.relayTransaction(false, { data: '0xdeadbeef' })]
-        await Promise.all(promises)
-        assert.fail()
-      } catch (e) {
-        console.log(e)
-        assert.include(e.message, 'violates the unique constraint')
-        // there may be multiple fields marked as 'unique', this checks that 'nonceSigner' is the one that throws
-        assert.deepEqual(e.key, { nonce: 0, signer: env.relayServer.workerAddress })
-        // since we forced the server to create an illegal tx with an already used nonce, we decrease the nonce
-        relayServer.transactionManager.nonces[1]--
-      } finally {
-        relayServer.transactionManager.nonceMutex = nonceMutexOrig
-      }
-    })
-
-    // Skipping this test since it doesn't make sense when running using RSKJ
-    it.skip('should handle nonce atomically', async function () {
-      // noinspection ES6MissingAwait - done on purpose
-      const promises = [env.relayTransaction(), env.relayTransaction(false, { data: '0xdeadbeef' })]
-      await Promise.all(promises)
     })
 
     it('should not deadlock if server returned error while locked', async function () {
