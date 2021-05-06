@@ -1,6 +1,3 @@
-import chai from 'chai'
-import chaiAsPromised from 'chai-as-promised'
-
 import { RelayClient } from '../../src/relayclient/RelayClient'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
@@ -14,7 +11,6 @@ import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment } from '../TestUtils'
 
 contract('ContractInteractor', function () {
-
   // TODO: these tests create an entire instance of the client to test one method.
   context('#_validateCompatibility()', function () {
     it('should not throw if the hub address is not configured', async function () {

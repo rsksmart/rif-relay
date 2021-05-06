@@ -1,5 +1,4 @@
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
-import Mutex from 'async-mutex/lib/Mutex'
 import * as ethUtils from 'ethereumjs-util'
 
 import { evmMineMany, getTestingEnvironment } from '../TestUtils'
