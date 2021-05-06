@@ -183,19 +183,6 @@ export function isRegistrationValid (registerEvent: EventData | undefined, confi
     registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }
 
-/**
- * @param gasLimits
- * @param hubOverhead
- * @param relayCallGasLimit
- * @param calldataSize
- * @param gtxdatanonzero
- */
-interface TransactionGasComponents {
-  gasLimits: VerifierGasLimits
-  hubOverhead: number
-  relayCallGasLimit: string
-}
-
 export interface VerifierGasLimits {
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string
