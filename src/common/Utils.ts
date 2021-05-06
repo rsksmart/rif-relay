@@ -1,6 +1,4 @@
 import abi from 'web3-eth-abi'
-import ethUtils from 'ethereumjs-util'
-import web3Utils from 'web3-utils'
 import sigUtil from 'eth-sig-util'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
@@ -64,18 +62,10 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 
 export function getLocalEip712Signature (
   typedRequestData: TypedRequestData,
-  privateKey: Buffer,
-  jsonStringifyRequest = false
+  privateKey: Buffer
 ): PrefixedHexString {
-  let dataToSign: TypedRequestData | string
-  if (jsonStringifyRequest) {
-    dataToSign = JSON.stringify(typedRequestData)
-  } else {
-    dataToSign = typedRequestData
-  }
-
   // @ts-ignore
-  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
+  return sigUtil.signTypedData_v4(privateKey, { data: typedRequestData })
 }
 
 export async function getEip712Signature (
@@ -132,28 +122,6 @@ export function calculateTransactionMaxPossibleGas (
     parseInt(relayCallGasLimit) + cushion
 }
 
-export function getEcRecoverMeta (message: PrefixedHexString, signature: string | Signature): PrefixedHexString {
-  if (typeof signature === 'string') {
-    const r = parseHexString(signature.substr(2, 65))
-    const s = parseHexString(signature.substr(66, 65))
-    const v = parseHexString(signature.substr(130, 2))
-
-    signature = {
-      v: v,
-      r: r,
-      s: s
-    }
-  }
-  const msg = Buffer.concat([Buffer.from('\x19Ethereum Signed Message:\n32'), Buffer.from(removeHexPrefix(message), 'hex')])
-  const signed = web3Utils.sha3('0x' + msg.toString('hex'))
-  if (signed == null) {
-    throw new Error('web3Utils.sha3 failed somehow')
-  }
-  const bufSigned = Buffer.from(removeHexPrefix(signed), 'hex')
-  const recoveredPubKey = ethUtils.ecrecover(bufSigned, signature.v[0], Buffer.from(signature.r), Buffer.from(signature.s))
-  return ethUtils.bufferToHex(ethUtils.pubToAddress(recoveredPubKey))
-}
-
 export function parseHexString (str: string): number[] {
   const result = []
   while (str.length >= 2) {
@@ -203,19 +171,6 @@ export function isRegistrationValid (registerEvent: EventData | undefined, confi
   return registerEvent != null &&
     isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
     registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
-}
-
-/**
- * @param gasLimits
- * @param hubOverhead
- * @param relayCallGasLimit
- * @param calldataSize
- * @param gtxdatanonzero
- */
-interface TransactionGasComponents {
-  gasLimits: VerifierGasLimits
-  hubOverhead: number
-  relayCallGasLimit: string
 }
 
 export interface VerifierGasLimits {

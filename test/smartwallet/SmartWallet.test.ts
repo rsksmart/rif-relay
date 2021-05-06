@@ -15,7 +15,7 @@ import {
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
-import { toBN, toChecksumAddress } from 'web3-utils'
+import { toBN } from 'web3-utils'
 import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createCustomSmartWalletFactory, createCustomSmartWallet, bytes32, createSmartWalletFactory, createSmartWallet } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
@@ -135,7 +135,7 @@ options.forEach(element => {
 
       before(async () => {
         chainId = (await getTestingEnvironment()).chainId
-        senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+        senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
         request.request.from = senderAddress
 
         switch (tokenToUse.tokenIndex) {

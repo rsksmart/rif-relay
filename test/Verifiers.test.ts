@@ -10,7 +10,6 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
-import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'
@@ -46,7 +45,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
   const index = '0'
 
   beforeEach(async function () {
-    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), (await getTestingEnvironment()).chainId).toLowerCase()
+    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
     token = await TestToken.new()
     template = await SmartWallet.new()
 
@@ -187,7 +186,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     const env = await getTestingEnvironment()
     const chainId = env.chainId
 
-    senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+    senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
 
     token = await TestToken.new()
     template = await SmartWallet.new()

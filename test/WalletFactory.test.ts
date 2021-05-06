@@ -61,8 +61,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
   before(async () => {
     chainId = (await getTestingEnvironment()).chainId
-    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), chainId).toLowerCase()
-    recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
+    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
+    recipientAddress = bufferToHex(privateToAddress(recipientPrivateKey)).toLowerCase()
     request.request.from = ownerAddress
     env = await getTestingEnvironment()
     fwd = await CustomSmartWallet.new()
@@ -673,8 +673,8 @@ contract('SmartWalletFactory', ([from]) => {
 
   before(async () => {
     chainId = (await getTestingEnvironment()).chainId
-    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), chainId).toLowerCase()
-    recipientAddress = toChecksumAddress(bufferToHex(privateToAddress(recipientPrivateKey)), chainId).toLowerCase()
+    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
+    recipientAddress = bufferToHex(privateToAddress(recipientPrivateKey)).toLowerCase()
     request.request.from = ownerAddress
     env = await getTestingEnvironment()
     fwd = await SmartWallet.new()

@@ -90,7 +90,6 @@ run_batch test/relayserver/ServerConfigParams.test.ts
 run_batch test/relayserver/TransactionManager.test.ts
 run_batch test/relayclient/KnownRelaysManager.test.ts
 run_batch test/smartwallet/SmartWallet.test.ts
-run_batch test/RelayHubGasCalculations.test.ts
 run_batch test/SampleRecipient.test.ts
 run_batch test/StakeManagement.test.ts
 run_batch test/RSKAddressValidator.test.ts
