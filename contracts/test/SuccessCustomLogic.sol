@@ -9,7 +9,7 @@ import "../utils/RSKAddrValidator.sol";
 contract SuccessCustomLogic is IForwarder {
     using ECDSA for bytes32;
 
-    event LogicCalled(string message);
+    event LogicCalled();
 
     function nonce() override external view returns(uint256) {
         return 0;
@@ -31,7 +31,6 @@ contract SuccessCustomLogic is IForwarder {
 
 
     function initialize(bytes memory initParams) public {
-        emit LogicCalled("init");   
     }
 
     function execute(
@@ -40,7 +39,7 @@ contract SuccessCustomLogic is IForwarder {
         ForwardRequest memory req,
         bytes calldata sig
     ) override external payable returns (bool success, bytes memory ret) {
-        emit LogicCalled("success");     
+        emit LogicCalled();     
         (success, ret) = (true, "success");
     }
 
@@ -48,7 +47,6 @@ contract SuccessCustomLogic is IForwarder {
         bool success,
         bytes memory ret  
     ) {
-        emit LogicCalled("success");    
         (success, ret) = (true, "success");    
     }
 }

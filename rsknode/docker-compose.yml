@@ -6,7 +6,7 @@ services:
       args:
         - rskj_codename=PAPYRUS
         - rskj_version=2.2.0
-    container_name: enveloping-rskj
+    container_name: rsk-node
     image: rskj:latest
     command: --regtest
     ports:
