@@ -2,7 +2,7 @@
 
 ## RSK Node
 
-If you don't use docker you need to have a running RSK node version PAPYRUS-2.2.0 or higher.
+If you don't use docker you need to have a running RSK node version [PAPYRUS-2.2.0](https://github.com/rsksmart/rskj/releases) or higher.
 
 ## Yarn
 

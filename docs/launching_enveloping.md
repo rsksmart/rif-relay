@@ -25,12 +25,12 @@ In order to run an instance of Enveloping in Regtest:
    need to specify some parameters there like this:
    ```json5
     {
-        "url": "localhost", //the interface where the relay server will be exposed
+        "url": "localhost", // the interface where the relay server will be exposed
         "port": 8090, // the port where it will be running
         "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701", // the relay hub contract address (can be retrieved from the summary of the deployment).
         "relayVerifierAddress": "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2", // the relay verifier contract address (can be retrieved from the summary of the deployment).
         "deployVerifierAddress": "0x1938517B0762103d52590Ca21d459968c25c9E67", // the deploy verifier contract address (can be retrieved from the summary of the deployment).
-        "gasPriceFactor": 1, // a gas price factor
+        "gasPriceFactor": 1, // a gas price factor to use on gas price calculation, the price will be multiplied by this factor
         "rskNodeUrl": "http://localhost:4444", // endpoint where the RSK node is running
         "devMode": true, // a flag to set development mode
         "customReplenish": false, // set if the server uses a custom replenish function or not
