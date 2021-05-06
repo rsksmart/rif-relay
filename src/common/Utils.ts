@@ -65,17 +65,10 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 export function getLocalEip712Signature (
   typedRequestData: TypedRequestData,
   privateKey: Buffer,
-  jsonStringifyRequest = false
 ): PrefixedHexString {
-  let dataToSign: TypedRequestData | string
-  if (jsonStringifyRequest) {
-    dataToSign = JSON.stringify(typedRequestData)
-  } else {
-    dataToSign = typedRequestData
-  }
 
   // @ts-ignore
-  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
+  return sigUtil.signTypedData_v4(privateKey, { data: typedRequestData })
 }
 
 export async function getEip712Signature (
