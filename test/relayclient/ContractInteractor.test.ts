@@ -1,7 +1,6 @@
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 
-import { TestVersionsInstance } from '../../types/truffle-contracts'
 import { RelayClient } from '../../src/relayclient/RelayClient'
 import { HttpProvider } from 'web3-core'
 import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
@@ -14,15 +13,7 @@ import { constants } from '../../src/common/Constants'
 import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment } from '../TestUtils'
 
-const { expect } = chai.use(chaiAsPromised)
-
-const TestVersions = artifacts.require('TestVersions')
-
 contract('ContractInteractor', function () {
-  let testVersions: TestVersionsInstance
-  before(async function () {
-    testVersions = await TestVersions.new()
-  })
 
   // TODO: these tests create an entire instance of the client to test one method.
   context('#_validateCompatibility()', function () {

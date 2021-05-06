@@ -18,7 +18,7 @@ import { soliditySha3Raw } from 'web3-utils'
 
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util'
-import { BN, bufferToHex, toBuffer, toChecksumAddress, privateToAddress } from 'ethereumjs-util'
+import { BN, bufferToHex, toBuffer, privateToAddress } from 'ethereumjs-util'
 import { constants } from '../src/common/Constants'
 
 import { AccountKeypair } from '../src/relayclient/AccountManager'

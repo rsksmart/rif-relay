@@ -10,7 +10,6 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
-import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, bytes32 } from './TestUtils'
 import { constants } from '../src/common/Constants'

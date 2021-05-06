@@ -1,6 +1,4 @@
 import abi from 'web3-eth-abi'
-import ethUtils from 'ethereumjs-util'
-import web3Utils from 'web3-utils'
 import sigUtil from 'eth-sig-util'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
@@ -64,9 +62,8 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 
 export function getLocalEip712Signature (
   typedRequestData: TypedRequestData,
-  privateKey: Buffer,
+  privateKey: Buffer
 ): PrefixedHexString {
-
   // @ts-ignore
   return sigUtil.signTypedData_v4(privateKey, { data: typedRequestData })
 }

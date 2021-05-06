@@ -15,7 +15,7 @@ import { TestDeployVerifierConfigurableMisbehaviorInstance, TestRecipientInstanc
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
-import { evmMine, evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
+import { evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'

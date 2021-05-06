@@ -26,7 +26,6 @@ contract('TransactionManager', function (accounts) {
 
   describe('nonce counter asynchronous access protection', function () {
     let _pollNonceOrig: (signer: string) => Promise<number>
-    let nonceMutexOrig: Mutex
     let signTransactionOrig: (signer: string, tx: Transaction) => PrefixedHexString
     before(function () {
       _pollNonceOrig = relayServer.transactionManager.pollNonce
