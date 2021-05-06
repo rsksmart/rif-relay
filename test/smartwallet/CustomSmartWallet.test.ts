@@ -1,26 +1,24 @@
 import {
-  TestSmartWalletInstance,
-  TestForwarderTargetInstance,
-  TestTokenInstance,
-  CustomSmartWalletInstance,
   CustomSmartWalletFactoryInstance,
-  SmartWalletInstance,
-  SmartWalletFactoryInstance,
-  TetherTokenInstance,
+  CustomSmartWalletInstance,
+  NonCompliantTestTokenInstance,
   NonRevertTestTokenInstance,
-  NonCompliantTestTokenInstance
+  SmartWalletFactoryInstance,
+  SmartWalletInstance,
+  TestForwarderTargetInstance,
+  TestSmartWalletInstance,
+  TestTokenInstance,
+  TetherTokenInstance
 } from '../../types/truffle-contracts'
 
 // @ts-ignore
-import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
-import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
-import { ether, expectRevert } from '@openzeppelin/test-helpers'
-import { toBN, toChecksumAddress } from 'web3-utils'
-import { isRsk, Environment } from '../../src/common/Environments'
-import { getTestingEnvironment, createCustomSmartWalletFactory, createCustomSmartWallet, bytes32, createSmartWalletFactory, createSmartWallet } from '../TestUtils'
-import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
-import { constants } from '../../src/common/Constants'
-import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
+import {EIP712TypedData, signTypedData_v4, TypedDataUtils} from 'eth-sig-util'
+import {BN, bufferToHex, privateToAddress, toBuffer} from 'ethereumjs-util'
+import {toBN} from 'web3-utils'
+import {bytes32, createCustomSmartWallet, createCustomSmartWalletFactory, getTestingEnvironment} from '../TestUtils'
+import TypedRequestData, {ForwardRequestType, getDomainSeparatorHash} from '../../src/common/EIP712/TypedRequestData'
+import {constants} from '../../src/common/Constants'
+import {RelayRequest} from '../../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -29,45 +27,24 @@ const TestToken = artifacts.require('TestToken')
 const TetherToken = artifacts.require('TetherToken')
 const NonRevertTestToken = artifacts.require('NonRevertTestToken')
 const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
+const TestSmartWallet = artifacts.require('TestSmartWallet')
 const SuccessCustomLogic = artifacts.require('SuccessCustomLogic')
-const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+
+const options = [
+  {
+    title: 'CustomSmartWallet',
+    simple: false
+  }
+]
 
 const tokens = [
   {
     title: 'TestToken',
     tokenIndex: 0
-  },
-  {
-    title: 'TetherToken',
-    tokenIndex: 1
-  },
-  {
-    title: 'NonRevertTestToken',
-    tokenIndex: 2
-  },
-  {
-    title: 'NonCompliantTestToken',
-    tokenIndex: 3
   }
 ]
 
-async function createToken(tokenToUse: { title: string; tokenIndex: number }): Promise<TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance> {
-  switch (tokenToUse.tokenIndex) {
-    default:
-    case 0:
-      return await TestToken.new()
-    case 1:
-      return await TetherToken.new(1000000000, 'TetherToken', 'USDT', 18)
-    case 2:
-      return await NonRevertTestToken.new()
-    case 3:
-      return await NonCompliantTestToken.new()
-  }
-}
-
-
-
-async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
+async function fillTokens (tokenIndex: number, token: TestTokenInstance|TetherTokenInstance|NonRevertTestTokenInstance|NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
   switch (tokenIndex) {
     case 0:
       await (token as TestTokenInstance).mint(amount, recipient)
@@ -85,7 +62,7 @@ async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherT
   }
 }
 
-async function getTokenBalance(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, account: string): Promise<BN> {
+async function getTokenBalance (tokenIndex: number, token: TestTokenInstance|TetherTokenInstance|NonRevertTestTokenInstance|NonCompliantTestTokenInstance, account: string): Promise<BN> {
   let balance: BN = toBN(-1)
   switch (tokenIndex) {
     case 0:
@@ -105,67 +82,126 @@ async function getTokenBalance(tokenIndex: number, token: TestTokenInstance | Te
 }
 
 tokens.forEach(tokenToUse => {
-  contract(`CustomSmartWallet using ${tokenToUse.title}`, ([defaultAccount, otherAccount, recovererAccount, payerAccount]) => {
-    const countParams = ForwardRequestType.length
-    const senderPrivateKey = toBuffer(bytes32(1))
-    let chainId: number
-    let senderAddress: string
-    let template: CustomSmartWalletInstance
-    let factory: CustomSmartWalletFactoryInstance
-    let token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance
-    let wallet: CustomSmartWalletInstance
-    let domainSeparatorHash: string
+    contract(`Custom Smart Wallet using ${tokenToUse.title}`, ([defaultAccount, otherAccount, recovererAccount, payerAccount]) => {
+      const countParams = ForwardRequestType.length
+      const senderPrivateKey = toBuffer(bytes32(1))
+      let chainId: number
+      let senderAddress: string
+      let template: SmartWalletInstance | CustomSmartWalletInstance
+      let factory: CustomSmartWalletFactoryInstance | SmartWalletFactoryInstance
+      let token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance
+      let sw: SmartWalletInstance | CustomSmartWalletInstance
+      let domainSeparatorHash: string
 
-    let request: RelayRequest;
+      const request: RelayRequest = {
+        request: {
+          relayHub: constants.ZERO_ADDRESS,
+          from: constants.ZERO_ADDRESS,
+          to: constants.ZERO_ADDRESS,
+          value: '0',
+          gas: '1000000',
+          nonce: '0',
+          data: '0x',
+          tokenContract: constants.ZERO_ADDRESS,
+          tokenAmount: '1',
+          tokenGas: '50000'
+        },
+        relayData: {
+          gasPrice: '1',
+          domainSeparator: '0x',
+          relayWorker: constants.ZERO_ADDRESS,
+          callForwarder: constants.ZERO_ADDRESS,
+          callVerifier: constants.ZERO_ADDRESS
+        }
+      }
 
-    async function clearEnvironment() {
-      chainId = (await getTestingEnvironment()).chainId
-      senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+      let customLogic = null
 
-    }
+      before(async () => {
+        chainId = (await getTestingEnvironment()).chainId
+        senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
+        request.request.from = senderAddress
 
-    before(clearEnvironment)
+        switch (tokenToUse.tokenIndex) {
+          case 0:
+            token = await TestToken.new()
+            break
+          case 1:
+            token = await TetherToken.new(1000000000, 'TetherToken', 'USDT', 18)
+            break
+          case 2:
+            token = await NonRevertTestToken.new()
+            break
+          case 3:
+            token = await NonCompliantTestToken.new()
+            break
+        }
+        request.request.tokenContract = token.address
+        customLogic = await SuccessCustomLogic.new()
+        const CustomSmartWallet = artifacts.require('CustomSmartWallet')
+        template = await CustomSmartWallet.new()
+        factory = await createCustomSmartWalletFactory(template)
+        console.log('Using custom logic with address', customLogic.address)
+        sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId, customLogic.address)
 
-    describe('#verify', () => {
+        request.relayData.callForwarder = sw.address
+        request.relayData.domainSeparator = getDomainSeparatorHash(sw.address, chainId)
+        domainSeparatorHash = request.relayData.domainSeparator
+      })
 
-      describe('#verifyAndCallByOwnerWithCustomLogic', () => {
+      describe('#verifyAndCall', () => {
         let recipient: TestForwarderTargetInstance
-        const otherAccountPrivateKey: Buffer = Buffer.from('0c06818f82e04c564290b32ab86b25676731fc34e9a546108bf109194c8e3aae', 'hex')
-        const otherAccountAddress = toChecksumAddress(bufferToHex(privateToAddress(otherAccountPrivateKey)), chainId).toLowerCase()
+        let testfwd: TestSmartWalletInstance
 
-        it('should call logic', async () => {
+        const worker = defaultAccount
 
-          console.log('Running tests using account: ', otherAccount)
-          token = await createToken(tokenToUse);
-          const wallet = await CustomSmartWallet.new()
-          await fillTokens(tokenToUse.tokenIndex, token, wallet.address, '1000')
+        before(async () => {
+          await fillTokens(tokenToUse.tokenIndex, token, sw.address, '1000')
+
           recipient = await TestForwarderTarget.new()
+          testfwd = await TestSmartWallet.new()
 
-          const logic: any = await SuccessCustomLogic.new();
-          const initRes = await wallet.initialize(otherAccount, logic.address, token.address, senderAddress, "0", "0", "0x", {from: otherAccount, gas: "400000"});
-          console.log(initRes.receipt.logs)
-          
-          // await createCustomSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, logic.address);
-          
-          const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-
-          const response = await wallet.directExecute(recipient.address, func, { from: otherAccount })
-          // @ts-ignore
-          const recipientLogs = await recipient.getPastEvents('TestForwarderMessage')
-          const logicLogs = await logic.getPastEvents('LogicCalled')
-          console.log(response)
-          console.log(recipientLogs);
-          console.log(logicLogs);
-          console.log(response.logs);
-          console.log(response.receipt.rawLogs);
-          console.log(response.receipt.logs);
-          assert.equal(recipientLogs.length, 0, 'TestRecipient should not emit')
-          assert.equal(logicLogs.length, 1, 'LogicCalled should emit')
-          assert.equal(logicLogs[0].args.origin, otherAccount, 'test "from" account is the tx.origin')
-          assert.equal(logicLogs[0].args.msgSender, wallet.address, 'msg.sender must be the smart wallet address')
+          request.request.tokenAmount = '0'
         })
 
-      });
+        it('should call function with custom logic', async () => {
+          const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+          const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
+          const initialSWalletTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+
+          const initialNonce = (await sw.nonce())
+
+          const req1 = { ...request }
+          req1.request.data = func
+          req1.request.to = recipient.address
+          req1.request.nonce = initialNonce.toString()
+          req1.request.tokenAmount = '1'
+          req1.request.relayHub = defaultAccount
+          const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
+
+          const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
+          const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
+          // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
+          // declared in solidity
+          await sw.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker })
+
+          const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
+          const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+
+          assert.equal(tknBalance.sub(initialWorkerTokenBalance).toString(), new BN(1).toString(), 'Incorrect new worker token balance')
+          assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
+
+          // @ts-ignore
+          // const customLogicLogs = await customLogic.getPastEvents('LogicCalled')
+          // assert.equal(customLogicLogs.length, 1, 'CustomLogic should emit')
+
+          const logs = await recipient.getPastEvents('TestForwarderMessage')
+          assert.equal(logs.length, 1, 'TestRecipient should emit')
+          assert.equal(logs[0].args.origin, defaultAccount, 'test "from" account is the tx.origin')
+          assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
+
+          assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
+        })
+      })
     })
-  });
-})
+  })
