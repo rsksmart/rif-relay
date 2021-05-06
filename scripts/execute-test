@@ -13,6 +13,6 @@ if [ "${NETWORK}" == "" ]; then
         docker network create enveloping-tests-net
 fi
 
-docker-compose -f ./rsknode/docker-compose.yml up -d
-npx truffle test --show-events --network testing ${TEST}
-docker-compose -f ./rsknode/docker-compose.yml down
+docker-compose -f rsknode/docker-compose.yml up -d
+npx truffle test --show-events --network testing "${TEST}"
+docker-compose -f rsknode/docker-compose.yml down

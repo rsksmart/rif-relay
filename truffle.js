@@ -64,7 +64,15 @@ module.exports = {
       network_id: 30,
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
-    }
+    },
+    testing: {
+      verbose: process.env.VERBOSE,
+      host: 'rsk-node',
+      port: 4444,
+      network_id: 33,
+      gas: 6300000,
+      gasPrice: 60000000 // 0.06 gwei
+    },
   },
   mocha: {
     slow: 1000,
