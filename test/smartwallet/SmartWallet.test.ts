@@ -135,7 +135,7 @@ options.forEach(element => {
 
       before(async () => {
         chainId = (await getTestingEnvironment()).chainId
-        senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+        senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
         request.request.from = senderAddress
 
         switch (tokenToUse.tokenIndex) {

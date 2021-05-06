@@ -408,7 +408,7 @@ export async function getGaslessAccount (): Promise<AccountKeypair> {
   const gaslessAccount = {
     privateKey: a.getPrivateKey(),
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    address: toChecksumAddress(bufferToHex(privateToAddress(a.getPrivateKey())), (await getTestingEnvironment()).chainId).toLowerCase()
+    address: bufferToHex(privateToAddress(a.getPrivateKey())).toLowerCase()
 
   }
 
@@ -419,12 +419,12 @@ export async function getGaslessAccount (): Promise<AccountKeypair> {
 export async function getExistingGaslessAccount (): Promise<AccountKeypair> {
   const gaslessAccount = {
     privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),
-    address: toChecksumAddress('0x09a1eda29f664ac8f68106f6567276df0c65d859', (await getTestingEnvironment()).chainId).toLowerCase()
+    address: '0x09a1eda29f664ac8f68106f6567276df0c65d859'
   }
 
   const balance = new BN(await web3.eth.getBalance(gaslessAccount.address))
   if (!balance.eqn(0)) {
-    const receiverAddress = toChecksumAddress(bufferToHex(privateToAddress(toBuffer(bytes32(1)))), (await getTestingEnvironment()).chainId).toLowerCase()
+    const receiverAddress = bufferToHex(privateToAddress(toBuffer(bytes32(1)))).toLowerCase()
 
     await web3.eth.sendTransaction({
       from: gaslessAccount.address,

@@ -46,7 +46,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
   const index = '0'
 
   beforeEach(async function () {
-    ownerAddress = toChecksumAddress(bufferToHex(privateToAddress(ownerPrivateKey)), (await getTestingEnvironment()).chainId).toLowerCase()
+    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
     token = await TestToken.new()
     template = await SmartWallet.new()
 
@@ -187,7 +187,7 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     const env = await getTestingEnvironment()
     const chainId = env.chainId
 
-    senderAddress = toChecksumAddress(bufferToHex(privateToAddress(senderPrivateKey)), chainId).toLowerCase()
+    senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
 
     token = await TestToken.new()
     template = await SmartWallet.new()

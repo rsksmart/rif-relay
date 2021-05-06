@@ -98,7 +98,7 @@ contract('Enveloping utils', function (accounts) {
     before(async () => {
       gaslessAccount = {
         privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),
-        address: toChecksumAddress('0x09a1eda29f664ac8f68106f6567276df0c65d859', (await getTestingEnvironment()).chainId).toLowerCase()
+        address: '0x09a1eda29f664ac8f68106f6567276df0c65d859'
       }
       fundedAccount = {
         privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),
