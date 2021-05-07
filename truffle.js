@@ -11,8 +11,6 @@ if (fs.existsSync(secretMnemonicFile)) {
 }
 
 module.exports = {
-  // See <http://truffleframework.com/docs/advanced/configuration>
-  // to customize your Truffle configuration!
   networks: {
     coverage: { // coverage/trace provider. note that it currently can't run extrnal-process relay.
       provider: require('./coverage-prov.js'),

@@ -7,7 +7,9 @@ run_batch()
 
 	_i=0
 	while [ $_i -lt 30 ]; do
-		nc -z 127.0.0.1 4444 && break
+		curl -Ss -H "Content-type: application/json" \
+		    -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+		    http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
 		sleep 1
 		_i=$((_i + 1))
 	done
@@ -88,7 +90,6 @@ run_batch test/relayserver/ServerConfigParams.test.ts
 run_batch test/relayserver/TransactionManager.test.ts
 run_batch test/relayclient/KnownRelaysManager.test.ts
 run_batch test/smartwallet/SmartWallet.test.ts
-run_batch test/RelayHubGasCalculations.test.ts
 run_batch test/SampleRecipient.test.ts
 run_batch test/StakeManagement.test.ts
 run_batch test/RSKAddressValidator.test.ts

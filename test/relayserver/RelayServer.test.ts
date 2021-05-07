@@ -15,7 +15,7 @@ import { TestDeployVerifierConfigurableMisbehaviorInstance, TestRecipientInstanc
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
-import { evmMine, evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
+import { evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
@@ -76,25 +76,7 @@ contract('RelayServer', function (accounts) {
     })
   })
 
-  describe.skip('#_worker()', function () {
-  })
-
   describe('validation', function () {
-    describe('#validateInputTypes()', function () {
-      // skipped because error message changed here for no apparent reason
-      it.skip('should throw on undefined data', async function () {
-        const req = await env.createRelayHttpRequest()
-        // @ts-ignore
-        req.relayRequest.request.data = undefined
-        try {
-          env.relayServer.validateInputTypes(req)
-          assert.fail()
-        } catch (e) {
-          assert.include(e.message, 'Expected argument to be of type `string` but received type `undefined`')
-        }
-      })
-    })
-
     describe('#validateInput()', function () {
       it('should fail to relay with wrong relay worker', async function () {
         const req = await env.createRelayHttpRequest()
@@ -403,38 +385,6 @@ contract('RelayServer', function (accounts) {
       receipts = await relayServer._worker(latestBlock.number)
       expect(relayServer.registrationManager.handlePastEvents).to.have.been.calledWith(sinon.match.any, sinon.match.any, sinon.match.any, true)
       await assertRelayAdded(receipts, relayServer, false)
-    })
-  })
-
-  describe('listener task', function () {
-    let relayServer: RelayServer
-    let origWorker: (blockNumber: number) => Promise<PrefixedHexString[]>
-    let started: boolean
-    beforeEach(function () {
-      relayServer = env.relayServer
-      origWorker = relayServer._worker
-      started = false
-      relayServer._worker = async function () {
-        await Promise.resolve()
-        started = true
-        this.emit('error', new Error('GOTCHA'))
-        return []
-      }
-    })
-    afterEach(function () {
-      relayServer._worker = origWorker
-    })
-    it.skip('should start block listener', async function () {
-      relayServer.start()
-      await evmMine()
-      await sleep(200)
-      assert.isTrue(started, 'could not start task correctly')
-    })
-    it.skip('should stop block listener', async function () {
-      relayServer.stop()
-      await evmMine()
-      await sleep(200)
-      assert.isFalse(started, 'could not stop task correctly')
     })
   })
 

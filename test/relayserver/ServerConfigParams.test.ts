@@ -92,10 +92,6 @@ context('#ServerConfigParams', () => {
       expectThrow(() => parseServerConfig(['--asdasd'], {}), 'unexpected param asdasd')
     })
 
-    it.skip('should throw on invalid type of cmdline param', function () {
-      expectThrow(() => parseServerConfig(['--debug=asd'], {}), 'Invalid boolean: debug')
-    })
-
     it('should throw on missing config file', function () {
       expectThrow(() => parseServerConfig(['--config=nosuchfile'], {}), 'unable to read config file')
     })
