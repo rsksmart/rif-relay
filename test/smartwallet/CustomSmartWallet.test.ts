@@ -30,6 +30,8 @@ const NonRevertTestToken = artifacts.require('NonRevertTestToken')
 const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 const SuccessCustomLogic = artifacts.require('SuccessCustomLogic')
+const FailureCustomLogic = artifacts.require('FailureCustomLogic')
+const CustomSmartWallet = artifacts.require('CustomSmartWallet')
 
 const options = [
   {
@@ -116,8 +118,6 @@ tokens.forEach(tokenToUse => {
         }
       }
 
-      let customLogic: any;
-
       before(async () => {
         chainId = (await getTestingEnvironment()).chainId
         senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
@@ -138,21 +138,14 @@ tokens.forEach(tokenToUse => {
             break
         }
         request.request.tokenContract = token.address
-        customLogic = await SuccessCustomLogic.new()
-        const CustomSmartWallet = artifacts.require('CustomSmartWallet')
-  //      template = await CustomSmartWallet.new()
-//        factory = await createCustomSmartWalletFactory(template)
-        console.log('Using custom logic with address', customLogic.address)
-//        sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId, customLogic.address)
+      })
 
+      beforeEach(async () => {
         sw = await CustomSmartWallet.new();
-        const txresult = await sw.initialize(senderAddress, customLogic.address, token.address, defaultAccount, "0", "400000", "0x");
-        console.log("initializeed", txresult.logs);
         request.relayData.callForwarder = sw.address
         request.relayData.domainSeparator = getDomainSeparatorHash(sw.address, chainId)
         domainSeparatorHash = request.relayData.domainSeparator
-
-      })
+      });
 
       describe('#verifyAndCall', () => {
         let recipient: TestForwarderTargetInstance
@@ -160,7 +153,7 @@ tokens.forEach(tokenToUse => {
 
         const worker = defaultAccount
 
-        before(async () => {
+        beforeEach(async () => {
           await fillTokens(tokenToUse.tokenIndex, token, sw.address, '1000')
 
           recipient = await TestForwarderTarget.new()
@@ -170,6 +163,10 @@ tokens.forEach(tokenToUse => {
         })
 
         it('should call function with custom logic', async () => {
+          // Init smart wallet and
+          const customLogic = await SuccessCustomLogic.new()
+          await sw.initialize(senderAddress, customLogic.address, token.address, defaultAccount, "0", "400000", "0x");
+
           const func = recipient.contract.methods.emitMessage('hello').encodeABI()
           const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const initialSWalletTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -199,7 +196,45 @@ tokens.forEach(tokenToUse => {
           assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
  
           assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
+        });
+
+        it('should return revert message of logic revert', async () => {
+          const customLogic = await FailureCustomLogic.new()
+          await sw.initialize(senderAddress, customLogic.address, token.address, defaultAccount, "0", "400000", "0x");
+
+          const hub = await TestSmartWallet.new();
+
+          const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+          const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
+          const initialSWalletTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+
+          const initialNonce = await sw.nonce()
+
+          const req1 = { ...request }
+          req1.request.data = func
+          req1.request.to = recipient.address
+          req1.request.nonce = initialNonce.toString()
+          req1.request.tokenAmount = '1'
+          req1.request.relayHub = hub.address
+          const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1);
+          const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
+          const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
+          // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
+          // declared in solidity
+
+          const result = await hub.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData,  sig, { from: worker  });
+          assert.equal(result.logs[0].args.error, 'always fail', "Incorrect message")
+          assert.equal(result.logs[0].args.success, false, "Should have failed")
+
+          const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
+          const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
+
+          assert.equal(tknBalance.sub(initialWorkerTokenBalance).toString(), new BN(1).toString(), 'Incorrect new worker token balance')
+          assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
+ 
+          assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
         })
-      })
+        
+      });
     })
   })

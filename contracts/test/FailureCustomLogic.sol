@@ -7,7 +7,7 @@ import "../interfaces/IForwarder.sol";
 import "../interfaces/WalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
-contract SuccessCustomLogic is WalletCustomLogic {
+contract FailureCustomLogic is WalletCustomLogic {
     using ECDSA for bytes32;
 
     event LogicCalled();
@@ -23,14 +23,12 @@ contract SuccessCustomLogic is WalletCustomLogic {
         IForwarder.ForwardRequest memory req,
         bytes calldata sig
     ) override external payable returns (bytes memory ret) {
-        emit LogicCalled();     
-        ret = "success";
+        revert("always fail");
     }
 
     function directExecute(address to, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
-        emit LogicCalled();  
-        ret = "success";
+        revert();
     }
 }

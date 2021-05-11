@@ -498,7 +498,6 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
  */
 export function containsEvent(abi: any, rawLogs: any, eventName: string) {
   const eventsAbiByTopic = getEventsAbiByTopic(abi);
-  console.log(eventsAbiByTopic)
   return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) 
       && eventsAbiByTopic.get(log.topics[0]).name === eventName
   )
