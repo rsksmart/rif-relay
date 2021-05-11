@@ -81,7 +81,7 @@
     "ethval": "^2.1.1",
     "express": "^4.17.1",
     "jsonrpc-lite": "^2.2.0",
-    "lodash": "^4.17.20",
+    "lodash": "^4.17.21",
     "loglevel": "^1.7.0",
     "minimist": "^1.2.5",
     "nedb-async": "^0.1.3",
