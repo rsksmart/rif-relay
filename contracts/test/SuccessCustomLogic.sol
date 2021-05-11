@@ -9,12 +9,20 @@ import "../utils/RSKAddrValidator.sol";
 contract SuccessCustomLogic {
     using ECDSA for bytes32;
 
-    event LogicCalled();
+    event LogicCalled(string hola);
+    event InitCalled();
 
-    function initialize(bytes memory initParams) public {}
+    function initialize(bytes memory initParams) public {
+        emit InitCalled();
+    }
 
-    function helloWorld() external payable returns (bool success, bytes memory ret) {
-        emit LogicCalled();     
-        (success, ret) = (true, "success");
+    function execute(
+        bytes32 domainSeparator,
+        bytes32 suffixData,
+        IForwarder.ForwardRequest memory req,
+        bytes calldata sig
+    ) external payable returns (bytes memory ret) {
+        emit LogicCalled("barroco");     
+        ret = "success";
     }
 }

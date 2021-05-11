@@ -15,10 +15,11 @@ import {
 import {EIP712TypedData, signTypedData_v4, TypedDataUtils} from 'eth-sig-util'
 import {BN, bufferToHex, privateToAddress, toBuffer} from 'ethereumjs-util'
 import {toBN} from 'web3-utils'
-import {bytes32, createCustomSmartWallet, createCustomSmartWalletFactory, getTestingEnvironment} from '../TestUtils'
+import {bytes32, containsEvent, getTestingEnvironment} from '../TestUtils'
 import TypedRequestData, {ForwardRequestType, getDomainSeparatorHash} from '../../src/common/EIP712/TypedRequestData'
 import {constants} from '../../src/common/Constants'
 import {RelayRequest} from '../../src/common/EIP712/RelayRequest'
+import { ether, expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -115,7 +116,7 @@ tokens.forEach(tokenToUse => {
         }
       }
 
-      let customLogic = null
+      let customLogic: any;
 
       before(async () => {
         chainId = (await getTestingEnvironment()).chainId
@@ -139,14 +140,18 @@ tokens.forEach(tokenToUse => {
         request.request.tokenContract = token.address
         customLogic = await SuccessCustomLogic.new()
         const CustomSmartWallet = artifacts.require('CustomSmartWallet')
-        template = await CustomSmartWallet.new()
-        factory = await createCustomSmartWalletFactory(template)
+  //      template = await CustomSmartWallet.new()
+//        factory = await createCustomSmartWalletFactory(template)
         console.log('Using custom logic with address', customLogic.address)
-        sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId, customLogic.address)
+//        sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId, customLogic.address)
 
+        sw = await CustomSmartWallet.new();
+        const txresult = await sw.initialize(senderAddress, customLogic.address, token.address, defaultAccount, "0", "400000", "0x");
+        console.log("initializeed", txresult.logs);
         request.relayData.callForwarder = sw.address
         request.relayData.domainSeparator = getDomainSeparatorHash(sw.address, chainId)
         domainSeparatorHash = request.relayData.domainSeparator
+
       })
 
       describe('#verifyAndCall', () => {
@@ -169,7 +174,7 @@ tokens.forEach(tokenToUse => {
           const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const initialSWalletTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
 
-          const initialNonce = (await sw.nonce())
+          const initialNonce = await sw.nonce()
 
           const req1 = { ...request }
           req1.request.data = func
@@ -177,29 +182,22 @@ tokens.forEach(tokenToUse => {
           req1.request.nonce = initialNonce.toString()
           req1.request.tokenAmount = '1'
           req1.request.relayHub = defaultAccount
-          const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
-
+          const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1);
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
           const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
           // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
           // declared in solidity
-          await sw.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker })
+
+          const result = await sw.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker  });
+
+          assert(containsEvent(customLogic.abi, result.receipt.rawLogs, "LogicCalled"), "Should call custom logic")
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
 
           assert.equal(tknBalance.sub(initialWorkerTokenBalance).toString(), new BN(1).toString(), 'Incorrect new worker token balance')
           assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
-
-          // @ts-ignore
-          // const customLogicLogs = await customLogic.getPastEvents('LogicCalled')
-          // assert.equal(customLogicLogs.length, 1, 'CustomLogic should emit')
-
-          const logs = await recipient.getPastEvents('TestForwarderMessage')
-          assert.equal(logs.length, 1, 'TestRecipient should emit')
-          assert.equal(logs[0].args.origin, defaultAccount, 'test "from" account is the tx.origin')
-          assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
-
+ 
           assert.equal((await sw.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
         })
       })
