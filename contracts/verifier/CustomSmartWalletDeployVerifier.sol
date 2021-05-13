@@ -17,6 +17,7 @@ contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
 
     address private factory;
     mapping (address => bool) public tokens;
+    event AllowedToken(address indexed tokenAddress);
 
     constructor(address walletFactory) public {
         factory = walletFactory;
@@ -59,6 +60,7 @@ contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
+        emit AllowedToken(token);
     }
 
     /**

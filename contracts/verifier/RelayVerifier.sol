@@ -19,6 +19,7 @@ contract RelayVerifier is IRelayVerifier, Ownable {
     using SafeMath for uint256;
 
     address private factory;
+    event AllowedToken(address indexed tokenAddress);
 
     constructor(address walletFactory) public {
         factory = walletFactory;
@@ -58,5 +59,6 @@ contract RelayVerifier is IRelayVerifier, Ownable {
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
+        emit AllowedToken(token);
     }
 }
