@@ -498,6 +498,7 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
  */
 export function containsEvent(abi: any, rawLogs: any, eventName: string) {
   const eventsAbiByTopic = getEventsAbiByTopic(abi);
+  //@ts-ignore
   return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) 
       && eventsAbiByTopic.get(log.topics[0]).name === eventName
   )
@@ -509,7 +510,9 @@ export function containsEvent(abi: any, rawLogs: any, eventName: string) {
  */
 function getEventsAbiByTopic(abi: any) {
   const eventsAbiByTopic = new Map<string, any>();
+  //@ts-ignore
   const logicEvents = abi.filter(elem => elem.type === 'event');
+  //@ts-ignore
   logicEvents.forEach(abi => {
     eventsAbiByTopic.set(abi.signature, abi);
   });
