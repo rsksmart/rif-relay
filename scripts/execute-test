@@ -1,18 +1,17 @@
 #!/bin/bash
 
-TEST=$1
-
-if [ "" == "${TEST}" ]; then
-	echo "You need to specify at least one test"
-	exit 1
+if [ $# -eq 0 ]; then
+        echo "You need to specify at least one test"
+        exit 1
 fi
-
 NETWORK=$(docker network ls --filter name=enveloping-tests-net -q)
-if [ "${NETWORK}" == "" ]; then
+if [ -z "${NETWORK}" ]; then
         echo "Creating network enveloping-tests-net"
         docker network create enveloping-tests-net
 fi
 
 docker-compose -f rsknode/docker-compose.yml up -d
-npx truffle test --show-events --network testing "${TEST}"
+for test; do
+        npx truffle test --show-events --network testing "$test"
+done
 docker-compose -f rsknode/docker-compose.yml down
