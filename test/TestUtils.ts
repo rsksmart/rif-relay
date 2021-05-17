@@ -357,7 +357,6 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<CustomSmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
-  console.log(logicAddr)
   const rReq: DeployRequest = {
     request: {
       relayHub: relayHub,
@@ -496,27 +495,26 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
 /**
  * Decodes events which satisfies an ABI's specification
  */
-export function containsEvent(abi: any, rawLogs: any, eventName: string) {
-  const eventsAbiByTopic = getEventsAbiByTopic(abi);
-  //@ts-ignore
-  return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) 
-      && eventsAbiByTopic.get(log.topics[0]).name === eventName
+export function containsEvent (abi: any, rawLogs: any, eventName: string): boolean {
+  const eventsAbiByTopic = getEventsAbiByTopic(abi)
+  // @ts-ignore
+  return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) &&
+      eventsAbiByTopic.get(log.topics[0]).name === eventName
   )
-            
 }
 
 /**
  * Get a Map from topics to their corresponding event's ABI
  */
-function getEventsAbiByTopic(abi: any) {
-  const eventsAbiByTopic = new Map<string, any>();
-  //@ts-ignore
-  const logicEvents = abi.filter(elem => elem.type === 'event');
-  //@ts-ignore
+function getEventsAbiByTopic (abi: any): Map<string, any> {
+  const eventsAbiByTopic = new Map<string, any>()
+  // @ts-ignore
+  const logicEvents = abi.filter(elem => elem.type === 'event')
+  // @ts-ignore
   logicEvents.forEach(abi => {
-    eventsAbiByTopic.set(abi.signature, abi);
-  });
-  return eventsAbiByTopic;
+    eventsAbiByTopic.set(abi.signature, abi)
+  })
+  return eventsAbiByTopic
 }
 
 /**

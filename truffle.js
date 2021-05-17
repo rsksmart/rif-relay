@@ -64,7 +64,7 @@ module.exports = {
       network_id: 30,
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
-    },
+    }
   },
   mocha: {
     slow: 1000,

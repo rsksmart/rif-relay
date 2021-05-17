@@ -1,8 +1,7 @@
 import {
   CustomSmartWalletInstance,
   TestForwarderTargetInstance,
-  TestSmartWalletInstance,
-  TestTokenInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 
 // @ts-ignore
@@ -24,20 +23,20 @@ const FailureCustomLogic = artifacts.require('FailureCustomLogic')
 const ProxyCustomLogic = artifacts.require('ProxyCustomLogic')
 const CustomSmartWallet = artifacts.require('CustomSmartWallet')
 
-async function fillTokens(token: TestTokenInstance, recipient: string, amount: string): Promise<void> {
-  await token.mint(amount, recipient);
+async function fillTokens (token: TestTokenInstance, recipient: string, amount: string): Promise<void> {
+  await token.mint(amount, recipient)
 }
 
-async function getTokenBalance(token: TestTokenInstance, account: string): Promise<BN> {
-  return await token.balanceOf(account);
+async function getTokenBalance (token: TestTokenInstance, account: string): Promise<BN> {
+  return await token.balanceOf(account)
 }
 
-contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
+contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
   const countParams = ForwardRequestType.length
   const senderPrivateKey = toBuffer(bytes32(1))
   let chainId: number
   let senderAddress: string
-  let token: TestTokenInstance;
+  let token: TestTokenInstance
   let smartWallet: CustomSmartWalletInstance
   let domainSeparatorHash: string
 
@@ -65,18 +64,18 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
 
   before(async () => {
     chainId = (await getTestingEnvironment()).chainId
-    senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase();
-    request.request.from = senderAddress;
-    token = await TestToken.new();
-    request.request.tokenContract = token.address;
+    senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
+    request.request.from = senderAddress
+    token = await TestToken.new()
+    request.request.tokenContract = token.address
   })
 
   beforeEach(async () => {
-    smartWallet = await CustomSmartWallet.new();
+    smartWallet = await CustomSmartWallet.new()
     request.relayData.callForwarder = smartWallet.address
     request.relayData.domainSeparator = getDomainSeparatorHash(smartWallet.address, chainId)
     domainSeparatorHash = request.relayData.domainSeparator
-  });
+  })
 
   describe('#verifyAndCall', () => {
     let recipient: TestForwarderTargetInstance
@@ -90,7 +89,7 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
     it('should call function with custom logic', async () => {
       // Init smart wallet and
       const customLogic = await SuccessCustomLogic.new()
-      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, '0', '400000', '0x')
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -104,14 +103,14 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       req1.request.nonce = initialNonce.toString()
       req1.request.tokenAmount = '1'
       req1.request.relayHub = worker
-      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1);
+      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-      const result = await smartWallet.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker });
+      const result = await smartWallet.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker })
 
       // @ts-ignore
-      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, "LogicCalled"), "Should call custom logic")
+      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')
 
       const tknBalance = await getTokenBalance(token, worker)
       const swTknBalance = await getTokenBalance(token, smartWallet.address)
@@ -120,12 +119,12 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
 
       assert.equal((await smartWallet.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
-    });
+    })
 
     it("should call function from custom logic with wallet's address", async () => {
       // Init smart wallet and
       const customLogic = await ProxyCustomLogic.new()
-      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, '0', '400000', '0x')
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -139,14 +138,14 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       req1.request.nonce = initialNonce.toString()
       req1.request.tokenAmount = '1'
       req1.request.relayHub = worker
-      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1);
+      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-      const result = await smartWallet.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker });
+      const result = await smartWallet.execute(domainSeparatorHash, suffixData, req1.request, sig, { from: worker })
 
       // @ts-ignore
-      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, "LogicCalled"), "Should call custom logic")
+      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')
 
       // @ts-ignore
       const logs = await recipient.getPastEvents('TestForwarderMessage')
@@ -161,13 +160,13 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
 
       assert.equal((await smartWallet.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
-    });
+    })
 
     it('should revert if logic revert', async () => {
       const customLogic = await FailureCustomLogic.new()
-      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, '0', '400000', '0x')
 
-      const hub = await TestSmartWallet.new();
+      const hub = await TestSmartWallet.new()
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -181,13 +180,13 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       req1.request.nonce = initialNonce.toString()
       req1.request.tokenAmount = '1'
       req1.request.relayHub = hub.address
-      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1);
+      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-      const result = await hub.callExecute(smartWallet.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker });
-      assert.equal(result.logs[0].args.error, 'always fail', "Incorrect message")
-      assert.equal(result.logs[0].args.success, false, "Should have failed")
+      const result = await hub.callExecute(smartWallet.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker })
+      assert.equal(result.logs[0].args.error, 'always fail', 'Incorrect message')
+      assert.equal(result.logs[0].args.success, false, 'Should have failed')
 
       const tknBalance = await getTokenBalance(token, worker)
       const swTknBalance = await getTokenBalance(token, smartWallet.address)
@@ -196,13 +195,13 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(1).toString(), 'Incorrect new smart wallet token balance')
 
       assert.equal((await smartWallet.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
-    });
+    })
 
     it('should not be able to re-submit after revert', async () => {
       const customLogic = await FailureCustomLogic.new()
-      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(senderAddress, customLogic.address, token.address, worker, '0', '400000', '0x')
 
-      const hub = await TestSmartWallet.new();
+      const hub = await TestSmartWallet.new()
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -216,13 +215,13 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       req1.request.nonce = initialNonce.toString()
       req1.request.tokenAmount = '1'
       req1.request.relayHub = hub.address
-      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1);
+      const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, req1)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
 
-      const result = await hub.callExecute(smartWallet.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker });
-      assert.equal(result.logs[0].args.error, 'always fail', "Incorrect message")
-      assert.equal(result.logs[0].args.success, false, "Should have failed")
+      const result = await hub.callExecute(smartWallet.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker })
+      assert.equal(result.logs[0].args.error, 'always fail', 'Incorrect message')
+      assert.equal(result.logs[0].args.success, false, 'Should have failed')
 
       const tknBalance = await getTokenBalance(token, worker)
       const swTknBalance = await getTokenBalance(token, smartWallet.address)
@@ -239,18 +238,16 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(swTknBalance2.toString(), swTknBalance.toString(), 'Incorrect new smart wallet token balance')
 
       assert.equal((await smartWallet.nonce()).toString(), initialNonce.add(new BN(1)).toString(), 'verifyAndCall should increment nonce')
-    });
-  });
+    })
+  })
 
   describe('#verifyAndCallByOwner', () => {
     let recipient: TestForwarderTargetInstance
-    let testfwd: TestSmartWalletInstance
 
     beforeEach(async () => {
       await fillTokens(token, smartWallet.address, '1000')
 
       recipient = await TestForwarderTarget.new()
-      testfwd = await TestSmartWallet.new()
 
       request.request.tokenAmount = '0'
     })
@@ -258,7 +255,7 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
     it('should call function with custom logic', async () => {
       // Init smart wallet and
       const customLogic = await SuccessCustomLogic.new()
-      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, '0', '400000', '0x')
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -269,7 +266,7 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       const result = await smartWallet.directExecute(recipient.address, func, { from: fundedAccount })
 
       // @ts-ignore
-      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, "LogicCalled"), "Should call custom logic")
+      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')
 
       const tknBalance = await getTokenBalance(token, worker)
       const swTknBalance = await getTokenBalance(token, smartWallet.address)
@@ -278,24 +275,22 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(0).toString(), 'smart wallet token balance should not cahnge')
 
       assert.equal((await smartWallet.nonce()).toString(), initialNonce.toString(), 'direct execute should NOT increment nonce')
-    });
+    })
 
     it('should revert if logic revert', async () => {
       const customLogic = await FailureCustomLogic.new()
-      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, '0', '400000', '0x')
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
 
       await smartWallet.directExecute(recipient.address, func, { from: fundedAccount })
       const result = await smartWallet.directExecute.call(recipient.address, func, { from: fundedAccount })
       assert.isTrue(!result[0], 'should revert')
-    });
-
-    
+    })
 
     it("should call function from custom logic with wallet's address", async () => {
       // Init smart wallet and
       const customLogic = await ProxyCustomLogic.new()
-      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, "0", "400000", "0x");
+      await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, '0', '400000', '0x')
 
       const func = recipient.contract.methods.emitMessage('hello').encodeABI()
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
@@ -306,7 +301,7 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       const result = await smartWallet.directExecute(recipient.address, func, { from: fundedAccount })
 
       // @ts-ignore
-      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, "LogicCalled"), "Should call custom logic")
+      assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')
 
       // @ts-ignore
       const logs = await recipient.getPastEvents('TestForwarderMessage')
@@ -320,7 +315,7 @@ contract(`Custom Smart Wallet using TestToken`, ([worker, fundedAccount]) => {
       assert.equal(tknBalance.sub(initialWorkerTokenBalance).toString(), new BN(0).toString(), 'worker token balance should not change')
       assert.equal(initialSWalletTokenBalance.sub(swTknBalance).toString(), new BN(0).toString(), 'smart wallet token balance should not cahnge')
 
-      assert.equal((await smartWallet.nonce()).toString(), initialNonce.toString(), 'direct execute should NOT increment nonce')});
-  });
-
-});
+      assert.equal((await smartWallet.nonce()).toString(), initialNonce.toString(), 'direct execute should NOT increment nonce')
+    })
+  })
+})
