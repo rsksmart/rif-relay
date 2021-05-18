@@ -106,7 +106,7 @@ contract('RegistrationManager', function (accounts) {
 
     it('should start again after restarting process', async () => {
       const managerKeyManager = new KeyManager(1, serverWorkdirs.managerWorkdir)
-      const workersKeyManager = new KeyManager(1, serverWorkdirs.workersWorkdir)
+      const workersKeyManager = new KeyManager(4, serverWorkdirs.workersWorkdir)
       const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs.workdir })
       const serverWeb3provider = new Web3.providers.HttpProvider((web3.currentProvider as HttpProvider).host)
       const contractInteractor = new ContractInteractor(serverWeb3provider,
@@ -114,18 +114,19 @@ contract('RegistrationManager', function (accounts) {
           relayHubAddress: env.relayHub.address
         }))
       await contractInteractor.init()
-      const serverDependencies: ServerDependencies = {
-        txStoreManager,
-        managerKeyManager,
-        workersKeyManager,
-        contractInteractor
-      }
       const params: Partial<ServerConfigParams> = {
         relayHubAddress: env.relayHub.address,
         url: LocalhostOne,
         logLevel: 5,
         gasPriceFactor: 1,
         checkInterval: 10
+      }
+      const serverDependencies: ServerDependencies = {
+        txStoreManager,
+        managerKeyManager,
+        workersKeyManager,
+        contractInteractor,
+        envelopingArbiter: env.envelopingArbiter
       }
       const newRelayServer = new RelayServer(params, serverDependencies)
       await newRelayServer.init()
@@ -297,6 +298,7 @@ contract('RegistrationManager', function (accounts) {
 
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
+        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
 
@@ -311,14 +313,13 @@ contract('RegistrationManager', function (accounts) {
         const gasPrice = await env.web3.eth.getGasPrice()
 
         // TODO: these two hard-coded indexes are dependent on the order of operations in 'withdrawAllFunds'
-        const workerEthTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
-
+        const workerEthTxCost = await getTotalTxCosts([receipts[1]], gasPrice)
+        const managerHubSendTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
         const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(relayOwner))
 
         const managerBalanceAfter = await newServer.getManagerBalance()
-
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-
+        assert.isTrue(managerHubBalanceAfter.eqn(0))
         assert.isTrue(workerBalanceAfter.eqn(0))
         assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.toString())
         assert.equal(

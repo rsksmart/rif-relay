@@ -35,7 +35,7 @@ module.exports = {
     },
     rsk: {
       verbose: process.env.VERBOSE,
-      host: '127.0.0.1',
+      host: 'rsk-node',
       port: 4444,
       network_id: 33,
       gas: 6300000,

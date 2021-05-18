@@ -154,8 +154,10 @@ export class RelayProvider implements HttpProvider {
       throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
     }
 
+    const maxTime = Date.now() + (300 * 1000)
+
     try {
-      const relayingResult = await this.relayClient.relayTransaction(transactionDetails)
+      const relayingResult = await this.relayClient.relayTransaction(transactionDetails, maxTime)
       if (relayingResult.transaction != null) {
         const txHash: string = relayingResult.transaction.hash(true).toString('hex')
         const hash = `0x${txHash}`
@@ -240,6 +242,7 @@ export class RelayProvider implements HttpProvider {
   _ethSendTransaction (payload: JsonRpcPayload, callback: JsonRpcCallback): void {
     log.info('calling sendAsync' + JSON.stringify(payload))
     let transactionDetails: EnvelopingTransactionDetails = payload.params[0]
+    const maxTime = (typeof payload.params[1] !== 'undefined') ? payload.params[1].maxTime : Date.now() + (300 * 1000)
 
     if (transactionDetails.callForwarder === undefined || transactionDetails.callForwarder === null || transactionDetails.callForwarder === constants.ZERO_ADDRESS) {
       transactionDetails = { ...payload.params[0], callForwarder: this.config.forwarderAddress }
@@ -253,7 +256,7 @@ export class RelayProvider implements HttpProvider {
       transactionDetails = { ...transactionDetails, onlyPreferredRelays: this.config.onlyPreferredRelays }
     }
 
-    this.relayClient.relayTransaction(transactionDetails)
+    this.relayClient.relayTransaction(transactionDetails, maxTime)
       .then((relayingResult) => {
         if (relayingResult.transaction != null) {
           const jsonRpcSendResult = this._convertTransactionToRpcSendResponse(relayingResult.transaction, payload)
@@ -387,6 +390,10 @@ export class RelayProvider implements HttpProvider {
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (payload.params[0]?.hasOwnProperty('onlyPreferredRelays')) {
         delete p.params[0].onlyPreferredRelays
+      }
+
+      if (typeof payload.params[1] !== 'undefined') {
+        p.params.splice(1, 1)
       }
     }
 

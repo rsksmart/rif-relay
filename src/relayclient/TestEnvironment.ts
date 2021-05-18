@@ -14,7 +14,10 @@ import { RelayProvider } from './RelayProvider'
 import Web3 from 'web3'
 import ContractInteractor from '../common/ContractInteractor'
 import { Environment, defaultEnvironment } from '../common/Environments'
-import { ServerConfigParams } from '../relayserver/ServerConfigParams'
+import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
+
+
 export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult
   relayProvider: RelayProvider
@@ -59,7 +62,7 @@ class TestEnvironmentClass {
     const registerOptions = {
       from,
       stake: ether('1'),
-      funds: ether('1'),
+      funds: ether('2'),
       relayUrl: relayUrl,
       gasPrice: '1e9',
       unstakeDelay: '2000'
@@ -101,7 +104,7 @@ class TestEnvironmentClass {
     const server = net.createServer()
     await new Promise(resolve => {
       // @ts-ignore
-      server.listen(0, resolve)
+      server.listen(0, () => resolve(true))
     })
     const address = server.address()
     if (address == null || typeof address === 'string') {
@@ -135,7 +138,7 @@ class TestEnvironmentClass {
     }
 
     const managerKeyManager = new KeyManager(1)
-    const workersKeyManager = new KeyManager(1)
+    const workersKeyManager = new KeyManager(4)
     const txStoreManager = new TxStoreManager({ inMemory: true })
     const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host),
       configure({
@@ -145,12 +148,8 @@ class TestEnvironmentClass {
         deployVerifierAddress: deploymentResult.deployVerifierAddress
       }))
     await contractInteractor.init()
-    const relayServerDependencies = {
-      contractInteractor,
-      txStoreManager,
-      managerKeyManager,
-      workersKeyManager
-    }
+    const envelopingArbiter = new EnvelopingArbiter(configureServer({}), new Web3.providers.HttpProvider(host))
+    await envelopingArbiter.start()
     const relayServerParams: Partial<ServerConfigParams> = {
       devMode: true,
       url: relayUrl,
@@ -163,7 +162,13 @@ class TestEnvironmentClass {
       deployVerifierAddress: deploymentResult.deployVerifierAddress,
       workerTargetBalance
     }
-
+    const relayServerDependencies = {
+      contractInteractor,
+      txStoreManager,
+      managerKeyManager,
+      workersKeyManager,
+      envelopingArbiter
+    }
     const relayServer = new RelayServer(relayServerParams, relayServerDependencies)
     await relayServer.init()
 

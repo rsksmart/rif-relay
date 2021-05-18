@@ -25,7 +25,7 @@ import { RelayClient } from '../../src/relayclient/RelayClient'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { RelayServer } from '../../src/relayserver/RelayServer'
-import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
+import { configureServer, ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
@@ -38,6 +38,8 @@ import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
 
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ether } from '@openzeppelin/test-helpers'
+import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
+import { CommitmentReceipt } from '../../src/enveloping/Commitment'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
@@ -85,6 +87,7 @@ export class ServerTestEnvironment {
    * Note: do not call methods of contract interactor inside Test Environment. It may affect Profiling Test.
    */
   contractInteractor!: ContractInteractor
+  envelopingArbiter!: EnvelopingArbiter
 
   relayClient!: RelayClient
   provider: HttpProvider
@@ -133,6 +136,8 @@ export class ServerTestEnvironment {
     } else {
       this.contractInteractor = await contractFactory(shared)
     }
+    this.envelopingArbiter = new EnvelopingArbiter(configureServer({}), this.web3.givenProvider)
+    await this.envelopingArbiter.start()
     const mergedConfig = Object.assign({}, shared, clientConfig)
     this.relayClient = new RelayClient(this.provider, configure(mergedConfig))
 
@@ -150,11 +155,11 @@ export class ServerTestEnvironment {
     await this.relayServer._worker(latestBlock.number + 1)
   }
 
-  _createKeyManager (workdir?: string): KeyManager {
+  _createKeyManager (accounts: number, workdir?: string): KeyManager {
     if (workdir != null) {
-      return new KeyManager(1, workdir)
+      return new KeyManager(accounts, workdir)
     } else {
-      return new KeyManager(1, undefined, crypto.randomBytes(32))
+      return new KeyManager(accounts, undefined, crypto.randomBytes(32).toString())
     }
   }
 
@@ -173,14 +178,15 @@ export class ServerTestEnvironment {
   }
 
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
-    const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
-    const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
+    const managerKeyManager = this._createKeyManager(1, serverWorkdirs?.managerWorkdir)
+    const workersKeyManager = this._createKeyManager(4, serverWorkdirs?.workersWorkdir)
     const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
       txStoreManager,
       managerKeyManager,
-      workersKeyManager
+      workersKeyManager,
+      envelopingArbiter: this.envelopingArbiter
     }
     const shared: Partial<ServerConfigParams> = {
       relayHubAddress: this.relayHub.address,
@@ -200,10 +206,10 @@ export class ServerTestEnvironment {
     this.relayServer.config.trustedVerifiers.push(this.deployVerifier.address)
   }
 
-  async createRelayHttpRequest (overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<RelayTransactionRequest> {
+  async createRelayHttpRequest (overrideDetails: Partial<EnvelopingTransactionDetails> = {}, useValidMaxDelay: boolean = true, useValidWorker: boolean = true, workerIndex = 1): Promise<RelayTransactionRequest> {
     const pingResponse = {
       relayHubAddress: this.relayHub.address,
-      relayWorkerAddress: this.relayServer.workerAddress
+      relayWorkerAddress: this.relayServer.workerAddress[workerIndex]
     }
     const eventInfo: RelayRegisteredEventInfo = {
       relayManager: '',
@@ -229,25 +235,45 @@ export class ServerTestEnvironment {
       isSmartWalletDeploy: false
     }
 
-    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, transactionDetails, overrideDetails))
+    let maxTime, delay
+    if (useValidMaxDelay) {
+      if (workerIndex === 0) {
+        delay = 320
+      } else if (workerIndex === 1) {
+        delay = 140
+      } else if (workerIndex === 2) {
+        delay = 40
+      } else {
+        delay = 10
+      }
+      maxTime = Date.now() + (delay * 1000)
+    } else {
+      maxTime = Date.now()
+    }
+
+    if (!useValidWorker) {
+      pingResponse.relayWorkerAddress = this.relayServer.workerAddress[3]
+    }
+
+    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, transactionDetails, overrideDetails), maxTime)
   }
 
-  async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<{
+  async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}, useValidMaxDelay = true, useValidWorker = true, workerIndex = 1): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
-    reqSigHash: PrefixedHexString
+    signedReceipt: CommitmentReceipt | undefined
   }> {
-    const req = await this.createRelayHttpRequest(overrideDetails)
-    const signedTx = await this.relayServer.createRelayTransaction(req)
+    const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
+    const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
-    const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
+
     if (assertRelayed) {
       await this.assertTransactionRelayed(txHash, keccak256(req.metadata.signature))
     }
     return {
       txHash,
       signedTx,
-      reqSigHash
+      signedReceipt
     }
   }
 
@@ -266,6 +292,7 @@ export class ServerTestEnvironment {
     assert.exists(event1, 'SampleRecipientEmitted not found, maybe transaction was not relayed successfully')
     assert.equal(event1.args.message, 'hello world')
     const event2 = decodedLogs.find((e: { name: string }) => e.name === 'TransactionRelayed')
+    const workerIndex = this.relayServer.getWorkerIndex(event2.args.relayWorker)
     assert.exists(event2, 'TransactionRelayed not found, maybe transaction was not relayed successfully')
     assert.equal(event2.name, 'TransactionRelayed')
     /**

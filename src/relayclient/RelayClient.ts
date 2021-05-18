@@ -30,6 +30,8 @@ import {
 import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
 import { TypedDataUtils } from 'eth-sig-util'
 import { toBN } from 'web3-utils'
+import { CommitmentValidator } from '../enveloping/CommitmentValidator'
+import { CommitmentReceipt } from '../enveloping/Commitment'
 
 export const GasPricePingFilter: PingFilter = (pingResponse, transactionDetails) => {
   if (
@@ -65,6 +67,7 @@ export class RelayClient {
   protected contractInteractor: ContractInteractor
   protected knownRelaysManager: KnownRelaysManager
   private readonly transactionValidator: RelayedTransactionValidator
+  private readonly commitmentValidator: CommitmentValidator
   private readonly pingFilter: PingFilter
 
   public readonly accountManager: AccountManager
@@ -86,6 +89,7 @@ export class RelayClient {
     this.contractInteractor = dependencies.contractInteractor
     this.knownRelaysManager = dependencies.knownRelaysManager
     this.transactionValidator = dependencies.transactionValidator
+    this.commitmentValidator = dependencies.commitmentValidator
     this.accountManager = dependencies.accountManager
     this.pingFilter = dependencies.pingFilter
     log.setLevel(this.config.logLevel)
@@ -231,7 +235,7 @@ export class RelayClient {
     return gasCost
   }
 
-  async relayTransaction (transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult> {
+  async relayTransaction (transactionDetails: EnvelopingTransactionDetails, maxTime?: number): Promise<RelayingResult> {
     await this._init()
     // TODO: should have a better strategy to decide how often to refresh known relays
     this.emit(new RefreshRelaysEvent())
@@ -250,7 +254,7 @@ export class RelayClient {
     // Estimate the gas required to transfer the token
     transactionDetails.tokenGas = transactionDetails.tokenGas ?? (await this.estimateTokenTransferGas(transactionDetails)).toString()
 
-    const relaySelectionManager = await new RelaySelectionManager(transactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
+    const relaySelectionManager = await new RelaySelectionManager(transactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config, maxTime).init()
     const count = relaySelectionManager.relaysLeft().length
     this.emit(new DoneRefreshRelaysEvent(count))
     if (count === 0) {
@@ -262,7 +266,7 @@ export class RelayClient {
       const activeRelay = await relaySelectionManager.selectNextRelay()
       if (activeRelay !== undefined && activeRelay !== null) {
         this.emit(new NextRelayEvent(activeRelay.relayInfo.relayUrl))
-        relayingAttempt = await this._attemptRelay(activeRelay, transactionDetails)
+        relayingAttempt = await this._attemptRelay(activeRelay, transactionDetails, activeRelay.pingResponse.maxDelay)
           .catch(error => ({ error }))
         if (relayingAttempt.transaction === undefined || relayingAttempt.transaction === null) {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
@@ -289,11 +293,13 @@ export class RelayClient {
 
   async _attemptRelay (
     relayInfo: RelayInfo,
-    transactionDetails: EnvelopingTransactionDetails
+    transactionDetails: EnvelopingTransactionDetails,
+    maxTime: number
   ): Promise<RelayingAttempt> {
     log.info(`attempting relay: ${JSON.stringify(relayInfo)} transaction: ${JSON.stringify(transactionDetails)}`)
     let httpRequest: RelayTransactionRequest | DeployTransactionRequest
     let acceptRelayCallResult
+    const maxAcceptanceBudget = parseInt(relayInfo.pingResponse.maxAcceptanceBudget)
 
     if ((transactionDetails.isSmartWalletDeploy ?? false)) {
       const deployRequest = await this._prepareDeployHttpRequest(relayInfo, transactionDetails)
@@ -301,7 +307,7 @@ export class RelayClient {
       acceptRelayCallResult = await this.contractInteractor.validateAcceptDeployCall(deployRequest.relayRequest, deployRequest.metadata.signature)
       httpRequest = deployRequest
     } else {
-      httpRequest = await this._prepareRelayHttpRequest(relayInfo, transactionDetails)
+      httpRequest = await this._prepareRelayHttpRequest(relayInfo, transactionDetails, maxTime)
       this.emit(new ValidateRequestEvent())
       acceptRelayCallResult = await this.contractInteractor.validateAcceptRelayCall(httpRequest.relayRequest, httpRequest.metadata.signature)
     }
@@ -317,9 +323,12 @@ export class RelayClient {
     }
 
     let hexTransaction: PrefixedHexString
+    let receipt: CommitmentReceipt | undefined
     this.emit(new SendToRelayerEvent(relayInfo.relayInfo.relayUrl))
     try {
-      hexTransaction = await this.httpClient.relayTransaction(relayInfo.relayInfo.relayUrl, httpRequest)
+      const response = await this.httpClient.relayTransaction(relayInfo.relayInfo.relayUrl, httpRequest)
+      hexTransaction = response.signedTx
+      receipt = response.signedReceipt
     } catch (error) {
       if (error?.message == null || error.message.indexOf('timeout') !== -1) {
         this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
@@ -328,7 +337,12 @@ export class RelayClient {
       return { error }
     }
     const transaction = new Transaction(hexTransaction, this.contractInteractor.getRawTxOptions())
-    if (!this.transactionValidator.validateRelayResponse(httpRequest, hexTransaction)) {
+    if (!this.commitmentValidator.validateCommitmentSig(receipt)) {
+      this.emit(new RelayerResponseEvent(false))
+      this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
+      return { error: new Error('Returned commitment did not pass validation') }
+    }
+    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction)) {
       this.emit(new RelayerResponseEvent(false))
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned transaction did not pass validation') }
@@ -384,7 +398,8 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      relayMaxNonce: 0
+      relayMaxNonce: 0,
+      maxTime: Date.now() + (300 * 1000)
     }
     const httpRequest: DeployTransactionRequest = {
       relayRequest,
@@ -450,7 +465,8 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      relayMaxNonce
+      relayMaxNonce,
+      maxTime: Date.now() + (300 * 1000)
     }
     const httpRequest: DeployTransactionRequest = {
       relayRequest,
@@ -463,7 +479,8 @@ export class RelayClient {
 
   async _prepareRelayHttpRequest (
     relayInfo: RelayInfo,
-    transactionDetails: EnvelopingTransactionDetails
+    transactionDetails: EnvelopingTransactionDetails,
+    maxTime: number
   ): Promise<RelayTransactionRequest> {
     const forwarderAddress = this.resolveForwarder(transactionDetails)
 
@@ -517,7 +534,8 @@ export class RelayClient {
     const metadata: RelayMetadata = {
       relayHubAddress: this.config.relayHubAddress,
       signature,
-      relayMaxNonce
+      relayMaxNonce,
+      maxTime
     }
     const httpRequest: RelayTransactionRequest = {
       relayRequest,

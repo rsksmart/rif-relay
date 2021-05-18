@@ -80,9 +80,10 @@ contract('RelayServer', function (accounts) {
     describe('#validateInput()', function () {
       it('should fail to relay with wrong relay worker', async function () {
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.relayRequest.relayData.relayWorker = accounts[1]
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message, `Wrong worker address: ${accounts[1]}`)
@@ -92,9 +93,10 @@ contract('RelayServer', function (accounts) {
       it('should fail to relay with unacceptable gasPrice', async function () {
         const wrongGasPrice = isRsk(await getTestingEnvironment()) ? '0.5' : '100'
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.relayRequest.relayData.gasPrice = wrongGasPrice
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message,
@@ -105,9 +107,10 @@ contract('RelayServer', function (accounts) {
       it('should fail to relay with wrong hub address', async function () {
         const wrongHubAddress = '0xdeadface'
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.metadata.relayHubAddress = wrongHubAddress
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message,
@@ -134,11 +137,12 @@ contract('RelayServer', function (accounts) {
       })
 
       describe('#validateMaxNonce()', function () {
+        const workerIndex = 0
         before(async function () {
           // this is a new worker account - create transaction
           const latestBlock = (await env.web3.eth.getBlock('latest')).number
           await env.relayServer._worker(latestBlock)
-          const signer = env.relayServer.workerAddress
+          const signer = env.relayServer.workerAddress[workerIndex]
 
           console.log(`THE BALANCE OF THE WORKER ${signer} is`)
           console.log(await web3.eth.getBalance(signer))
@@ -152,12 +156,12 @@ contract('RelayServer', function (accounts) {
         })
 
         it('should not throw with relayMaxNonce above current nonce', async function () {
-          await env.relayServer.validateMaxNonce(1000)
+          await env.relayServer.validateMaxNonce(1000, workerIndex)
         })
 
         it('should throw exception with relayMaxNonce below current nonce', async function () {
           try {
-            await env.relayServer.validateMaxNonce(0)
+            await env.relayServer.validateMaxNonce(0, workerIndex)
             assert.fail()
           } catch (e) {
             assert.include(e.message, 'Unacceptable relayMaxNonce:')
@@ -250,7 +254,7 @@ contract('RelayServer', function (accounts) {
       relayServer = env.relayServer
       beforeDescribeId = (await snapshot()).result
       await relayServer.transactionManager.sendTransaction({
-        signer: relayServer.workerAddress,
+        signer: relayServer.workerAddress[workerIndex],
         serverAction: ServerAction.VALUE_TRANSFER,
         destination: accounts[0],
         gasLimit: defaultEnvironment.mintxgascost,
@@ -285,7 +289,7 @@ contract('RelayServer', function (accounts) {
         value: relayServer.config.managerTargetBalance
       })
       await env.web3.eth.sendTransaction(
-        { from: accounts[0], to: relayServer.workerAddress, value: relayServer.config.workerTargetBalance })
+        { from: accounts[0], to: relayServer.workerAddress[workerIndex], value: relayServer.config.workerTargetBalance })
       const currentBlockNumber = await env.web3.eth.getBlockNumber()
       const receipts = await relayServer.replenishServer(workerIndex, 0)
       assert.deepEqual(receipts, [])

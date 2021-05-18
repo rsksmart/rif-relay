@@ -10,8 +10,9 @@ import HttpClient from './HttpClient'
 import HttpWrapper from './HttpWrapper'
 import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
-import { GasPricePingFilter } from './RelayClient'
+import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter, AsyncDataCallback } from './types/Aliases'
+import { EmptyDataCallback, GasPricePingFilter } from './RelayClient'
+import { CommitmentValidator } from '../enveloping/CommitmentValidator'
 
 const GAS_PRICE_PERCENT = 0 //
 const MAX_RELAY_NONCE_GAP = 3
@@ -124,6 +125,7 @@ export interface EnvelopingDependencies {
   knownRelaysManager: KnownRelaysManager
   accountManager: AccountManager
   transactionValidator: RelayedTransactionValidator
+  commitmentValidator: CommitmentValidator
   pingFilter: PingFilter
   relayFilter: RelayFilter
   scoreCalculator: AsyncScoreCalculator
@@ -155,6 +157,7 @@ export function getDependencies (config: EnvelopingConfig, provider?: HttpProvid
   const scoreCalculator = overrideDependencies?.scoreCalculator ?? DefaultRelayScore
   const knownRelaysManager = overrideDependencies?.knownRelaysManager ?? new KnownRelaysManager(contractInteractor, config, relayFilter)
   const transactionValidator = overrideDependencies?.transactionValidator ?? new RelayedTransactionValidator(contractInteractor, config)
+  const commitmentValidator = overrideDependencies?.commitmentValidator ?? new CommitmentValidator()
 
   const ret = {
     httpClient,
@@ -162,6 +165,7 @@ export function getDependencies (config: EnvelopingConfig, provider?: HttpProvid
     knownRelaysManager,
     accountManager,
     transactionValidator,
+    commitmentValidator,
     pingFilter,
     relayFilter,
     scoreCalculator,
