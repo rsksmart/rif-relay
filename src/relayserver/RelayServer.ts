@@ -117,6 +117,7 @@ export class RelayServer extends EventEmitter {
     const deployVerifierEvents = await this.contractInteractor.getTokensForDeployVerifier();
     const relayVerifierEvents = await this.contractInteractor.getTokensForRelayVerifier();
 
+    // Sets are used to remove duplicates
     return {
       allowedTokens: {
         deployVerifier: [...new Set(deployVerifierEvents.map(event => event.returnValues.tokenAddress))],
