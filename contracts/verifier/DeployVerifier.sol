@@ -17,7 +17,6 @@ contract DeployVerifier is IDeployVerifier, Ownable {
 
     address private factory;
     mapping (address => bool) public tokens;
-    event AllowedToken(address indexed tokenAddress);
 
     constructor(address walletFactory) public {
         factory = walletFactory;
