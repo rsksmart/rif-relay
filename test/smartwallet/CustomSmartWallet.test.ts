@@ -67,7 +67,7 @@ function createRequest(request: Partial<ForwardRequest>, relayData: Partial<Rela
 }
 
 function signRequest(senderPrivateKey: Buffer, relayRequest: RelayRequest, chainId: number) {
-  const reqData: EIP712TypedData = new TypedRequestData(chainId, relayRequest., relayRequest)
+  const reqData: EIP712TypedData = new TypedRequestData(chainId, relayRequest.relayData.callForwarder, relayRequest)
   const signature = signTypedData_v4(senderPrivateKey, { data: reqData })
   const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + ForwardRequestType.length) * 32))
   return {signature, suffixData}
@@ -115,7 +115,6 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
       const initialWorkerTokenBalance = await getTokenBalance(token, worker)
       const initialSWalletTokenBalance = await getTokenBalance(token, smartWallet.address)
-
       const initialNonce = await smartWallet.nonce()
 
       const relayRequest = await createRequest({
