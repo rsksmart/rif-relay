@@ -31,9 +31,9 @@ import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
+import TokenResponse from '../common/TokenResponse'
 
 import Timeout = NodeJS.Timeout
-import TokenResponse from '../common/TokenResponse'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -113,15 +113,15 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler(): Promise<TokenResponse> {
-    const deployVerifierEvents = await this.contractInteractor.getTokensForDeployVerifier();
-    const relayVerifierEvents = await this.contractInteractor.getTokensForRelayVerifier();
+  async tokenHandler (): Promise<TokenResponse> {
+    const deployVerifierEvents = await this.contractInteractor.getTokensForDeployVerifier()
+    const relayVerifierEvents = await this.contractInteractor.getTokensForRelayVerifier()
 
     // Sets are used to remove duplicates
     return {
       allowedTokens: {
         deployVerifier: [...new Set(deployVerifierEvents.map(event => event.returnValues.tokenAddress))],
-        relayVerifier: [...new Set(relayVerifierEvents.map(event => event.returnValues.tokenAddress))],
+        relayVerifier: [...new Set(relayVerifierEvents.map(event => event.returnValues.tokenAddress))]
       }
     }
   }

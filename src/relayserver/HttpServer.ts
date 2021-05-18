@@ -105,10 +105,10 @@ export class HttpServer {
       console.log('tx failed:', e)
     }
   }
-  
+
   async tokenHandler (req: Request, res: Response): Promise<void> {
     try {
-      const tokenResponse = await this.backend.tokenHandler();
+      const tokenResponse = await this.backend.tokenHandler()
       res.send(tokenResponse)
     } catch (e) {
       const message: string = e.message
