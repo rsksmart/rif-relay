@@ -19,7 +19,6 @@ contract RelayVerifier is IRelayVerifier, Ownable {
     using SafeMath for uint256;
 
     address private factory;
-    event AllowedToken(address indexed tokenAddress);
 
     constructor(address walletFactory) public {
         factory = walletFactory;

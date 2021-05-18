@@ -18,9 +18,9 @@ export class HttpServer {
     this.app.use(bodyParser.json())
     /* eslint-disable @typescript-eslint/no-misused-promises */
     this.app.post('/', this.rootHandler.bind(this))
-    this.app.post('/getaddr', this.pingHandler.bind(this))
     this.app.get('/getaddr', this.pingHandler.bind(this))
     this.app.get('/status', this.statusHandler.bind(this))
+    this.app.get('/tokens', this.tokenHandler.bind(this))
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
@@ -103,6 +103,17 @@ export class HttpServer {
     } catch (e) {
       res.send({ error: e.message })
       console.log('tx failed:', e)
+    }
+  }
+  
+  async tokenHandler (req: Request, res: Response): Promise<void> {
+    try {
+      const tokenResponse = await this.backend.tokenHandler();
+      res.send(tokenResponse)
+    } catch (e) {
+      const message: string = e.message
+      res.send({ message })
+      log.error(`token handler rejected: ${message}`)
     }
   }
 }

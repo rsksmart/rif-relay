@@ -26,7 +26,6 @@
   },
   "prepublish": "npm run prepare",
   "scripts": {
-    "allowed_tokens": "./scripts/getAllowedTokens.js",
     "extract_abi": "./scripts/extract_abi.js",
     "lint": "yarn run lint:js && yarn run lint:sol",
     "lint:fix": "yarn run lint:js:fix",

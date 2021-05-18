@@ -33,6 +33,7 @@ import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 
 import Timeout = NodeJS.Timeout
+import TokenResponse from '../common/TokenResponse'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -109,6 +110,18 @@ export class RelayServer extends EventEmitter {
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
       version: VERSION
+    }
+  }
+
+  async tokenHandler(): Promise<TokenResponse> {
+    const deployVerifierEvents = await this.contractInteractor.getTokensForDeployVerifier();
+    const relayVerifierEvents = await this.contractInteractor.getTokensForRelayVerifier();
+
+    return {
+      allowedTokens: {
+        deployVerifier: [...new Set(deployVerifierEvents.map(event => event.returnValues.tokenAddress))],
+        relayVerifier: [...new Set(relayVerifierEvents.map(event => event.returnValues.tokenAddress))],
+      }
     }
   }
 
