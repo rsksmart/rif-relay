@@ -8,7 +8,7 @@ import Web3 from 'web3'
 
 import { configureServer } from '../../src/relayserver/ServerConfigParams'
 import { getTestingEnvironment } from '../TestUtils'
-import { GSNConfig } from '../../src/relayclient/GSNConfigurator'
+import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { HttpProvider } from 'web3-core'
 import { LocalhostOne, ServerTestEnvironment } from '../relayserver/ServerTestEnvironment'
 import { BadEnvelopingArbiter } from '../dummies/BadEnvelopingArbiter'
@@ -20,7 +20,7 @@ contract('EnvelopingArbiter', function (accounts) {
   let env: ServerTestEnvironment
 
   before(async function () {
-    const relayClientConfig: Partial<GSNConfig> = {
+    const relayClientConfig: Partial<EnvelopingConfig> = {
       preferredRelays: [LocalhostOne],
       maxRelayNonceGap: 0,
       chainId: (await getTestingEnvironment()).chainId

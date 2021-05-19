@@ -298,7 +298,6 @@ contract('RegistrationManager', function (accounts) {
 
         const managerBalanceBefore = await newServer.getManagerBalance()
         const workerBalanceBefore = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceBefore.gtn(0))
         assert.isTrue(managerBalanceBefore.gtn(0))
         assert.isTrue(workerBalanceBefore.gtn(0))
 
@@ -313,13 +312,14 @@ contract('RegistrationManager', function (accounts) {
         const gasPrice = await env.web3.eth.getGasPrice()
 
         // TODO: these two hard-coded indexes are dependent on the order of operations in 'withdrawAllFunds'
-        const workerEthTxCost = await getTotalTxCosts([receipts[1]], gasPrice)
-        const managerHubSendTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
+        const workerEthTxCost = await getTotalTxCosts([receipts[0]], gasPrice)
+
         const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(relayOwner))
 
         const managerBalanceAfter = await newServer.getManagerBalance()
+
         const workerBalanceAfter = await newServer.getWorkerBalance(workerIndex)
-        assert.isTrue(managerHubBalanceAfter.eqn(0))
+
         assert.isTrue(workerBalanceAfter.eqn(0))
         assert.equal(managerBalanceAfter.toString(), managerBalanceBefore.toString())
         assert.equal(

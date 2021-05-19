@@ -299,8 +299,6 @@ export class RelayClient {
     log.info(`attempting relay: ${JSON.stringify(relayInfo)} transaction: ${JSON.stringify(transactionDetails)}`)
     let httpRequest: RelayTransactionRequest | DeployTransactionRequest
     let acceptRelayCallResult
-    const maxAcceptanceBudget = parseInt(relayInfo.pingResponse.maxAcceptanceBudget)
-
     if ((transactionDetails.isSmartWalletDeploy ?? false)) {
       const deployRequest = await this._prepareDeployHttpRequest(relayInfo, transactionDetails)
       this.emit(new ValidateRequestEvent())
@@ -342,7 +340,7 @@ export class RelayClient {
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned commitment did not pass validation') }
     }
-    if (!this.transactionValidator.validateRelayResponse(httpRequest, maxAcceptanceBudget, hexTransaction)) {
+    if (!this.transactionValidator.validateRelayResponse(httpRequest, hexTransaction)) {
       this.emit(new RelayerResponseEvent(false))
       this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
       return { error: new Error('Returned transaction did not pass validation') }

@@ -159,7 +159,7 @@ export class ServerTestEnvironment {
     if (workdir != null) {
       return new KeyManager(accounts, workdir)
     } else {
-      return new KeyManager(accounts, undefined, crypto.randomBytes(32).toString())
+      return new KeyManager(accounts, undefined, crypto.randomBytes(32))
     }
   }
 
@@ -261,11 +261,13 @@ export class ServerTestEnvironment {
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}, useValidMaxDelay = true, useValidWorker = true, workerIndex = 1): Promise<{
     signedTx: PrefixedHexString
     txHash: PrefixedHexString
+    reqSigHash: PrefixedHexString
     signedReceipt: CommitmentReceipt | undefined
   }> {
     const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
     const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
+    const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
 
     if (assertRelayed) {
       await this.assertTransactionRelayed(txHash, keccak256(req.metadata.signature))
@@ -273,6 +275,7 @@ export class ServerTestEnvironment {
     return {
       txHash,
       signedTx,
+      reqSigHash,
       signedReceipt
     }
   }
@@ -301,7 +304,7 @@ export class ServerTestEnvironment {
         address relayWorker,
         bytes32 relayRequestSigHash);
     */
-    assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress.toLowerCase())
+    assert.equal(event2.args.relayWorker.toLowerCase(), this.relayServer.workerAddress[workerIndex].toLowerCase())
     assert.equal(event2.args.relayManager.toLowerCase(), this.relayServer.managerAddress.toLowerCase())
     assert.equal(event2.args.relayRequestSigHash, reqSignatureHash)
   }

@@ -11,7 +11,7 @@ import HttpWrapper from './HttpWrapper'
 import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
 import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter, AsyncDataCallback } from './types/Aliases'
-import { EmptyDataCallback, GasPricePingFilter } from './RelayClient'
+import { GasPricePingFilter } from './RelayClient'
 import { CommitmentValidator } from '../enveloping/CommitmentValidator'
 
 const GAS_PRICE_PERCENT = 0 //

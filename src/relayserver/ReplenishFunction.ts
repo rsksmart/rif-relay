@@ -28,7 +28,7 @@ async function defaultReplenishFunction (relayServer: RelayServer, workerIndex: 
   }
   managerEthBalance = await relayServer.getManagerBalance()
   const mustReplenishWorker = !relayServer.workerBalanceRequired.isSatisfied
-  const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress)
+  const isReplenishPendingForWorker = await relayServer.txStoreManager.isActionPending(ServerAction.VALUE_TRANSFER, relayServer.workerAddress[workerIndex])
   if (mustReplenishWorker && !isReplenishPendingForWorker) {
     const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(relayServer.workerBalanceRequired.currentValue)
     console.log(
@@ -40,7 +40,7 @@ async function defaultReplenishFunction (relayServer: RelayServer, workerIndex: 
       const details: SendTransactionDetails = {
         signer: relayServer.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
-        destination: relayServer.workerAddress,
+        destination: relayServer.workerAddress[workerIndex],
         value: toHex(refill),
         creationBlockNumber: currentBlock,
         gasLimit: defaultEnvironment.mintxgascost

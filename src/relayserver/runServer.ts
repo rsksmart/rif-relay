@@ -10,7 +10,7 @@ import { configure } from '../relayclient/Configurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 
-function error (err: string): never {
+function error (err: string): void {
   console.error(err)
   process.exit(1)
 }
