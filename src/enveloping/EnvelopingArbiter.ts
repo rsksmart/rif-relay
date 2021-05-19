@@ -108,12 +108,23 @@ export class EnvelopingArbiter {
    */
   async start (): Promise<void> {
     log.info('Enveloping Arbiter Module started')
-    this.feeEstimator.start().then(() => {
+    try {
+      await this.feeEstimator.start()
       log.info('Fee Estimator initialized')
-    }).catch(e => {
-      log.error(e)
+    } catch (error) {
+      log.error(error)
       throw new Error('Fee Estimator initialization failed')
-    })
+    }
+  }
+
+  /**
+   * The Enveloping Arbiter component requires to be started, so it can start the Fee Estimator
+   * monitor worker.
+   */
+  stop (): void {
+    log.info('Sopping Fee Estimator Enveloping Arbiter Module')
+    this.feeEstimator.stop()
+    log.info('Fee Estimator successfully stopped')
   }
 
   /**

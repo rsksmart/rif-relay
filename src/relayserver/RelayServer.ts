@@ -46,6 +46,7 @@ export class RelayServer extends EventEmitter {
   ready = false
   lastSuccessfulRounds = Number.MAX_SAFE_INTEGER
   readonly managerAddress: PrefixedHexString
+  //TODO: this should be changed to workerAddresses
   readonly workerAddress: PrefixedHexString[]
   gasPrice: number = 0
   _workerSemaphoreOn = false
@@ -118,12 +119,33 @@ export class RelayServer extends EventEmitter {
   }
 
   async pingHandler (verifier?: string, maxTime?: string): Promise<PingResponse> {
+    console.log('Ping Handler Relay Server', {
+      verifier,
+      maxTime
+    });
+
+    const relayWorkerAddress = this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime);
+
+    console.log('relayWorkerAddress', relayWorkerAddress);
+
+    const minGasPrice = await this.envelopingArbiter.getQueueGasPrice(maxTime);
+
+    console.log('minGasPrice', minGasPrice);
+
+    const maxDelay = this.envelopingArbiter.checkMaxDelayForResponse(maxTime);
+
+    console.log('Ping Params', {
+      relayWorkerAddress,
+      minGasPrice,
+      maxDelay
+    });
+
     return {
-      relayWorkerAddress: this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime),
+      relayWorkerAddress,
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
-      minGasPrice: await this.envelopingArbiter.getQueueGasPrice(maxTime),
-      maxDelay: this.envelopingArbiter.checkMaxDelayForResponse(maxTime),
+      minGasPrice,
+      maxDelay,
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -371,10 +393,11 @@ returnValue        | ${viewRelayCallRet.returnValue}
       })
   }
 
-  start (): void {
+  async start (): Promise<void> {
     log.debug(`Started polling for new blocks every ${this.config.checkInterval}ms`)
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.workerTask = setInterval(this.intervalHandler.bind(this), this.config.checkInterval)
+    await this.envelopingArbiter.start();
   }
 
   stop (): void {
@@ -382,7 +405,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
       throw new Error('Server not started')
     }
     clearInterval(this.workerTask)
-    this.envelopingArbiter.feeEstimator.stop()
+    this.envelopingArbiter.stop()
     log.info('Successfully stopped polling!!')
   }
 
