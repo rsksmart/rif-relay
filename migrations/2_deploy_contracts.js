@@ -16,7 +16,7 @@ const CustomSmartWalletDeployVerifier = artifacts.require('CustomSmartWalletDepl
 
 module.exports = async function (deployer) {
   await deployer.deploy(Penalizer)
-  await deployer.deploy(RelayHub, Penalizer.address, 1, 40000, 1, 1, 1)
+  await deployer.deploy(RelayHub, Penalizer.address, 4, 60000, 4, 4, 4)
   await deployer.deploy(SmartWallet)
   await deployer.deploy(SmartWalletFactory, SmartWallet.address)
   await deployer.deploy(DeployVerifier, SmartWalletFactory.address)

@@ -119,27 +119,9 @@ export class RelayServer extends EventEmitter {
   }
 
   async pingHandler (verifier?: string, maxTime?: string): Promise<PingResponse> {
-    console.log('Ping Handler Relay Server', {
-      verifier,
-      maxTime
-    });
-
     const relayWorkerAddress = this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime);
-
-    console.log('relayWorkerAddress', relayWorkerAddress);
-
     const minGasPrice = await this.envelopingArbiter.getQueueGasPrice(maxTime);
-
-    console.log('minGasPrice', minGasPrice);
-
     const maxDelay = this.envelopingArbiter.checkMaxDelayForResponse(maxTime);
-
-    console.log('Ping Params', {
-      relayWorkerAddress,
-      minGasPrice,
-      maxDelay
-    });
-
     return {
       relayWorkerAddress,
       relayManagerAddress: this.managerAddress,

@@ -291,7 +291,8 @@ export class RegistrationManager {
       if (workersAdded) { break }
     }
     const addWorkersPending = await this.txStoreManager.isActionPending(ServerAction.ADD_WORKER)
-    if (!(workersAdded || addWorkersPending)) {
+    if (!workersAdded || addWorkersPending) {
+      console.log('Adding workers to relay hub', this.workerAddress)
       const txHash = await this.addRelayWorker(currentBlock)
       transactions = transactions.concat(txHash)
     }
