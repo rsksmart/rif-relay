@@ -47,7 +47,8 @@ export const DeployTransactionRequestShape = {
   metadata: {
     relayHubAddress: ow.string,
     relayMaxNonce: ow.number,
-    signature: ow.string
+    signature: ow.string,
+    maxTime: ow.number
   }
 }
 

@@ -217,11 +217,13 @@ export class RelayServer extends EventEmitter {
       gasAlreadyUsedBeforeDoingAnythingInRelayCall
     )
 
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
+
     try {
       if (this.isDeployRequest(req)) {
-        await (verifierContract as IDeployVerifierInstance).contract.methods.verifyRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IDeployVerifierInstance).contract.methods.verifyRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress[workerIndex] }, 'pending')
       } else {
-        await (verifierContract as IRelayVerifierInstance).contract.methods.verifyRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IRelayVerifierInstance).contract.methods.verifyRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress[workerIndex] }, 'pending')
       }
     } catch (e) {
       const error = e as Error
