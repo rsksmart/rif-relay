@@ -29,7 +29,7 @@ const senderNonce = '0'
 const tokensPaid = 1
 let relayRequestData: RelayRequest
 
-contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, senderAddress, other2, verifierOwner, other3]) {
+contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwner]) {
   let deployVerifier: DeployVerifierInstance
   let token: TestTokenInstance
   let template: SmartWalletInstance
@@ -75,7 +75,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
         relayWorker,
         callForwarder: constants.ZERO_ADDRESS,
         callVerifier: deployVerifier.address,
-        domainSeparator: '0x'
+        domainSeparator: '0x0000000000000000000000000000000000000000000000000000000000000000'
       }
     }
 
@@ -170,7 +170,7 @@ contract('DeployVerifier', function ([relayHub, dest, other1, relayWorker, sende
   })
 })
 
-contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, other2, verifierOwner, relayHub]) {
+contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner]) {
   let template: SmartWalletInstance
   let sw: SmartWalletInstance
   let relayVerifier: RelayVerifierInstance
@@ -233,11 +233,13 @@ contract('RelayVerifier', function ([_, dest, relayManager, relayWorker, other, 
     // run method
     const { logs } = await testVerifiers.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub })
     // All checks should pass
-
-    expectEvent.inLogs(logs, 'Accepted', {
-      tokenAmount: new BN(tokensPaid),
-      from: senderAddress
-    })
+    assert.equal(logs[0].event, 'Accepted')
+    assert.equal(logs[0].args[0].toNumber(), new BN(tokensPaid).toNumber())
+    assert.equal(logs[0].args[1].toLowerCase(), senderAddress.toLowerCase())
+    // expectEvent.inLogs(logs, 'Accepted', {
+    //   tokenAmount: new BN(tokensPaid),
+    //   from: senderAddress
+    // })
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
