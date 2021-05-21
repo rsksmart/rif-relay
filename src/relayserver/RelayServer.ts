@@ -46,7 +46,7 @@ export class RelayServer extends EventEmitter {
   ready = false
   lastSuccessfulRounds = Number.MAX_SAFE_INTEGER
   readonly managerAddress: PrefixedHexString
-  //TODO: this should be changed to workerAddresses
+  // TODO: this should be changed to workerAddresses
   readonly workerAddress: PrefixedHexString[]
   gasPrice: number = 0
   _workerSemaphoreOn = false
@@ -119,9 +119,9 @@ export class RelayServer extends EventEmitter {
   }
 
   async pingHandler (verifier?: string, maxTime?: string): Promise<PingResponse> {
-    const relayWorkerAddress = this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime);
-    const minGasPrice = await this.envelopingArbiter.getQueueGasPrice(maxTime);
-    const maxDelay = this.envelopingArbiter.checkMaxDelayForResponse(maxTime);
+    const relayWorkerAddress = this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime)
+    const minGasPrice = await this.envelopingArbiter.getQueueGasPrice(maxTime)
+    const maxDelay = this.envelopingArbiter.checkMaxDelayForResponse(maxTime)
     return {
       relayWorkerAddress,
       relayManagerAddress: this.managerAddress,
@@ -234,7 +234,6 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
-
     /*
     * const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     const method = this.relayHubContract.contract.methods.relayCall(
@@ -381,7 +380,7 @@ returnValue        | ${viewRelayCallRet.returnValue}
     log.debug(`Started polling for new blocks every ${this.config.checkInterval}ms`)
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.workerTask = setInterval(this.intervalHandler.bind(this), this.config.checkInterval)
-    await this.envelopingArbiter.start();
+    await this.envelopingArbiter.start()
   }
 
   stop (): void {

@@ -59,8 +59,7 @@ export class EnvelopingArbiter {
    * Checks if the given timestamp is valid and not from the past
    */
   isValidTime (maxTime: string): boolean {
-    return parseInt(maxTime) > Date.now();
-
+    return parseInt(maxTime) > Date.now()
   }
 
   /**

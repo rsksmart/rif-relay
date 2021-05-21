@@ -1,18 +1,18 @@
 import HttpClient from './HttpClient'
-import {DeployRequest, RelayRequest} from '../common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 
-import {DeployTransactionRequest, RelayMetadata, RelayTransactionRequest} from './types/RelayTransactionRequest'
+import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import HttpWrapper from './HttpWrapper'
-import {constants} from '../common/Constants'
-import {HttpProvider} from 'web3-core'
-import {RelayingAttempt} from './RelayClient'
+import { constants } from '../common/Constants'
+import { HttpProvider } from 'web3-core'
+import { RelayingAttempt } from './RelayClient'
 
-import {EnvelopingConfig, EnvelopingDependencies, getDependencies} from './Configurator'
-import {Address, IntString} from './types/Aliases'
+import { EnvelopingConfig, EnvelopingDependencies, getDependencies } from './Configurator'
+import { Address, IntString } from './types/Aliases'
 
-import {PrefixedHexString, Transaction} from 'ethereumjs-tx'
+import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
-import TypedRequestData, {getDomainSeparatorHash, TypedDeployRequestData} from '../common/EIP712/TypedRequestData'
+import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
 
 import {
   AccountReaderFunction,

@@ -1,10 +1,10 @@
 // @ts-ignore
-import {DataFrame} from 'dataframe-js'
-import {configureServer, ServerConfigParams} from '../relayserver/ServerConfigParams'
-import {BlockTransactionObject} from 'web3-eth'
-import {HttpProvider, IpcProvider, Transaction, WebsocketProvider} from 'web3-core'
+import { DataFrame } from 'dataframe-js'
+import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
+import { BlockTransactionObject } from 'web3-eth'
+import { HttpProvider, IpcProvider, Transaction, WebsocketProvider } from 'web3-core'
 import Web3 from 'web3'
-import Timeout = NodeJS.Timeout;
+import Timeout = NodeJS.Timeout
 
 const BLOCK_TIME = 20
 
@@ -75,7 +75,7 @@ export class FeeEstimator {
    *     | 620         | 1         | 7          | 27.55     |
    *     | 640         | 1         | 8          | 28.57     |
    */
-  analyzeBlocks(fromBlock: number, toBlock: number): DataFrame {
+  analyzeBlocks (fromBlock: number, toBlock: number): DataFrame {
     fromBlock = (fromBlock < 0) ? 0 : fromBlock
     const recentBlocks = this.blockData.filter(
       (row: { get: (arg0: string) => number }) => (row.get('block_number') >= fromBlock && (row.get('block_number') <= toBlock))
@@ -101,7 +101,7 @@ export class FeeEstimator {
    * @param blockMinGasPrice the block minimum gas price
    * @return cleanBlockDf dataframe
    */
-  cleanBlock(blockObj: BlockTransactionObject, timeMined: number, blockMinGasPrice: number): DataFrame {
+  cleanBlock (blockObj: BlockTransactionObject, timeMined: number, blockMinGasPrice: number): DataFrame {
     const cleanBlockDf = new DataFrame([
       {
         block_number: blockObj.number,
@@ -123,7 +123,7 @@ export class FeeEstimator {
    *     ----------------------------------------------------------
    *     | 24d990... | 11641974    | 60000000000 | 600             |
    */
-  cleanTx(txObj: Transaction): DataFrame {
+  cleanTx (txObj: Transaction): DataFrame {
     const roundGP10Gwei = this.roundGP10Gwei(txObj.gasPrice)
     const cleanTxDf = new DataFrame([
       {
@@ -141,14 +141,14 @@ export class FeeEstimator {
    * @param predictTable a dataframe containing a prediction table
    * @return gas price accepted in STANDARD % of recent mined blocks
    */
-  getAverage(predictTable: DataFrame): number {
+  getAverage (predictTable: DataFrame): number {
     if (predictTable.count() > 0) {
       const average = predictTable.filter(
-          (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= STANDARD
+        (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= STANDARD
       ).stat.min('gasprice')
       return average / 10
     }
-    return 0;
+    return 0
   }
 
   /**
@@ -156,10 +156,10 @@ export class FeeEstimator {
    * @param predictTable a dataframe containing a prediction table
    * @return gas price accepted in FAST % of recent mined blocks
    */
-  getFast(predictTable: DataFrame): number {
+  getFast (predictTable: DataFrame): number {
     if (predictTable.count() > 0) {
       const fast = predictTable.filter(
-          (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= FAST
+        (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= FAST
       ).stat.min('gasprice')
       return fast / 10
     }
@@ -171,15 +171,15 @@ export class FeeEstimator {
    * @param predictTable a dataframe containing a prediction table
    * @return gas price accepted in the maximum % of blocks
    */
-  getFastest(predictTable: DataFrame): number {
+  getFastest (predictTable: DataFrame): number {
     if (predictTable.count() > 0) {
       const hpMax = predictTable.stat.max('hashpower_accepting')
       const fastest = predictTable.filter(
-          (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') === hpMax
+        (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') === hpMax
       ).stat.min('gasprice')
       return fastest / 10
     }
-    return 0;
+    return 0
   }
 
   /**
@@ -187,7 +187,7 @@ export class FeeEstimator {
    * @param predictTable a dataframe containing a prediction table
    * @return a dataframe containing the estimated gas prices
    */
-  getGasPriceRecs(predictTable: DataFrame): DataFrame {
+  getGasPriceRecs (predictTable: DataFrame): DataFrame {
     let gpRecs = new DataFrame({ gasprice: [this.getSafeLow(predictTable)] }, ['safeLow'])
     gpRecs = gpRecs.withColumn('standard', () => this.getAverage(predictTable))
     gpRecs = gpRecs.withColumn('fast', () => this.getFast(predictTable))
@@ -203,7 +203,7 @@ export class FeeEstimator {
    * @param hashPower the hashPower dataframe that contains the data
    * @return a number representing the % of blocks that accepted that gas price
    */
-  getHPA(gasPrice: number, hashPower: DataFrame): number {
+  getHPA (gasPrice: number, hashPower: DataFrame): number {
     let hpa = hashPower.filter(
       (row: { get: (arg0: string) => number }) => gasPrice >= row.get('mingasprice')
     ).drop('count').drop('cum_blocks')
@@ -222,14 +222,14 @@ export class FeeEstimator {
    * @param predictTable a dataframe containing a prediction table
    * @return gas price accepted in minimum SAFELOW % of recent mined blocks
    */
-  getSafeLow(predictTable: DataFrame): number {
+  getSafeLow (predictTable: DataFrame): number {
     if (predictTable.count() > 0) {
       const safelow = predictTable.filter(
-          (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= SAFELOW
+        (row: { get: (arg0: string) => number }) => row.get('hashpower_accepting') >= SAFELOW
       ).stat.min('gasprice')
       return safelow / 10
     }
-    return 0;
+    return 0
   }
 
   /**
@@ -246,7 +246,7 @@ export class FeeEstimator {
    *     | 700       | 68                  |
    *     | 720       | 70                  |
    */
-  makePredictTable(hashPower: DataFrame): DataFrame {
+  makePredictTable (hashPower: DataFrame): DataFrame {
     const predictTable = new DataFrame({ gasprice: hashPower.toArray('mingasprice') }, ['gasprice'])
       .sortBy('gasprice')
       .withColumn('hashpower_accepting', (row: { get: (arg0: string) => any }) => {
@@ -271,7 +271,7 @@ export class FeeEstimator {
    *     | 11641919     | 1d9c64... | 161047...  | 450         |
    *
    */
-  processBlockData(blockDf: DataFrame, blockObj: BlockTransactionObject): DataFrame {
+  processBlockData (blockDf: DataFrame, blockObj: BlockTransactionObject): DataFrame {
     let blockMinGasPrice
     if (blockObj.transactions.length > 0) {
       blockMinGasPrice = blockDf.stat.min('round_gp_10gwei')
@@ -287,7 +287,7 @@ export class FeeEstimator {
    * @param gasPrice a gas price expressed in Wei
    * @return gas price expressed in ten Gwei
    */
-  roundGP10Gwei(gasPrice: string): number {
+  roundGP10Gwei (gasPrice: string): number {
     let gp = parseInt(gasPrice) / 1e8
     if (gp >= 1 && gp < 10) {
       gp = Math.floor(gp)
@@ -316,7 +316,7 @@ export class FeeEstimator {
         this.worker = setInterval(() => this.workerJob(), this.config.checkInterval)
       } catch (error) {
         console.error(error)
-        throw new Error("Error initializing Fee Estimator")
+        throw new Error('Error initializing Fee Estimator')
       }
     }
   }

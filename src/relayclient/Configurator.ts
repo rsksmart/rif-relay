@@ -10,7 +10,7 @@ import HttpClient from './HttpClient'
 import HttpWrapper from './HttpWrapper'
 import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter, AsyncDataCallback } from './types/Aliases'
+import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
 import { GasPricePingFilter } from './RelayClient'
 import { CommitmentValidator } from '../enveloping/CommitmentValidator'
 

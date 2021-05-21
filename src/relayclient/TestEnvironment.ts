@@ -17,7 +17,6 @@ import { Environment, defaultEnvironment } from '../common/Environments'
 import { configureServer, ServerConfigParams } from '../relayserver/ServerConfigParams'
 import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 
-
 export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult
   relayProvider: RelayProvider
