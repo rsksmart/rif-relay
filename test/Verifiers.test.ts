@@ -149,6 +149,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
+    deployRequestData.request.tokenAmount = (tokensPaid + 100).toString()
 
     await expectRevert.unspecified(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
