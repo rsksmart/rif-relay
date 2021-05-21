@@ -305,7 +305,7 @@ export class FeeEstimator {
    * sets up a worker that will run updates every GsnConfig.checkInterval ms
    */
   async start (): Promise<void> {
-    if (!this.initialized) {
+    if (this.initialized === false) {
       try {
         this.initialized = true
         await this.web3.eth.net.isListening()
@@ -336,7 +336,7 @@ export class FeeEstimator {
    * A worker semaphore (mutex) has been added to ensure that only one process is running at a time.
    */
   workerJob (): void {
-    if (!this.workerSemaphore) {
+    if (this.workerSemaphore === false) {
       this.workerSemaphore = true
       this.web3.eth.getBlock('latest').then(async (latestBlock) => {
         if (this.currentBlock < latestBlock.number) {

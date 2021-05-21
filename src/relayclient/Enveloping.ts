@@ -207,7 +207,7 @@ export class Enveloping {
       relayHubAddress: this.config.relayHubAddress,
       signature: signature,
       relayMaxNonce: await this.dependencies.contractInteractor.getTransactionCount(this.relayWorkerAddress) + this.config.maxRelayNonceGap,
-      maxTime: maxTime || (Date.now() + (300 * 1000))
+      maxTime: maxTime ?? (Date.now() + (300 * 1000))
     }
   }
 
