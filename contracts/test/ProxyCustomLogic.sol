@@ -1,13 +1,14 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "../interfaces/IForwarder.sol";
-import "../interfaces/WalletCustomLogic.sol";
+import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
-contract ProxyCustomLogic is WalletCustomLogic {
+contract ProxyCustomLogic is IWalletCustomLogic {
     using ECDSA for bytes32;
 
     event LogicCalled();
