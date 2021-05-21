@@ -4,10 +4,10 @@ pragma experimental ABIEncoderV2;
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "../interfaces/IForwarder.sol";
-import "../interfaces/WalletCustomLogic.sol";
+import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
-contract SuccessCustomLogic is WalletCustomLogic {
+contract SuccessCustomLogic is IWalletCustomLogic {
     using ECDSA for bytes32;
 
     event LogicCalled();

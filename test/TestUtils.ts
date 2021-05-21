@@ -493,7 +493,7 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
 }
 
 /**
- * Decodes events which satisfies an ABI's specification
+ * Decodes events which satisfies an ABI specification
  */
 export function containsEvent (abi: any, rawLogs: any, eventName: string): boolean {
   const eventsAbiByTopic = getEventsAbiByTopic(abi)
