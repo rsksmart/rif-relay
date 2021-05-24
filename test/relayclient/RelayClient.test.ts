@@ -14,7 +14,7 @@ import {
   SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance, TestDeployVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 
-import { DeployRequest } from '../../src/common/EIP712/RelayRequest'
+import {DeployRequest, RelayRequest} from '../../src/common/EIP712/RelayRequest'
 import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -912,6 +912,25 @@ contract('RelayClient', function (accounts) {
       const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
       assert.isUndefined(transaction)
       assert.equal(error!.message, 'Returned transaction did not pass validation')
+      expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+    })
+
+    it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
+      const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
+      let dependencyTree = getDependencies(configure(config), underlyingProvider, {
+        httpClient: badHttpClient
+      })
+      const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
+      await relayClient._init()
+
+      // register gasless account in RelayClient to avoid signing with RSKJ
+      relayClient.accountManager.addAccount(gaslessAccount)
+
+      // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+      sinon.spy(dependencyTree.knownRelaysManager)
+      const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+      assert.isUndefined(transaction)
+      assert.equal(error!.message, 'Returned commitment did not pass validation')
       expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
     })
   })
