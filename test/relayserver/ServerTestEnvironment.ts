@@ -2,7 +2,7 @@
 import abiDecoder from 'abi-decoder'
 import Web3 from 'web3'
 import crypto from 'crypto'
-import { HttpProvider } from 'web3-core'
+import {HttpProvider, TransactionReceipt} from 'web3-core'
 import { toHex, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
@@ -30,7 +30,7 @@ import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { removeHexPrefix } from '../../src/common/Utils'
+import {removeHexPrefix, sleep} from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
@@ -168,12 +168,12 @@ export class ServerTestEnvironment {
     await web3.eth.sendTransaction({
       to: this.relayServer.managerAddress,
       from: this.relayOwner,
-      value: web3.utils.toWei('2', 'ether')
+      value: web3.utils.toWei('20', 'ether')
     })
 
     await this.relayHub.stakeForAddress(this.relayServer.managerAddress, unstakeDelay, {
       from: this.relayOwner,
-      value: ether('1')
+      value: ether('10')
     })
   }
 
@@ -285,8 +285,22 @@ export class ServerTestEnvironment {
     assert.deepEqual([], await this.relayServer.transactionManager.txStoreManager.getAll())
   }
 
+  async getTransactionReceipt (txHash: PrefixedHexString, callback?: (
+      error: Error,
+      transactionReceipt: TransactionReceipt
+  ) => void): Promise<TransactionReceipt> {
+    for (let tryCount = 0; tryCount < 5; tryCount++) {
+      const transactionReceipt = await this.web3.eth.getTransactionReceipt(txHash, callback);
+      if (transactionReceipt != null) {
+        return transactionReceipt;
+      }
+      await sleep(1000);
+    }
+    throw new Error('No receipt for this transaction' + txHash);
+  }
+
   async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<void> {
-    const receipt = await web3.eth.getTransactionReceipt(txHash)
+    const receipt = await this.getTransactionReceipt(txHash)
     if (receipt == null) {
       throw new Error('Transaction Receipt not found')
     }

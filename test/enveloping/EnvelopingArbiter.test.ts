@@ -17,7 +17,7 @@ import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
 const { assert } = chai.use(chaiAsPromised).use(sinonChai)
 
 contract('EnvelopingArbiter', function (accounts) {
-  let env: ServerTestEnvironment
+  let globalEnv: ServerTestEnvironment
 
   before(async function () {
     const relayClientConfig: Partial<EnvelopingConfig> = {
@@ -26,51 +26,57 @@ contract('EnvelopingArbiter', function (accounts) {
       chainId: (await getTestingEnvironment()).chainId
     }
 
-    env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-    await env.init(relayClientConfig)
-    await env.newServerInstance()
-    await env.clearServerStorage()
+    globalEnv = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
+    await globalEnv.init(relayClientConfig)
+    await globalEnv.newServerInstance({
+      workerMinBalance: 1e18, // 0.001 RBTC
+      workerTargetBalance: 2e18, // 0.003 RBTC
+      managerMinBalance: 10e18, // 0.001 RBTC
+      managerMinStake: '10', // 1 wei
+      managerTargetBalance: 20e18, // 0.003 RBTC
+    })
+    await globalEnv.clearServerStorage()
   })
 
   describe('#init()', function () {
     it('should initialize Fee Estimator on start', async function () {
-      const env = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
-      await env.init({})
-      assert.equal(env.envelopingArbiter.feeEstimator.initialized, true)
+      const initEnv = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
+      await initEnv.init({})
+      assert.equal(initEnv.envelopingArbiter.feeEstimator.initialized, true)
     })
   })
 
   describe('#getFeesTable()', function () {
     it('should return calculated fees table', async function () {
-      const feesTable = await env.envelopingArbiter.getFeesTable()
+      const feesTable = await globalEnv.envelopingArbiter.getFeesTable()
       assert.isOk(feesTable, 'feesTable is ok')
     })
   })
 
   describe('#getQueueWorker()', function () {
     it('should return the Worker Tier 2 address by default if no MaxTime specified', async function () {
-      const workerTier2Address = env.relayServer.workerAddress[1]
-      const selectedWorkerAddress = env.envelopingArbiter.getQueueWorker(env.relayServer.workerAddress)
+      const workerTier2Address = globalEnv.relayServer.workerAddress[1]
+      const selectedWorkerAddress = globalEnv.envelopingArbiter.getQueueWorker(globalEnv.relayServer.workerAddress)
       assert.equal(workerTier2Address, selectedWorkerAddress)
     })
 
     it('should return the Worker Tier 2 address by default if an invalid MaxTime is specified', async function () {
-      const workerTier2Address = env.relayServer.workerAddress[1]
-      const selectedWorkerAddress = env.envelopingArbiter.getQueueWorker(env.relayServer.workerAddress, '10')
+      const workerTier2Address = globalEnv.relayServer.workerAddress[1]
+      const selectedWorkerAddress = globalEnv.envelopingArbiter.getQueueWorker(globalEnv.relayServer.workerAddress, '10')
       assert.equal(workerTier2Address, selectedWorkerAddress)
     })
   })
 
   describe('#getQueueGasPrice()', function () {
     it('should return the standard gas price by default if no MaxTime specified', async function () {
-      const standardGasPrice = (await env.envelopingArbiter.getFeesTable()).standard
-      const selectedGasPrice = parseFloat(await env.envelopingArbiter.getQueueGasPrice())
+      const standardGasPrice = (await globalEnv.envelopingArbiter.getFeesTable()).standard
+      const selectedGasPrice = parseFloat(await globalEnv.envelopingArbiter.getQueueGasPrice())
       assert.equal(standardGasPrice, selectedGasPrice)
     })
 
     it('should return the standard gas price by default if an invalid MaxTime is specified', async function () {
-      const standardGasPrice = (await env.envelopingArbiter.getFeesTable()).standard
-      const selectedGasPrice = parseFloat(await env.envelopingArbiter.getQueueGasPrice('20'))
+      const standardGasPrice = (await globalEnv.envelopingArbiter.getFeesTable()).standard
+      const selectedGasPrice = parseFloat(await globalEnv.envelopingArbiter.getQueueGasPrice('20'))
       assert.equal(standardGasPrice, selectedGasPrice)
     })
   })
@@ -78,7 +84,7 @@ contract('EnvelopingArbiter', function (accounts) {
   describe('validations before commitment signing', function () {
     it('should return error if a Relay Client doesn\'t send a valid maxTime value to Relay Server', async function () {
       try {
-        await env.relayTransaction(true, {}, false)
+        await globalEnv.relayTransaction(true, {}, false)
         assert.fail()
       } catch (e) {
         assert.include(e.message, 'Error: invalid maxTime.')
@@ -87,7 +93,7 @@ contract('EnvelopingArbiter', function (accounts) {
 
     it('should return error if a Relay Client doesn\'t send a valid relay worker/maxTime combination to Relay Server', async function () {
       try {
-        await env.relayTransaction(true, {}, true, false)
+        await globalEnv.relayTransaction(true, {}, true, false)
         assert.fail()
       } catch (e) {
         assert.include(e.message, 'Error: invalid workerAddress/maxTime combination.')
@@ -95,29 +101,29 @@ contract('EnvelopingArbiter', function (accounts) {
     })
 
     it('should return error if the commitment signing is invalid (server check)', async function () {
-      const origEnvelopingArbiter = env.relayServer.envelopingArbiter
+      const origEnvelopingArbiter = globalEnv.relayServer.envelopingArbiter
       try {
-        env.relayServer.envelopingArbiter = new BadEnvelopingArbiter(configureServer({}), env.provider, true)
-        await env.relayTransaction()
+        globalEnv.relayServer.envelopingArbiter = new BadEnvelopingArbiter(configureServer({}), globalEnv.provider, true)
+        await globalEnv.relayTransaction()
         assert.fail()
       } catch (e) {
         assert.include(e.message, 'Error: Invalid receipt. Worker signature invalid.')
       } finally {
-        env.relayServer.envelopingArbiter = origEnvelopingArbiter
+        globalEnv.relayServer.envelopingArbiter = origEnvelopingArbiter
       }
     })
 
     it('should relay a transaction if the request is valid', async function () {
-      await env.relayTransaction(true)
+      await globalEnv.relayTransaction(true)
     })
   })
 
   describe('NonceQueueSelector', function () {
     it('should relay transactions using multiple workers', async function () {
-      const tx1 = await env.relayTransaction(true, {}, true, true, 0)
-      const tx2 = await env.relayTransaction(true, {}, true, true, 1)
-      const tx3 = await env.relayTransaction(true, {}, true, true, 2)
-      const tx4 = await env.relayTransaction(true, {}, true, true, 3)
+      const tx1 = await globalEnv.relayTransaction(true, {}, true, true, 0)
+      const tx2 = await globalEnv.relayTransaction(true, {}, true, true, 1)
+      const tx3 = await globalEnv.relayTransaction(true, {}, true, true, 2)
+      const tx4 = await globalEnv.relayTransaction(true, {}, true, true, 3)
       assert.notEqual(tx1.signedReceipt?.workerAddress, tx2.signedReceipt?.workerAddress)
       assert.notEqual(tx1.signedReceipt?.workerAddress, tx3.signedReceipt?.workerAddress)
       assert.notEqual(tx1.signedReceipt?.workerAddress, tx4.signedReceipt?.workerAddress)
@@ -132,11 +138,11 @@ contract('EnvelopingArbiter', function (accounts) {
       const deviationMargin = 10
       const ethMainnet = new Web3.providers.HttpProvider('https://mainnet.infura.io/v3/f40be2b1a3914db682491dc62a19ad43')
       const httpWrapper = new HttpWrapper()
-      env.envelopingArbiter.feeEstimator.stop()
-      env.envelopingArbiter = new EnvelopingArbiter(configureServer({
+      globalEnv.envelopingArbiter.feeEstimator.stop()
+      globalEnv.envelopingArbiter = new EnvelopingArbiter(configureServer({
         checkInterval: 10000
       }), ethMainnet)
-      await env.envelopingArbiter.start()
+      await globalEnv.envelopingArbiter.start()
       // First, read every gas api and make a table.
       // Each row represents a distinct API service: Etherscan = 0, Etherchain = 1,
       // EthGasStation = 2, MyCrypto = 3, PoA = 4, Upvest = 5
@@ -190,7 +196,7 @@ contract('EnvelopingArbiter', function (accounts) {
       // Create another table that contains the calculated valid margins and the original value,
       // low margin = 0, original value = 1, higher margin = 2
       // Each row represents each delay: safeLow = 0, standard = 1, fast = 2, fastest = 3
-      const feesTable = await env.envelopingArbiter.getFeesTable()
+      const feesTable = await globalEnv.envelopingArbiter.getFeesTable()
       margins.push([
         Math.round(feesTable.safeLow - (feesTable.safeLow * deviationMargin / 100)),
         Math.round(feesTable.safeLow),
