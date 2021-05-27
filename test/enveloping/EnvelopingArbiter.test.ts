@@ -29,11 +29,11 @@ contract('EnvelopingArbiter', function (accounts) {
     globalEnv = new ServerTestEnvironment(web3.currentProvider as HttpProvider, accounts)
     await globalEnv.init(relayClientConfig)
     await globalEnv.newServerInstance({
-      workerMinBalance: 1e18, // 0.001 RBTC
-      workerTargetBalance: 2e18, // 0.003 RBTC
-      managerMinBalance: 10e18, // 0.001 RBTC
-      managerMinStake: '10', // 1 wei
-      managerTargetBalance: 20e18, // 0.003 RBTC
+      workerMinBalance: 0.1e18,
+      workerTargetBalance: 0.2e18,
+      managerMinBalance: 1e18,
+      managerMinStake: '1',
+      managerTargetBalance: 2e18,
     })
     await globalEnv.clearServerStorage()
   })

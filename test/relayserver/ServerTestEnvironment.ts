@@ -168,12 +168,12 @@ export class ServerTestEnvironment {
     await web3.eth.sendTransaction({
       to: this.relayServer.managerAddress,
       from: this.relayOwner,
-      value: web3.utils.toWei('20', 'ether')
+      value: web3.utils.toWei('2', 'ether')
     })
 
     await this.relayHub.stakeForAddress(this.relayServer.managerAddress, unstakeDelay, {
       from: this.relayOwner,
-      value: ether('10')
+      value: ether('1')
     })
   }
 
@@ -285,22 +285,8 @@ export class ServerTestEnvironment {
     assert.deepEqual([], await this.relayServer.transactionManager.txStoreManager.getAll())
   }
 
-  async getTransactionReceipt (txHash: PrefixedHexString, callback?: (
-      error: Error,
-      transactionReceipt: TransactionReceipt
-  ) => void): Promise<TransactionReceipt> {
-    for (let tryCount = 0; tryCount < 5; tryCount++) {
-      const transactionReceipt = await this.web3.eth.getTransactionReceipt(txHash, callback);
-      if (transactionReceipt != null) {
-        return transactionReceipt;
-      }
-      await sleep(1000);
-    }
-    throw new Error('No receipt for this transaction' + txHash);
-  }
-
   async assertTransactionRelayed (txHash: string, reqSignatureHash: string, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<void> {
-    const receipt = await this.getTransactionReceipt(txHash)
+    const receipt = await web3.eth.getTransactionReceipt(txHash)
     if (receipt == null) {
       throw new Error('Transaction Receipt not found')
     }

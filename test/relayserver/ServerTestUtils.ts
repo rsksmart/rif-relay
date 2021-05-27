@@ -9,14 +9,10 @@ import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { sleep } from '../../src/common/Utils'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
-
-const WAIT_FOR_RECEIPT_RETRIES = 5
-const WAIT_UNTIL_RECEIPT_MS = 1000
 
 abiDecoder.addABI(RelayHubABI)
 abiDecoder.addABI(RelayVerifierABI)
@@ -29,19 +25,10 @@ abiDecoder.addABI(TestVerifierEverythingAccepted.abi)
 // @ts-ignore
 abiDecoder.addABI(TestDeployVerifierEverythingAccepted.abi)
 
-async function waitForReceipt (transactionHash: PrefixedHexString): Promise<TransactionReceipt> {
-  for (let tryCount = 0; tryCount < WAIT_FOR_RECEIPT_RETRIES; tryCount++) {
-    const receipt = await web3.eth.getTransactionReceipt(transactionHash)
-    if (receipt) {
-      return receipt
-    }
-    await sleep(WAIT_UNTIL_RECEIPT_MS)
-  }
-  throw new Error(`No receipt found for this transaction ${transactionHash}`)
-}
-
 async function resolveAllReceipts (transactionHashes: PrefixedHexString[]): Promise<TransactionReceipt[]> {
-  return await Promise.all(transactionHashes.map((transactionHash) => waitForReceipt(transactionHash)))
+  // actually returns promise for '.all'
+  // eslint-disable-next-line @typescript-eslint/promise-function-async
+  return await Promise.all(transactionHashes.map((transactionHash) => web3.eth.getTransactionReceipt(transactionHash)))
 }
 
 export async function assertRelayAdded (transactionHashes: PrefixedHexString[], server: RelayServer, checkWorkers = true): Promise<void> {
