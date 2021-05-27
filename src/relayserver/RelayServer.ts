@@ -234,33 +234,6 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
-    /*
-    * const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
-    const method = this.relayHubContract.contract.methods.relayCall(
-      acceptanceBudget, req.relayRequest, req.metadata.signature, req.metadata.approvalData, maxPossibleGas)
-    let viewRelayCallRet: { paymasterAccepted: boolean, returnValue: string }
-    try {
-      viewRelayCallRet =
-        await method.call({
-          from: this.workerAddress[workerIndex],
-          gasPrice: req.relayRequest.relayData.gasPrice,
-          gasLimit: maxPossibleGas
-        })
-    } catch (e) {
-      throw new Error(`relayCall reverted in server: ${(e as Error).message}`)
-    }
-    log.debug(`Result for view-only relay call:
-paymasterAccepted  | ${viewRelayCallRet.paymasterAccepted ? chalk.green('true') : chalk.red('false')}
-returnValue        | ${viewRelayCallRet.returnValue}
-`)
-    if (!viewRelayCallRet.paymasterAccepted) {
-      throw new Error(
-        `Paymaster rejected in server: ${decodeRevertReason(viewRelayCallRet.returnValue)} req=${JSON.stringify(req, null, 2)}`)
-    }
-    * */
-
-    // const gasEstimated = await method.estimateGas({from: this.workerAddress,
-    // gasPrice:req.relayRequest.relayData.gasPrice})
     const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     try {
       await method.call({
