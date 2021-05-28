@@ -38,7 +38,7 @@ import { ethers } from 'ethers'
 import Timeout = NodeJS.Timeout
 
 const VERSION = '2.0.1'
-const PARAMETERS_COST = 45000
+const PARAMETERS_COST = 43782
 
 export class RelayServer extends EventEmitter {
   lastScannedBlock = 0
