@@ -60,8 +60,8 @@ class TestEnvironmentClass {
 
     const registerOptions = {
       from,
-      stake: ether('1'),
-      funds: ether('2'),
+      stake: ether('10'),
+      funds: ether('20'),
       relayUrl: relayUrl,
       gasPrice: '1e9',
       unstakeDelay: '2000'
