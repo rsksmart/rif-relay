@@ -11,7 +11,7 @@ import { bytes32, containsEvent, getTestingEnvironment } from '../TestUtils'
 import TypedRequestData, { ForwardRequestType, getDomainSeparatorHash } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
-import RelayData from '../../src/common/EIP712/RelayData';
+import RelayData from '../../src/common/EIP712/RelayData'
 import { expectRevert } from '@openzeppelin/test-helpers'
 import { ForwardRequest } from '../../src/common/EIP712/ForwardRequest'
 
@@ -33,8 +33,8 @@ async function getTokenBalance (token: TestTokenInstance, account: string): Prom
   return await token.balanceOf(account)
 }
 
-function createRequest(request: Partial<ForwardRequest>, relayData: Partial<RelayData>): RelayRequest {
-   const baseRequest: RelayRequest = {
+function createRequest (request: Partial<ForwardRequest>, relayData: Partial<RelayData>): RelayRequest {
+  const baseRequest: RelayRequest = {
     request: {
       relayHub: constants.ZERO_ADDRESS,
       from: constants.ZERO_ADDRESS,
@@ -55,22 +55,23 @@ function createRequest(request: Partial<ForwardRequest>, relayData: Partial<Rela
       callVerifier: constants.ZERO_ADDRESS
     }
   }
-  return { 
+  return {
     request: {
       ...baseRequest.request,
       ...request
-    }, relayData: {
+    },
+    relayData: {
       ...baseRequest.relayData,
       ...relayData
     }
-  };
+  }
 }
 
-function signRequest(senderPrivateKey: Buffer, relayRequest: RelayRequest, chainId: number) {
+function signRequest (senderPrivateKey: Buffer, relayRequest: RelayRequest, chainId: number): { signature: string, suffixData: string } {
   const reqData: EIP712TypedData = new TypedRequestData(chainId, relayRequest.relayData.callForwarder, relayRequest)
   const signature = signTypedData_v4(senderPrivateKey, { data: reqData })
   const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + ForwardRequestType.length) * 32))
-  return {signature, suffixData}
+  return { signature, suffixData }
 }
 
 contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
@@ -82,7 +83,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
   let smartWallet: CustomSmartWalletInstance
   let domainSeparatorHash: string
   let relayData: Partial<RelayData>
-  
+
   before(async () => {
     senderAddress = bufferToHex(privateToAddress(senderPrivateKey)).toLowerCase()
     token = await TestToken.new()
@@ -100,12 +101,12 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
   describe('#verifyAndCall', () => {
     let recipient: TestForwarderTargetInstance
-    let recipientFunction: any;
+    let recipientFunction: any
 
     beforeEach(async () => {
       await fillTokens(token, smartWallet.address, '1000')
       recipient = await TestForwarderTarget.new()
-      recipientFunction = recipient.contract.methods.emitMessage('hello').encodeABI();
+      recipientFunction = recipient.contract.methods.emitMessage('hello').encodeABI()
     })
 
     it('should call function with custom logic', async () => {
@@ -124,8 +125,8 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
         relayHub: worker,
         tokenContract: token.address,
         from: senderAddress
-      }, relayData);
-      const {signature, suffixData} = signRequest(senderPrivateKey, relayRequest, chainId)
+      }, relayData)
+      const { signature, suffixData } = signRequest(senderPrivateKey, relayRequest, chainId)
 
       const result = await smartWallet.execute(domainSeparatorHash, suffixData, relayRequest.request, signature, { from: worker })
 
@@ -158,7 +159,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
         relayHub: worker,
         tokenContract: token.address,
         from: senderAddress
-      }, relayData);
+      }, relayData)
       const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, relayRequest)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
@@ -201,7 +202,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
         relayHub: caller.address,
         tokenContract: token.address,
         from: senderAddress
-      }, relayData);
+      }, relayData)
       const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, relayRequest)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
@@ -237,7 +238,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
         relayHub: caller.address,
         tokenContract: token.address,
         from: senderAddress
-      }, relayData);
+      }, relayData)
       const reqData: EIP712TypedData = new TypedRequestData(chainId, smartWallet.address, relayRequest)
       const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
       const suffixData = bufferToHex(TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types).slice((1 + countParams) * 32))
@@ -266,12 +267,12 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
   describe('#verifyAndCallByOwner', () => {
     let recipient: TestForwarderTargetInstance
-    let recipientFunction: any;
+    let recipientFunction: any
 
     beforeEach(async () => {
       await fillTokens(token, smartWallet.address, '1000')
       recipient = await TestForwarderTarget.new()
-      recipientFunction = recipient.contract.methods.emitMessage('hello').encodeABI();
+      recipientFunction = recipient.contract.methods.emitMessage('hello').encodeABI()
     })
 
     it('should call function with custom logic', async () => {
