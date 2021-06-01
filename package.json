@@ -21,8 +21,9 @@
       "email": "dmasini@iovlabs.org"
     }
   ],
+  "prepublish": "npm run prepare",
   "scripts": {
-    "generate": "./scripts/extract_abi.js"
+    "prepare": "./scripts/extract_abi.js"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
