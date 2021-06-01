@@ -8,7 +8,10 @@ import "../interfaces/IForwarder.sol";
 import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
-/* solhint-disable */
+/* solhint-disable avoid-low-level-calls, no-unused-vars */
+/**
+* Example custom logic which always fail
+*/
 contract FailureCustomLogic is IWalletCustomLogic {
     using ECDSA for bytes32;
 
@@ -28,11 +31,9 @@ contract FailureCustomLogic is IWalletCustomLogic {
         revert("always fail");
     }
 
-    // solhint-disable-next-line no-unused-vars
     function directExecute(address to, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
-        revert();
+        revert("always fail");
     }
 }
-/* solhint-enable */

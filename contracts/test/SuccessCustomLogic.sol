@@ -8,19 +8,21 @@ import "../interfaces/IForwarder.sol";
 import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
-/* solhint-disable */
+/* solhint-disable avoid-low-level-calls, no-unused-vars */
+
+/**
+* Example custom logic which always succeed
+*/
 contract SuccessCustomLogic is IWalletCustomLogic {
     using ECDSA for bytes32;
 
     event LogicCalled();
     event InitCalled();
 
-    // solhint-disable-next-line no-unused-vars
     function initialize(bytes memory initParams) override public {
         emit InitCalled();
     }
 
-    // solhint-disable-next-line no-unused-vars
     function execute(
         bytes32 domainSeparator,
         bytes32 suffixData,
@@ -31,7 +33,6 @@ contract SuccessCustomLogic is IWalletCustomLogic {
         ret = "success";
     }
 
-    // solhint-disable-next-line no-unused-vars
     function directExecute(address to, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
@@ -39,4 +40,3 @@ contract SuccessCustomLogic is IWalletCustomLogic {
         ret = "success";
     }
 }
-/* solhint-enable */
