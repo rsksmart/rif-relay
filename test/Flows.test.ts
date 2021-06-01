@@ -69,19 +69,17 @@ options.forEach(params => {
       rhub = await deployHub(p.address)
       if (params.relay) {
         process.env.relaylog = 'true'
-
         relayproc = (await startRelay(rhub, {
-          workerTargetBalance: 0.6e18,
           stake: 1e18,
-          delay: 3600 * 24 * 7,
-          url: 'asd',
           relayOwner: fundedAccount.address,
           // @ts-ignore
           rskNodeUrl: web3.currentProvider.host,
-          gasPriceFactor,
-          relaylog: process.env.relaylog,
+          deployVerifierAddress: deployVerifier.address,
           relayVerifierAddress: verifier.address,
-          deployVerifierAddress: deployVerifier.address
+          workerMinBalance: 0.01e18,
+          workerTargetBalance: 0.03e18,
+          managerMinBalance: 0.01e18,
+          managerTargetBalance: 0.03e18
         })).proc
         console.log('relay started')
         from = gaslessAccount.address
