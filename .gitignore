@@ -34,3 +34,4 @@ rsknode/src/
 .vscode/
 dockers/
 tsconfig.
+typechain/*
