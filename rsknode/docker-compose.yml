@@ -2,18 +2,11 @@ version: "3"
 services:
   rskj:
     build:
-      context: "."
       args:
         - rskj_codename=PAPYRUS
-        - rskj_version=2.2.0
-    container_name: rsk-node
+        - rskj_version=2.1.0
+    container_name: rskj
     image: rskj:latest
     command: --regtest
     ports:
       - "127.0.0.1:4444:4444"
-    networks: 
-      - "enveloping-tests-net"
-
-networks:
-  enveloping-tests-net: 
-    external: true
