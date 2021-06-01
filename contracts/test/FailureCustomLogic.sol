@@ -8,6 +8,7 @@ import "../interfaces/IForwarder.sol";
 import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
+/* solhint-disable */
 contract FailureCustomLogic is IWalletCustomLogic {
     using ECDSA for bytes32;
 
@@ -27,9 +28,11 @@ contract FailureCustomLogic is IWalletCustomLogic {
         revert("always fail");
     }
 
+    // solhint-disable-next-line no-unused-vars
     function directExecute(address to, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
         revert();
     }
 }
+/* solhint-enable */
