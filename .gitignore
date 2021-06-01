@@ -34,4 +34,3 @@ rsknode/src/
 .vscode/
 dockers/
 tsconfig.
-environment/
