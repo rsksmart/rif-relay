@@ -9,7 +9,7 @@ RUN gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 1A92D89421
 RUN gpg --finger 1A92D8942171AFA951A857365DECF4415E3B8FA4
 
 ARG rskj_codename=PAPYRUS
-ARG rskj_version=2.1.0
+ARG rskj_version=2.2.0
 ENV RSKJ_BRANCH=${rskj_codename}-${rskj_version}
 
 RUN git clone --single-branch --depth 1 --branch "${RSKJ_BRANCH}" https://github.com/rsksmart/rskj.git /code/rskj
@@ -24,15 +24,17 @@ RUN ./gradlew --no-daemon clean build -x test
 FROM openjdk:8-jdk-slim-buster
 
 ARG rskj_codename=PAPYRUS
-ARG rskj_version=2.1.0
+ARG rskj_version=2.2.0
 
 WORKDIR /usr/local/rskj
 COPY --from=build /code/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-${rskj_codename}-all.jar ./rsk.jar
 COPY node.conf ./node.conf
 COPY logback.xml ./logback.xml
 
+RUN mkdir -p /root/.rsk/regtest/database
+RUN chmod -R 777 /root/.rsk
+
 ENTRYPOINT ["java", \
     "-Drsk.conf.file=./node.conf", \
     "-Dlogback.configurationFile=./logback.xml", \
-    "-Ddatabase.dir=./db", \
     "-cp", "./rsk.jar", "co.rsk.Start" ]
