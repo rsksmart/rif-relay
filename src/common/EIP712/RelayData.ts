@@ -1,5 +1,4 @@
-import { Address, IntString } from '../../relayclient/types/Aliases'
-import { PrefixedHexString } from 'ethereumjs-tx'
+import { Address, IntString, PrefixedHexString } from '../../relayclient/types/Aliases'
 
 export default interface RelayData {
   gasPrice: IntString

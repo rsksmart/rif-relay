@@ -1,5 +1,4 @@
-import { PrefixedHexString } from 'ethereumjs-tx'
-import { Address, IntString } from './Aliases'
+import { Address, IntString, PrefixedHexString } from './Aliases'
 
 export default interface TmpRelayTransactionJsonRequest {
   relayWorker: Address

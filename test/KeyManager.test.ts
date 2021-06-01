@@ -1,6 +1,8 @@
 /* global */
 
+import { expect } from 'chai'
 import fs from 'fs'
+import { ethers } from 'hardhat'
 import { KeyManager, KEYSTORE_FILENAME } from '../src/relayserver/KeyManager'
 
 // NOTICE: this dir is removed in 'after', do not use this in any other test
@@ -16,7 +18,7 @@ function cleanFolder (): void {
   }
 }
 
-contract('KeyManager', function (accounts) {
+describe('KeyManager', () => {
   describe('in-memory', () => {
     let mkm: KeyManager
 
@@ -27,16 +29,16 @@ contract('KeyManager', function (accounts) {
       // for a given seed, the addresses and privkeys are known..
       const k0 = mkm.getAddress(0)
       // @ts-ignore
-      assert.deepEqual(mkm._privateKeys[k0].toString('hex'),
+      expect(mkm._privateKeys[k0].toString('hex')).to.deep.equal(
         '98bd175008b68dfd5a6aca0584d5a040032f2469656569d5d428161b776d27ff')
-      assert.equal(k0, '0x56558253d657baa29cfe9f0a808b7d19d5d80b9c')
+      expect(k0).to.be.equal('0x56558253d657baa29cfe9f0a808b7d19d5d80b9c')
     })
     it('should return another key for different index', () => {
       const k1 = mkm.getAddress(1)
       // @ts-ignore
-      assert.equal(mkm._privateKeys[k1].toString('hex'),
+      expect(mkm._privateKeys[k1].toString('hex')).to.be.equal(
         'e52f32d373b0b38be3800ec9070af883a63c4fd2857c5b0f249180a2c303eb7e')
-      assert.equal(k1, '0xe2ceef58b3e5a8816c52b00067830b8e1afd82da')
+      expect(k1).to.be.equal('0xe2ceef58b3e5a8816c52b00067830b8e1afd82da')
     })
   })
   describe('file-based KeyManager', () => {
@@ -45,14 +47,14 @@ contract('KeyManager', function (accounts) {
     before('create key manager', function () {
       cleanFolder()
       fkmA = new KeyManager(20, workdir)
-      assert.isTrue(fs.existsSync(workdir), 'test keystore dir should exist already')
+      expect(fs.existsSync(workdir)).to.be.true //('test keystore dir should exist already')
     })
 
     it('should get key pair', function () {
       const key = fkmA.getAddress(1)
-      assert.isTrue(web3.utils.isAddress(key))
+      expect(ethers.utils.isAddress(key))
       // @ts-ignore
-      assert.equal(fkmA._privateKeys[key].length, 32)
+      expect(fkmA._privateKeys[key].length).to.be.equal(32)
     })
 
     it('should get the same key when reloading', () => {
@@ -60,14 +62,14 @@ contract('KeyManager', function (accounts) {
       const addrA10 = fkmA.getAddress(10)
       const fkmB = new KeyManager(20, workdir)
       const addrB = fkmB.getAddress(0)
-      assert.equal(addrA, addrB)
+      expect(addrA).to.be.equal(addrB)
       // @ts-ignore
-      assert.equal(fkmA._privateKeys[addrA].toString('hex'), fkmB._privateKeys[addrB].toString('hex'))
+      expect(fkmA._privateKeys[addrA].toString('hex')).to.be.equal(fkmB._privateKeys[addrB].toString('hex'))
 
       const addrB10 = fkmB.getAddress(10)
-      assert.equal(addrA10, addrB10)
+      expect(addrA10).to.be.equal(addrB10)
       // @ts-ignore
-      assert.equal(fkmA._privateKeys[addrA10].toString('hex'), fkmB._privateKeys[addrB10].toString('hex'))
+      expect(fkmA._privateKeys[addrA10].toString('hex')).to.be.equal(fkmB._privateKeys[addrB10].toString('hex'))
     })
 
     after('remove keystore', cleanFolder)

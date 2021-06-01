@@ -2,8 +2,7 @@
   "compilerOptions": {
     "allowJs": true,
     "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "target": "es2017",
+    "target": "es2018",
     "module": "commonjs",
     "strict": true,
     "moduleResolution": "node",
@@ -13,36 +12,10 @@
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "forceConsistentCasingInFileNames": true,
-    "outDir": "dist",
-    "lib": [
-      "dom",
-      "es2015",
-      "esnext.asynciterable"
-    ],
-    "sourceMap": true,
-    "typeRoots": [
-      "./node_modules/@types",
-      "./node_modules/@0x/typescript-typings/types",
-      "./types"
-    ],
-    "types": [
-      "node",
-      "truffle-contracts",
-      "openzeppelin__test-helpers",
-      "ganache-core",
-      "date-format",
-      "chai-bn"
-    ]
+    "esModuleInterop": true,
+    "outDir": "dist"
   },
-  "include": [
-    "**/*.ts",
-    "src/**/*"
- ],
-  "exclude": [
-    "dist",
-    "jsrelay/dist",
-    "node_modules",
-    "example",
-    "build"
-  ]
+  "sourceMap": true,
+  "include": ["./hardhat.config.ts","./scripts","src/**/*", "**/*.ts","./test", "typechain/**/*", ],
+
 }

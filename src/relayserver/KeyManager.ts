@@ -1,9 +1,10 @@
 
 import Wallet, { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
+import { providers } from 'ethers'
 import fs from 'fs'
+import { ethers } from 'hardhat'
 import ow from 'ow'
-import { toHex } from 'web3-utils'
-import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
+import { PrefixedHexString } from '../relayclient/types/Aliases'
 
 export const KEYSTORE_FILENAME = 'keystore'
 
@@ -60,7 +61,7 @@ export class KeyManager {
     this.nonces = {}
     for (let index = 0; index < count; index++) {
       const w = this.hdkey.deriveChild(index).getWallet()
-      const address = toHex(w.getAddress())
+      const address = ethers.utils.hexlify(w.getAddress())
       this._privateKeys[address] = w.getPrivateKey()
       this.nonces[index] = 0
     }
@@ -78,15 +79,17 @@ export class KeyManager {
     return this._privateKeys[signer] != null
   }
 
-  signTransaction (signer: string, tx: Transaction): PrefixedHexString {
+  async signTransaction (signer: string, tx: providers.TransactionRequest): Promise<PrefixedHexString> {
     ow(signer, ow.string)
     const privateKey = this._privateKeys[signer]
     if (privateKey === undefined) {
       throw new Error(`Can't sign: signer=${signer} is not managed`)
     }
 
-    tx.sign(privateKey)
-    const rawTx = '0x' + tx.serialize().toString('hex')
-    return rawTx
+    const _signer = new ethers.Wallet(privateKey)
+    const signedTx = _signer.signTransaction(tx)
+    return signedTx
+    // const rawTx = '0x' + tx.serialize().toString('hex')
+    // return rawTx
   }
 }

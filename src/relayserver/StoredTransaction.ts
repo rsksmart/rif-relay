@@ -1,6 +1,4 @@
-import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
-import * as ethUtils from 'ethereumjs-util'
-import { Address } from '../relayclient/types/Aliases'
+import { Address, PrefixedHexString } from '../relayclient/types/Aliases'
 
 export enum ServerAction {
   REGISTER_SERVER,
@@ -43,14 +41,14 @@ export type StoredTransaction = StoredTransactionSerialized & StoredTransactionM
  * @param tx
  * @param metadata
  */
-export function createStoredTransaction (tx: Transaction, metadata: StoredTransactionMetadata): StoredTransaction {
-  const details: StoredTransactionSerialized = {
-    to: ethUtils.bufferToHex(tx.to),
-    gas: ethUtils.bufferToInt(tx.gasLimit),
-    gasPrice: ethUtils.bufferToInt(tx.gasPrice),
-    data: ethUtils.bufferToHex(tx.data),
-    nonce: ethUtils.bufferToInt(tx.nonce),
-    txId: ethUtils.bufferToHex(tx.hash())
-  }
-  return Object.assign({}, details, metadata)
-}
+// export function createStoredTransaction (tx: Transaction, metadata: StoredTransactionMetadata): StoredTransaction {
+//   const details: StoredTransactionSerialized = {
+//     to: bufferToHex(tx.to),
+//     gas: ethUtils.bufferToInt(tx.gasLimit),
+//     gasPrice: ethUtils.bufferToInt(tx.gasPrice),
+//     data: ethUtils.bufferToHex(tx.data),
+//     nonce: ethUtils.bufferToInt(tx.nonce),
+//     txId: ethUtils.bufferToHex(tx.hash())
+//   }
+//   return Object.assign({}, details, metadata)
+// }

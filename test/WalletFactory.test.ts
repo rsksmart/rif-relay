@@ -1,39 +1,31 @@
-import {
-  SmartWalletInstance,
-  TestTokenInstance,
-  CustomSmartWalletFactoryInstance,
-  CustomSmartWalletInstance,
-  SmartWalletFactoryInstance
-} from '../types/truffle-contracts'
-  // @ts-ignore
-import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
-import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
-import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
-import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
-import { ethers } from 'ethers'
-import chai from 'chai'
+import { ethers } from 'hardhat'
+import { BigNumber } from 'ethers'
+import { expect } from 'chai'
 import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
+// @ts-ignore
+import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { DeployRequestDataType, ForwardRequestType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
 import { DeployRequest } from '../src/common/EIP712/RelayRequest'
+import { CustomSmartWallet, CustomSmartWalletFactory, CustomSmartWalletFactory__factory, CustomSmartWallet__factory, SmartWallet, SmartWalletFactory, SmartWalletFactory__factory, SmartWallet__factory, TestToken, TestToken__factory } from '../typechain'
 
-const keccak256 = web3.utils.keccak256
+const keccak256 = ethers.utils.keccak256
 
-const TestToken = artifacts.require('TestToken')
-
-contract('CustomSmartWalletFactory', ([from]) => {
-  const CustomSmartWallet = artifacts.require('CustomSmartWallet')
-  const CustomSmartWalletFactory = artifacts.require('CustomSmartWalletFactory')
-  let fwd: CustomSmartWalletInstance
-  let token: TestTokenInstance
-  let factory: CustomSmartWalletFactoryInstance
+describe('CustomSmartWalletFactory', () => {
+  let TestTokenFactory: TestToken__factory 
+  let fwd: CustomSmartWallet
+  let token: TestToken
+  let factory: CustomSmartWalletFactory
+  let CustomSmartWallet_Factory: CustomSmartWallet__factory 
+  let CustomSmartWalletFactory_Factory: CustomSmartWalletFactory__factory
   let chainId: number
-  const ownerPrivateKey = toBuffer(bytes32(1))
+  const ownerPrivateKey = bytes32(1)
   let ownerAddress: string
-  const recipientPrivateKey = toBuffer(bytes32(1))
+  const recipientPrivateKey = bytes32(1)
   let recipientAddress: string
   let env: Environment
+  let from: string
 
   const request: DeployRequest = {
     request: {
@@ -60,17 +52,22 @@ contract('CustomSmartWalletFactory', ([from]) => {
   }
 
   before(async () => {
-    chainId = (await getTestingEnvironment()).chainId
-    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
-    recipientAddress = bufferToHex(privateToAddress(recipientPrivateKey)).toLowerCase()
-    request.request.from = ownerAddress
+    CustomSmartWallet_Factory = await ethers.getContractFactory("CustomSmartWallet") as CustomSmartWallet__factory
+    CustomSmartWalletFactory_Factory = await ethers.getContractFactory("CustomSmartWalletFactory") as CustomSmartWalletFactory__factory
+    TestTokenFactory = await ethers.getContractFactory("TestToken") as TestToken__factory
     env = await getTestingEnvironment()
-    fwd = await CustomSmartWallet.new()
+    chainId = env.chainId
+    ownerAddress = ethers.utils.computeAddress(ownerPrivateKey).toLowerCase()
+    recipientAddress = ethers.utils.computeAddress(recipientPrivateKey).toLowerCase()
+    request.request.from = ownerAddress
+    fwd = await CustomSmartWallet_Factory.deploy()
+    await fwd.deployed()
   })
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await CustomSmartWalletFactory.new(fwd.address)
+    factory = await CustomSmartWalletFactory_Factory.deploy(fwd.address)
+    await factory.deployed()
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
@@ -79,9 +76,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
     it('should return the expected bytecode', async () => {
       const expectedCode = '0x602D3D8160093D39F3363D3D373D3D3D3D363D73' +
             stripHex(fwd.address) + '5AF43D923D90803E602B57FD5BF3'
-
       const code = await factory.getCreationBytecode()
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
   })
 
@@ -91,7 +87,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const expectedCodeHash = keccak256(expectedCode)
 
       const code = await factory.runtimeCodeHash()
-      chai.expect(web3.utils.toBN(expectedCodeHash)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCodeHash)).to.be.equal(BigNumber.from(code))
     })
   })
 
@@ -103,28 +99,20 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const index = '0'
       const create2Address = await factory.getSmartWalletAddress(ownerAddress, recoverer, logicAddress, initParamsHash, index)
       const creationByteCode = await factory.getCreationBytecode()
+      const salt: string = ethers.utils.solidityKeccak256(
+          ['address', 'address', 'address', 'bytes32', 'uint256'], 
+          [ownerAddress, recoverer, logicAddress, initParamsHash, index]
+        )
 
-      const salt: string = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: initParamsHash },
-        { t: 'uint256', v: index }
+      const bytecodeHash = ethers.utils.solidityKeccak256(['bytes'], [creationByteCode])
+
+
+      const _data: string = ethers.utils.solidityKeccak256(
+          ['bytes1','address','bytes32','bytes32'], ['0xff', factory.address, salt, bytecodeHash]
       ) ?? ''
 
-      const bytecodeHash: string = web3.utils.soliditySha3(
-        { t: 'bytes', v: creationByteCode }
-      ) ?? ''
-
-      const _data: string = web3.utils.soliditySha3(
-        { t: 'bytes1', v: '0xff' },
-        { t: 'address', v: factory.address },
-        { t: 'bytes32', v: salt },
-        { t: 'bytes32', v: bytecodeHash }
-      ) ?? ''
-
-      const expectedAddress = toChecksumAddress('0x' + _data.slice(26, _data.length), env.chainId)
-      assert.equal(create2Address, expectedAddress)
+      const expectedAddress = ethers.utils.getAddress('0x' + _data.slice(26, _data.length))
+      expect(expectedAddress).to.be.equal(create2Address)
     })
   })
 
@@ -134,41 +122,36 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const initParams = '0x'
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
-
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'uint256', v: index },
-        { t: 'bytes', v: initParams }// Init params is empty
-      ) ?? ''
+      
+      const toSign: string = ethers.utils.solidityKeccak256(
+          ['bytes2', 'address', 'address', 'address', 'uint256', 'bytes'],
+          ['0x1910', ownerAddress, recoverer, logicAddress, index, initParams] // Init params is empty
+      )
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-        index, initParams, signatureCollapsed)
+      const _initParams: string = ethers.utils.solidityKeccak256(
+      ['bytes'], [initParams])
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
+      
+      const salt = ethers.utils.solidityKeccak256(['address', 'address', 'address', 'bytes32', 'uint256'],
+          [ownerAddress, recoverer, logicAddress, _initParams, index])
 
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
-        { t: 'uint256', v: index }
-      ) ?? ''
+  
+      const expectedSalt = BigNumber.from(salt).toString()
+  
+      await expect(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+          index, initParams, signatureCollapsed)).to.emit(factory, 'Deployed').withArgs(expectedAddress, expectedSalt)
 
-      const expectedSalt = web3.utils.toBN(salt).toString()
-
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      //     expectEvent.inLogs(logs, 'Deployed', {
+      //       addr: expectedAddress,
+      //       salt: expectedSalt
+      //     })
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
@@ -177,17 +160,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'uint256', v: index },
-        { t: 'bytes', v: initParams }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+          ['bytes2', 'address', 'address', 'address', 'uint256', 'bytes'],
+          ['0x1910', ownerAddress, recoverer, logicAddress, index, initParams])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -198,12 +177,12 @@ contract('CustomSmartWalletFactory', ([from]) => {
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+      const tx = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
         index, initParams, signatureCollapsed)
+      const receipt = await tx.wait()
 
-      const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
-
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      const code = await ethers.provider.getCode(expectedAddress, receipt.blockNumber)
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
 
     it('should revert for an invalid signature', async () => {
@@ -212,14 +191,10 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'uint256', v: index },
-        { t: 'bytes', v: initParams }
-      ) ?? ''
+
+      const toSign: string = ethers.utils.solidityKeccak256(
+          ['bytes2', 'address', 'address', 'address', 'uint256', 'bytes'],
+          ['0x1910', ownerAddress, recoverer, logicAddress, index, initParams])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -228,8 +203,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
-      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-        index, initParams, signatureCollapsed))
+      await expect(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed)).to.be.reverted
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -238,53 +213,49 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'uint256', v: index },
-        { t: 'bytes', v: initParams }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+          ['bytes2', 'address', 'address', 'address', 'uint256', 'bytes'],
+          ['0x1910', ownerAddress, recoverer, logicAddress, index, initParams])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-        index, initParams, signatureCollapsed)
+      const salt = ethers.utils.solidityKeccak256(
+          ['address', 'address', 'address', 'bytes32', 'uint256'],
+          [ownerAddress, recoverer, logicAddress, _initParams, index])
 
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const expectedSalt = BigNumber.from(salt).toString()
 
-      const expectedSalt = web3.utils.toBN(salt).toString()
-
+      // expectEvent.inLogs(logs, 'Deployed', {
+          //   addr: expectedAddress,
+          //   salt: expectedSalt
+          // })
+          
+      const tx = await factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+          index, initParams, signatureCollapsed)
+          const receipt = await tx.wait()
+          
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      const event = factory.filters.Deployed(null, null)
+      const eventEmitted = await factory.queryFilter(event)
+      expect(eventEmitted[0].event).to.be.equal('Deployed')
+      expect(eventEmitted[0].args.addr).to.be.equal(expectedAddress)
+      expect(eventEmitted[0].args.salt).to.be.equal(expectedSalt)
 
-      const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
-        name: 'isInitialized',
-        type: 'function',
-        inputs: []
-      }, [])
-
-      const trx = await web3.eth.getTransaction(logs[0].transactionHash)
+      let ABI = ["function isInitialized()"]
+      let iface = new ethers.utils.Interface(ABI);
+      const trx = await ethers.provider.getTransaction(receipt.transactionHash)
+      const isInitializedFunc = iface.encodeFunctionData('isInitialized()')
 
       const newTrx = {
         from: trx.from,
-        gas: trx.gas,
+        gasLimit: trx.gasLimit,
         to: expectedAddress,
         gasPrice: trx.gasPrice,
         value: trx.value,
@@ -292,72 +263,85 @@ contract('CustomSmartWalletFactory', ([from]) => {
       }
 
       // Call the isInitialized function
-      let result = await web3.eth.call(newTrx)
+      let result = await ethers.provider.call(newTrx)
+      // let result = await web3.eth.call(newTrx)
       let resultStr = result as string
 
       // It should be initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
+      let initFunc_ABI = ["function initialize(address,address,address,address,uint256,uint256,bytes)"]
+      let initFunc_ABI_if = new ethers.utils.Interface(initFunc_ABI);
+      const initFunc = initFunc_ABI_if.encodeFunctionData('initialize', [ownerAddress, logicAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00', initParams])
+        
 
-      const initFunc = await web3.eth.abi.encodeFunctionCall({
-        name: 'initialize',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: 'owner'
-        },
-        {
-          type: 'address',
-          name: 'logic'
-        },
-        {
-          type: 'address',
-          name: 'tokenAddr'
-        },
-        {
-          type: 'address',
-          name: 'tokenRecipient'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenAmount'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenGas'
-        },
-        {
-          type: 'bytes',
-          name: 'initParams'
-        }
-        ]
-      }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00', initParams])
+      // const initFunc = await web3.eth.abi.encodeFunctionCall({
+      //   name: 'initialize',
+      //   type: 'function',
+      //   inputs: [{
+      //     type: 'address',
+      //     name: 'owner'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'logic'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenAddr'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenRecipient'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenAmount'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenGas'
+      //   },
+      //   {
+      //     type: 'bytes',
+      //     name: 'initParams'
+      //   }
+      //   ]
+      // }, [ownerAddress, logicAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00', initParams])
 
       newTrx.data = initFunc
-
+      
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      const signer = await ethers.getSigner(trx.from)
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
+      // await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
-      result = await web3.eth.call(newTrx)
+      result = await ethers.provider.call(newTrx)
       resultStr = result as string
 
       // The smart wallet should be still initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
     })
   })
 
   describe('#relayedUserSmartWalletCreation', () => {
+    before(async () => {
+        from = await ethers.provider.getSigner().getAddress()
+    })
+
     it('should create the Smart Wallet in the expected address', async () => {
       const logicAddress = constants.ZERO_ADDRESS
       const initParams = '0x'
       const deployPrice = '0x01' // 1 token
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
@@ -374,40 +358,34 @@ contract('CustomSmartWalletFactory', ([from]) => {
       }
 
       req.request.relayHub = from
-
       const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
-      )
-
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
-
+      ) 
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
       // relayData information
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const salt: string = ethers.utils.solidityKeccak256(
+          ['address', 'address', 'address', 'bytes32', 'uint256'], 
+          [ownerAddress, recoverer, logicAddress, _initParams, index]
+        )
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
-
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
-        { t: 'uint256', v: index }
-      ) ?? ''
-
-      const expectedSalt = web3.utils.toBN(salt).toString()
+      const expectedSalt = BigNumber.from(salt).toString()
 
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.emit(factory, 'Deployed')
+          .withArgs(expectedAddress, expectedSalt)
+          
+      // expectEvent.inLogs(logs, 'Deployed', {
+      //   addr: expectedAddress,
+      //   salt: expectedSalt
+      // })
 
       // The Smart Wallet should have been charged for the deploy
       const newBalance = await token.balanceOf(expectedAddress)
-      const expectedBalance = originalBalance.sub(web3.utils.toBN(deployPrice))
-      chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
+      const expectedBalance = originalBalance.sub(deployPrice)
+      expect(expectedBalance).to.be.equal(newBalance)
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
@@ -416,11 +394,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const deployPrice = '0x01' // 1 token
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const req: DeployRequest = {
@@ -442,18 +422,19 @@ contract('CustomSmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey) , { data: dataToSign })
 
       // expectedCode = runtime code only
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const tx = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const receipt = await tx.wait()
 
-      const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
+      const code = await ethers.provider.getCode(expectedAddress, receipt.blockNumber)
 
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
 
     it('should revert for an invalid signature', async () => {
@@ -462,9 +443,10 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const deployPrice = '0x01' // 1 token
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
@@ -486,17 +468,18 @@ contract('CustomSmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
 
       req.request.tokenAmount = '9'
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
+      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.reverted
 
       const newBalance = await token.balanceOf(expectedAddress)
-      chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
+      expect(originalBalance).to.be.equal(newBalance)
     })
+
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
       const logicAddress = constants.ZERO_ADDRESS
@@ -504,11 +487,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
       const deployPrice = '0x01' // 1 token
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
+      const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer,
-        logicAddress, soliditySha3Raw({ t: 'bytes', v: initParams }), index)
+        logicAddress, _initParams, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
@@ -531,43 +516,40 @@ contract('CustomSmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
+      const tx  = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const receipt = await tx.wait()  
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
-
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'address', v: logicAddress },
-        { t: 'bytes32', v: soliditySha3Raw({ t: 'bytes', v: initParams }) },
-        { t: 'uint256', v: index }
-      ) ?? ''
-
-      const expectedSalt = web3.utils.toBN(salt).toString()
+      const salt = ethers.utils.solidityKeccak256(['address', 'address', 'address', 'bytes32', 'uint256'],[ownerAddress, recoverer, logicAddress, _initParams, index])
+      const expectedSalt = BigNumber.from(salt).toString()
 
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      // expectEvent.inLogs(logs, 'Deployed', {
+      //   addr: expectedAddress,
+      //   salt: expectedSalt
+      // })
+      // Check the emitted event
+      const event = factory.filters.Deployed(null, null)
+      const eventEmitted = await factory.queryFilter(event)
+      expect(eventEmitted[0].event).to.be.equal('Deployed')
+      expect(eventEmitted[0].args.addr).to.be.equal(expectedAddress)
+      expect(eventEmitted[0].args.salt).to.be.equal(expectedSalt)
 
       // The Smart Wallet should have been charged for the deploy
       const newBalance = await token.balanceOf(expectedAddress)
-      const expectedBalance = originalBalance.sub(web3.utils.toBN(deployPrice))
-      chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
+      const expectedBalance = originalBalance.sub(BigNumber.from(deployPrice))
+      expect(expectedBalance).to.be.equal(newBalance)
 
-      const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
-        name: 'isInitialized',
-        type: 'function',
-        inputs: []
-      }, [])
+      let ABI = ["function isInitialized()"]
+      let iface = new ethers.utils.Interface(ABI);
 
-      const trx = await web3.eth.getTransaction(logs[0].transactionHash)
+      const trx = await ethers.provider.getTransaction(receipt.transactionHash)
+      const isInitializedFunc = iface.encodeFunctionData('isInitialized()')
 
       const newTrx = {
         from: trx.from,
-        gas: trx.gas,
+        gasLimit: trx.gasLimit,
         to: expectedAddress,
         gasPrice: trx.gasPrice,
         value: trx.value,
@@ -575,81 +557,84 @@ contract('CustomSmartWalletFactory', ([from]) => {
       }
 
       // Call the isInitialized function
-      let result = await web3.eth.call(newTrx)
-
+      let result = await ethers.provider.call(newTrx)
+      // let result = await web3.eth.call(newTrx)
       let resultStr = result as string
 
       // It should be initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
 
-      const initFunc = web3.eth.abi.encodeFunctionCall({
-        name: 'initialize',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: 'owner'
-        },
-        {
-          type: 'address',
-          name: 'logic'
-        },
-        {
-          type: 'address',
-          name: 'tokenAddr'
-        },
-        {
-          type: 'address',
-          name: 'tokenRecipient'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenAmount'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenGas'
-        },
-        {
-          type: 'bytes',
-          name: 'initParams'
-        }
-        ]
-      }, [ownerAddress, logicAddress, token.address, recipientAddress, deployPrice, '0xD6D8', initParams])
+      let initFunc_ABI = ["function initialize(address,address,address,address,uint256,uint256,bytes)"]
+      let initFunc_ABI_if = new ethers.utils.Interface(initFunc_ABI);
+      const initFunc = initFunc_ABI_if.encodeFunctionData('initialize', [ownerAddress, logicAddress, token.address, recipientAddress, deployPrice, '0xD6D8', initParams])
+
+      // const initFunc = web3.eth.abi.encodeFunctionCall({
+      //   name: 'initialize',
+      //   type: 'function',
+      //   inputs: [{
+      //     type: 'address',
+      //     name: 'owner'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'logic'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenAddr'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenRecipient'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenAmount'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenGas'
+      //   },
+      //   {
+      //     type: 'bytes',
+      //     name: 'initParams'
+      //   }
+      //   ]
+      // }, [ownerAddress, logicAddress, token.address, recipientAddress, deployPrice, '0xD6D8', initParams])
 
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      const signer = await ethers.getSigner(trx.from)
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
 
       newTrx.data = isInitializedFunc
-
-      result = await web3.eth.call(newTrx)
+      result = await ethers.provider.call(newTrx)
       resultStr = result as string
 
       // The smart wallet should be still initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
     })
   })
-}
+})
 
-)
-
-contract('SmartWalletFactory', ([from]) => {
-  let fwd: SmartWalletInstance
-  let token: TestTokenInstance
-  let factory: SmartWalletFactoryInstance
+describe('SmartWalletFactory', () => {
+  let TestTokenFactory: TestToken__factory 
+  let SmartWallet_Factory: SmartWallet__factory 
+  let SmartWalletFactory_Factory: SmartWalletFactory__factory
+  let token: TestToken
+  let fwd: SmartWallet
+  let factory: SmartWalletFactory
   let chainId: number
-  const ownerPrivateKey = toBuffer(bytes32(1))
+  const ownerPrivateKey = bytes32(1)
   let ownerAddress: string
-  const recipientPrivateKey = toBuffer(bytes32(1))
+  const recipientPrivateKey = bytes32(1)
   let recipientAddress: string
-  const SmartWallet = artifacts.require('SmartWallet')
-  const SmartWalletFactory = artifacts.require('SmartWalletFactory')
   let env: Environment
-
+  
   const request: DeployRequest = {
     request: {
-      relayHub: from,
+      relayHub: constants.ZERO_ADDRESS,
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
@@ -672,17 +657,23 @@ contract('SmartWalletFactory', ([from]) => {
   }
 
   before(async () => {
-    chainId = (await getTestingEnvironment()).chainId
-    ownerAddress = bufferToHex(privateToAddress(ownerPrivateKey)).toLowerCase()
-    recipientAddress = bufferToHex(privateToAddress(recipientPrivateKey)).toLowerCase()
-    request.request.from = ownerAddress
+    const from = (await ethers.getSigners())[0]
+    request.request.relayHub = await from.getAddress()
+    SmartWallet_Factory = await ethers.getContractFactory("SmartWallet") as SmartWallet__factory
+    SmartWalletFactory_Factory = await ethers.getContractFactory("SmartWalletFactory") as SmartWalletFactory__factory
+    TestTokenFactory = await ethers.getContractFactory("TestToken") as TestToken__factory
     env = await getTestingEnvironment()
-    fwd = await SmartWallet.new()
+    chainId = env.chainId
+    ownerAddress = ethers.utils.computeAddress(ownerPrivateKey).toLowerCase()
+    recipientAddress = ethers.utils.computeAddress(recipientPrivateKey).toLowerCase()
+    request.request.from = ownerAddress
+    fwd = await SmartWallet_Factory.deploy()
+    await fwd.deployed()
   })
 
   beforeEach(async () => {
     // A new factory for new create2 addresses each
-    factory = await SmartWalletFactory.new(fwd.address)
+    factory = await SmartWalletFactory_Factory.deploy(fwd.address)
     request.relayData.callForwarder = factory.address
     request.relayData.domainSeparator = getDomainSeparatorHash(factory.address, chainId)
   })
@@ -693,7 +684,7 @@ contract('SmartWalletFactory', ([from]) => {
             stripHex(fwd.address) + '5AF43D923D90803E602B57FD5BF3'
 
       const code = await factory.getCreationBytecode()
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
   })
 
@@ -703,7 +694,7 @@ contract('SmartWalletFactory', ([from]) => {
       const expectedCodeHash = keccak256(expectedCode)
 
       const code = await factory.runtimeCodeHash()
-      chai.expect(web3.utils.toBN(expectedCodeHash)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCodeHash)).to.be.equal(BigNumber.from(code))
     })
   })
 
@@ -714,25 +705,17 @@ contract('SmartWalletFactory', ([from]) => {
       const create2Address = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
       const creationByteCode = await factory.getCreationBytecode()
 
-      const salt: string = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const salt: string = ethers.utils.solidityKeccak256(
+        ['address', 'address', 'uint256'], [ownerAddress, recoverer, index])
 
-      const bytecodeHash: string = web3.utils.soliditySha3(
-        { t: 'bytes', v: creationByteCode }
-      ) ?? ''
+      const bytecodeHash: string = ethers.utils.solidityKeccak256(['bytes'],[creationByteCode])
 
-      const _data: string = web3.utils.soliditySha3(
-        { t: 'bytes1', v: '0xff' },
-        { t: 'address', v: factory.address },
-        { t: 'bytes32', v: salt },
-        { t: 'bytes32', v: bytecodeHash }
-      ) ?? ''
+      const _data: string = ethers.utils.solidityKeccak256(
+        ['bytes1', 'address', 'bytes32', 'bytes32'],
+        ['0xff', factory.address, salt, bytecodeHash])
 
-      const expectedAddress = toChecksumAddress('0x' + _data.slice(26, _data.length), env.chainId)
-      assert.equal(create2Address, expectedAddress)
+      const expectedAddress = ethers.utils.getAddress('0x' + _data.slice(26, _data.length))
+      expect(create2Address).to.be.equal(expectedAddress)
     })
   })
 
@@ -741,35 +724,27 @@ contract('SmartWalletFactory', ([from]) => {
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+        ['bytes2', 'address', 'address', 'uint256'],
+        ['0x1910', ownerAddress, recoverer, index])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer,
-        index, signatureCollapsed)
+
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
-
-      const expectedSalt = web3.utils.toBN(salt).toString()
-
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      const salt = ethers.utils.solidityKeccak256(
+        ['address', 'address', 'uint256'],
+        [ownerAddress, recoverer, index])
+        
+      const expectedSalt = BigNumber.from(salt).toString()
+      
+      await expect(factory.createUserSmartWallet(ownerAddress, recoverer,
+        index, signatureCollapsed)).to.emit(factory, 'Deployed').withArgs(expectedAddress, expectedSalt)
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
@@ -778,12 +753,9 @@ contract('SmartWalletFactory', ([from]) => {
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+        ['bytes2', 'address', 'address', 'uint256'],
+        ['0x1910', ownerAddress, recoverer, index])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -794,23 +766,21 @@ contract('SmartWalletFactory', ([from]) => {
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer, index, signatureCollapsed)
+      const tx = await factory.createUserSmartWallet(ownerAddress, recoverer, index, signatureCollapsed)
+      const receipt = await tx.wait()
 
-      const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
+      const code = await ethers.provider.getCode(expectedAddress, receipt.blockNumber)
 
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
 
     it('should revert for an invalid signature', async () => {
       const recoverer = constants.ZERO_ADDRESS
       const index = '0'
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+        ['bytes2', 'address', 'address', 'uint256'],
+        ['0x1910', ownerAddress, recoverer, index])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -819,8 +789,8 @@ contract('SmartWalletFactory', ([from]) => {
 
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
-      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, recoverer,
-        index, signatureCollapsed))
+      await expect(factory.createUserSmartWallet(ownerAddress, recoverer,
+        index, signatureCollapsed)).to.be.reverted
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -829,46 +799,40 @@ contract('SmartWalletFactory', ([from]) => {
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      const toSign: string = web3.utils.soliditySha3(
-        { t: 'bytes2', v: '0x1910' },
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const toSign: string = ethers.utils.solidityKeccak256(
+        ['bytes2', 'address', 'address', 'uint256'],
+        ['0x1910', ownerAddress, recoverer, index])
 
       const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
       const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
       const signature = signingKey.signDigest(toSignAsBinaryArray)
       const signatureCollapsed = ethers.utils.joinSignature(signature)
 
-      const { logs } = await factory.createUserSmartWallet(ownerAddress, recoverer,
+      const tx = await factory.createUserSmartWallet(ownerAddress, recoverer,
         index, signatureCollapsed)
+      const receipt = await tx.wait()
 
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
+      const salt = ethers.utils.solidityKeccak256(
+        ['address', 'address', 'uint256'],
+        [ownerAddress, recoverer, index])
 
-      const expectedSalt = web3.utils.toBN(salt).toString()
+      const expectedSalt = BigNumber.from(salt).toString()
 
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      const event = factory.filters.Deployed(null, null)
+      const eventEmitted = await factory.queryFilter(event)
+      expect(eventEmitted[0].event).to.be.equal('Deployed')
+      expect(eventEmitted[0].args.addr).to.be.equal(expectedAddress)
+      expect(eventEmitted[0].args.salt).to.be.equal(expectedSalt)
 
-      const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
-        name: 'isInitialized',
-        type: 'function',
-        inputs: []
-      }, [])
-
-      const trx = await web3.eth.getTransaction(logs[0].transactionHash)
+      let ABI = ["function isInitialized()"]
+      let iface = new ethers.utils.Interface(ABI);
+      const trx = await ethers.provider.getTransaction(receipt.transactionHash)
+      const isInitializedFunc = iface.encodeFunctionData('isInitialized()')
 
       const newTrx = {
         from: trx.from,
-        gas: trx.gas,
+        gasLimit: trx.gasLimit,
         to: expectedAddress,
         gasPrice: trx.gasPrice,
         value: trx.value,
@@ -876,51 +840,55 @@ contract('SmartWalletFactory', ([from]) => {
       }
 
       // Call the isInitialized function
-      let result = await web3.eth.call(newTrx)
+      let result = await ethers.provider.call(newTrx)
 
       let resultStr = result as string
 
       // It should be initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
 
-      const initFunc = await web3.eth.abi.encodeFunctionCall({
-        name: 'initialize',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: 'owner'
-        },
-        {
-          type: 'address',
-          name: 'tokenAddr'
-        },
-        {
-          type: 'address',
-          name: 'tokenRecipient'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenAmount'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenGas'
-        }
-        ]
-      }, [ownerAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00'])
+      let initFunc_ABI = ["function initialize(address,address,address,uint256,uint256)"]
+      let initFunc_ABI_if = new ethers.utils.Interface(initFunc_ABI);
+      const initFunc = initFunc_ABI_if.encodeFunctionData('initialize', [ownerAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00'])
+
+      // const initFunc = await web3.eth.abi.encodeFunctionCall({
+      //   name: 'initialize',
+      //   type: 'function',
+      //   inputs: [{
+      //     type: 'address',
+      //     name: 'owner'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenAddr'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenRecipient'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenAmount'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenGas'
+      //   }
+      //   ]
+      // }, [ownerAddress, constants.ZERO_ADDRESS, constants.ZERO_ADDRESS, '0x00', '0x00'])
 
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      const signer = await ethers.getSigner(trx.from)
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
 
       newTrx.data = isInitializedFunc
-
-      result = await web3.eth.call(newTrx)
+      result = await ethers.provider.call(newTrx)
       resultStr = result as string
 
       // The smart wallet should be still initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
     })
   })
 
@@ -932,7 +900,8 @@ contract('SmartWalletFactory', ([from]) => {
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
@@ -954,31 +923,30 @@ contract('SmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
 
       // relayData information
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+        
+      const salt: string = ethers.utils.solidityKeccak256(
+        ['address', 'address',  'uint256'], 
+        [ownerAddress, recoverer, index]
+      )
 
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
-
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
-
-      const expectedSalt = web3.utils.toBN(salt).toString()
+      const expectedSalt = BigNumber.from(salt).toString()
 
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+      // expectEvent.inLogs(logs, 'Deployed', {
+      //   addr: expectedAddress,
+      //   salt: expectedSalt
+      // })
+      
+      expect(await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.emit(factory, 'Deployed').withArgs(expectedAddress, expectedSalt)
 
       // The Smart Wallet should have been charged for the deploy
       const newBalance = await token.balanceOf(expectedAddress)
-      const expectedBalance = originalBalance.sub(web3.utils.toBN(deployPrice))
-      chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
+      const expectedBalance = originalBalance.sub(BigNumber.from(deployPrice))
+      expect(expectedBalance).to.be.equal(newBalance)
     })
 
     it('should create the Smart Wallet with the expected proxy code', async () => {
@@ -988,7 +956,8 @@ contract('SmartWalletFactory', ([from]) => {
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const req: DeployRequest = {
@@ -1008,18 +977,19 @@ contract('SmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
 
       // expectedCode = runtime code only
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const tx = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const receipt = await tx.wait()
 
-      const code = await web3.eth.getCode(expectedAddress, logs[0].blockNumber)
+      const code = await ethers.provider.getCode(expectedAddress, receipt.blockNumber)
 
-      chai.expect(web3.utils.toBN(expectedCode)).to.be.bignumber.equal(web3.utils.toBN(code))
+      expect(BigNumber.from(expectedCode)).to.be.equal(BigNumber.from(code))
     })
 
     it('should revert for an invalid signature', async () => {
@@ -1048,16 +1018,16 @@ contract('SmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
 
       req.request.tokenAmount = '8' // change data after signature
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
+      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.reverted
 
       const newBalance = await token.balanceOf(expectedAddress)
-      chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
+      expect(originalBalance).to.be.equal(newBalance)
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -1067,7 +1037,8 @@ contract('SmartWalletFactory', ([from]) => {
 
       const expectedAddress = await factory.getSmartWalletAddress(ownerAddress, recoverer, index)
 
-      token = await TestToken.new()
+      token = await TestTokenFactory.deploy()
+      await token.deployed()
       await token.mint('200', expectedAddress)
 
       const originalBalance = await token.balanceOf(expectedAddress)
@@ -1089,41 +1060,44 @@ contract('SmartWalletFactory', ([from]) => {
         req
       )
 
-      const sig = signTypedData_v4(ownerPrivateKey, { data: dataToSign })
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
-
-      const { logs } = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
-
-      const salt = web3.utils.soliditySha3(
-        { t: 'address', v: ownerAddress },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: index }
-      ) ?? ''
-
-      const expectedSalt = web3.utils.toBN(salt).toString()
+      const sig = signTypedData_v4(ethers.utils.arrayify(ownerPrivateKey), { data: dataToSign })
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
+      const tx = await factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)
+      const receipt = await tx.wait()
+      
+      const salt = ethers.utils.solidityKeccak256(['address', 'address', 'uint256'],[ownerAddress, recoverer, index])
+      const expectedSalt = BigNumber.from(salt).toString()
+        
+      
 
       // Check the emitted event
-      expectEvent.inLogs(logs, 'Deployed', {
-        addr: expectedAddress,
-        salt: expectedSalt
-      })
+
+      const event = factory.filters.Deployed(null, null)
+      const eventEmitted = await factory.queryFilter(event)
+      expect(eventEmitted[0].event).to.be.equal('Deployed')
+      expect(eventEmitted[0].args.addr).to.be.equal(expectedAddress)
+      expect(eventEmitted[0].args.salt).to.be.equal(expectedSalt)
 
       // The Smart Wallet should have been charged for the deploy
       const newBalance = await token.balanceOf(expectedAddress)
-      const expectedBalance = originalBalance.sub(web3.utils.toBN(deployPrice))
-      chai.expect(expectedBalance).to.be.bignumber.equal(newBalance)
+      const expectedBalance = originalBalance.sub(BigNumber.from(deployPrice))
+      expect(expectedBalance).to.be.equal(newBalance)
 
-      const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
-        name: 'isInitialized',
-        type: 'function',
-        inputs: []
-      }, [])
+      // const isInitializedFunc = web3.eth.abi.encodeFunctionCall({
+      //   name: 'isInitialized',
+      //   type: 'function',
+      //   inputs: []
+      // }, [])
+      let ABI = ["function isInitialized()"]
+      let iface = new ethers.utils.Interface(ABI);
 
-      const trx = await web3.eth.getTransaction(logs[0].transactionHash)
+      const trx = await ethers.provider.getTransaction(receipt.transactionHash)
+      const isInitializedFunc = iface.encodeFunctionData('isInitialized()')
+      // const trx = await web3.eth.getTransaction(logs[0].transactionHash)
 
       const newTrx = {
         from: trx.from,
-        gas: trx.gas,
+        gasLimit: trx.gasLimit,
         to: expectedAddress,
         gasPrice: trx.gasPrice,
         value: trx.value,
@@ -1131,53 +1105,57 @@ contract('SmartWalletFactory', ([from]) => {
       }
 
       // Call the isInitialized function
-      let result = await web3.eth.call(newTrx)
+      let result = await ethers.provider.call(newTrx)
 
       let resultStr = result as string
 
       // It should be initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
 
-      const initFunc = await web3.eth.abi.encodeFunctionCall({
-        name: 'initialize',
-        type: 'function',
-        inputs: [{
-          type: 'address',
-          name: 'owner'
-        },
-        {
-          type: 'address',
-          name: 'tokenAddr'
-        },
-        {
-          type: 'address',
-          name: 'tokenRecipient'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenAmount'
-        },
-        {
-          type: 'uint256',
-          name: 'tokenGas'
-        }
-        ]
-      }, [ownerAddress, token.address, recipientAddress, deployPrice, '0xD6D8'])
+      let initFunc_ABI = ["function initialize(address,address,address,uint256,uint256)"]
+      let initFunc_ABI_if = new ethers.utils.Interface(initFunc_ABI);
+      const initFunc = initFunc_ABI_if.encodeFunctionData('initialize', [ownerAddress, token.address, recipientAddress, deployPrice, '0xD6D8'])
+
+      // const initFunc = await web3.eth.abi.encodeFunctionCall({
+      //   name: 'initialize',
+      //   type: 'function',
+      //   inputs: [{
+      //     type: 'address',
+      //     name: 'owner'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenAddr'
+      //   },
+      //   {
+      //     type: 'address',
+      //     name: 'tokenRecipient'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenAmount'
+      //   },
+      //   {
+      //     type: 'uint256',
+      //     name: 'tokenGas'
+      //   }
+      //   ]
+      // }, [ownerAddress, token.address, recipientAddress, deployPrice, '0xD6D8'])
 
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      const signer = await ethers.getSigner(trx.from)
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
+      // await expect(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
-
-      result = await web3.eth.call(newTrx)
+      result = await ethers.provider.call(newTrx)
       resultStr = result as string
 
       // The smart wallet should be still initialized
-      chai.expect(web3.utils.toBN(1)).to.be.bignumber.equal(web3.utils.toBN(resultStr))
+      expect(BigNumber.from(1)).to.be.equal(BigNumber.from(resultStr))
     })
   })
-}
-
-)
+})
+  

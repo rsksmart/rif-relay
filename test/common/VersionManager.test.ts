@@ -1,4 +1,5 @@
 /* eslint-disable no-new */
+import { expect } from 'chai'
 import VersionsManager from '../../src/common/VersionsManager'
 
 describe('VersionManager', function () {
@@ -19,18 +20,18 @@ describe('VersionManager', function () {
       const isNewerSame = manager.isMinorSameOrNewer('1.2.4')
       const isNewerPatch = manager.isMinorSameOrNewer('1.2.4')
       const isNewerMinor = manager.isMinorSameOrNewer('1.2.4')
-      assert.isTrue(isNewerSame)
-      assert.isTrue(isNewerPatch)
-      assert.isTrue(isNewerMinor)
-
+      expect(isNewerSame).to.be.true
+      expect(isNewerPatch).to.be.true
+      expect(isNewerMinor).to.be.true
+      
       const isNewerMajor = manager.isMinorSameOrNewer('2.3.4')
       const isNewerPatchFalse = manager.isMinorSameOrNewer('1.2.0')
       const isNewerMinorFalse = manager.isMinorSameOrNewer('1.1.0')
       const isNewerMajorFalse = manager.isMinorSameOrNewer('0.2.3')
-      assert.isFalse(isNewerMajor)
-      assert.isFalse(isNewerPatchFalse)
-      assert.isFalse(isNewerMinorFalse)
-      assert.isFalse(isNewerMajorFalse)
+      expect(isNewerMajor).to.be.false
+      expect(isNewerPatchFalse).to.be.false
+      expect(isNewerMinorFalse).to.be.false
+      expect(isNewerMajorFalse).to.be.false
     })
   })
 })

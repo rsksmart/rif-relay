@@ -1,5 +1,4 @@
-import { Address, IntString } from './Aliases'
-import { PrefixedHexString } from 'ethereumjs-tx'
+import { Address, IntString, PrefixedHexString } from './Aliases'
 
 export default interface EnvelopingTransactionDetails {
   // Added by the Web3 call stack:

@@ -1,5 +1,3 @@
-import { PrefixedHexString } from 'ethereumjs-tx'
-
 import PingResponse from '../../common/PingResponse'
 import { RelayRequest } from '../../common/EIP712/RelayRequest'
 import EnvelopingTransactionDetails from './EnvelopingTransactionDetails'
@@ -9,6 +7,7 @@ import { RelayRegisteredEventInfo } from './RelayRegisteredEventInfo'
 export type Address = string
 export type IntString = string
 export type BoolString = string
+export type PrefixedHexString = string
 /**
  * For legacy reasons, to filter out the relay this filter has to throw.
  * TODO: make ping filtering sane!

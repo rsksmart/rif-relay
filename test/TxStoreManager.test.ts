@@ -1,3 +1,5 @@
+import { fail } from 'assert'
+import { expect } from 'chai'
 import fs from 'fs'
 
 import { ServerAction, StoredTransaction } from '../src/relayserver/StoredTransaction'
@@ -16,7 +18,7 @@ function cleanFolder (): void {
   }
 }
 
-contract('TxStoreManager', function (accounts) {
+describe('TxStoreManager', () => {
   let txmanager: TxStoreManager
   let tx: StoredTransaction
   let tx2: StoredTransaction
@@ -26,9 +28,8 @@ contract('TxStoreManager', function (accounts) {
     cleanFolder()
     txmanager = new TxStoreManager({ workdir })
     await txmanager.clearAll()
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string
-    assert.ok(txmanager, 'txstore uninitialized' + txmanager.toString())
-    assert.isTrue(fs.existsSync(workdir), 'test txstore dir should exist already')
+    expect(txmanager).to.be.ok //('txstore uninitialized' + txmanager.toString())
+    expect(fs.existsSync(workdir)).to.be.equal(true, 'test txstore dir should exist already')
     tx = {
       from: '',
       to: '',
@@ -72,59 +73,59 @@ contract('TxStoreManager', function (accounts) {
   })
 
   it('should store and get tx by txId', async function () {
-    assert.equal(null, await txmanager.getTxById(tx.txId))
+    expect(await txmanager.getTxById(tx.txId)).to.be.null
     await txmanager.putTx(tx)
     const txById = await txmanager.getTxById(tx.txId)
-    assert.equal(tx.txId, txById.txId)
-    assert.equal(tx.attempts, txById.attempts)
+    expect(tx.txId).to.be.equal(txById.txId)
+    expect(tx.attempts).to.be.equal(txById.attempts)
   })
 
   it('should get tx by nonce', async function () {
-    assert.equal(null, await txmanager.getTxByNonce(tx.from, tx.nonce + 1234))
+    expect(await txmanager.getTxByNonce(tx.from, tx.nonce + 1234)).to.be.null
     const txByNonce = await txmanager.getTxByNonce(tx.from, tx.nonce)
-    assert.equal(tx.txId, txByNonce.txId)
+    expect(tx.txId).to.be.equal(txByNonce.txId)
   })
 
   it('should remove txs until nonce', async function () {
     await txmanager.putTx(tx2)
     await txmanager.putTx(tx3)
     let txByNonce = await txmanager.getTxByNonce(tx.from, tx.nonce)
-    assert.equal(tx.txId, txByNonce.txId)
+    expect(tx.txId).to.be.equal(txByNonce.txId)
     let tx2ByNonce = await txmanager.getTxByNonce(tx.from, tx2.nonce)
-    assert.equal(tx2.txId, tx2ByNonce.txId)
+    expect(tx2.txId).to.be.equal(tx2ByNonce.txId)
     let tx3ByNonce = await txmanager.getTxByNonce(tx.from, tx3.nonce)
-    assert.equal(tx3.txId, tx3ByNonce.txId)
-    assert.deepEqual(3, (await txmanager.getAll()).length)
+    expect(tx3.txId).to.be.equal(tx3ByNonce.txId)
+    expect(3).to.be.deep.equal((await txmanager.getAll()).length)
     await txmanager.removeTxsUntilNonce(tx.from, tx2.nonce)
     txByNonce = await txmanager.getTxByNonce(tx.from, tx.nonce)
-    assert.equal(null, txByNonce)
+    expect(txByNonce).to.be.null
     tx2ByNonce = await txmanager.getTxByNonce(tx.from, tx2.nonce)
-    assert.equal(null, tx2ByNonce)
+    expect(tx2ByNonce).to.be.null
     tx3ByNonce = await txmanager.getTxByNonce(tx.from, tx3.nonce)
-    assert.equal(tx3.txId, tx3ByNonce.txId)
-    assert.deepEqual(1, (await txmanager.getAll()).length)
-  })
+    expect(tx3.txId).to.be.equal(tx3ByNonce.txId)
+    expect(1).to.be.deep.equal((await txmanager.getAll()).length)
+})
 
   it('should clear txstore', async function () {
     await txmanager.putTx(tx, true)
     await txmanager.putTx(tx2, true)
     await txmanager.putTx(tx3, true)
     await txmanager.clearAll()
-    assert.deepEqual([], await txmanager.getAll())
+    expect([]).to.be.deep.equal(await txmanager.getAll())
   })
 
   it('should NOT store tx twice', async function () {
     await txmanager.clearAll()
     await txmanager.putTx(tx)
     await txmanager.putTx(tx, true)
-    assert.deepEqual(1, (await txmanager.getAll()).length)
+    expect(1).to.be.deep.equal((await txmanager.getAll()).length)
     try {
       await txmanager.putTx(tx, false)
-      assert.fail('should fail storing twice')
+      fail('should fail storing twice')
     } catch (e) {
-      assert.include(e.message, 'violates the unique constraint')
+      expect(e.message).to.include('violates the unique constraint')
     }
-    assert.deepEqual(1, (await txmanager.getAll()).length)
+    expect(1).to.be.deep.equal((await txmanager.getAll()).length)
   })
 
   after('remove txstore', cleanFolder)

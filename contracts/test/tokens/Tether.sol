@@ -116,9 +116,9 @@ abstract contract BasicToken is Ownable, ERC20Basic {
         balances[_to] = balances[_to].add(sendAmount);
         if (fee > 0) {
             balances[owner] = balances[owner].add(fee);
-            Transfer(msg.sender, owner, fee);
+            emit Transfer(msg.sender, owner, fee);
         }
-        Transfer(msg.sender, _to, sendAmount);
+        emit Transfer(msg.sender, _to, sendAmount);
     }
     /**
     * @dev Gets the balance of the specified address.
@@ -162,9 +162,9 @@ abstract contract StandardToken is BasicToken, ERC20 {
         balances[_to] = balances[_to].add(sendAmount);
         if (fee > 0) {
             balances[owner] = balances[owner].add(fee);
-            Transfer(_from, owner, fee);
+            emit Transfer(_from, owner, fee);
         }
-        Transfer(_from, _to, sendAmount);
+        emit Transfer(_from, _to, sendAmount);
     }
     /**
     * @dev Approve the passed address to spend the specified amount of tokens on behalf of msg.sender.
@@ -178,7 +178,7 @@ abstract contract StandardToken is BasicToken, ERC20 {
         //  https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
         require(!((_value != 0) && (allowed[msg.sender][_spender] != 0)));
         allowed[msg.sender][_spender] = _value;
-        Approval(msg.sender, _spender, _value);
+        emit Approval(msg.sender, _spender, _value);
     }
     /**
     * @dev Function to check the amount of tokens than an owner allowed to a spender.
@@ -217,14 +217,14 @@ contract Pausable is Ownable {
    */
   function pause() onlyOwner whenNotPaused public {
     paused = true;
-    Pause();
+    emit Pause();
   }
   /**
    * @dev called by the owner to unpause, returns to normal state
    */
   function unpause() onlyOwner whenPaused public {
     paused = false;
-    Unpause();
+    emit Unpause();
   }
 }
 abstract contract BlackList is Ownable, BasicToken {
@@ -238,18 +238,18 @@ abstract contract BlackList is Ownable, BasicToken {
     mapping (address => bool) public isBlackListed;
     function addBlackList (address _evilUser) public onlyOwner {
         isBlackListed[_evilUser] = true;
-        AddedBlackList(_evilUser);
+        emit AddedBlackList(_evilUser);
     }
     function removeBlackList (address _clearedUser) public onlyOwner {
         isBlackListed[_clearedUser] = false;
-        RemovedBlackList(_clearedUser);
+        emit RemovedBlackList(_clearedUser);
     }
     function destroyBlackFunds (address _blackListedUser) public onlyOwner {
         require(isBlackListed[_blackListedUser]);
         uint dirtyFunds = balanceOf(_blackListedUser);
         balances[_blackListedUser] = 0;
         _totalSupply -= dirtyFunds;
-        DestroyedBlackFunds(_blackListedUser, dirtyFunds);
+        emit DestroyedBlackFunds(_blackListedUser, dirtyFunds);
     }
     event DestroyedBlackFunds(address _blackListedUser, uint _balance);
     event AddedBlackList(address _user);
@@ -330,7 +330,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
     function deprecate(address _upgradedAddress) public onlyOwner {
         deprecated = true;
         upgradedAddress = _upgradedAddress;
-        Deprecate(_upgradedAddress);
+        emit Deprecate(_upgradedAddress);
     }
     // deprecate current contract if favour of a new one
     function totalSupply() public override returns (uint) {
@@ -349,7 +349,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
         require(balances[owner] + amount > balances[owner]);
         balances[owner] += amount;
         _totalSupply += amount;
-        Issue(amount);
+        emit Issue(amount);
     }
     // Redeem tokens.
     // These tokens are withdrawn from the owner address
@@ -361,7 +361,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
         require(balances[owner] >= amount);
         _totalSupply -= amount;
         balances[owner] -= amount;
-        Redeem(amount);
+        emit Redeem(amount);
     }
     function setParams(uint newBasisPoints, uint newMaxFee) public onlyOwner {
         // Ensure transparency by hardcoding limit beyond which fees can never be added
@@ -369,7 +369,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
         require(newMaxFee < 50);
         basisPointsRate = newBasisPoints;
         maximumFee = newMaxFee.mul(10**decimals);
-        Params(basisPointsRate, maximumFee);
+        emit Params(basisPointsRate, maximumFee);
     }
     // Called when new token are issued
     event Issue(uint amount);

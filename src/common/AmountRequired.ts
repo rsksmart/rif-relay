@@ -1,27 +1,26 @@
 // @ts-ignore
 import EthVal from 'ethval'
 import log from 'loglevel'
-import { toBN } from 'web3-utils'
-
 import { boolString } from './Utils'
+import { BigNumber }  from "ethers"
 
 export class AmountRequired {
   _name: string
-  _currentValue = toBN(0)
-  _requiredValue = toBN(0)
+  _currentValue = BigNumber.from(0)
+  _requiredValue = BigNumber.from(0)
   _listener?: () => void
 
-  constructor (name: string, requiredValue: BN, listener?: () => void) {
+  constructor (name: string, requiredValue: BigNumber, listener?: () => void) {
     this._name = name
     this._requiredValue = requiredValue
     this._listener = listener
   }
 
-  get currentValue (): BN {
+  get currentValue (): BigNumber {
     return this._currentValue
   }
 
-  set currentValue (newValue: BN) {
+  set currentValue (newValue: BigNumber) {
     const didChange = !this._currentValue.eq(newValue)
     const wasSatisfied = this.isSatisfied
     this._currentValue = newValue
@@ -30,11 +29,11 @@ export class AmountRequired {
     }
   }
 
-  get requiredValue (): BN {
+  get requiredValue (): BigNumber {
     return this._requiredValue
   }
 
-  set requiredValue (newValue: BN) {
+  set requiredValue (newValue: BigNumber) {
     const didChange = !this._requiredValue.eq(newValue)
     const wasSatisfied = this.isSatisfied
     this._requiredValue = newValue

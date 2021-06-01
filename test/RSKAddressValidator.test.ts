@@ -1,15 +1,16 @@
-import {
-  TestRSKAddressValidatorInstance
-} from '../types/truffle-contracts'
-import { toChecksumAddress } from 'ethereumjs-util'
-
-const TestRSKAddressValidator = artifacts.require('TestRSKAddressValidator')
-
-contract('RSKAddressValidator', function (accounts) {
-  let addressValidator: TestRSKAddressValidatorInstance
+import { expect } from 'chai'
+import { ethers } from 'hardhat'
+import { TestRSKAddressValidator, TestRSKAddressValidator__factory } from '../typechain'
+  
+describe('RSKAddressValidator', () => {
+  let addressValidator: TestRSKAddressValidator
+  let TestRSKAddressValidator: TestRSKAddressValidator__factory
   // let chainId: number
 
   before(async () => {
+      TestRSKAddressValidator = await ethers.getContractFactory('TestRSKAddressValidator') as TestRSKAddressValidator__factory
+      addressValidator = await TestRSKAddressValidator.deploy()
+      await addressValidator.deployed()
     // chainId = (await getTestingEnvironment()).chainId
   })
   it('should return true on check with data signed with zero', async function () {
@@ -21,7 +22,8 @@ contract('RSKAddressValidator', function (accounts) {
 
     const signature = `0x${r}${s}${v.toString(16)}`
 
-    addressValidator = await TestRSKAddressValidator.new()
+    addressValidator = await TestRSKAddressValidator.deploy()
+    await addressValidator.deployed()
     const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
@@ -38,7 +40,8 @@ contract('RSKAddressValidator', function (accounts) {
 
     const signature = `0x${r}${s}${v.toString(16)}`
 
-    addressValidator = await TestRSKAddressValidator.new()
+    addressValidator = await TestRSKAddressValidator.deploy()
+    await addressValidator.deployed()
     const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.equal('0xdcc703c0E500B653Ca82273B7BFAd8045D85a470')
 
@@ -54,11 +57,12 @@ contract('RSKAddressValidator', function (accounts) {
 
     const signature = `0x${r}${s}${v.toString(16)}`
 
-    addressValidator = await TestRSKAddressValidator.new()
+    addressValidator = await TestRSKAddressValidator.deploy()
+    await addressValidator.deployed()
     const addr = await addressValidator.getAddress(messageHash, signature)
     expect(addr).to.be.not.equal('0xdcc703c0e500b653ca82273b7bfad8045d85a470')
     console.log('WARN: In testnet or mainnet with EIP1191, the chainID must be added to toChecksumAddress in order to pass')
-    expect(addr).to.be.equal(toChecksumAddress('0xdcc703c0e500b653ca82273b7bfad8045d85a470'))
+    expect(addr).to.be.equal(ethers.utils.getAddress('0xdcc703c0e500b653ca82273b7bfad8045d85a470'))
   })
 
   it('should return true on check with small case address on solidity', async function () {
@@ -72,11 +76,12 @@ contract('RSKAddressValidator', function (accounts) {
 
     const addr = '0xdcc703c0e500b653ca82273b7bfad8045d85a470'
 
-    addressValidator = await TestRSKAddressValidator.new()
+    addressValidator = await TestRSKAddressValidator.deploy()
+    await addressValidator.deployed()
     const areEqualSmallCase = await addressValidator.compareAddressWithSigner(messageHash, signature, addr)
     expect(areEqualSmallCase).to.be.true
 
-    const addrChecksummed = toChecksumAddress(addr)
+    const addrChecksummed = ethers.utils.getAddress(addr)
 
     const areEqualChecksummed = await addressValidator.compareAddressWithSigner(messageHash, signature, addrChecksummed)
     expect(areEqualChecksummed).to.be.true
