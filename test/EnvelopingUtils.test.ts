@@ -19,7 +19,7 @@ import Web3 from 'web3'
 import abiDecoder from 'abi-decoder'
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
 import { DiscoveryConfig, SmartWalletDiscovery } from '../src/relayclient/SmartWalletDiscovery'
-import { WebsocketProvider } from 'web3-core'
+import {HttpProvider, WebsocketProvider} from 'web3-core'
 
 contract('Enveloping utils', function (accounts) {
   describe('Relay-related functionalities', function () {
@@ -129,16 +129,19 @@ contract('Enveloping utils', function (accounts) {
       }
 
       config = configure(partialConfig)
+
+      const underlyingProvider = web3.currentProvider as HttpProvider
+
       const serverData = await startRelay(relayHub, {
         stake: 1e18,
-        delay: 3600 * 24 * 7,
-        url: 'asd',
-        relayOwner: fundedAccount.address,
-        gasPriceFactor: 1,
-        // @ts-ignore
-        rskNodeUrl: web3.currentProvider.host,
+        relayOwner: accounts[1],
+        rskNodeUrl: underlyingProvider.host,
+        deployVerifierAddress: deployVerifier.address,
         relayVerifierAddress: verifier.address,
-        deployVerifierAddress: deployVerifier.address
+        workerMinBalance: 1e18,
+        workerTargetBalance: 3e18,
+        managerMinBalance: 1e18,
+        managerTargetBalance: 3e18
       })
       relayproc = serverData.proc
       workerAddress = serverData.worker
@@ -152,7 +155,7 @@ contract('Enveloping utils', function (accounts) {
 
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedInitialCode)
+      assert.equal(expectedInitialCode, '0x')
 
       const txDeployHash = await deploySmartWallet(constants.ZERO_ADDRESS, '0', '0')
 
@@ -187,7 +190,7 @@ contract('Enveloping utils', function (accounts) {
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
       const balanceTransfered = new BN(10)
-      assert.equal('0x00', expectedInitialCode)
+      assert.equal(expectedInitialCode, '0x')
       await tokenContract.mint('100', swAddress)
       const previousBalance = await tokenContract.balanceOf(workerAddress)
 
