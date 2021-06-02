@@ -23,7 +23,9 @@
   ],
   "prepublish": "npm run prepare",
   "scripts": {
-    "prepare": "./scripts/extract_abi.js"
+    "prepare": "./scripts/prepublish",
+    "compile": "npx hardhat compile",
+    "extract_abi": "./scripts/extract_abi.js"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
