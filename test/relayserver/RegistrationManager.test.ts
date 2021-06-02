@@ -325,7 +325,7 @@ contract('RegistrationManager', function (accounts) {
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
-            workersBalanceBefore.sub(workerEthTxCost).toString(),
+          workersBalanceBefore.sub(workerEthTxCost).toString(),
           `ownerBalanceAfter(${ownerBalanceAfter.toString()}) - ownerBalanceBefore(${ownerBalanceBefore.toString()}) != 
           + workerBalanceBefore(${workersBalanceBefore.toString()})
          - workerEthTxCost(${workerEthTxCost.toString()})`)

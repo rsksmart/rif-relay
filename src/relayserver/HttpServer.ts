@@ -34,8 +34,8 @@ export class HttpServer {
       this.serverInstance = this.app.listen(this.port, () => {
         console.log('Listening on port', this.port)
         this.startBackend()
-            .then(() => console.log('Started Backend Successfully'))
-            .catch(error => console.error('Error starting backend', error))
+          .then(() => console.log('Started Backend Successfully'))
+          .catch(error => console.error('Error starting backend', error))
       })
     }
   }

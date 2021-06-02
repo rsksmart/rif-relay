@@ -32,7 +32,7 @@ contract('EnvelopingArbiter', function (accounts) {
       workerMinBalance: 0.01e18,
       workerTargetBalance: 0.03e18,
       managerMinBalance: 0.01e18,
-      managerTargetBalance: 0.03e18,
+      managerTargetBalance: 0.03e18
     })
     await globalEnv.clearServerStorage()
   })

@@ -51,8 +51,6 @@ options.forEach(params => {
     let gaslessAccount: AccountKeypair
 
     before(async () => {
-      const gasPriceFactor = 1.2
-
       // An accound already funded on RSK
       fundedAccount = {
         privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),

@@ -14,7 +14,7 @@ import {
   SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance, TestDeployVerifierEverythingAcceptedInstance
 } from '../../types/truffle-contracts'
 
-import {DeployRequest, RelayRequest} from '../../src/common/EIP712/RelayRequest'
+import { DeployRequest } from '../../src/common/EIP712/RelayRequest'
 import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -920,7 +920,7 @@ contract('RelayClient', function (accounts) {
 
     it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
       const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
-      let dependencyTree = getDependencies(configure(config), underlyingProvider, {
+      const dependencyTree = getDependencies(configure(config), underlyingProvider, {
         httpClient: badHttpClient
       })
       const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
