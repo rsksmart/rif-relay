@@ -163,7 +163,7 @@ export class RelayServer extends EventEmitter {
   }
 
   validateVerifier (req: RelayTransactionRequest | DeployTransactionRequest): void {
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+    if (!this.isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error(`Invalid verifier: ${req.relayRequest.relayData.callVerifier}`)
     }
   }
@@ -177,7 +177,7 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number}> {
-    if (!this._isTrustedVerifier(verifier)) {
+    if (!this.isTrustedVerifier(verifier)) {
       throw new Error('Invalid verifier')
     }
 
@@ -251,7 +251,7 @@ export class RelayServer extends EventEmitter {
     this.validateVerifier(req)
     await this.validateMaxNonce(req.metadata.relayMaxNonce)
 
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+    if (!this.isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error('Specified Verifier is not Trusted')
     }
     const { maxPossibleGas } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
@@ -610,7 +610,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     return await this.transactionManager.boostUnderpricedPendingTransactionsForSigner(signer, blockNumber)
   }
 
-  _isTrustedVerifier (verifier: string): boolean {
+  isTrustedVerifier (verifier: string): boolean {
     return this.trustedVerifiers.has(verifier.toLowerCase())
   }
 
