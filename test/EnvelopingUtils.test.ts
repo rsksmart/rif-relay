@@ -6,7 +6,14 @@ import { Enveloping, SignatureProvider } from '../src/relayclient/Enveloping'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
-import { createSmartWalletFactory, deployHub, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
+import {
+  createSmartWalletFactory,
+  deployHub,
+  getTestingEnvironment,
+  isEmptyResponse,
+  startRelay,
+  stopRelay
+} from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { randomHex, toChecksumAddress } from 'web3-utils'
 import TypedRequestData from '../src/common/EIP712/TypedRequestData'
@@ -19,7 +26,7 @@ import Web3 from 'web3'
 import abiDecoder from 'abi-decoder'
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
 import { DiscoveryConfig, SmartWalletDiscovery } from '../src/relayclient/SmartWalletDiscovery'
-import {HttpProvider, WebsocketProvider} from 'web3-core'
+import { HttpProvider, WebsocketProvider } from 'web3-core'
 
 contract('Enveloping utils', function (accounts) {
   describe('Relay-related functionalities', function () {
@@ -134,17 +141,18 @@ contract('Enveloping utils', function (accounts) {
 
       const serverData = await startRelay(relayHub, {
         stake: 1e18,
-        relayOwner: accounts[1],
+        relayOwner: fundedAccount.address,
         rskNodeUrl: underlyingProvider.host,
         deployVerifierAddress: deployVerifier.address,
         relayVerifierAddress: verifier.address,
-        workerMinBalance: 1e18,
-        workerTargetBalance: 3e18,
-        managerMinBalance: 1e18,
-        managerTargetBalance: 3e18
+        workerMinBalance: 0.01e18,
+        workerTargetBalance: 0.03e18,
+        managerMinBalance: 0.01e18,
+        managerTargetBalance: 0.03e18
       })
       relayproc = serverData.proc
       workerAddress = serverData.worker
+      console.log(workerAddress)
       enveloping = new Enveloping(config, web3, workerAddress)
       await enveloping._init()
     })
@@ -155,7 +163,7 @@ contract('Enveloping utils', function (accounts) {
 
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
-      assert.equal(expectedInitialCode, '0x')
+      assert.isTrue(isEmptyResponse(expectedInitialCode))
 
       const txDeployHash = await deploySmartWallet(constants.ZERO_ADDRESS, '0', '0')
 
@@ -190,7 +198,7 @@ contract('Enveloping utils', function (accounts) {
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
       const balanceTransfered = new BN(10)
-      assert.equal(expectedInitialCode, '0x')
+      assert.isTrue(isEmptyResponse(expectedInitialCode))
       await tokenContract.mint('100', swAddress)
       const previousBalance = await tokenContract.balanceOf(workerAddress)
 

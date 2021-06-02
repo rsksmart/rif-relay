@@ -229,11 +229,7 @@ export class Enveloping {
     const httpClient = new HttpClient(new HttpWrapper(), {})
     try {
       const commitmentResponse = await httpClient.relayTransaction(relayUrl, request)
-      console.log(`hexTrx is ${commitmentResponse?.signedReceipt?.workerSignature}`)
-      const transaction = new Transaction(commitmentResponse?.signedReceipt?.workerSignature, this.dependencies.contractInteractor.getRawTxOptions())
-      const txHash: string = transaction.hash(true).toString('hex')
-      const hash = `0x${txHash}`
-      console.log('tx hash: ' + hash)
+      const transaction = new Transaction(commitmentResponse?.signedTx, this.dependencies.contractInteractor.getRawTxOptions())
       return { transaction }
     } catch (error) {
       const reasonStr = error instanceof Error ? error.message : JSON.stringify(error)
