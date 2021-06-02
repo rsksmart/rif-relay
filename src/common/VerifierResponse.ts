@@ -1,3 +1,5 @@
+import { Address } from "../relayclient/types/Aliases";
+
 export default interface VerifierResponse {
-  trustedVerifiers: Set<String | undefined>
+  trustedVerifiers: Address[]
 }

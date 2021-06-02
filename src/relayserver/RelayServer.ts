@@ -129,7 +129,7 @@ export class RelayServer extends EventEmitter {
 
   async verifierHandler (): Promise<VerifierResponse> {
     return {
-      trustedVerifiers: this.trustedVerifiers
+      trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]
     }
   }
 
