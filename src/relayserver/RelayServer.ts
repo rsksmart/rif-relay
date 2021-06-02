@@ -34,6 +34,7 @@ import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import TokenResponse from '../common/TokenResponse'
 
 import Timeout = NodeJS.Timeout
+import VerifierResponse from '../common/VerifierResponse'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -123,6 +124,12 @@ export class RelayServer extends EventEmitter {
         deployVerifier: [...new Set(deployVerifierEvents.map(event => event.returnValues.tokenAddress))],
         relayVerifier: [...new Set(relayVerifierEvents.map(event => event.returnValues.tokenAddress))]
       }
+    }
+  }
+
+  async verifierHandler (): Promise<VerifierResponse> {
+    return {
+      trustedVerifiers: this.trustedVerifiers
     }
   }
 

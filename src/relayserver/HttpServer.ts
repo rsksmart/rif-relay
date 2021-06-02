@@ -21,6 +21,7 @@ export class HttpServer {
     this.app.get('/getaddr', this.pingHandler.bind(this))
     this.app.get('/status', this.statusHandler.bind(this))
     this.app.get('/tokens', this.tokenHandler.bind(this))
+    this.app.get('/verifiers', this.verifierHandler.bind(this))
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
@@ -114,6 +115,17 @@ export class HttpServer {
       const message: string = e.message
       res.send({ message })
       log.error(`token handler rejected: ${message}`)
+    }
+  }
+
+  async verifierHandler (req: Request, res: Response): Promise<void> {
+    try {
+      const verifierResponse = await this.backend.verifierHandler()
+      res.send(verifierResponse)
+    } catch (e) {
+      const message: string = e.message
+      res.send({ message })
+      log.error(`verified handler rejected: ${message}`)
     }
   }
 }
