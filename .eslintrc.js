@@ -10,26 +10,28 @@ module.exports = {
     artifacts: false,
     assert: false,
     contract: false,
-    web3: false
+    web3: false,
+    ethers: false
   },
-  extends:
-    [
-      'standard-with-typescript'
-    ],
-  // This is needed to add configuration to rules with type information
+  plugins: [
+    '@typescript-eslint',
+    'security'
+  ],
+  extends: [
+    'standard-with-typescript',
+    'plugin:security/recommended'
+  ],
+  rules: {
+    'no-console': 'off'
+  },
   parser: '@typescript-eslint/parser',
   parserOptions: {
     // The 'tsconfig.eslint.json' is needed to add all JavaScript files to the project
     project: ['./tsconfig.json', './tsconfig.eslint.json']
   },
   ignorePatterns: [
-    'types/truffle-contracts',
-    'dist/',
     'rsknode/'
   ],
-  rules: {
-    'no-console': 'off'
-  },
   overrides: [
     {
       files: [

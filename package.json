@@ -25,7 +25,9 @@
   "scripts": {
     "prepare": "./scripts/prepublish",
     "compile": "npx hardhat compile",
-    "extract_abi": "./scripts/extract_abi.js"
+    "extract_abi": "./scripts/extract_abi.js",
+    "lint": "yarn run lint:js",
+    "lint:js": "eslint -f unix ."
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
@@ -35,10 +37,18 @@
     "@types/chai": "^4.2.16",
     "@types/eth-sig-util": "^2.1.0",
     "@types/mocha": "^8.2.2",
+    "@types/nedb": "^1.8.11",
     "@types/node": "^14.14.41",
     "@types/semver": "^7.3.4",
-    "@types/nedb": "^1.8.11",
+    "@typescript-eslint/eslint-plugin": "4",
+    "@typescript-eslint/parser": "^4.26.0",
     "chai": "^4.2.0",
+    "eslint": "7",
+    "eslint-config-standard-with-typescript": "^20.0.0",
+    "eslint-plugin-import": "2",
+    "eslint-plugin-node": "11",
+    "eslint-plugin-promise": "4",
+    "eslint-plugin-security": "^1.4.0",
     "ethereum-waffle": "^3.0.0",
     "ethereumjs-wallet": "^1.0.1",
     "ethers": "^5.0.0",
