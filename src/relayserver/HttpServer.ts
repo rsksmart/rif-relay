@@ -5,6 +5,7 @@ import cors from 'cors'
 import { RelayServer } from './RelayServer'
 import { Server } from 'http'
 import log from 'loglevel'
+import { Address } from '../relayclient/types/Aliases'
 
 export class HttpServer {
   app: Express
@@ -109,7 +110,8 @@ export class HttpServer {
 
   async tokenHandler (req: Request, res: Response): Promise<void> {
     try {
-      const tokenResponse = await this.backend.tokenHandler()
+      const verifier = req.query.verifier as Address
+      const tokenResponse = await this.backend.tokenHandler(verifier)
       res.send(tokenResponse)
     } catch (e) {
       const message: string = e.message

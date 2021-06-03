@@ -197,6 +197,15 @@ export default class ContractInteractor {
     return await this.IDeployVerifierContract.at(address)
   }
 
+  // TODO: should return IDeployVerifierInstance if the address is for that contract
+  async instantiateContract(address: Address): Promise<IRelayVerifierInstance> {
+    try{
+      return await this.IRelayVerifierContract.at(address)
+    } catch (e){
+      throw new Error('provided address is not a smart contract')
+    }
+  }
+
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {
     return await this.IRelayHubContract.at(address)
   }

@@ -114,17 +114,10 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler (): Promise<TokenResponse> {
-    const deployVerifierEvents = await this.contractInteractor.getTokensForDeployVerifier()
-    const relayVerifierEvents = await this.contractInteractor.getTokensForRelayVerifier()
-
-    // Sets are used to remove duplicates
-    return {
-      allowedTokens: {
-        deployVerifier: [...new Set(deployVerifierEvents.map(event => event.returnValues.tokenAddress))],
-        relayVerifier: [...new Set(relayVerifierEvents.map(event => event.returnValues.tokenAddress))]
-      }
-    }
+  async tokenHandler (verifier: Address): Promise<any> {
+    const verifierInstance = await this.contractInteractor.instantiateContract(verifier)
+    const allowedTokenEvents = await this.contractInteractor._getPastEvents(verifierInstance.contract, ['AllowedToken'], [], { fromBlock: 0 })
+    return allowedTokenEvents.map(event => event.returnValues.tokenAddress)
   }
 
   async verifierHandler (): Promise<VerifierResponse> {
