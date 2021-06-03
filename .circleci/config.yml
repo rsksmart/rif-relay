@@ -204,6 +204,17 @@ jobs: # a collection of steps
           test: "test/relayclient/RelaySelectionManager.test.ts"
       - store_artifacts:
           path: ~/gls/logs
+  Test_Thread_7: # Test thread
+    working_directory: ~/gls # directory where steps will run
+    docker: # run the steps with Docker
+      - image: cimg/openjdk:8.0-node
+  
+    steps: # a collection of executable commands
+      - prepare
+      - run_rskj_test:
+         test: "test/enveloping/EnvelopingArbiter.test.ts"  
+      - store_artifacts:
+          path: ~/gls/logs
 workflows:
   commit:
       jobs:
@@ -214,3 +225,4 @@ workflows:
           - Test_Thread_4
           - Test_Thread_5
           - Test_Thread_6
+          - Test_Thread_7
