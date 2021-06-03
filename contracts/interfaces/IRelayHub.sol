@@ -105,6 +105,16 @@ interface IRelayHub {
 
     function isRelayManagerStaked(address relayManager) external view returns(bool);
 
+    // get the relay data from the manager address
+    function getRelayData(address relayManager) external view returns(RelayData memory relayInfo);
+
+    // Represents the relay data for the relay
+    struct RelayData {
+        address manager;
+        bool penalized;
+        string url;
+    }
+
     /**
     * @dev the total gas overhead of relayCall(), before the first gasleft() and after the last gasleft().
     * Assume that relay has non-zero balance (costs 15'000 more otherwise).

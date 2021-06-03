@@ -35,6 +35,9 @@ contract RelayHub is IRelayHub {
     // maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
 
+    //maps relay manager address to the relay data
+    mapping(address => RelayData) public relayData;
+
     constructor(
         address _penalizer,
         uint256 _maxWorkerCount,
@@ -46,9 +49,9 @@ contract RelayHub is IRelayHub {
         require(
             _maxWorkerCount > 0 &&
             _gasOverhead > 0 &&
-            _minimumStake > 0 && 
-            _minimumEntryDepositValue > 0 && 
-            _minimumUnstakeDelay > 0, "invalid hub init params"   
+            _minimumStake > 0 &&
+            _minimumEntryDepositValue > 0 &&
+            _minimumUnstakeDelay > 0, "invalid hub init params"
         );
 
         penalizer = _penalizer;
@@ -67,6 +70,10 @@ contract RelayHub is IRelayHub {
         requireManagerStaked(msg.sender);
 
         require(workerCount[msg.sender] > 0, "no relay workers");
+
+        relayData[msg.sender].manager = msg.sender;
+        relayData[msg.sender].url = url;
+
         emit RelayServerRegistered(msg.sender, url);
     }
 
@@ -218,7 +225,7 @@ contract RelayHub is IRelayHub {
         );
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
-        
+
         requireManagerStaked(manager);
 
         bool forwarderSuccess;
@@ -274,6 +281,10 @@ contract RelayHub is IRelayHub {
         penalizeRelayManager(relayManager, beneficiary);
     }
 
+    function getRelayInfo(address relayManager) external view override returns (RelayInfo memory relayInfo) {
+        return registeredRelays[relayManager];
+    }
+
     function getStakeInfo(address relayManager)
         external
         view
@@ -302,6 +313,8 @@ contract RelayHub is IRelayHub {
         // Ether is burned and transferred
         address(0).transfer(toBurn);
         beneficiary.transfer(reward);
+        require(registeredRelays[relayManager].manager != address(0), "Relay is not registered");
+        registeredRelays[relayManager].penalized = true;
         emit StakePenalized(relayManager, beneficiary, reward);
     }
 
@@ -354,6 +367,8 @@ contract RelayHub is IRelayHub {
         require(info.owner == msg.sender, "not owner");
         require(info.withdrawBlock == 0, "already pending");
         info.withdrawBlock = block.number.add(info.unstakeDelay);
+        require(registeredRelays[relayManager].manager != address(0), "Relay is not registered");
+        registeredRelays[relayManager].penalized = true;
         emit StakeUnlocked(relayManager, msg.sender, info.withdrawBlock);
     }
 
