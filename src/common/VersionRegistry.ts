@@ -6,7 +6,7 @@ import { providers } from 'ethers'
 import { VersionRegistry } from '../../typechain'
 
 export function string32 (s: string): PrefixedHexString {
-  return ethers.utils.hexlify(Buffer.from(s)).padEnd(66,'0')
+  return ethers.utils.hexlify(Buffer.from(s)).padEnd(66, '0')
 }
 
 // convert a bytes32 into a string, removing any trailing zeros
@@ -62,11 +62,11 @@ export class VersionRegistryInteractor {
   async getVersion (id: string, delayPeriod: number, optInVersion = ''): Promise<VersionInfo> {
     const [versions, now] = await Promise.all([
       this.getAllVersions(id),
-      this.provider.getBlock('latest').then(b => b.timestamp as number)
+      this.provider.getBlock('latest').then(b => b.timestamp)
     ])
 
     const ver = versions
-      .find((v: { canceled: any; time: number; version: string }) => !v.canceled && (v.time + delayPeriod <= now || v.version === optInVersion))
+      .find((v: { canceled: boolean, time: number, version: string }) => !v.canceled && ((v.time + delayPeriod) <= now || v.version === optInVersion))
     if (ver == null) {
       throw new Error(`getVersion(${id}) - no version found`)
     }
@@ -79,7 +79,7 @@ export class VersionRegistryInteractor {
    * @param id object id to return version history for
    */
   async getAllVersions (id: string): Promise<any> {
-    const cancelEvent =  this.registryContract.filters.VersionCanceled(string32(id), null, null)
+    const cancelEvent = this.registryContract.filters.VersionCanceled(string32(id), null, null)
     const cancelEventsEmitted = await this.registryContract.queryFilter(cancelEvent, 1)
     // const events = await this.registryContract.getPastEvents('allEvents', { fromBlock: 1, topics: [null, string32(id)] })
     // map of ver=>reason, for every canceled version
@@ -89,9 +89,9 @@ export class VersionRegistryInteractor {
     }), {})
 
     const found = new Set<string>()
-    const versionAddedEvent =  this.registryContract.filters.VersionAdded(string32(id), null, null, null)
+    const versionAddedEvent = this.registryContract.filters.VersionAdded(string32(id), null, null, null)
     const versionAddedEventsEmitted = await this.registryContract.queryFilter(versionAddedEvent, 1)
-    
+
     return versionAddedEventsEmitted
       .map(e => ({
         version: bytes32toString(e.args?.version),
@@ -114,7 +114,7 @@ export class VersionRegistryInteractor {
 
   // return all IDs registered
   async listIds (): Promise<string[]> {
-    const versionAddedEvent =  this.registryContract.filters.VersionAdded(null, null, null, null)
+    const versionAddedEvent = this.registryContract.filters.VersionAdded(null, null, null, null)
     const versionAddedEventsEmitted = await this.registryContract.queryFilter(versionAddedEvent, 1)
     // const events = await this.registryContract.getPastEvents('VersionAdded', { fromBlock: 1 })
     const ids = new Set(versionAddedEventsEmitted.map(e => bytes32toString(e.args?.id)))
@@ -122,13 +122,13 @@ export class VersionRegistryInteractor {
   }
 
   async addVersion (id: string, version: string, value: string, sendOptions: SendOptions = {}, from?: string): Promise<void> {
-    const fromSigner = await ethers.getSigner(from?? '')
+    const fromSigner = await ethers.getSigner(from ?? '')
     await this.checkVersion(id, version, false)
     await this.registryContract.connect(fromSigner).addVersion(string32(id), string32(version), value, sendOptions)
   }
 
   async cancelVersion (id: string, version: string, cancelReason = '', sendOptions: SendOptions = {}, from?: string): Promise<void> {
-    const fromSigner = await ethers.getSigner(from?? '')
+    const fromSigner = await ethers.getSigner(from ?? '')
     await this.checkVersion(id, version, true)
     await this.registryContract.connect(fromSigner).cancelVersion(string32(id), string32(version), cancelReason, sendOptions)
   }

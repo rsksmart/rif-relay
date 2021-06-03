@@ -8,13 +8,11 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 describe('RelayHub Relay Management', function () {
   let relayHub: RelayHub
   let penalizer: Penalizer
-  let anAccountSigner: SignerWithAddress
   let relayOwnerSigner: SignerWithAddress
   let relayManagerSigner: SignerWithAddress
   let relayWorkerSigner1: SignerWithAddress
   let relayWorkerSigner2: SignerWithAddress
   let relayWorkerSigner3: SignerWithAddress
-  let relayOwner: string
   let relayManager: string
   let relayWorker1: string
   let relayWorker2: string
@@ -35,9 +33,8 @@ describe('RelayHub Relay Management', function () {
   }
 
   beforeEach(async function () {
-    [anAccountSigner, relayOwnerSigner, relayManagerSigner, 
-        relayWorkerSigner1, relayWorkerSigner2, relayWorkerSigner3] = await ethers.getSigners()
-    relayOwner = await relayOwnerSigner.getAddress()
+    [relayOwnerSigner, relayManagerSigner,
+      relayWorkerSigner1, relayWorkerSigner2, relayWorkerSigner3] = await ethers.getSigners()
     relayManager = await relayManagerSigner.getAddress()
     relayWorker1 = await relayWorkerSigner1.getAddress()
     relayWorker2 = await relayWorkerSigner2.getAddress()
@@ -80,18 +77,17 @@ describe('RelayHub Relay Management', function () {
 
     it('should not allow relayManager to register a relay server', async function () {
       await expect(
-        relayHub.connect(relayManagerSigner).registerRelayServer(relayUrl)).to.revertedWith
-        ('no relay workers')
+        relayHub.connect(relayManagerSigner).registerRelayServer(relayUrl)).to.revertedWith('no relay workers')
     })
 
     it('should allow relayManager to add multiple workers', async function () {
       const newRelayWorkers = [relayWorker1, relayWorker2, relayWorker3]
       await expect(relayHub.connect(relayManagerSigner).addRelayWorkers(newRelayWorkers)).to.emit(relayHub, 'RelayWorkersAdded')
-      .withArgs(
-        relayManager,
-        newRelayWorkers,
-        '3'
-      )
+        .withArgs(
+          relayManager,
+          newRelayWorkers,
+          '3'
+        )
     })
 
     it('should not allow relayManager to register already registered workers', async function () {
@@ -121,8 +117,8 @@ describe('RelayHub Relay Management', function () {
     })
 
     it('should allow relayManager to update transaction fee and url', async function () {
-    await expect(relayHub.connect(relayManagerSigner).registerRelayServer(relayUrl)).to.emit(
-      relayHub, 'RelayServerRegistered').withArgs(
+      await expect(relayHub.connect(relayManagerSigner).registerRelayServer(relayUrl)).to.emit(
+        relayHub, 'RelayServerRegistered').withArgs(
         relayManager,
         relayUrl
       )

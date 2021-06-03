@@ -9,10 +9,10 @@ import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getLocalEip712Signature } from '../src/common/Utils'
 import { ethers } from 'hardhat'
-import { Signer } from "ethers"
+import { Signer } from 'ethers'
 import { SmartWallet, SmartWalletFactory, SmartWallet__factory, TestRecipient, TestRecipient__factory, TestUtil, TestUtil__factory } from '../typechain'
 import { PrefixedHexString } from '../src/relayclient/types/Aliases'
-require('source-map-support').install({ errorFormatterForce: true })
+// require('source-map-support').install({ errorFormatterForce: true })
 
 // contract('Utils', function (accounts) {
 // This test verifies signing typed data with a local implementation of signTypedData
@@ -26,32 +26,32 @@ describe('#getLocalEip712Signature()', function () {
   let senderPrivateKey: Uint8Array
   let testUtil: TestUtil
   let recipient: TestRecipient
-  let forwarderInstance: SmartWallet  
+  let forwarderInstance: SmartWallet
   before(async () => {
     const accounts: Signer[] = await ethers.getSigners()
     const sender = ethers.Wallet.createRandom()
     const privateKey = ethers.utils.arrayify(sender.privateKey)
     const address = sender.address
-    senderAccount = {privateKey, address}
+    senderAccount = { privateKey, address }
     senderAddress = senderAccount.address
-    senderPrivateKey = senderAccount.privateKey      
+    senderPrivateKey = senderAccount.privateKey
     // testUtil = await TestUtil.new()
-    const TestUtil = await ethers.getContractFactory("TestUtil") as TestUtil__factory
+    const TestUtil = await ethers.getContractFactory('TestUtil') as TestUtil__factory
     testUtil = await TestUtil.deploy()
-    await testUtil.deployed();
+    await testUtil.deployed()
     chainId = (await testUtil.libGetChainID()).toNumber()
     // const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-    const SmartWallet = await ethers.getContractFactory("SmartWallet") as SmartWallet__factory
-    const smartWalletTemplate  = await SmartWallet.deploy()
-    await smartWalletTemplate.deployed();
+    const SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
+    const smartWalletTemplate = await SmartWallet.deploy()
+    await smartWalletTemplate.deployed()
 
     const factory: SmartWalletFactory = await createSmartWalletFactory(smartWalletTemplate)
     forwarderInstance = await createSmartWallet(await accounts[0].getAddress(), senderAddress, factory, senderPrivateKey, chainId)
     forwarder = forwarderInstance.address
 
-    const TestRecipient = await ethers.getContractFactory("TestRecipient") as TestRecipient__factory
+    const TestRecipient = await ethers.getContractFactory('TestRecipient') as TestRecipient__factory
     recipient = await TestRecipient.deploy()
-    await recipient.deployed();
+    await recipient.deployed()
 
     const senderNonce = '0'
     const target = recipient.address
@@ -105,8 +105,8 @@ describe('#getLocalEip712Signature()', function () {
   })
 
   describe('#callForwarderVerifyAndCall', () => {
-  it('should return revert result', async function () {
-      relayRequest.request.data = (await recipient.populateTransaction.testRevert()).data?? ''
+    it('should return revert result', async function () {
+      relayRequest.request.data = (await recipient.populateTransaction.testRevert()).data ?? ''
       const sig = getLocalEip712Signature(
         new TypedRequestData(
           chainId,
@@ -114,22 +114,22 @@ describe('#getLocalEip712Signature()', function () {
           relayRequest
         ), senderPrivateKey)
 
-        const recoveredAccount = recoverTypedSignature_v4({
-          data: new TypedRequestData(
-            chainId,
-            forwarder,
-            relayRequest
-          ),
-          sig
-        })
+      const recoveredAccount = recoverTypedSignature_v4({
+        data: new TypedRequestData(
+          chainId,
+          forwarder,
+          relayRequest
+        ),
+        sig
+      })
 
-        expect(senderAddress.toLowerCase()).to.be.equals(recoveredAccount.toLowerCase())
-        const expectedReturnValue = encodeRevertReason('always fail')
-        await expect(testUtil.callForwarderVerifyAndCall(relayRequest, sig)).to.emit(testUtil, 'Called').withArgs(false, expectedReturnValue)
+      expect(senderAddress.toLowerCase()).to.be.equals(recoveredAccount.toLowerCase())
+      const expectedReturnValue = encodeRevertReason('always fail')
+      await expect(testUtil.callForwarderVerifyAndCall(relayRequest, sig)).to.emit(testUtil, 'Called').withArgs(false, expectedReturnValue)
     })
 
     it('should call target', async function () {
-      relayRequest.request.data = (await recipient.populateTransaction.emitMessage('hello')).data?? ''
+      relayRequest.request.data = (await recipient.populateTransaction.emitMessage('hello')).data ?? ''
       relayRequest.request.nonce = (await forwarderInstance.nonce()).toString()
 
       const sig = getLocalEip712Signature(

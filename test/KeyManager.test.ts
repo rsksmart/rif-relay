@@ -47,7 +47,7 @@ describe('KeyManager', () => {
     before('create key manager', function () {
       cleanFolder()
       fkmA = new KeyManager(20, workdir)
-      expect(fs.existsSync(workdir)).to.be.true //('test keystore dir should exist already')
+      expect(fs.existsSync(workdir)).to.be.true //  ('test keystore dir should exist already')
     })
 
     it('should get key pair', function () {

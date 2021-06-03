@@ -9,14 +9,14 @@ import { LogLevelNumbers } from 'loglevel'
 // import HttpWrapper from './HttpWrapper'
 // import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 // import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
+import { Address, IntString } from './types/Aliases'
 // import { GasPricePingFilter } from './RelayClient'
 // import { providers } from 'ethers'
 
-const GAS_PRICE_PERCENT = 0 //
-const MAX_RELAY_NONCE_GAP = 3
-const DEFAULT_RELAY_TIMEOUT_GRACE_SEC = 1800
-const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
+// const GAS_PRICE_PERCENT = 0 //
+// const MAX_RELAY_NONCE_GAP = 3
+// const DEFAULT_RELAY_TIMEOUT_GRACE_SEC = 1800
+// const DEFAULT_LOOKUP_WINDOW_BLOCKS = 60000
 
 // const defaultEnvelopingConfig: EnvelopingConfig = {
 //   preferredRelays: [],

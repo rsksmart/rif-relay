@@ -1,16 +1,16 @@
 import { expect } from 'chai'
 import { ethers } from 'hardhat'
 import { TestRSKAddressValidator, TestRSKAddressValidator__factory } from '../typechain'
-  
+
 describe('RSKAddressValidator', () => {
   let addressValidator: TestRSKAddressValidator
   let TestRSKAddressValidator: TestRSKAddressValidator__factory
   // let chainId: number
 
   before(async () => {
-      TestRSKAddressValidator = await ethers.getContractFactory('TestRSKAddressValidator') as TestRSKAddressValidator__factory
-      addressValidator = await TestRSKAddressValidator.deploy()
-      await addressValidator.deployed()
+    TestRSKAddressValidator = await ethers.getContractFactory('TestRSKAddressValidator') as TestRSKAddressValidator__factory
+    addressValidator = await TestRSKAddressValidator.deploy()
+    await addressValidator.deployed()
     // chainId = (await getTestingEnvironment()).chainId
   })
   it('should return true on check with data signed with zero', async function () {

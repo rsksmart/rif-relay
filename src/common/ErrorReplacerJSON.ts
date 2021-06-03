@@ -9,9 +9,9 @@ export default function replaceErrors (key: string, value: { [key: string]: any 
 
     // remove "circular referenced" objects we don't really want to log...
     Object.getOwnPropertyNames(value).filter(e => !['request', 'response'].includes(e)).forEach(function (key) {
-      error[key] =
+      error[parseInt(key)] =
         // @ts-ignore
-        value[key]
+        value[parseInt(key)]
     })
 
     return error

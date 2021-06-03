@@ -4,7 +4,7 @@ import { EIP712Domain, EIP712TypedData, EIP712TypeProperty, EIP712Types, TypedDa
 
 import { ethers } from 'ethers'
 
-require('source-map-support').install({ errorFormatterForce: true })
+// require('source-map-support').install({ errorFormatterForce: true })
 
 export const EIP712DomainType = [
   { name: 'name', type: 'string' },

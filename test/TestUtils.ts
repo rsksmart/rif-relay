@@ -1,15 +1,15 @@
-import { EIP712Domain, TypedDataUtils } from "eth-sig-util"
-import { ethers } from "hardhat"
-import { DeployRequest } from "../src/common/EIP712/RelayRequest"
-import { DeployRequestDataType, DomainSeparatorType, EIP712DomainType, TypedDeployRequestData } from "../src/common/EIP712/TypedRequestData"
-import { getLocalEip712Signature } from "../src/common/Utils"
-import { CustomSmartWallet, CustomSmartWalletFactory, CustomSmartWalletFactory__factory, CustomSmartWallet__factory, IForwarder, RelayHub, RelayHub__factory, SmartWallet, SmartWalletFactory__factory, SmartWallet__factory } from "../typechain"
-import { SmartWalletFactory } from "../typechain/SmartWalletFactory"
+import { EIP712Domain, TypedDataUtils } from 'eth-sig-util'
+import { ethers } from 'hardhat'
+import { DeployRequest } from '../src/common/EIP712/RelayRequest'
+import { DeployRequestDataType, DomainSeparatorType, EIP712DomainType, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import { getLocalEip712Signature } from '../src/common/Utils'
+import { CustomSmartWallet, CustomSmartWalletFactory, CustomSmartWalletFactory__factory, CustomSmartWallet__factory, IForwarder, RelayHub, RelayHub__factory, SmartWallet, SmartWalletFactory__factory, SmartWallet__factory } from '../typechain'
+import { SmartWalletFactory } from '../typechain/SmartWalletFactory'
 import { constants } from '../src/common/Constants'
 import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
-import { Address, PrefixedHexString } from "../src/relayclient/types/Aliases"
-import { AccountKeypair } from "../src/relayclient/AccountManager"
-import { RelayHubConfiguration } from "../src/relayclient/types/RelayHubConfiguration"
+import { Address, PrefixedHexString } from '../src/relayclient/types/Aliases'
+import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
 export async function getGaslessAccount (): Promise<AccountKeypair> {
   const a = ethers.Wallet.createRandom()
@@ -23,7 +23,7 @@ export async function getGaslessAccount (): Promise<AccountKeypair> {
 }
 
 export async function evmMine (): Promise<any> {
-  return await ethers.provider.send('evm_mine',[])
+  return await ethers.provider.send('evm_mine', [])
   // return await new Promise((resolve, reject) => {
   //   ethers.provider.send('evm_mine',[]).then((r) => {
   //     resolve(r)
@@ -41,7 +41,7 @@ export async function evmMineMany (count: number): Promise<void> {
 export async function deployHub (
   penalizer: string = constants.ZERO_ADDRESS,
   configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHub> {
-  const RelayHub = await ethers.getContractFactory("RelayHub") as RelayHub__factory
+  const RelayHub = await ethers.getContractFactory('RelayHub') as RelayHub__factory
   const relayHubConfiguration: RelayHubConfiguration = {
     ...defaultEnvironment.relayHubConfiguration,
     ...configOverride
@@ -58,11 +58,11 @@ export async function deployHub (
 }
 
 export async function createSmartWalletFactory (template: IForwarder): Promise<SmartWalletFactory> {
-    const SmartWalletFactory = await ethers.getContractFactory("SmartWalletFactory") as SmartWalletFactory__factory
-    const swf = await SmartWalletFactory.deploy(template.address)
-    return await swf.deployed()
-  }
-  
+  const SmartWalletFactory = await ethers.getContractFactory('SmartWalletFactory') as SmartWalletFactory__factory
+  const swf = await SmartWalletFactory.deploy(template.address)
+  return await swf.deployed()
+}
+
 export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: SmartWalletFactory, privKey: Uint8Array, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<SmartWallet> {
@@ -113,7 +113,7 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
 }
 
 export async function createCustomSmartWalletFactory (template: IForwarder): Promise<CustomSmartWalletFactory> {
-  const CustomSmartWalletFactory = await ethers.getContractFactory("CustomSmartWalletFactory") as CustomSmartWalletFactory__factory
+  const CustomSmartWalletFactory = await ethers.getContractFactory('CustomSmartWalletFactory') as CustomSmartWalletFactory__factory
   const swf = await CustomSmartWalletFactory.deploy(template.address)
   return await swf.deployed()
 }
@@ -159,7 +159,7 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
   const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), suffixData, deploySignature, { from: relayHub })
   console.log('Cost of deploying SmartWallet: ', (await txResult.wait()).cumulativeGasUsed)
-  const _initParams = ethers.utils.solidityKeccak256(['bytes'],[initParams])
+  const _initParams = ethers.utils.solidityKeccak256(['bytes'], [initParams])
   const swAddress = await factory.getSmartWalletAddress(ownerEOA, recoverer, logicAddr, _initParams, '0')
 
   const CustomSmartWallet = await ethers.getContractFactory('CustomSmartWallet') as CustomSmartWallet__factory
@@ -169,12 +169,12 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
 }
 
 export async function getTestingEnvironment (): Promise<Environment> {
-  const networkId =  (await ethers.getDefaultProvider().detectNetwork()).chainId
+  const networkId = (await ethers.getDefaultProvider().detectNetwork()).chainId
   return networkId === 33 ? environments.rsk : defaultEnvironment
 }
 
 export function getDomainSeparatorHash (verifier: Address, chainId: number): PrefixedHexString {
-    return ethers.utils.hexlify(TypedDataUtils.hashStruct('EIP712Domain', getDomainSeparator(verifier, chainId), { EIP712Domain: EIP712DomainType }))
+  return ethers.utils.hexlify(TypedDataUtils.hashStruct('EIP712Domain', getDomainSeparator(verifier, chainId), { EIP712Domain: EIP712DomainType }))
 }
 
 export function getDomainSeparator (verifyingContract: Address, chainId: number): EIP712Domain {
@@ -191,8 +191,8 @@ export function bytes32 (n: number): string {
 }
 
 export function encodeRevertReason (reason: string): PrefixedHexString {
-  let ABI = ["function Error(string error)"]
-  let iface = new ethers.utils.Interface(ABI);
+  const ABI = ['function Error(string error)']
+  const iface = new ethers.utils.Interface(ABI)
   const encodeRevertReason = iface.encodeFunctionData('Error', [reason])
   return encodeRevertReason
 }
@@ -202,7 +202,7 @@ export function stripHex (s: string): string {
 }
 
 export async function increaseTime (time: number): Promise<void> {
-  const ret = await ethers.provider.send('evm_increaseTime',[time])
+  const ret = await ethers.provider.send('evm_increaseTime', [time])
   await evmMine()
   return ret
 }

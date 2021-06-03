@@ -12,7 +12,7 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { Penalizer, Penalizer__factory, RelayHub, SmartWallet, SmartWalletFactory, SmartWallet__factory, TestVerifierEverythingAccepted__factory } from '../typechain'
 import { providers, Transaction } from 'ethers'
 
-describe('RelayHub Penalizations', () =>  {
+describe('RelayHub Penalizations', () => {
   let Penalizer: Penalizer__factory
   let relayHub: RelayHub
   let penalizer: Penalizer
@@ -93,9 +93,9 @@ describe('RelayHub Penalizations', () =>  {
       await penalizer.deployed()
       relayHub = await deployHub(penalizer.address)
       env = await getTestingEnvironment()
-    //   const networkId = await web3.eth.net.getId()
-    //   const chain = await web3.eth.net.getNetworkType()
-    //   transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
+      //   const networkId = await web3.eth.net.getId()
+      //   const chain = await web3.eth.net.getNetworkType()
+      //   transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
 
       await relayHub.connect(relayOwnerSigner).stakeForAddress(relayManager, 1000, {
         value: ethers.utils.parseEther('1'),
@@ -103,16 +103,16 @@ describe('RelayHub Penalizations', () =>  {
       })
 
       await relayHub.connect(relayManagerSigner).addRelayWorkers([relayWorker], { gasPrice: '1' })
-    //   // @ts-ignore
-    //   Object.keys(RelayHub.events).forEach(function (topic) {
-    //     // @ts-ignore
-    //     RelayHub.network.events[topic] = RelayHub.events[topic]
-    //   })
-    //   // @ts-ignore
-    //   Object.keys(RelayHub.events).forEach(function (topic) {
-    //     // @ts-ignore
-    //     Penalizer.network.events[topic] = RelayHub.events[topic]
-    //   })
+      //   // @ts-ignore
+      //   Object.keys(RelayHub.events).forEach(function (topic) {
+      //     // @ts-ignore
+      //     RelayHub.network.events[topic] = RelayHub.events[topic]
+      //   })
+      //   // @ts-ignore
+      //   Object.keys(RelayHub.events).forEach(function (topic) {
+      //     // @ts-ignore
+      //     Penalizer.network.events[topic] = RelayHub.events[topic]
+      //   })
 
       await relayHub.connect(relayOwnerSigner).stakeForAddress(reporterRelayManager, 1000, {
         value: ethers.utils.parseEther('1')
@@ -227,7 +227,6 @@ describe('RelayHub Penalizations', () =>  {
           )
         })
 
-        
         it('does not penalize transactions with same nonce from different relays', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
@@ -235,7 +234,7 @@ describe('RelayHub Penalizations', () =>  {
           const relayRequest: RelayRequest = await createRelayRequest()
 
           const txDataSigA = await getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
-          const txDataSigB = await getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { privateKey: privateKey }) , chainId, env)
+          const txDataSigB = await getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { privateKey: privateKey }), chainId, env)
 
           await expect(
             penalizer.connect(reporterRelayManagerSigner).penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address)).to.revertedWith('Different signer')
@@ -281,7 +280,7 @@ describe('RelayHub Penalizations', () =>  {
       const relayWorker = ethers.utils.computeAddress(privateKey)
       relayRequest.relayData.relayWorker = relayWorker
 
-      const encodedCall = (await (relayHub.populateTransaction.relayCall(relayRequest, '0xabcdef123456'))).data ??''
+      const encodedCall = (await (relayHub.populateTransaction.relayCall(relayRequest, '0xabcdef123456'))).data ?? ''
 
       const transaction: providers.TransactionRequest = {
         nonce: relayCallArgs.nonce,
@@ -309,58 +308,58 @@ describe('RelayHub Penalizations', () =>  {
       if (env.chainId && !isRsk(env) && parseInt(rpcTx.v, 16) <= 28) {
         throw new Error('Passed ChainID for non-EIP-155 signature')
       }
-    //   const tx: Transaction = {
-    //     nonce: rpcTx.nonce,
-    //     chainId: env.chainId,
-    //     gasPrice: BigNumber.from(rpcTx.gasPrice),
-    //     gasLimit: BigNumber.from(rpcTx.gasLimit),
-    //     to: rpcTx.to,
-    //     value: BigNumber.from(rpcTx.value),
-    //     data: rpcTx.data,
-    //     // @ts-ignore
-    //     v: rpcTx.v,
-    //     // @ts-ignore
-    //     r: rpcTx.r,
-    //     // @ts-ignore
-    //     s: rpcTx.s
-    // }
+      //   const tx: Transaction = {
+      //     nonce: rpcTx.nonce,
+      //     chainId: env.chainId,
+      //     gasPrice: BigNumber.from(rpcTx.gasPrice),
+      //     gasLimit: BigNumber.from(rpcTx.gasLimit),
+      //     to: rpcTx.to,
+      //     value: BigNumber.from(rpcTx.value),
+      //     data: rpcTx.data,
+      //     // @ts-ignore
+      //     v: rpcTx.v,
+      //     // @ts-ignore
+      //     r: rpcTx.r,
+      //     // @ts-ignore
+      //     s: rpcTx.s
+      // }
 
       return await getDataAndSignatureFromTx(rpcTx, env.chainId)
     }
 
-    async function getDataAndSignature (relayRequest: RelayRequest, relayCallArgs: any, chainId: number, env: Environment): Promise<{ data: string; signature: string} > {
+    async function getDataAndSignature (relayRequest: RelayRequest, relayCallArgs: any, chainId: number, env: Environment): Promise<{ data: string, signature: string} > {
       const tx = await encodeRelayCallEIP155(relayRequest, relayCallArgs)
       return await getDataAndSignatureFromTx(tx, chainId)
     }
 
-    async function getDataAndSignatureFromTx (tx: Transaction, chainId: number): Promise<{ data: string; signature: string} > {
-        // const input = [tx.nonce, tx.gasPrice, tx.gasLimit, tx.to, tx.value, tx.data]
-        let txData = {
-            gasPrice: tx.gasPrice,
-            gasLimit: tx.gasLimit,
-            value: tx.value,
-            nonce: tx.nonce,
-            data: tx.data,
-            chainId: tx.chainId,
-            to: tx.to
-           }
-           if (chainId) {
-            txData = {...txData, chainId: tx.chainId}
-        }
+    async function getDataAndSignatureFromTx (tx: Transaction, chainId: number): Promise<{ data: string, signature: string} > {
+      // const input = [tx.nonce, tx.gasPrice, tx.gasLimit, tx.to, tx.value, tx.data]
+      let txData = {
+        gasPrice: tx.gasPrice,
+        gasLimit: tx.gasLimit,
+        value: tx.value,
+        nonce: tx.nonce,
+        data: tx.data,
+        chainId: tx.chainId,
+        to: tx.to
+      }
+      if (chainId !== undefined) {
+        txData = { ...txData, chainId: tx.chainId }
+      }
 
-        const expandedSig = {
-          r: tx.r?? "",
-          s: tx.s?? "",
-          v: tx.v?? 0
-        }
+      const expandedSig = {
+        r: tx.r ?? '',
+        s: tx.s ?? '',
+        v: tx.v ?? 0
+      }
 
-        const signature = ethers.utils.joinSignature(expandedSig)
-        const rsTx = await ethers.utils.resolveProperties(txData)
-        const data = ethers.utils.serializeTransaction(rsTx) // returns RLP encoded tx
-        return {
-            data,
-            signature
-        }
+      const signature = ethers.utils.joinSignature(expandedSig)
+      const rsTx = await ethers.utils.resolveProperties(txData)
+      const data = ethers.utils.serializeTransaction(rsTx) // returns RLP encoded tx
+      return {
+        data,
+        signature
+      }
     }
 
     async function createRelayRequest (): Promise<RelayRequest> {
@@ -396,18 +395,18 @@ describe('RelayHub Penalizations', () =>  {
       const initialReporterBalanceTracker = await ethers.provider.getBalance(reporterRelayManager)
       const initialStakeBalanceTracker = await ethers.provider.getBalance(relayHub.address)
       const stakeInfo = await relayHub.stakes(relayManager)
-      
-      const stake = stakeInfo.stake 
+
+      const stake = stakeInfo.stake
       const expectedReward = stake.div(2)
-      
+
       // A gas price of zero makes checking the balance difference simpler
       // RSK: Setting gasPrice to 1 since the RSKJ node doesn't support transactions with a gas price lower than 0.06 gwei
       await expect(penalizeWithOpts({
         gasPrice: 1
       })).to.emit(relayHub, 'StakePenalized').withArgs(
-          relayManager,
-          reporterRelayManager,
-          expectedReward
+        relayManager,
+        reporterRelayManager,
+        expectedReward
       )
 
       // expectEvent.inLogs(receipt.logs, 'StakePenalized', {

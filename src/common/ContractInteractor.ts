@@ -1,7 +1,7 @@
 import Common from 'ethereumjs-common'
 
-import { ethers } from "hardhat"
-import { BigNumber, Event, EventFilter, providers } from "ethers"
+import { ethers } from 'hardhat'
+import { BigNumber, Event, EventFilter, providers } from 'ethers'
 
 import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
 import { constants } from './Constants'
@@ -17,18 +17,17 @@ import {
   IDeployVerifier__factory,
   IRelayHub__factory,
   IForwarder__factory,
-  IWalletFactory__factory,
+  IWalletFactory__factory
 } from '../../typechain'
 
 import { Address, IntString, PrefixedHexString } from '../relayclient/types/Aliases'
 import { EnvelopingConfig } from '../relayclient/Configurator'
 import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
 
-
-require('source-map-support').install({ errorFormatterForce: true })
+// require('source-map-support').install({ errorFormatterForce: true })
 
 type EventName = string
-type BigNumberString = BigNumber|string;
+type BigNumberString = BigNumber|string
 
 export const RelayServerRegistered: EventName = 'RelayServerRegistered'
 export const RelayWorkersAdded: EventName = 'RelayWorkersAdded'
@@ -53,14 +52,13 @@ export default class ContractInteractor {
   private deployVerifierInstance!: IDeployVerifier
   relayHubInstance!: IRelayHub
 
-
   private readonly config: EnvelopingConfig
   private readonly versionManager: VersionsManager
   private rawTxOptions?: Common
   chainId!: number
   private networkId?: number
   private networkType?: string
-  private provider: providers.JsonRpcProvider
+  private readonly provider: providers.JsonRpcProvider
 
   constructor (provider: providers.JsonRpcProvider, config: EnvelopingConfig) {
     this.versionManager = new VersionsManager(this.VERSION)
@@ -136,7 +134,6 @@ export default class ContractInteractor {
 
   async _createRelayVerifier (address: Address): Promise<IRelayVerifier> {
     return IRelayVerifier__factory.connect(address, this.provider)
-
   }
 
   async _createDeployVerifier (address: Address): Promise<IDeployVerifier> {
@@ -177,7 +174,7 @@ export default class ContractInteractor {
     try {
       const overrides = {
         blockTag: 'pending',
-        from: relayRequest.relayData.relayWorker,
+        from: relayRequest.relayData.relayWorker
       }
       await this.relayVerifierInstance.verifyRelayedCall(relayRequest, signature, overrides)
     } catch (e) {
@@ -225,7 +222,7 @@ export default class ContractInteractor {
 
     // First call the verifier
     try {
-      await this.deployVerifierInstance.verifyRelayedCall(relayRequest, signature, {from: relayRequest.relayData.relayWorker})
+      await this.deployVerifierInstance.verifyRelayedCall(relayRequest, signature, { from: relayRequest.relayData.relayWorker })
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
@@ -267,28 +264,28 @@ export default class ContractInteractor {
     const blockGasLimit = (await this.provider.getBlock('latest')).gasLimit
     const blockGasWorthOfEther = BigNumber.from(relayRequest.relayData.gasPrice).mul(BigNumber.from(blockGasLimit))
     const workerBalance = BigNumber.from(await this.getBalance(relayRequest.relayData.relayWorker))
-    return blockGasWorthOfEther.lt(workerBalance) ? blockGasWorthOfEther: workerBalance;
+    return blockGasWorthOfEther.lt(workerBalance) ? blockGasWorthOfEther : workerBalance
   }
 
   async encodeRelayCallABI (relayRequest: RelayRequest, sig: PrefixedHexString): Promise<PrefixedHexString> {
     // TODO: check this works as expected
-    const RelayHub = await ethers.getContractFactory("IRelayHub");
+    const RelayHub = await ethers.getContractFactory('IRelayHub')
     const relayCall = RelayHub.interface
     return relayCall.encodeFunctionData(relayCall.getFunction('relayCall'), [relayRequest, sig])
   }
 
   async encodeDeployCallABI (relayRequest: DeployRequest, sig: PrefixedHexString): Promise<PrefixedHexString> {
     // TODO: check this works as expected
-    const RelayHub = await ethers.getContractFactory("IRelayHub");
+    const RelayHub = await ethers.getContractFactory('IRelayHub')
     const relayCall = RelayHub.interface
     return relayCall.encodeFunctionData(relayCall.getFunction('deployCall'), [relayRequest, sig])
   }
 
-  async getPastEventsForHub (events: EventFilter = ActiveManagerEvents, fromBlock?: providers.BlockTag, toBlock?: providers.BlockTag): Promise<Array<Event>>  {
+  async getPastEventsForHub (events: EventFilter = ActiveManagerEvents, fromBlock?: providers.BlockTag, toBlock?: providers.BlockTag): Promise<Event[]> {
     return await this.relayHubInstance.queryFilter(events, fromBlock, toBlock)
   }
 
-  async getPastEventsForStakeManagement (events: EventFilter = ActiveManagerEvents, fromBlock?: providers.BlockTag, toBlock?: providers.BlockTag): Promise<Array<Event>>  {
+  async getPastEventsForStakeManagement (events: EventFilter = ActiveManagerEvents, fromBlock?: providers.BlockTag, toBlock?: providers.BlockTag): Promise<Event[]> {
     return await this.relayHubInstance.queryFilter(events, fromBlock, toBlock)
   }
 
@@ -313,7 +310,7 @@ export default class ContractInteractor {
     return await this.provider.getGasPrice()
   }
 
-  async getTransactionCount(address:  string, blockTag?: providers.BlockTag): Promise<number> {
+  async getTransactionCount (address: string, blockTag?: providers.BlockTag): Promise<number> {
     return await this.provider.getTransactionCount(address, blockTag)
   }
 
@@ -334,7 +331,7 @@ export default class ContractInteractor {
   }
 
   async getCode (address: string): Promise<string> {
-    return this.provider.getCode(address)
+    return await this.provider.getCode(address)
   }
 
   getChainId (): number {
@@ -377,15 +374,12 @@ export default class ContractInteractor {
     suffixData: string, signature: string, testCall: boolean = false): Promise<BigNumber> {
     const pFactory = await this._createFactory(factory)
 
-    const method = pFactory.contract.methods.relayedUserSmartWalletCreation(request.request, domainHash,
-      suffixData, signature)
-
     if (testCall) {
       await pFactory.relayedUserSmartWalletCreation(request.request, domainHash,
-        suffixData, signature, {from: request.request.relayHub})
+        suffixData, signature, { from: request.request.relayHub })
     }
     return await pFactory.estimateGas.relayedUserSmartWalletCreation(request.request, domainHash,
-      suffixData, signature, {from: request.request.relayHub})
+      suffixData, signature, { from: request.request.relayHub })
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction
@@ -397,14 +391,13 @@ export default class ContractInteractor {
     return await this.relayHubInstance.addRelayWorkers(workers)
   }
 
-  /**
-   * Web3.js as of 1.2.6 (see web3-core-method::_confirmTransaction) does not allow
-   * broadcasting of a transaction without waiting for it to be mined.
-   * This method sends the RPC call directly
-   * @param signedTransaction - the raw signed transaction to broadcast
-   */
+  // /**
+  //  * Web3.js as of 1.2.6 (see web3-core-method::_confirmTransaction) does not allow
+  //  * broadcasting of a transaction without waiting for it to be mined.
+  //  * This method sends the RPC call directly
+  //  * @param signedTransaction - the raw signed transaction to broadcast
+  //  */
   // async broadcastTransaction (signedTransaction: PrefixedHexString): Promise<PrefixedHexString> {
-
   //   if (this.provider == null) {
   //       throw new Error('provider is not set')
   //     }
@@ -430,9 +423,10 @@ export function getRawTxOptions (chainId: number, networkId: number, chain?: str
     chain = 'mainnet'
   }
   return Common.forCustomChain(
-      chain,
-      {
-        chainId,
-        networkId
-      }, 'istanbul')
+    chain,
+    {
+      chainId,
+      networkId
+    }, 'istanbul'
+  )
 }

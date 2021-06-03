@@ -9,9 +9,9 @@ import { BigNumber } from 'ethers'
 import { ethers } from 'hardhat'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import { expect } from 'chai'
-  
-require('source-map-support').install({ errorFormatterForce: true })
-  
+
+// require('source-map-support').install({ errorFormatterForce: true })
+
 const options = [
   {
     title: 'CustomSmartWallet',
@@ -41,7 +41,7 @@ const tokens = [
     tokenIndex: 3
   }
 ]
-  
+
 async function fillTokens (tokenIndex: number, token: TestToken|TetherToken|NonRevertTestToken|NonCompliantTestToken, recipient: string, amount: string): Promise<void> {
   switch (tokenIndex) {
     case 0:
@@ -59,7 +59,13 @@ async function fillTokens (tokenIndex: number, token: TestToken|TetherToken|NonR
       break
   }
 }
-  
+
+async function getTEtherTokenBalance (token: TestToken|TetherToken|NonRevertTestToken|NonCompliantTestToken, account: string): Promise<BigNumber> {
+  const tx = await (token as TetherToken).populateTransaction.balanceOf(account)
+  const auxBalance = await ethers.provider.call(tx)
+  return BigNumber.from(auxBalance)
+}
+
 async function getTokenBalance (tokenIndex: number, token: TestToken|TetherToken|NonRevertTestToken|NonCompliantTestToken, account: string): Promise<BigNumber> {
   let balance: BigNumber = BigNumber.from(-1)
   switch (tokenIndex) {
@@ -67,9 +73,7 @@ async function getTokenBalance (tokenIndex: number, token: TestToken|TetherToken
       balance = await (token as TestToken).balanceOf(account)
       break
     case 1:
-      const tx = await (token as TetherToken).populateTransaction.balanceOf(account)
-      const auxBalance = await ethers.provider.call(tx)
-      balance = BigNumber.from(auxBalance)
+      balance = await getTEtherTokenBalance(token, account)
       break
     case 2:
       balance = await (token as NonRevertTestToken).balanceOf(account)
@@ -80,7 +84,7 @@ async function getTokenBalance (tokenIndex: number, token: TestToken|TetherToken
   }
   return balance
 }
-  
+
 options.forEach(element => {
   tokens.forEach(tokenToUse => {
     describe(`${element.title} using ${tokenToUse.title}`, () => {
@@ -96,7 +100,6 @@ options.forEach(element => {
       let otherAccountSigner: SignerWithAddress
       let recovererAccount: string
       let recovererAccountSigner: SignerWithAddress
-      let payerAccount: string
       let payerAccountSigner: SignerWithAddress
       const countParams = ForwardRequestType.length
       const senderPrivateKey = ethers.utils.arrayify(bytes32(1))
@@ -107,7 +110,7 @@ options.forEach(element => {
       let token: TestToken | TetherToken | NonRevertTestToken | NonCompliantTestToken
       let sw: SmartWallet | CustomSmartWallet
       let domainSeparatorHash: string
-  
+
       const request: RelayRequest = {
         request: {
           relayHub: constants.ZERO_ADDRESS,
@@ -129,19 +132,18 @@ options.forEach(element => {
           callVerifier: constants.ZERO_ADDRESS
         }
       }
-  
+
       before(async () => {
-        TestForwarderTarget = await ethers.getContractFactory("TestForwarderTarget") as TestForwarderTarget__factory
-        TestToken = await ethers.getContractFactory("TestToken") as TestToken__factory
-        TetherToken = await ethers.getContractFactory("TetherToken") as TetherToken__factory
-        NonRevertTestToken = await ethers.getContractFactory("NonRevertTestToken") as NonRevertTestToken__factory
-        NonCompliantTestToken = await ethers.getContractFactory("NonCompliantTestToken") as NonCompliantTestToken__factory
-        TestSmartWallet = await ethers.getContractFactory("TestSmartWallet") as TestSmartWallet__factory
+        TestForwarderTarget = await ethers.getContractFactory('TestForwarderTarget') as TestForwarderTarget__factory
+        TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
+        TetherToken = await ethers.getContractFactory('TetherToken') as TetherToken__factory
+        NonRevertTestToken = await ethers.getContractFactory('NonRevertTestToken') as NonRevertTestToken__factory
+        NonCompliantTestToken = await ethers.getContractFactory('NonCompliantTestToken') as NonCompliantTestToken__factory
+        TestSmartWallet = await ethers.getContractFactory('TestSmartWallet') as TestSmartWallet__factory
         [defaultAccountSigner, otherAccountSigner, recovererAccountSigner, payerAccountSigner] = await ethers.getSigners()
         defaultAccount = await defaultAccountSigner.getAddress()
         otherAccount = await otherAccountSigner.getAddress()
         recovererAccount = await recovererAccountSigner.getAddress()
-        payerAccount = await payerAccountSigner.getAddress()
         chainId = (await getTestingEnvironment()).chainId
         senderAddress = ethers.utils.computeAddress(senderPrivateKey).toLowerCase()
         request.request.from = senderAddress
@@ -164,12 +166,12 @@ options.forEach(element => {
         request.request.tokenContract = token.address
 
         if (element.simple) {
-          const SmartWallet = await ethers.getContractFactory("SmartWallet") as SmartWallet__factory
+          const SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
           template = await SmartWallet.deploy()
           factory = await createSmartWalletFactory(template)
           sw = await createSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
         } else {
-          const CustomSmartWallet = await ethers.getContractFactory("CustomSmartWallet") as CustomSmartWallet__factory
+          const CustomSmartWallet = await ethers.getContractFactory('CustomSmartWallet') as CustomSmartWallet__factory
           template = await CustomSmartWallet.deploy()
           factory = await createCustomSmartWalletFactory(template)
           sw = await createCustomSmartWallet(defaultAccount, senderAddress, factory, senderPrivateKey, chainId)
@@ -193,7 +195,7 @@ options.forEach(element => {
             const sig = signTypedData_v4(senderPrivateKey, { data: dataToSign })
             await expect(sw.verify(dummyDomainSeparator, suffixData, request.request, sig)).revertedWith('Invalid domain separator')
           })
-  
+
           it('should fail on wrong nonce', async () => {
             const req = {
               request: {
@@ -214,7 +216,7 @@ options.forEach(element => {
 
             await expect(sw.verify(domainSeparatorHash, suffixData, req.request, sig)).to.revertedWith('nonce mismatch')
           })
-          //TODO: Check revert message
+          //  TODO: Check revert message
           it('should fail on invalid signature', async () => {
             const dataToSign = new TypedRequestData(
               chainId,
@@ -229,7 +231,7 @@ options.forEach(element => {
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x' + '1b'.repeat(65))).to.revertedWith('signature mismatch')
             const newSig = sig.replace('a', 'b').replace('1', '2').replace('3', '4').replace('5', '6').replace('7', '8')
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, newSig)).to.reverted
-            //With('invalid signature')
+            //  With('invalid signature')
           })
         })
         describe('#verify success', () => {
@@ -251,13 +253,13 @@ options.forEach(element => {
           })
         })
       })
-  
+
       describe('#verifyAndCall', () => {
         let recipient: TestForwarderTarget
         let testfwd: TestSmartWallet
         let worker: string
         let workerSigner: SignerWithAddress
-        
+
         before(async () => {
           worker = defaultAccount
           workerSigner = defaultAccountSigner
@@ -269,7 +271,7 @@ options.forEach(element => {
           await testfwd.deployed()
           request.request.tokenAmount = '0'
         })
-  
+
         it('should return revert message of token payment revert', async () => {
           const func = (await recipient.populateTransaction.testRevert()).data ?? ''
           const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -294,7 +296,7 @@ options.forEach(element => {
           expect(initialWorkerTokenBalance).to.be.eq(tknBalance, 'Worker token balance changed')
           expect(initialSWalletTokenBalance).to.be.eq(swTknBalance, 'Smart Wallet token balance changed')
         })
-  
+
         it('should call function', async () => {
           const func = (await recipient.populateTransaction.emitMessage('hello')).data ?? ''
 
@@ -332,7 +334,7 @@ options.forEach(element => {
 
           expect((await sw.nonce()).toString()).to.be.eq(initialNonce.add(BigNumber.from(1)), 'verifyAndCall should increment nonce')
         })
-  
+
         it('should return revert message of target revert', async () => {
           const func = (await recipient.populateTransaction.testRevert()).data ?? ''
           const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -352,8 +354,8 @@ options.forEach(element => {
           const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32))
 
           // the helper simply emits the method return values
-          await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to.
-          emit(testfwd, 'Result').withArgs(false, 'always fail')
+          await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to
+            .emit(testfwd, 'Result').withArgs(false, 'always fail')
           // assert.equal(ret.logs[0].args.error, 'always fail')
           // assert.equal(ret.logs[0].args.success, false)
 
@@ -361,7 +363,7 @@ options.forEach(element => {
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           expect(tknBalance).to.be.equal(initialWorkerTokenBalance.add(BigNumber.from(1)))
         })
-  
+
         it('should not be able to re-submit after revert (its repeated nonce)', async () => {
           const func = (await recipient.populateTransaction.testRevert()).data ?? ''
           const initialWorkerTokenBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -381,8 +383,8 @@ options.forEach(element => {
           const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32))
 
           // the helper simply emits the method return values
-          await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to.
-          emit(testfwd, 'Result').withArgs(false, 'always fail')
+          await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to
+            .emit(testfwd, 'Result').withArgs(false, 'always fail')
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           expect(tknBalance).to.be.equal(initialWorkerTokenBalance.add(BigNumber.from(1)))
@@ -392,7 +394,7 @@ options.forEach(element => {
           const tknBalance2 = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           expect(tknBalance).to.be.equal(tknBalance2)
         })
-  
+
         describe('value transfer', () => {
           let worker: string
           let workerSigner: SignerWithAddress
@@ -410,7 +412,7 @@ options.forEach(element => {
           afterEach('should not leave funds in the forwarder', async () => {
             expect(await ethers.provider.getBalance(sw.address)).to.be.equal(0)
           })
-  
+
           it('should fail to forward request if value specified but not provided', async () => {
             const value = ethers.utils.parseEther('1')
             const func = (await recipient.populateTransaction.mustReceiveEth(value)).data ?? ''
@@ -435,12 +437,12 @@ options.forEach(element => {
             const event = testfwd.filters.Result(null, null)
             const eventEmitted = await testfwd.queryFilter(event)
             expect(eventEmitted[0].args.success).to.be.false
-            
+
             // Token transfer happens first
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
             expect(tknBalance).to.be.equal(initialWorkerTokenBalance.add(BigNumber.from(1)))
           })
-  
+
           it('should fail to forward request if value specified but not enough not provided', async () => {
             const value = ethers.utils.parseEther('1')
             const func = (await recipient.populateTransaction.mustReceiveEth(value)).data ?? ''
@@ -462,14 +464,13 @@ options.forEach(element => {
             const event = testfwd.filters.Result(null, null)
             const eventEmitted = await testfwd.queryFilter(event)
             expect(eventEmitted[0].args.success).to.be.false
-            
 
             // assert.equal(ret.logs[0].args.success, false)
             // Token transfer happens first
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
             expect(tknBalance).to.be.equal(initialWorkerTokenBalance.add(BigNumber.from(1)))
           })
-  
+
           it('should forward request with value', async () => {
             const value = ethers.utils.parseEther('1')
             const func = (await recipient.populateTransaction.mustReceiveEth(value)).data ?? ''
@@ -492,7 +493,7 @@ options.forEach(element => {
             const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32))
 
             await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { value })).to
-            .emit(testfwd, 'Result').withArgs(true, '')
+              .emit(testfwd, 'Result').withArgs(true, '')
             // assert.equal(ret.logs[0].args.error, '')
             // assert.equal(ret.logs[0].args.success, true)
 
@@ -501,7 +502,7 @@ options.forEach(element => {
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
             expect(tknBalance).to.be.equal(initialWorkerTokenBalance.add(BigNumber.from(1)))
           })
-  
+
           it('should forward all funds left in forwarder to "from" address', async () => {
             // The owner of the SmartWallet might have a balance != 0
             const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
@@ -523,7 +524,7 @@ options.forEach(element => {
             const reqData: EIP712TypedData = new TypedRequestData(chainId, sw.address, req1)
 
             const extraFunds = ethers.utils.parseEther('4')
-            await defaultAccountSigner.sendTransaction({to: sw.address, value: extraFunds})
+            await defaultAccountSigner.sendTransaction({ to: sw.address, value: extraFunds })
 
             const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
 
@@ -531,8 +532,8 @@ options.forEach(element => {
             const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32))
 
             // note: not transfering value in TX.
-            await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to.
-            emit(testfwd, 'Result').withArgs(true, '')
+            await expect(testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig)).to
+              .emit(testfwd, 'Result').withArgs(true, '')
             // assert.equal(ret.logs[0].args.error, '')
             // assert.equal(ret.logs[0].args.success, true)
 
@@ -552,7 +553,7 @@ options.forEach(element => {
           })
         })
       })
-  
+
       describe('#verifyAndCallByOwner', () => {
         let recipient: TestForwarderTarget
         let template: SmartWallet | CustomSmartWallet
@@ -581,7 +582,7 @@ options.forEach(element => {
           recipient = await TestForwarderTarget.deploy()
           await template.deployed()
         })
-  
+
         it('should call function', async () => {
           const func = (await recipient.populateTransaction.emitMessage('hello')).data ?? ''
 
@@ -597,16 +598,16 @@ options.forEach(element => {
 
           expect(await sw.nonce()).to.be.equal(initialNonce, 'direct execute should NOT increment nonce')
         })
-  
+
         it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
           const func = (await recipient.populateTransaction.emitMessage('hello')).data ?? ''
           await expect(sw.connect(defaultAccountSigner).directExecute(recipient.address, func)).to.revertedWith('Not the owner of the SmartWallet')
         })
-  
+
         it('should return revert message of target revert', async () => {
           const func = (await recipient.populateTransaction.testRevert()).data ?? ''
           await sw.connect(otherAccountSigner).directExecute(recipient.address, func)
-          
+
           const tx = await sw.connect(otherAccount).populateTransaction.directExecute(recipient.address, func)
           const result = await ethers.provider.call(tx)
           expect(result).to.include(stripHex(encodeRevertReason('always fail').toString()))
@@ -642,7 +643,7 @@ options.forEach(element => {
             expect(finalRecipientEtherBalance).to.be.equal(initialRecipientEtherBalance.add(value))
             expect(finalSenderBalance).to.be.equal(initialSenderBalance.sub(value).sub(gasUsedToCall))
           })
-  
+
           it('should forward all funds left in forwarder to "from" address', async () => {
             // The owner of the SmartWallet might have a balance != 0
             const ownerOriginalBalance = await ethers.provider.getBalance(otherAccount)
@@ -688,7 +689,7 @@ options.forEach(element => {
           } else {
             const CustomSmartWallet = await ethers.getContractFactory('CustomSmartWallet') as CustomSmartWallet__factory
             template = await CustomSmartWallet.deploy()
-            template.deployed()
+            await template.deployed()
             factory = await createCustomSmartWalletFactory(template)
             sw = await createCustomSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0x',
               constants.ZERO_ADDRESS, '0', '400000', '0', recovererAccount)
@@ -696,7 +697,7 @@ options.forEach(element => {
 
           await fillTokens(tokenToUse.tokenIndex, token, sw.address, tokenToSend.toString())
         })
-  
+
         it('should recover wallet funds', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
           const balanceBefore = await ethers.provider.getBalance(sw.address)
@@ -754,7 +755,7 @@ options.forEach(element => {
           // The final token balance of the recoverer is its initial token balance plus the token balance of the Smart Wallet before the recover() call
           expect(recovererTokenBalanceAfter).to.be.equal(recovererTokenBalanceBefore.add(tokenBalanceBefore), 'Recoverer must receive all token funds of the SmartWallet')
         })
-  
+
         it('should fail if sender is not the recoverer', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
 
@@ -783,7 +784,7 @@ options.forEach(element => {
           //   ]
           // },
           // [recovererAccount, tokenBalanceBefore.toNumber().toString()])
-          
+
           if (element.simple) {
             await expect((sw as SmartWallet).connect(defaultAccountSigner).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { gasPrice })).to.revertedWith('Invalid recoverer')
           } else {
@@ -803,7 +804,7 @@ options.forEach(element => {
 
           expect(recovererBalanceAfter).to.be.equal(recovererBalanceBefore, 'Recoverer balance must be be the same')
         })
-  
+
         // TODO: check revert message.
         it('should recover wallet RBTC funds even if destination contract call fails', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -842,9 +843,9 @@ options.forEach(element => {
             } else {
               txResp = await (sw as CustomSmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { gasPrice })
             }
-  
+
             const recoverCallCostDirectCalculation = ((await txResp.wait()).cumulativeGasUsed).mul(gasPrice)
-  
+
             const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
             const balanceAfter = await ethers.provider.getBalance(sw.address)
 
@@ -889,7 +890,7 @@ options.forEach(element => {
             expect(recovererBalanceAfter).to.be.equal(recovererBalanceBefore.sub(balanceLost), 'Recoverer balance must be less due to the lost gas')
           }
         })
-        //TODO: Check revert message
+        //  TODO: Check revert message
         it('should recover wallet RBTC funds even if destination contract call fails - 2', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
           const balanceBefore = await ethers.provider.getBalance(sw.address)
@@ -905,21 +906,21 @@ options.forEach(element => {
 
           let txResp
           const tokenTransferCall = (await token.populateTransaction.transfer(recovererAccount, tokenBalanceBefore.add(1))).data ?? ''
-            // const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
-            //   name: 'transfer',
-            //   type: 'function',
-            //   inputs: [
-            //     {
-            //       type: 'address',
-            //       name: 'recipient'
-            //     }, {
-            //       type: 'uint256',
-            //       name: 'amount'
-            //     }
-            //   ]
-            // },
-            // [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
-  
+          // const tokenTransferCall = web3.eth.abi.encodeFunctionCall({
+          //   name: 'transfer',
+          //   type: 'function',
+          //   inputs: [
+          //     {
+          //       type: 'address',
+          //       name: 'recipient'
+          //     }, {
+          //       type: 'uint256',
+          //       name: 'amount'
+          //     }
+          //   ]
+          // },
+          // [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
+
           if (tokenToUse.tokenIndex !== 1) {
             if (element.simple) {
               txResp = await (sw as SmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { gasPrice })
@@ -952,12 +953,12 @@ options.forEach(element => {
             const maxGasLimit = 100000
             if (element.simple) {
               await expect((sw as SmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              //With('Invalid recoverer')
+              //  With('Invalid recoverer')
             } else {
               await expect((sw as CustomSmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              //With('Invalid recoverer')
+              //  With('Invalid recoverer')
             }
-  
+
             const balanceLost = BigNumber.from(maxGasLimit).mul(gasPrice)
             const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
             const balanceAfter = await ethers.provider.getBalance(sw.address)
@@ -977,4 +978,3 @@ options.forEach(element => {
     })
   })
 })
-  

@@ -2,7 +2,7 @@
 import EthVal from 'ethval'
 import log from 'loglevel'
 import { boolString } from './Utils'
-import { BigNumber }  from "ethers"
+import { BigNumber } from 'ethers'
 
 export class AmountRequired {
   _name: string

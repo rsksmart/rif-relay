@@ -10,7 +10,7 @@ export interface Environment {
   readonly mintxgascost: number
   readonly relayHubConfiguration: RelayHubConfiguration
 }
- 
+
 const defaultRelayHubConfiguration: RelayHubConfiguration = {
   gasOverhead: 190000, // TODO Calculate precise value
   maxWorkerCount: 10,
@@ -18,7 +18,7 @@ const defaultRelayHubConfiguration: RelayHubConfiguration = {
   minimumUnstakeDelay: 1000,
   minimumEntryDepositValue: 1e18.toString()
 }
- 
+
 export const environments: { [key: string]: Environment } = {
   istanbul: {
     chainId: 1,
@@ -36,17 +36,16 @@ export const environments: { [key: string]: Environment } = {
     mintxgascost: 21000
   }
 }
- 
+
 export const defaultEnvironment = environments.rsk
- 
+
 export function getEnvironment (networkName: string): Environment {
   if (networkName.startsWith('rsk')) {
     return environments.rsk
   }
   return defaultEnvironment
 }
- 
+
 export function isRsk (environment: Environment): boolean {
   return environment.chainId === 33
 }
- 

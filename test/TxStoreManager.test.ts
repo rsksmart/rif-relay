@@ -28,7 +28,7 @@ describe('TxStoreManager', () => {
     cleanFolder()
     txmanager = new TxStoreManager({ workdir })
     await txmanager.clearAll()
-    expect(txmanager).to.be.ok //('txstore uninitialized' + txmanager.toString())
+    expect(txmanager).to.be.ok // ('txstore uninitialized' + txmanager.toString())
     expect(fs.existsSync(workdir)).to.be.equal(true, 'test txstore dir should exist already')
     tx = {
       from: '',
@@ -104,7 +104,7 @@ describe('TxStoreManager', () => {
     tx3ByNonce = await txmanager.getTxByNonce(tx.from, tx3.nonce)
     expect(tx3.txId).to.be.equal(tx3ByNonce.txId)
     expect(1).to.be.deep.equal((await txmanager.getAll()).length)
-})
+  })
 
   it('should clear txstore', async function () {
     await txmanager.putTx(tx, true)

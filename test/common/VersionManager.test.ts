@@ -23,7 +23,7 @@ describe('VersionManager', function () {
       expect(isNewerSame).to.be.true
       expect(isNewerPatch).to.be.true
       expect(isNewerMinor).to.be.true
-      
+
       const isNewerMajor = manager.isMinorSameOrNewer('2.3.4')
       const isNewerPatchFalse = manager.isMinorSameOrNewer('1.2.0')
       const isNewerMinorFalse = manager.isMinorSameOrNewer('1.1.0')

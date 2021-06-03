@@ -7,7 +7,7 @@ import { VersionRegistry__factory, VersionRegistry } from '../typechain'
 import { expect } from 'chai'
 import { fail } from 'assert'
 
-require('source-map-support').install({ errorFormatterForce: true })
+// require('source-map-support').install({ errorFormatterForce: true })
 
 describe('VersionRegistry', () => {
   let accountSigner: SignerWithAddress
@@ -53,7 +53,7 @@ describe('VersionRegistry', () => {
       }
     })
   })
-  
+
   context('basic getAllVersions', () => {
     it('should return nothing for unknown id', async () => {
       expect(await jsRegistry.getAllVersions('nosuchid')).to.be.deep.equal([])
@@ -75,7 +75,7 @@ describe('VersionRegistry', () => {
       await increaseTime(isRsk(env) ? 200 : 100)
       await jsRegistry.addVersion('id', 'ver3', 'value3', {}, account)
       // evm_increaseTime with Automine enabled RSKJ works a bit different in RSKJ
-        await increaseTime(isRsk(env) ? 300 : 100)
+      await increaseTime(isRsk(env) ? 300 : 100)
 
       // at this point:
       // ver1 - 300 sec old
@@ -126,7 +126,6 @@ describe('VersionRegistry', () => {
           fail()
         } catch (e) {
           expect(e.toString()).to.include('no version found')
-          return
         }
       })
 
@@ -181,4 +180,3 @@ describe('VersionRegistry', () => {
     })
   })
 })
-  

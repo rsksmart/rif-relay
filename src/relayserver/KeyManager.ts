@@ -46,7 +46,7 @@ export class KeyManager {
         }
       }
     } else {
-      // no workdir: working in-memory
+      //  no workdir: working in-memory
       if (seed == null) {
         seed = Wallet.generate().getPrivateKey()
       }
@@ -87,8 +87,7 @@ export class KeyManager {
     }
 
     const _signer = new ethers.Wallet(privateKey)
-    const signedTx = _signer.signTransaction(tx)
-    return signedTx
+    return await _signer.signTransaction(tx)
     // const rawTx = '0x' + tx.serialize().toString('hex')
     // return rawTx
   }

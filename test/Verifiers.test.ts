@@ -42,14 +42,14 @@ describe('DeployVerifier', function () {
   const index = '0'
 
   before(async function () {
-      DeployVerifier = await ethers.getContractFactory('DeployVerifier') as DeployVerifier__factory
-      TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
-      SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
-      TestDeployVerifier = await ethers.getContractFactory('TestDeployVerifier') as TestDeployVerifier__factory
-      [relayHubSigner, other1Signer, relayWorkerSigner, verifierOwnerSigner] = await ethers.getSigners()
-      relayHub = await relayHubSigner.getAddress()
-      other1 = await other1Signer.getAddress()
-      relayWorker = await relayWorkerSigner.getAddress()
+    DeployVerifier = await ethers.getContractFactory('DeployVerifier') as DeployVerifier__factory
+    TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
+    SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
+    TestDeployVerifier = await ethers.getContractFactory('TestDeployVerifier') as TestDeployVerifier__factory
+    [relayHubSigner, other1Signer, relayWorkerSigner, verifierOwnerSigner] = await ethers.getSigners()
+    relayHub = await relayHubSigner.getAddress()
+    other1 = await other1Signer.getAddress()
+    relayWorker = await relayWorkerSigner.getAddress()
   })
 
   beforeEach(async function () {
@@ -101,14 +101,14 @@ describe('DeployVerifier', function () {
     await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
     await expect(testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.emit(
       testVerifiers, 'Accepted').withArgs(
-            tokensPaid,
-            ownerAddress
-        )
+      tokensPaid,
+      ownerAddress
+    )
 
     // All checks should pass
-  //   assert.equal(logs[0].event, 'Accepted')
-  //   assert.equal(logs[0].args[0].toNumber(), new BN(tokensPaid).toNumber())
-  //   assert.equal(logs[0].args[1].toLowerCase(), ownerAddress.toLowerCase())
+    //   assert.equal(logs[0].event, 'Accepted')
+    //   assert.equal(logs[0].args[0].toNumber(), new BN(tokensPaid).toNumber())
+    //   assert.equal(logs[0].args[1].toLowerCase(), ownerAddress.toLowerCase())
 
     // expectEvent.inLogs(logs, 'Accepted', {
     //   tokenAmount: new BN(tokensPaid),
@@ -120,8 +120,8 @@ describe('DeployVerifier', function () {
     await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
 
     const toSign: string = ethers.utils.solidityKeccak256(
-        ['bytes2', 'address', 'address', 'uint256'],
-        ['0x1910', ownerAddress, recoverer, index])
+      ['bytes2', 'address', 'address', 'uint256'],
+      ['0x1910', ownerAddress, recoverer, index])
 
     const toSignAsBinaryArray = ethers.utils.arrayify(toSign)
     const signingKey = new ethers.utils.SigningKey(ownerPrivateKey)
@@ -133,16 +133,16 @@ describe('DeployVerifier', function () {
     deployRequestData.request.data = '0x'
 
     const salt = ethers.utils.solidityKeccak256(
-        ['address', 'address', 'uint256'],
-        [ownerAddress, recoverer, index])
+      ['address', 'address', 'uint256'],
+      [ownerAddress, recoverer, index])
 
     const expectedSalt = BigNumber.from(salt).toString()
 
     // Check the emitted event
     await expect(factory.createUserSmartWallet(ownerAddress, recoverer,
       index, signatureCollapsed)).to.emit(factory, 'Deployed').withArgs(
-          expectedAddress, expectedSalt
-      )
+      expectedAddress, expectedSalt
+    )
 
     await expect(
       testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
@@ -173,18 +173,18 @@ describe('DeployVerifier', function () {
   it('SHOULD fail when factory is incorrect on preRelayCall', async function () {
     deployVerifier = await DeployVerifier.connect(verifierOwnerSigner).deploy(other1)
     await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
-    
+
     // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     testVerifiers = await TestDeployVerifier.deploy(deployVerifier.address)
 
     await expect(
       testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
-          'Invalid factory'
-      )
+      'Invalid factory'
+    )
   })
 })
-  
+
 describe('RelayVerifier', function () {
   let template: SmartWallet
   let sw: SmartWallet
@@ -211,26 +211,26 @@ describe('RelayVerifier', function () {
   let senderAddress: string
 
   before(async function () {
-      SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
-      RelayVerifier = await ethers.getContractFactory('RelayVerifier') as RelayVerifier__factory
-      TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
-      TestRecipient = await ethers.getContractFactory('TestRecipient') as TestRecipient__factory
-      TestVerifiers = await ethers.getContractFactory('TestVerifiers') as TestVerifiers__factory
-      [relayHubSigner, relayWorkerSigner, otherSigner, verifierOwnerSigner] = await ethers.getSigners()
-      relayHub = await relayHubSigner.getAddress()
-      relayWorker = await relayWorkerSigner.getAddress()
-      other = await otherSigner.getAddress()
-      const env = await getTestingEnvironment()
-      const chainId = env.chainId
+    SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
+    RelayVerifier = await ethers.getContractFactory('RelayVerifier') as RelayVerifier__factory
+    TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
+    TestRecipient = await ethers.getContractFactory('TestRecipient') as TestRecipient__factory
+    TestVerifiers = await ethers.getContractFactory('TestVerifiers') as TestVerifiers__factory
+    [relayHubSigner, relayWorkerSigner, otherSigner, verifierOwnerSigner] = await ethers.getSigners()
+    relayHub = await relayHubSigner.getAddress()
+    relayWorker = await relayWorkerSigner.getAddress()
+    other = await otherSigner.getAddress()
+    const env = await getTestingEnvironment()
+    const chainId = env.chainId
 
-      senderAddress = ethers.utils.computeAddress(senderPrivateKey)
+    senderAddress = ethers.utils.computeAddress(senderPrivateKey)
 
-      token = await TestToken.deploy()
-      await token.deployed()
-      template = await SmartWallet.deploy()
-      await template.deployed()
+    token = await TestToken.deploy()
+    await token.deployed()
+    template = await SmartWallet.deploy()
+    await template.deployed()
 
-      factory = await createSmartWalletFactory(template)
+    factory = await createSmartWalletFactory(template)
 
     relayVerifier = await RelayVerifier.connect(verifierOwnerSigner).deploy(factory.address)
     await relayVerifier.deployed()
@@ -297,8 +297,8 @@ describe('RelayVerifier', function () {
     await expect(await testVerifiers.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.emit(
       testVerifiers, 'Accepted'
     ).withArgs(
-        tokensPaid,
-        senderAddress
+      tokensPaid,
+      senderAddress
     )
     // All checks should pass
   //   assert.equal(logs[0].event, 'Accepted')
@@ -340,4 +340,3 @@ describe('RelayVerifier', function () {
     )
   })
 })
-  
