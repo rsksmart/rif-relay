@@ -59,7 +59,6 @@ contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
         tokens[token] = true;
-        emit AllowedToken(token);
     }
 
     /**

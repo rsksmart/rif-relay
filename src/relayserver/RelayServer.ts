@@ -115,9 +115,9 @@ export class RelayServer extends EventEmitter {
   }
 
   async tokenHandler (verifier: Address): Promise<any> {
-    const verifierInstance = await this.contractInteractor.instantiateContract(verifier)
-    const allowedTokenEvents = await this.contractInteractor._getPastEvents(verifierInstance.contract, ['AllowedToken'], [], { fromBlock: 0 })
-    return allowedTokenEvents.map(event => event.returnValues.tokenAddress)
+    const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
+    const res = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call();
+    return res;
   }
 
   async verifierHandler (): Promise<VerifierResponse> {

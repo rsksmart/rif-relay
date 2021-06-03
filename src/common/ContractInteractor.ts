@@ -20,6 +20,7 @@ import deployVerifierAbi from './interfaces/IDeployVerifier.json'
 import relayHubAbi from './interfaces/IRelayHub.json'
 import forwarderAbi from './interfaces/IForwarder.json'
 import smartWalletFactoryAbi from './interfaces/IWalletFactory.json'
+import tokenHandlerAbi from './interfaces/ITokenHandler.json'
 
 import { event2topic } from './Utils'
 import { constants } from './Constants'
@@ -30,7 +31,8 @@ import {
   IRelayVerifierInstance,
   IRelayHubInstance,
   IDeployVerifierInstance,
-  IWalletFactoryInstance
+  IWalletFactoryInstance,
+  ITokenHandlerInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
@@ -69,6 +71,7 @@ export default class ContractInteractor {
 
   private readonly IRelayVerifierContract: Contract<IRelayVerifierInstance>
   private readonly IDeployVerifierContract: Contract<IDeployVerifierInstance>
+  private readonly ITokenHandlerContract: Contract<ITokenHandlerInstance>
 
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
@@ -120,11 +123,17 @@ export default class ContractInteractor {
       contractName: 'IWalletFactory',
       abi: smartWalletFactoryAbi
     })
+    // @ts-ignore
+    this.ITokenHandlerContract = TruffleContract({
+      contractName: 'ITokenHandler',
+      abi: tokenHandlerAbi
+    })
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IRelayVerifierContract.setProvider(this.provider, undefined)
     this.IDeployVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IWalletFactoryContract.setProvider(this.provider, undefined)
+    this.ITokenHandlerContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -197,13 +206,8 @@ export default class ContractInteractor {
     return await this.IDeployVerifierContract.at(address)
   }
 
-  // TODO: should return IDeployVerifierInstance if the address is for that contract
-  async instantiateContract(address: Address): Promise<IRelayVerifierInstance> {
-    try{
-      return await this.IRelayVerifierContract.at(address)
-    } catch (e){
-      throw new Error('provided address is not a smart contract')
-    }
+  async createTokenHandler(address: Address): Promise<ITokenHandlerInstance> {
+    return await this.ITokenHandlerContract.at(address)
   }
 
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {

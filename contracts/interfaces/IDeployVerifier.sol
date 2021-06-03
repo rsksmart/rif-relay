@@ -20,6 +20,4 @@ interface IDeployVerifier {
         EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature
     ) external returns (bytes memory context);
-
-    event AllowedToken(address indexed tokenAddress);
 }
