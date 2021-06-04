@@ -111,6 +111,8 @@ jobs: # a collection of steps
           test: "test/relayclient/KnownRelaysManager.test.ts"
       - run_rskj_test:
           test: "test/smartwallet/SmartWallet.test.ts"
+      - run_rskj_test:
+          test: "test/smartwallet/CustomSmartWallet.test.ts"
       - store_artifacts:
           path: ~/gls/logs
   Test_Thread_3: # Test thread
