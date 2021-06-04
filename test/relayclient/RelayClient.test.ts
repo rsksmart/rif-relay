@@ -812,9 +812,10 @@ contract('RelayClient', function (accounts) {
         version: ''
       }
       relayInfo = {
-        relayInfo: {
-          relayManager,
-          relayUrl
+        relayData: {
+          manager: relayManager,
+          url: relayUrl,
+          penalized: false
         },
         pingResponse
       }

@@ -7,6 +7,7 @@ import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import replaceErrors from '../common/ErrorReplacerJSON'
 import { EnvelopingConfig } from './Configurator'
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo'
+import {RelayData} from "./types/RelayData";
 
 interface RaceResult {
   winner?: PartialRelayInfo
@@ -20,7 +21,7 @@ export default class RelaySelectionManager {
   private readonly pingFilter: PingFilter
   private readonly transactionDetails: EnvelopingTransactionDetails
 
-  private remainingRelays: RelayInfoUrl[][] = []
+  private remainingRelays: RelayData[][] = []
   private isInitialized = false
 
   public errors: Map<string, Error> = new Map<string, Error>()
@@ -70,9 +71,9 @@ export default class RelaySelectionManager {
     }
   }
 
-  _getPreferredRelaysNextSlice (index: number): RelayInfoUrl[] {
+  _getPreferredRelaysNextSlice (index: number): RelayData[] {
     if (!this.isInitialized) { throw new Error('init() not called') }
-    let slice: RelayInfoUrl[] = []
+    let slice: RelayData[] = []
     if (this.remainingRelays[0].length >= index + 1) {
       const relays = this.remainingRelays[0].slice(index, this.remainingRelays[0].length)
       const bulkSize = Math.min(this.config.sliceSize, relays.length)
@@ -82,29 +83,25 @@ export default class RelaySelectionManager {
     return slice
   }
 
-  async _nextRelayInternal (relays: RelayInfoUrl[]): Promise<RelayInfo | undefined> {
+  async _nextRelayInternal (relays: RelayData[]): Promise<RelayInfo | undefined> {
     log.info('nextRelay: find fastest relay from: ' + JSON.stringify(relays))
     const raceResult = await this._raceToSuccess(relays)
     log.info(`race finished with a result: ${JSON.stringify(raceResult, replaceErrors)}`)
     this._handleRaceResults(raceResult)
     if (raceResult.winner != null) {
-      if (isInfoFromEvent(raceResult.winner.relayInfo)) {
-        return (raceResult.winner as RelayInfo)
-      } else {
-        const managerAddress = raceResult.winner.pingResponse.relayManagerAddress
-        log.info(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayInfo)}`)
-        const events = await this.knownRelaysManager.getRelayInfoForManagers(new Set([managerAddress]))
-        if (events.length === 1) {
-          const relayInfo = events[0]
-          relayInfo.relayUrl = raceResult.winner.relayInfo.relayUrl
-          return {
-            pingResponse: raceResult.winner.pingResponse,
-            relayInfo: relayInfo
-          }
-        } else {
-          // TODO: do not throw! The preferred relay may be removed since.
-          throw new Error('Could not find register event for the winning preferred relay')
+      const managerAddress = raceResult.winner.pingResponse.relayManagerAddress
+      log.info(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayData)}`)
+      const events = await this.knownRelaysManager.getRelayDataForManagers(new Set([managerAddress]))
+      if (events.length === 1) {
+        const relayInfo = events[0]
+        relayInfo.url = raceResult.winner.relayData.url
+        return {
+          pingResponse: raceResult.winner.pingResponse,
+          relayData: relayInfo
         }
+      } else {
+        // TODO: do not throw! The preferred relay may be removed since.
+        throw new Error('Could not find register event for the winning preferred relay')
       }
     }
   }
@@ -117,11 +114,11 @@ export default class RelaySelectionManager {
 
   // relays left to try
   // (note that some edge-cases (like duplicate urls) are not filtered out)
-  relaysLeft (): RelayInfoUrl[] {
+  relaysLeft (): RelayData[] {
     return this.remainingRelays.flatMap(list => list)
   }
 
-  _getNextSlice (): RelayInfoUrl[] {
+  _getNextSlice (): RelayData[] {
     if (!this.isInitialized) { throw new Error('init() not called') }
     for (const relays of this.remainingRelays) {
       const bulkSize = Math.min(this.config.sliceSize, relays.length)
@@ -137,9 +134,9 @@ export default class RelaySelectionManager {
   /**
    * @returns JSON response from the relay server, but adds the requested URL to it :'-(
    */
-  async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
-    log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.transactionDetails.callVerifier)
+  async _getRelayAddressPing (relayData: RelayData): Promise<PartialRelayInfo> {
+    log.info(`getRelayAddressPing URL: ${relayData.url}`)
+    const pingResponse = await this.httpClient.getPingResponse(relayData.url, this.transactionDetails.callVerifier)
 
     if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)
@@ -147,7 +144,7 @@ export default class RelaySelectionManager {
     this.pingFilter(pingResponse, this.transactionDetails)
     return {
       pingResponse,
-      relayInfo
+      relayData
     }
   }
 
@@ -156,10 +153,10 @@ export default class RelaySelectionManager {
    * Accepts an array of promises.
    * Resolves once any promise resolves, ignores the rest. Exceptions returned separately.
    */
-  async _raceToSuccess (relays: RelayInfoUrl[]): Promise<RaceResult> {
+  async _raceToSuccess (relays: RelayData[]): Promise<RaceResult> {
     const errors: Map<string, Error> = new Map<string, Error>()
     return await new Promise((resolve) => {
-      relays.forEach((relay: RelayInfoUrl) => {
+      relays.forEach((relay: RelayData) => {
         this._getRelayAddressPing(relay)
           .then((winner: PartialRelayInfo) => {
             resolve({
@@ -168,7 +165,7 @@ export default class RelaySelectionManager {
             })
           })
           .catch((err: Error) => {
-            errors.set(relay.relayUrl, err)
+            errors.set(relay.url, err)
             if (errors.size === relays.length) {
               resolve({ errors })
             }
@@ -182,8 +179,8 @@ export default class RelaySelectionManager {
     this.errors = new Map([...this.errors, ...raceResult.errors])
     this.remainingRelays = this.remainingRelays.map(relays =>
       relays
-        .filter(eventInfo => eventInfo.relayUrl !== raceResult.winner?.relayInfo.relayUrl)
-        .filter(eventInfo => !Array.from(raceResult.errors.keys()).includes(eventInfo.relayUrl))
+        .filter(eventInfo => eventInfo.url !== raceResult.winner?.relayData.url)
+        .filter(eventInfo => !Array.from(raceResult.errors.keys()).includes(eventInfo.url))
     )
   }
 }

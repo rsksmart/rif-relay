@@ -261,11 +261,11 @@ export class RelayClient {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
       if (activeRelay !== undefined && activeRelay !== null) {
-        this.emit(new NextRelayEvent(activeRelay.relayInfo.relayUrl))
+        this.emit(new NextRelayEvent(activeRelay.relayData.url))
         relayingAttempt = await this._attemptRelay(activeRelay, transactionDetails)
           .catch(error => ({ error }))
         if (relayingAttempt.transaction === undefined || relayingAttempt.transaction === null) {
-          relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
+          relayingErrors.set(activeRelay.relayData.url, relayingAttempt.error ?? new Error('No error reason was given'))
           continue
         }
       }
@@ -317,12 +317,12 @@ export class RelayClient {
     }
 
     let hexTransaction: PrefixedHexString
-    this.emit(new SendToRelayerEvent(relayInfo.relayInfo.relayUrl))
+    this.emit(new SendToRelayerEvent(relayInfo.relayData.url))
     try {
-      hexTransaction = await this.httpClient.relayTransaction(relayInfo.relayInfo.relayUrl, httpRequest)
+      hexTransaction = await this.httpClient.relayTransaction(relayInfo.relayData.url, httpRequest)
     } catch (error) {
       if (error?.message == null || error.message.indexOf('timeout') !== -1) {
-        this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
+        this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayData.manager, relayInfo.relayData.url)
       }
       log.info('relayTransaction: ', JSON.stringify(httpRequest))
       return { error }
@@ -330,7 +330,7 @@ export class RelayClient {
     const transaction = new Transaction(hexTransaction, this.contractInteractor.getRawTxOptions())
     if (!this.transactionValidator.validateRelayResponse(httpRequest, hexTransaction)) {
       this.emit(new RelayerResponseEvent(false))
-      this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayInfo.relayManager, relayInfo.relayInfo.relayUrl)
+      this.knownRelaysManager.saveRelayFailure(new Date().getTime(), relayInfo.relayData.manager, relayInfo.relayData.url)
       return { error: new Error('Returned transaction did not pass validation') }
     }
     this.emit(new RelayerResponseEvent(true))

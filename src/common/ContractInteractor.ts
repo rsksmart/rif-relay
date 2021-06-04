@@ -42,6 +42,7 @@ import BN from 'bn.js'
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
 import Contract = Truffle.Contract
+import {RelayData} from "../relayclient/types/RelayData";
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -339,6 +340,16 @@ export default class ContractInteractor {
     // @ts-ignore
     const relayHub = new this.IRelayHubContract('')
     return relayHub.contract.methods.deployCall(relayRequest, sig).encodeABI()
+  }
+
+  async getActiveRelays(relayManagers: Set<Address>): Promise<RelayData[]> {
+    const managers: Address[] = Array.from(relayManagers)
+    const contractCalls: Promise<RelayData>[] = []
+    managers.forEach(managerAddress => {
+      contractCalls.push(this.relayHubInstance.getRelayData(managerAddress))
+    });
+    const results = await Promise.all(contractCalls);
+    return results.filter(relayData => !relayData.penalized && relayData.manager && relayData.url)
   }
 
   async getPastEventsForHub (extraTopics: string[], options: PastEventOptions, names: EventName[] = ActiveManagerEvents): Promise<EventData[]> {

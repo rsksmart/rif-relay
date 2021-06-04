@@ -38,6 +38,7 @@ import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
 
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ether } from '@openzeppelin/test-helpers'
+import {RelayData} from "../../src/relayclient/types/RelayData";
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
@@ -205,13 +206,14 @@ export class ServerTestEnvironment {
       relayHubAddress: this.relayHub.address,
       relayWorkerAddress: this.relayServer.workerAddress
     }
-    const eventInfo: RelayRegisteredEventInfo = {
-      relayManager: '',
-      relayUrl: ''
+    const relayData: RelayData = {
+      manager: '',
+      penalized: false,
+      url: ''
     }
     const relayInfo: RelayInfo = {
       pingResponse: pingResponse as PingResponse,
-      relayInfo: eventInfo
+      relayData: relayData
     }
 
     const transactionDetails: EnvelopingTransactionDetails = {
