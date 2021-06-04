@@ -114,10 +114,28 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler (verifier: Address): Promise<any> {
-    const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
-    const res = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call();
-    return res;
+  async tokenHandler (verifier: Address): Promise<TokenResponse> {
+    let verifiersToQuery : Address[]
+
+    // if a verifier was supplied, check that it is trusted
+    if (verifier){    
+      if (!this.trustedVerifiers.has(verifier.toLowerCase())){
+        throw new Error("supplied verifier is not trusted")
+      }
+      verifiersToQuery = [verifier]
+    }else{
+      // if no verifier was supplied, query all tursted verifiers
+      verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
+    }
+
+    let res: TokenResponse = {}
+    for (const verifier of verifiersToQuery){
+      const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
+      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call();
+      res[verifier] = acceptedTokens   
+    };
+
+    return res
   }
 
   async verifierHandler (): Promise<VerifierResponse> {
