@@ -103,7 +103,6 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
-
     const toSign: string = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
@@ -143,7 +142,6 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
