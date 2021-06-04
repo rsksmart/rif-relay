@@ -363,14 +363,6 @@ export default class ContractInteractor {
     return await this._getPastEvents(relayHub.contract, names, extraTopics, options)
   }
 
-  async getTokensForRelayVerifier (): Promise<EventData[]> {
-    return await this._getPastEvents(this.relayVerifierInstance.contract, ['AllowedToken'], [], { fromBlock: 0 })
-  }
-
-  async getTokensForDeployVerifier (): Promise<EventData[]> {
-    return await this._getPastEvents(this.deployVerifierInstance.contract, ['AllowedToken'], [], { fromBlock: 0 })
-  }
-
   // eslint-disable-next-line @typescript-eslint/require-await
   async _getPastEvents (contract: any, names: EventName[], extraTopics: string[], options: PastEventOptions): Promise<EventData[]> {
     const topics: string[][] = []
