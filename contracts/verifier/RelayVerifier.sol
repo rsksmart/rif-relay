@@ -60,6 +60,7 @@ contract RelayVerifier is IRelayVerifier, ITokenHandler, Ownable {
 
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
+        require(tokens[token] == false, "Token is already accepted");
         tokens[token] = true;
         acceptedTokens.push(token);
     }
