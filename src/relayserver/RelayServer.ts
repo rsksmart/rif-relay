@@ -32,9 +32,9 @@ import { configureServer, ServerConfigParams, ServerDependencies } from './Serve
 import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import TokenResponse from '../common/TokenResponse'
+import VerifierResponse from '../common/VerifierResponse'
 
 import Timeout = NodeJS.Timeout
-import VerifierResponse from '../common/VerifierResponse'
 
 const VERSION = '2.0.1'
 const PARAMETERS_COST = 43782
@@ -115,24 +115,24 @@ export class RelayServer extends EventEmitter {
   }
 
   async tokenHandler (verifier: Address): Promise<TokenResponse> {
-    let verifiersToQuery : Address[]
+    let verifiersToQuery: Address[]
 
     // if a verifier was supplied, check that it is trusted
-    if (verifier){    
-      if (!this.trustedVerifiers.has(verifier.toLowerCase())){
-        throw new Error("supplied verifier is not trusted")
+    if (verifier !== undefined) {
+      if (!this.trustedVerifiers.has(verifier.toLowerCase())) {
+        throw new Error('supplied verifier is not trusted')
       }
       verifiersToQuery = [verifier]
-    }else{
+    } else {
       // if no verifier was supplied, query all tursted verifiers
       verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
     }
 
-    let res: TokenResponse = {}
-    for (const verifier of verifiersToQuery){
+    const res: TokenResponse = {}
+    for (const verifier of verifiersToQuery) {
       const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
-      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call();
-      res[verifier] = acceptedTokens   
+      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call()
+      res[verifier] = acceptedTokens
     };
 
     return res

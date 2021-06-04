@@ -206,7 +206,7 @@ export default class ContractInteractor {
     return await this.IDeployVerifierContract.at(address)
   }
 
-  async createTokenHandler(address: Address): Promise<ITokenHandlerInstance> {
+  async createTokenHandler (address: Address): Promise<ITokenHandlerInstance> {
     return await this.ITokenHandlerContract.at(address)
   }
 
