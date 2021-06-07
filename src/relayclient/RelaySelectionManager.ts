@@ -1,7 +1,6 @@
 import log from 'loglevel'
 import { KnownRelaysManager } from './KnownRelaysManager'
 import HttpClient from './HttpClient'
-import { isInfoFromEvent, RelayInfoUrl } from './types/RelayRegisteredEventInfo'
 import { PingFilter } from './types/Aliases'
 import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import replaceErrors from '../common/ErrorReplacerJSON'

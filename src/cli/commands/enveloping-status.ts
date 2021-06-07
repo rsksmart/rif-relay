@@ -7,6 +7,7 @@ import HttpWrapper from '../../relayclient/HttpWrapper'
 
 import { getNetworkUrl, getRelayHubAddress, envelopingCommander } from '../utils'
 import StatusLogic from '../StatusLogic'
+import {KnownRelaysManager} from "../../relayclient/KnownRelaysManager";
 
 const commander = envelopingCommander(['n', 'h'])
   .parse(process.argv);
@@ -29,8 +30,9 @@ const commander = envelopingCommander(['n', 'h'])
   const config = configure({ relayHubAddress })
   const contractInteractor = new ContractInteractor(new Web3.providers.HttpProvider(host), config)
   const httpClient = new HttpClient(new HttpWrapper({ timeout: statusConfig.getAddressTimeout }), config)
+  const knownRelaysManager = new KnownRelaysManager(contractInteractor, config)
 
-  const statusLogic = new StatusLogic(contractInteractor, httpClient, statusConfig)
+  const statusLogic = new StatusLogic(contractInteractor, httpClient, statusConfig, knownRelaysManager)
 
   const statistics = await statusLogic.gatherStatistics()
 
@@ -38,17 +40,17 @@ const commander = envelopingCommander(['n', 'h'])
   console.log(`Hub address: ${relayHubAddress}`)
 
   console.log('\n# Relays:')
-  statistics.relayRegisteredEvents.forEach(registeredEvent => {
+  statistics.activeRelays.forEach(activeRelay => {
     const res = []
-    res.push(registeredEvent.relayManager)
-    res.push(registeredEvent.relayUrl)
-    const managerBalance = statistics.balances.get(registeredEvent.relayManager)
+    res.push(activeRelay.manager)
+    res.push(activeRelay.url)
+    const managerBalance = statistics.balances.get(activeRelay.manager)
     if (managerBalance == null) {
       res.push('\tbalance: N/A')
     } else {
       res.push(`\tbalance: ${Web3.utils.fromWei(managerBalance)} RBTC`)
     }
-    const pingResult = statistics.relayPings.get(registeredEvent.relayUrl)
+    const pingResult = statistics.relayPings.get(activeRelay.url)
     const status = pingResult?.pingResponse != null ? pingResult.pingResponse.ready.toString() : pingResult?.error?.toString() ?? 'unknown'
     res.push(`\tstatus: ${status}`)
     console.log('- ' + res.join(' '))

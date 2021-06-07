@@ -6,7 +6,6 @@ import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import RelayFailureInfo from './types/RelayFailureInfo'
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases'
 import { EnvelopingConfig } from './Configurator'
-import { isInfoFromEvent, RelayInfoUrl, RelayRegisteredEventInfo } from './types/RelayRegisteredEventInfo'
 
 import ContractInteractor, {
   RelayServerRegistered,

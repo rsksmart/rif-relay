@@ -13,7 +13,6 @@ import {
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
-import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { Environment } from '../../src/common/Environments'
 import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
@@ -394,15 +393,18 @@ contract('KnownRelaysManager 2', function (accounts) {
       const env = await getTestingEnvironment()
       knownRelaysManager = new KnownRelaysManager(
         contractInteractor, configure({ chainId: env.chainId }), undefined, biasedRelayScore)
-      const activeRelays: RelayRegisteredEventInfo[] = [{
-        relayManager: accounts[0],
-        relayUrl: 'alex'
+      const activeRelays: RelayData[] = [{
+        manager: accounts[0],
+        url: 'alex',
+        penalized: false
       }, {
-        relayManager: accounts[0],
-        relayUrl: 'joe'
+        manager: accounts[0],
+        url: 'joe',
+        penalized: false
       }, {
-        relayManager: accounts[1],
-        relayUrl: 'joe'
+        manager: accounts[1],
+        url: 'joe',
+        penalized: false
       }]
       sinon.stub(knownRelaysManager, 'allRelayers').value(activeRelays)
     })

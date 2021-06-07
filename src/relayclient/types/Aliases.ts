@@ -4,7 +4,6 @@ import PingResponse from '../../common/PingResponse'
 import { RelayRequest } from '../../common/EIP712/RelayRequest'
 import EnvelopingTransactionDetails from './EnvelopingTransactionDetails'
 import RelayFailureInfo from './RelayFailureInfo'
-import { RelayRegisteredEventInfo } from './RelayRegisteredEventInfo'
 import {RelayData} from "./RelayData";
 
 export type Address = string
