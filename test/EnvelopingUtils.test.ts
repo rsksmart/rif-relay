@@ -10,7 +10,7 @@ import {
   createSmartWalletFactory,
   deployHub,
   getTestingEnvironment,
-  isEmptyResponse,
+  hasCode,
   startRelay,
   stopRelay
 } from './TestUtils'
@@ -163,7 +163,7 @@ contract('Enveloping utils', function (accounts) {
 
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
-      assert.isTrue(isEmptyResponse(expectedInitialCode))
+      assert.isTrue(!hasCode(expectedInitialCode))
 
       const txDeployHash = await deploySmartWallet(constants.ZERO_ADDRESS, '0', '0')
 
@@ -198,7 +198,7 @@ contract('Enveloping utils', function (accounts) {
     it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
       const expectedInitialCode = await web3.eth.getCode(swAddress)
       const balanceTransfered = new BN(10)
-      assert.isTrue(isEmptyResponse(expectedInitialCode))
+      assert.isTrue(!hasCode(expectedInitialCode))
       await tokenContract.mint('100', swAddress)
       const previousBalance = await tokenContract.balanceOf(workerAddress)
 

@@ -497,8 +497,8 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
 /**
  * returns true if response is a valid representation of an empty hex in web3
  */
-export function isEmptyResponse (response: string): boolean {
-  return response === '0x' || response === '0x00'
+export function hasCode (code: string): boolean {
+  return code !== '0x' && code !== '0x00'
 }
 
 /**
