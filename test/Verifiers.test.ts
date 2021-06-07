@@ -102,6 +102,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
     const toSign: string = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
@@ -135,7 +136,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
       salt: expectedSalt
     })
 
-    await expectRevert.unspecified(
+    await expectRevert(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
       'Address already created!')
   })
@@ -145,15 +146,16 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
     deployRequestData.request.tokenAmount = (tokensPaid + 100).toString()
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
-    await expectRevert.unspecified(
+    await expectRevert(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
-    await expectRevert.unspecified(
+    await expectRevert(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
       'Token contract not allowed'
     )
@@ -161,12 +163,13 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
 
   it('SHOULD fail when factory is incorrect on preRelayCall', async function () {
     deployVerifier = await DeployVerifier.new(other1, { from: verifierOwner })
+    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
 
     // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     testVerifiers = await TestDeployVerifier.new(deployVerifier.address)
 
-    await expectRevert.unspecified(
+    await expectRevert(
       testVerifiers.verifyRelayedCall(deployRequestData, '0x00', { from: relayHub }),
       'Invalid factory'
     )
@@ -181,6 +184,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   let relayRequestData: RelayRequest
   let factory: SmartWalletFactoryInstance
   let testRelayVerifier: TestRelayVerifierInstance
+  let incorrectTokenRelayRequestData: RelayRequest
 
   const senderPrivateKey = toBuffer(bytes32(1))
   let senderAddress: string
@@ -227,6 +231,29 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
         domainSeparator: getDomainSeparatorHash(smartWallet, chainId)
       }
     }
+
+    incorrectTokenRelayRequestData = {
+      request: {
+        relayHub: relayHub,
+        to: recipientContract.address,
+        data: '0x00',
+        from: senderAddress,
+        nonce: senderNonce,
+        value: '0',
+        gas: gasLimit,
+        tokenContract: relayHub, // relayHub is an address not authorized as token contract
+        tokenAmount: tokensPaid.toString(),
+        tokenGas: '50000'
+      },
+      relayData: {
+        gasPrice,
+        relayWorker,
+        callForwarder: smartWallet,
+        callVerifier: relayVerifier.address,
+        domainSeparator: getDomainSeparatorHash(smartWallet, chainId)
+      }
+    }
+
     // we mint tokens to the sender,
     await token.mint(tokensPaid + 4, smartWallet)
   })
@@ -248,15 +275,15 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
     relayRequestData.relayData.callForwarder = other
     // run method
-    await expectRevert.unspecified(
+    await expectRevert(
       testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
-    await expectRevert.unspecified(
-      testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
+    await expectRevert(
+      testRelayVerifier.verifyRelayedCall(incorrectTokenRelayRequestData, '0x00', { from: relayHub }),
       'Token contract not allowed'
     )
   })
@@ -267,7 +294,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
     relayRequestData.relayData.callForwarder = token.address
     await token.mint(tokensPaid + 4, token.address)
     // run method
-    await expectRevert.unspecified(
+    await expectRevert(
       testRelayVerifier.verifyRelayedCall(relayRequestData, '0x00', { from: relayHub }),
       'SW different to template'
     )
