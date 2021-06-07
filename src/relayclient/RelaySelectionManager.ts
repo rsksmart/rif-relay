@@ -90,17 +90,10 @@ export default class RelaySelectionManager {
     if (raceResult.winner != null) {
       const managerAddress = raceResult.winner.pingResponse.relayManagerAddress
       log.info(`finding relay register info for manager address: ${managerAddress}; known info: ${JSON.stringify(raceResult.winner.relayData)}`)
-      const events = await this.knownRelaysManager.getRelayDataForManagers(new Set([managerAddress]))
-      if (events.length === 1) {
-        const relayInfo = events[0]
-        relayInfo.url = raceResult.winner.relayData.url
-        return {
-          pingResponse: raceResult.winner.pingResponse,
-          relayData: relayInfo
-        }
-      } else {
-        // TODO: do not throw! The preferred relay may be removed since.
-        throw new Error('Could not find register event for the winning preferred relay')
+      const activeRelays = await this.knownRelaysManager.getRelayDataForManagers(new Set([managerAddress]))
+      return {
+        pingResponse: raceResult.winner.pingResponse,
+        relayData: activeRelays[0]
       }
     }
   }

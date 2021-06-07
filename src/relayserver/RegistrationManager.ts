@@ -27,6 +27,7 @@ import { ServerConfigParams } from './ServerConfigParams'
 import { TxStoreManager } from './TxStoreManager'
 import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'
+import {RelayData} from "../relayclient/types/RelayData";
 
 export interface RelayServerRegistryInfo {
   url: string
@@ -52,8 +53,7 @@ export class RegistrationManager {
   transactionManager: TransactionManager
   config: ServerConfigParams
   txStoreManager: TxStoreManager
-
-  lastMinedRegisterTransaction?: EventData
+  relayData: RelayData | undefined
   lastWorkerAddedTransaction?: EventData
   private delayedEvents: Array<{ block: number, eventData: EventData }> = []
 
@@ -101,9 +101,6 @@ export class RegistrationManager {
       this.lastWorkerAddedTransaction = await this._queryLatestWorkerAddedEvent()
     }
 
-    if (this.lastMinedRegisterTransaction == null) {
-      this.lastMinedRegisterTransaction = await this._queryLatestRegistrationEvent()
-    }
     this.isInitialized = true
   }
 
@@ -137,13 +134,10 @@ export class RegistrationManager {
       }
     }
 
+    this.relayData = await this.getRelayData();
+
     for (const eventData of hubEventsSinceLastScan) {
       switch (eventData.event) {
-        case RelayServerRegistered:
-          if (this.lastMinedRegisterTransaction == null || isSecondEventLater(this.lastMinedRegisterTransaction, eventData)) {
-            this.lastMinedRegisterTransaction = eventData
-          }
-          break
         case RelayWorkersAdded:
           if (this.lastWorkerAddedTransaction == null || isSecondEventLater(this.lastWorkerAddedTransaction, eventData)) {
             this.lastWorkerAddedTransaction = eventData
@@ -169,6 +163,14 @@ export class RegistrationManager {
     return transactionHashes
   }
 
+  async getRelayData(): Promise<RelayData> {
+    const activeRelays = await this.contractInteractor.getActiveRelays([this.managerAddress]);
+    if (activeRelays.length > 0) {
+      return activeRelays[0];
+    }
+    throw new Error('No relay found for manager ' + this.managerAddress)
+  }
+
   _extractDuePendingEvents (currentBlock: number): EventData[] {
     const ret = this.delayedEvents.filter(event => event.block <= currentBlock).map(e => e.eventData)
     this.delayedEvents = [...this.delayedEvents.filter(event => event.block > currentBlock)]
@@ -176,17 +178,7 @@ export class RegistrationManager {
   }
 
   _isRegistrationCorrect (): boolean {
-    return isRegistrationValid(this.lastMinedRegisterTransaction, this.config, this.managerAddress)
-  }
-
-  async _queryLatestRegistrationEvent (): Promise<EventData | undefined> {
-    const topics = address2topic(this.managerAddress)
-    const registerEvents = await this.contractInteractor.getPastEventsForHub([topics],
-      {
-        fromBlock: 1
-      },
-      [RelayServerRegistered])
-    return getLatestEventData(registerEvents)
+    return isRegistrationValid(this.relayData, this.config, this.managerAddress)
   }
 
   _parseEvent (event: { events: any[], name: string, address: string } | null): any {

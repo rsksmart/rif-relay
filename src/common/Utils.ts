@@ -9,6 +9,7 @@ import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
+import {RelayData} from "../relayclient/types/RelayData";
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -166,11 +167,11 @@ export function getLatestEventData (events: EventData[]): EventData | undefined 
   return eventDataSorted[0]
 }
 
-export function isRegistrationValid (registerEvent: EventData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
+export function isRegistrationValid (relayData: RelayData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
   const portIncluded: boolean = config.url.indexOf(':') > 0
-  return registerEvent != null &&
-    isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
-    registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
+  return relayData != null &&
+    isSameAddress(relayData.manager, managerAddress) &&
+      relayData.url.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }
 
 export interface VerifierGasLimits {

@@ -342,7 +342,7 @@ export default class ContractInteractor {
     return relayHub.contract.methods.deployCall(relayRequest, sig).encodeABI()
   }
 
-  async getActiveRelays(relayManagers: Set<Address>): Promise<RelayData[]> {
+  async getActiveRelays(relayManagers: Set<Address> | Address[]): Promise<RelayData[]> {
     const managers: Address[] = Array.from(relayManagers)
     const contractCalls: Promise<RelayData>[] = []
     managers.forEach(managerAddress => {
