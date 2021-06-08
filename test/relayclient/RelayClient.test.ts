@@ -387,14 +387,13 @@ contract('RelayClient', function (accounts) {
       const swAddress = await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')
       await token.mint('1000', swAddress)
 
-      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
-      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+      assert.equal(await web3.eth.getCode(swAddress), '0x', 'SmartWallet not yet deployed, it must not have installed code')
 
       const result = await relayClient.relayTransaction(deployOptions)
       const senderAddress = `0x${result.transaction?.getSenderAddress().toString('hex')}`
       const senderTokenInitialBalance = await token.balanceOf(senderAddress)
       assert.notEqual(senderAddress, constants.ZERO_ADDRESS)
-      assert.notEqual(await web3.eth.getCode(swAddress), '0x00', 'SmartWalletdeployed, it must have installed code')
+      assert.notEqual(await web3.eth.getCode(swAddress), '0x', 'SmartWalletdeployed, it must have installed code')
 
       const relayOptions = {
         from: eoaWithoutSmartWalletAccount.address,
@@ -464,8 +463,7 @@ contract('RelayClient', function (accounts) {
       // deployOptions.smartWalletAddress = swAddress  --> The client cannot tell who is the token sender so it cannot estimate the token transfer.
       // calculating the address in the client is not an option because the factory used is not in control of the client (a thus, the method to calculate it, which is not unique)
 
-      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
-      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+      assert.equal(await web3.eth.getCode(swAddress), '0x', 'SmartWallet not yet deployed, it must not have installed code')
 
       try {
         await relayClient.relayTransaction(deployOptions)
@@ -500,8 +498,7 @@ contract('RelayClient', function (accounts) {
       await token.mint('1000', swAddress)
       deployOptions.smartWalletAddress = swAddress
 
-      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
-      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+      assert.equal(await web3.eth.getCode(swAddress), '0x', 'SmartWallet not yet deployed, it must not have installed code')
 
       const relayingResult = await relayClient.relayTransaction(deployOptions)
       const validTransaction = relayingResult.transaction
@@ -689,8 +686,7 @@ contract('RelayClient', function (accounts) {
       const swAddress = (await factory.getSmartWalletAddress(eoaWithoutSmartWalletAccount.address, constants.ZERO_ADDRESS, '0')).toLowerCase()
       await token.mint('1000', swAddress)
 
-      // Note: 0x00 is returned by RSK, in Ethereum it is 0x
-      assert.equal(await web3.eth.getCode(swAddress), '0x00', 'SmartWallet not yet deployed, it must not have installed code')
+      assert.equal(await web3.eth.getCode(swAddress), '0x', 'SmartWallet not yet deployed, it must not have installed code')
 
       const relayingResult = await relayClient.relayTransaction(deployOptions)
       const validTransaction = relayingResult.transaction

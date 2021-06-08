@@ -27,7 +27,7 @@ const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 
-const revertReasonSupported = false
+const revertReasonSupported = true
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
 
