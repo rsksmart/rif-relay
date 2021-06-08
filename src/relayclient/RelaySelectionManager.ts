@@ -171,8 +171,8 @@ export default class RelaySelectionManager {
     this.errors = new Map([...this.errors, ...raceResult.errors])
     this.remainingRelays = this.remainingRelays.map(relays =>
       relays
-        .filter(eventInfo => eventInfo.url !== raceResult.winner?.relayData.url)
-        .filter(eventInfo => !Array.from(raceResult.errors.keys()).includes(eventInfo.url))
+        .filter(relay => relay.url !== raceResult.winner?.relayData.url)
+        .filter(relay => !Array.from(raceResult.errors.keys()).includes(relay.url))
     )
   }
 }

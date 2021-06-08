@@ -20,6 +20,7 @@ contract('RelaySelectionManager', async function (accounts) {
   const sliceSize = 3
   const dependencyTree = getDependencies(configure({}), web3.currentProvider as HttpProvider)
   const stubGetRelaysSorted = sinon.stub(dependencyTree.knownRelaysManager, 'getRelaysSortedForTransaction')
+  const stubGetActiveRelays = sinon.stub(dependencyTree.contractInteractor, 'getActiveRelays')
   const errors = new Map<string, Error>()
   const config = configure({
     sliceSize,
@@ -30,7 +31,7 @@ contract('RelaySelectionManager', async function (accounts) {
     url: '',
     penalized: false,
     registered: false,
-    stakeAdded: false
+    stakeAdded: true
   }
   const pingResponse = {
     relayWorkerAddress: '',
@@ -63,6 +64,7 @@ contract('RelaySelectionManager', async function (accounts) {
     let stubGetNextSlice: SinonStub
 
     before(async function () {
+      stubGetActiveRelays.returns(Promise.resolve([relayData]))
       stubGetRelaysSorted.returns(Promise.resolve([[relayData]]))
       relaySelectionManager = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config).init()
       stubRaceToSuccess = sinon.stub(relaySelectionManager, '_raceToSuccess')
@@ -88,7 +90,7 @@ contract('RelaySelectionManager', async function (accounts) {
           errors
         }))
       const nextRelay = await relaySelectionManager.selectNextRelay()
-      assert.equal(nextRelay!, winner)
+      assert.deepStrictEqual(nextRelay, winner)
     })
 
     describe('with preferred relay URL', function () {
@@ -254,19 +256,19 @@ contract('RelaySelectionManager', async function (accounts) {
     it('only first to resolve and all that rejected by that time', async function () {
       const slowRelay = {
         pingResponse,
-        relayInfo: Object.assign({}, relayData, { relayUrl: 'slowRelay' })
+        relayData: Object.assign({}, relayData, { url: 'slowRelay' })
       }
       const fastRelay = {
         pingResponse,
-        relayInfo: Object.assign({}, relayData, { relayUrl: 'fastRelay' })
+        relayData: Object.assign({}, relayData, { url: 'fastRelay' })
       }
       const fastFailRelay = {
         pingResponse,
-        relayInfo: Object.assign({}, relayData, { relayUrl: 'fastFailRelay' })
+        relayData: Object.assign({}, relayData, { url: 'fastFailRelay' })
       }
       const slowFailRelay = {
         pingResponse,
-        relayInfo: Object.assign({}, relayData, { relayUrl: 'slowFailRelay' })
+        relayData: Object.assign({}, relayData, { url: 'slowFailRelay' })
       }
       const slowPromise = new Promise<PingResponse>((resolve) => {
         setTimeout(() => { resolve(pingResponse) }, 1500)
@@ -286,16 +288,16 @@ contract('RelaySelectionManager', async function (accounts) {
       })
       const fastFailedMessage = 'Fast Failed Promise'
       const slowFailedMessage = 'Slow Failed Promise'
-      const relays = [slowRelay.relayInfo, fastRelay.relayInfo, slowFailRelay.relayInfo, fastFailRelay.relayInfo]
+      const relays = [slowRelay.relayData, fastRelay.relayData, slowFailRelay.relayData, fastFailRelay.relayData]
       stubPingResponse.callsFake(async (relayUrl: string): Promise<PingResponse> => {
         switch (relayUrl) {
-          case slowRelay.relayInfo.relayUrl:
+          case slowRelay.relayData.url:
             return await slowPromise
-          case fastRelay.relayInfo.relayUrl:
+          case fastRelay.relayData.url:
             return await fastPromise
-          case slowFailRelay.relayInfo.relayUrl:
+          case slowFailRelay.relayData.url:
             return await slowFailPromise
-          case fastFailRelay.relayInfo.relayUrl:
+          case fastFailRelay.relayData.url:
             return await fastFailPromise
         }
         throw new Error('Non test relay pinged')
@@ -317,8 +319,8 @@ contract('RelaySelectionManager', async function (accounts) {
       relayData: Object.assign({}, relayData, { url: winnerRelayUrl })
     }
     const message = 'some failure message'
-    const failureRelayEventInfo = Object.assign({}, relayData, { relayUrl: failureRelayUrl })
-    const otherRelayEventInfo = Object.assign({}, relayData, { relayUrl: otherRelayUrl })
+    const failureRelayEventInfo = Object.assign({}, relayData, { url: failureRelayUrl })
+    const otherRelayEventInfo = Object.assign({}, relayData, { url: otherRelayUrl })
     it('should remove all relays featured in race results', async function () {
       sinon.stub(dependencyTree.knownRelaysManager, 'refresh')
       stubGetRelaysSorted.returns(Promise.resolve([[winner.relayData, failureRelayEventInfo, otherRelayEventInfo]]))
