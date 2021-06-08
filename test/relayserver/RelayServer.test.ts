@@ -126,10 +126,19 @@ contract('RelayServer', function (accounts) {
           await env.relayServer._initTrustedVerifiers([])
         })
 
-        it('#_itTrustedForwarder', function () {
+        it('#isTrustedVerifier', function () {
           assert.isFalse(env.relayServer.isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
           assert.isTrue(env.relayServer.isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
           assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+        })
+
+        it('#verifierHandler', async function(){
+          const relayVerifier = env.relayVerifier.address.toLowerCase()
+          const deployVerifier = env.deployVerifier.address.toLowerCase()
+          const trustedVerifiers = (await env.relayServer.verifierHandler()).trustedVerifiers
+          assert.isTrue(trustedVerifiers.includes(relayVerifier))
+          assert.isTrue(trustedVerifiers.includes(deployVerifier))
+          assert.equal(trustedVerifiers.length, 2)
         })
       })
 
