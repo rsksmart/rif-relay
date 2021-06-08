@@ -208,7 +208,9 @@ export class ServerTestEnvironment {
     const relayData: RelayData = {
       manager: '',
       penalized: false,
-      url: ''
+      url: '',
+      stakeAdded: false,
+      registered: false
     }
     const relayInfo: RelayInfo = {
       pingResponse: pingResponse as PingResponse,

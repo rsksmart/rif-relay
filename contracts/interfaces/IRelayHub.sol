@@ -112,6 +112,8 @@ interface IRelayHub {
     struct RelayData {
         address manager;
         bool penalized;
+        bool stakeAdded;
+        bool registered;
         string url;
     }
 

@@ -28,7 +28,9 @@ contract('RelaySelectionManager', async function (accounts) {
   const relayData = {
     manager: '',
     url: '',
-    penalized: false
+    penalized: false,
+    registered: false,
+    stakeAdded: false
   }
   const pingResponse = {
     relayWorkerAddress: '',

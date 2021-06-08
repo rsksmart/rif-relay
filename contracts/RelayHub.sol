@@ -73,6 +73,7 @@ contract RelayHub is IRelayHub {
 
         relayData[msg.sender].manager = msg.sender;
         relayData[msg.sender].url = url;
+        relayData[msg.sender].registered = true;
 
         emit RelayServerRegistered(msg.sender, url);
     }
@@ -354,6 +355,8 @@ contract RelayHub is IRelayHub {
         stakes[relayManager].owner = msg.sender;
         stakes[relayManager].stake += msg.value;
         stakes[relayManager].unstakeDelay = unstakeDelay;
+        relayData[relayManager].manager = relayManager;
+        relayData[relayManager].stakeAdded = true;
         emit StakeAdded(
             relayManager,
             stakes[relayManager].owner,
@@ -367,8 +370,6 @@ contract RelayHub is IRelayHub {
         require(info.owner == msg.sender, "not owner");
         require(info.withdrawBlock == 0, "already pending");
         info.withdrawBlock = block.number.add(info.unstakeDelay);
-        require(relayData[relayManager].manager != address(0), "Relay is not registered");
-        relayData[relayManager].penalized = true;
         emit StakeUnlocked(relayManager, msg.sender, info.withdrawBlock);
     }
 
@@ -380,6 +381,8 @@ contract RelayHub is IRelayHub {
         uint256 amount = info.stake;
         delete stakes[relayManager];
         msg.sender.transfer(amount);
+        require(relayData[relayManager].manager != address(0), "Relay is not registered");
+        relayData[relayManager].penalized = true;
         emit StakeWithdrawn(relayManager, msg.sender, amount);
     }
 

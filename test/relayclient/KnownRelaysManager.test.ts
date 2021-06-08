@@ -396,15 +396,21 @@ contract('KnownRelaysManager 2', function (accounts) {
       const activeRelays: RelayData[] = [{
         manager: accounts[0],
         url: 'alex',
-        penalized: false
+        penalized: false,
+        stakeAdded: true,
+        registered: true
       }, {
         manager: accounts[0],
         url: 'joe',
-        penalized: false
+        penalized: false,
+        stakeAdded: true,
+        registered: true
       }, {
         manager: accounts[1],
         url: 'joe',
-        penalized: false
+        penalized: false,
+        stakeAdded: true,
+        registered: true
       }]
       sinon.stub(knownRelaysManager, 'allRelayers').value(activeRelays)
     })

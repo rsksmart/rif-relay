@@ -362,7 +362,10 @@ export default class ContractInteractor {
       contractCalls.push(this.relayHubInstance.getRelayData(managerAddress))
     });
     const results = await Promise.all(contractCalls);
-    return results.filter(relayData => !relayData.penalized && relayData.manager && relayData.url)
+    return results.filter(relayData =>
+        !relayData.penalized &&
+        relayData.manager &&
+        relayData.stakeAdded)
   }
 
   async getPastEventsForHub (extraTopics: string[], options: PastEventOptions, names: EventName[] = ActiveManagerEvents): Promise<EventData[]> {

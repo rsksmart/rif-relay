@@ -811,7 +811,9 @@ contract('RelayClient', function (accounts) {
         relayData: {
           manager: relayManager,
           url: relayUrl,
-          penalized: false
+          penalized: false,
+          registered: false,
+          stakeAdded: false
         },
         pingResponse
       }
