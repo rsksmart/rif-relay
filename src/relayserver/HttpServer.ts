@@ -100,7 +100,7 @@ export class HttpServer {
 
   async relayHandler (req: Request, res: Response): Promise<void> {
     try {
-      const signedTx = await this.backend.createRelayTransaction(req.body)
+      const signedTx = (await this.backend.createRelayTransaction(req.body)).signedTx
       res.send({ signedTx })
     } catch (e) {
       res.send({ error: e.message })

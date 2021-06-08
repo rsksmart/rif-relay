@@ -71,7 +71,7 @@ contract('Enveloping utils', function (accounts) {
     }
 
     const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
-      const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000', index)
+      const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, tokenContract, tokenAmount, tokenGas, '1000000000', index)
       const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
       const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
       const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
@@ -87,14 +87,13 @@ contract('Enveloping utils', function (accounts) {
 
     const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
       const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
-      const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, gasLimit, tokenContract, tokenAmount, tokenGas, '1000000000')
+      const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, tokenContract, tokenAmount, tokenGas)
       const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
       const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
       const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
       return sentRelayTransaction.transaction?.hash(true).toString('hex')
     }
 
-    const gasLimit = '160000'
     before(async () => {
       gaslessAccount = {
         privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),

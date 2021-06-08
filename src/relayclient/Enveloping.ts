@@ -16,8 +16,9 @@ import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from
 
 import { DiscoveryConfig, SmartWalletDiscovery, Web3Provider, AccountReaderFunction, DiscoveredAccount } from '../relayclient/SmartWalletDiscovery'
 import Web3 from 'web3'
+import { toHex } from 'web3-utils'
 
-const zeroAddr = '0x0000000000000000000000000000000000000000'
+const zeroAddr = constants.ZERO_ADDRESS
 
 export interface SignatureProvider {
   sign: (dataToSign: TypedRequestData) => PrefixedHexString
@@ -49,23 +50,21 @@ export class Enveloping {
   /**
     * creates a deploy request
     * @param from - sender's wallet address (EOA)
-    * @param gasLimit - gas limit of the relayed transaction
     * @param tokenContract - the token the user will use to pay to the Worker for deploying the SmartWallet
     * @param tokenAmount - the token amount the user will pay for the deployment, zero if the deploy is subsidized
     * @param tokenGas - gas limit of the token payment
-    * @param  gasPrice - optional: if not set the gasPrice is calculated internally through a call to estimateGas
+    * @param  gasPrice - optional: if not set the gasPrice is calculated internally
     * @param  index - optional: allows the user to create multiple SmartWallets
     * @param  recoverer optional: This SmartWallet instance won't have recovery support
     * @return a deploy request structure.
     */
-  async createDeployRequest (from: Address, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
+  async createDeployRequest (from: Address, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
     const deployRequest: DeployRequest = {
       request: {
         relayHub: this.config.relayHubAddress,
         from: from,
         to: zeroAddr,
         value: '0',
-        gas: gasLimit, // overhead (cte) + fee + (estimateDeploy * 1.1)
         nonce: (await this.getFactoryNonce(this.config.smartWalletFactoryAddress, from)).toString(),
         data: '0x',
         tokenContract: tokenContract,
@@ -75,7 +74,7 @@ export class Enveloping {
         index: index ?? '0'
       },
       relayData: {
-        gasPrice: gasPrice ?? '0',
+        gasPrice: gasPrice ?? await web3.eth.getGasPrice(),
         relayWorker: this.relayWorkerAddress,
         callForwarder: this.config.smartWalletFactoryAddress,
         callVerifier: this.config.deployVerifierAddress,
@@ -84,6 +83,33 @@ export class Enveloping {
     }
 
     return deployRequest
+  }
+
+  /**
+ * Estimates the gas that needs to be put in the RelayRequest's gas field
+ * @param forwarder the smart wallet address
+ * @param to the destination contract address
+ * @param gasPrice the gasPrice to use in the transaction
+ * @param data the ABI-encoded method to call in the destination contract
+ * @returns The estimated value in gas units
+ */
+  async estimateDestinationContractInternalCallGas (forwarder: Address, to: Address, data: PrefixedHexString, gasPrice?: IntString): Promise<number> {
+    // For relay calls, transactionDetails.gas is only the portion of gas sent to the destination contract, the tokenPayment
+    // Part is done before, by the SmartWallet
+    const estimated = await this.dependencies.contractInteractor.estimateGas({
+      from: forwarder,
+      to,
+      gasPrice: gasPrice ?? await web3.eth.getGasPrice(),
+      data
+    })
+
+    const internalCallCost = estimated > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimated - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimated
+    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
+    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
+    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
+    // the following verification made in the SmartWallet:
+    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
+    return internalCallCost
   }
 
   /**
@@ -96,10 +122,18 @@ export class Enveloping {
     * @param tokenContract - the token the user will use to pay to the Worker for relaying
     * @param tokenAmount - the token amount the user will pay for relaying, zero if the call is subsidized
     * @param tokenGas - gas limit of the token payment
-    * @param  gasPrice - optional: if not set the gasPrice is calculated internally through a call to estimateGas
+    * @param  gasPrice - optional: if not set, the gasPrice is calculated internally
     * @return a relay request structure.
     */
-  async createRelayRequest (from: Address, to: Address, forwarder: Address, data: PrefixedHexString, gasLimit: IntString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString): Promise<RelayRequest> {
+  async createRelayRequest (from: Address, to: Address, forwarder: Address, data: PrefixedHexString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasLimit?: IntString, gasPrice?: IntString): Promise<RelayRequest> {
+    let gasToSend = gasLimit
+    const gasPriceToSend = gasPrice ?? await web3.eth.getGasPrice()
+
+    if (gasToSend === undefined || gasToSend == null) {
+      const internalCallCost = await this.estimateDestinationContractInternalCallGas(forwarder, to, data, gasPriceToSend)
+      gasToSend = toHex(internalCallCost)
+    }
+
     const relayRequest: RelayRequest = {
       request: {
         relayHub: this.config.relayHubAddress,
@@ -107,14 +141,14 @@ export class Enveloping {
         to: to,
         data: data,
         value: '0',
-        gas: gasLimit,
+        gas: gasToSend,
         nonce: (await this.getSenderNonce(forwarder)).toString(),
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas
       },
       relayData: {
-        gasPrice: gasPrice ?? '0',
+        gasPrice: gasPriceToSend,
         relayWorker: this.relayWorkerAddress,
         callForwarder: forwarder,
         callVerifier: this.config.relayVerifierAddress,

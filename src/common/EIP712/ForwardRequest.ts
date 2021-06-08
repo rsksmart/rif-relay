@@ -21,7 +21,6 @@ export interface DeployRequestStruct {
   tokenContract: Address
   recoverer: Address
   value: IntString
-  gas: IntString
   nonce: IntString
   tokenAmount: IntString
   tokenGas: IntString
