@@ -1,9 +1,9 @@
-import ContractInteractor  from '../common/ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 import HttpClient from '../relayclient/HttpClient'
 import PingResponse from '../common/PingResponse'
 import { Address } from '../relayclient/types/Aliases'
-import {RelayData} from "../relayclient/types/RelayData";
-import {KnownRelaysManager} from "../relayclient/KnownRelaysManager";
+import { RelayData } from '../relayclient/types/RelayData'
+import { KnownRelaysManager } from '../relayclient/KnownRelaysManager'
 
 interface StatusConfig {
   blockHistoryCount: number
@@ -40,7 +40,7 @@ export default class StatusLogic {
     const r = await this.contractInteractor._createRelayHub(this.config.relayHubAddress)
     const totalStakesByRelays = await this.contractInteractor.getBalance(r.address)
 
-    const managers = await this.knownRelaysManager._fetchRecentlyActiveRelayManagers();
+    const managers = await this.knownRelaysManager._fetchRecentlyActiveRelayManagers()
     const activeRelays = await this.contractInteractor.getActiveRelays(managers)
 
     const relayPings = new Map<string, PingAttempt>()

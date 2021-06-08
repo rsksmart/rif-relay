@@ -13,7 +13,7 @@ import ContractInteractor, {
   StakeUnlocked
 } from '../common/ContractInteractor'
 import { EventData } from 'web3-eth-contract'
-import {RelayData} from "./types/RelayData";
+import { RelayData } from './types/RelayData'
 
 export const EmptyFilter: RelayFilter = (): boolean => {
   return true
@@ -50,9 +50,11 @@ export class KnownRelaysManager {
   async refresh (): Promise<void> {
     this._refreshFailures()
     const recentlyActiveRelayManagers = await this._fetchRecentlyActiveRelayManagers()
-    this.preferredRelayers = this.config.preferredRelays.map(relayUrl => { return {
-      url: relayUrl
-    } as RelayData })
+    this.preferredRelayers = this.config.preferredRelays.map(relayUrl => {
+      return {
+        url: relayUrl
+      } as RelayData
+    })
     this.allRelayers = await this.getRelayDataForManagers(recentlyActiveRelayManagers)
   }
 

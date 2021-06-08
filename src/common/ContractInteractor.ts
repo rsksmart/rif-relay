@@ -40,11 +40,11 @@ import { EnvelopingConfig } from '../relayclient/Configurator'
 import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
 import { toBN } from 'web3-utils'
 import BN from 'bn.js'
+import { RelayData } from '../relayclient/types/RelayData'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
 import Contract = Truffle.Contract
-import {RelayData} from "../relayclient/types/RelayData";
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -355,15 +355,15 @@ export default class ContractInteractor {
     return relayHub.contract.methods.deployCall(relayRequest, sig).encodeABI()
   }
 
-  async getActiveRelays(relayManagers: Set<Address> | Address[]): Promise<RelayData[]> {
+  async getActiveRelays (relayManagers: Set<Address> | Address[]): Promise<RelayData[]> {
     const managers: Address[] = Array.from(relayManagers)
-    const contractCalls: Promise<RelayData>[] = []
+    const contractCalls: Array<Promise<RelayData>> = []
     managers.forEach(managerAddress => {
       contractCalls.push(this.relayHubInstance.getRelayData(managerAddress))
-    });
-    const results = await Promise.all(contractCalls);
+    })
+    const results = await Promise.all(contractCalls)
     return results.filter(relayData =>
-        !relayData.penalized &&
+      !relayData.penalized &&
         relayData.manager &&
         relayData.stakeAdded)
   }

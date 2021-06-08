@@ -6,7 +6,7 @@ import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import replaceErrors from '../common/ErrorReplacerJSON'
 import { EnvelopingConfig } from './Configurator'
 import { PartialRelayInfo, RelayInfo } from './types/RelayInfo'
-import {RelayData} from "./types/RelayData";
+import { RelayData } from './types/RelayData'
 
 interface RaceResult {
   winner?: PartialRelayInfo

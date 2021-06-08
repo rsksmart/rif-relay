@@ -9,7 +9,7 @@ import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
-import {RelayData} from "../relayclient/types/RelayData";
+import { RelayData } from '../relayclient/types/RelayData'
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {

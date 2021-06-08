@@ -7,7 +7,7 @@ import HttpWrapper from '../../relayclient/HttpWrapper'
 
 import { getNetworkUrl, getRelayHubAddress, envelopingCommander } from '../utils'
 import StatusLogic from '../StatusLogic'
-import {KnownRelaysManager} from "../../relayclient/KnownRelaysManager";
+import { KnownRelaysManager } from '../../relayclient/KnownRelaysManager'
 
 const commander = envelopingCommander(['n', 'h'])
   .parse(process.argv);

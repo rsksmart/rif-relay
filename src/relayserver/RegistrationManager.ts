@@ -27,7 +27,7 @@ import { ServerConfigParams } from './ServerConfigParams'
 import { TxStoreManager } from './TxStoreManager'
 import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'
-import {RelayData} from "../relayclient/types/RelayData";
+import { RelayData } from '../relayclient/types/RelayData'
 
 export interface RelayServerRegistryInfo {
   url: string
@@ -134,7 +134,7 @@ export class RegistrationManager {
       }
     }
 
-    this.relayData = await this.getRelayData();
+    this.relayData = await this.getRelayData()
 
     for (const eventData of hubEventsSinceLastScan) {
       switch (eventData.event) {
@@ -163,10 +163,10 @@ export class RegistrationManager {
     return transactionHashes
   }
 
-  async getRelayData(): Promise<RelayData> {
-    const activeRelays = await this.contractInteractor.getActiveRelays([this.managerAddress]);
+  async getRelayData (): Promise<RelayData> {
+    const activeRelays = await this.contractInteractor.getActiveRelays([this.managerAddress])
     if (activeRelays.length > 0) {
-      return activeRelays[0];
+      return activeRelays[0]
     }
     throw new Error('No relay found for manager ' + this.managerAddress)
   }

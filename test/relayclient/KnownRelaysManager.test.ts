@@ -17,7 +17,7 @@ import { Environment } from '../../src/common/Environments'
 import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
-import {RelayData} from "../../src/relayclient/types/RelayData";
+import { RelayData } from '../../src/relayclient/types/RelayData'
 
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -248,7 +248,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     const relayData = {
       manager: accounts[0],
       url: 'url'
-    } as RelayData;
+    } as RelayData
 
     describe('#_refreshFailures()', function () {
       let knownRelaysManager: KnownRelaysManager
@@ -417,7 +417,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     })
 
     it('should use provided score calculation method to sort the known relays', async function () {
-      const sortedRelays = (await knownRelaysManager.getRelaysSortedForTransaction(transactionDetails)) as RelayData[][]
+      const sortedRelays = (await knownRelaysManager.getRelaysSortedForTransaction(transactionDetails))
       assert.equal(sortedRelays[1][0].url, 'alex')
       // checking the relayers are sorted AND they cannot overshadow each other's url
       assert.equal(sortedRelays[1][1].url, 'joe')

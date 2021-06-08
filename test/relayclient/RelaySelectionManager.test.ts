@@ -11,7 +11,7 @@ import PingResponse from '../../src/common/PingResponse'
 import { deployHub, getTestingEnvironment } from '../TestUtils'
 import { constants } from '../../src/common/Constants'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
-import {RelayData} from "../../src/relayclient/types/RelayData";
+import { RelayData } from '../../src/relayclient/types/RelayData'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
