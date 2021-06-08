@@ -27,7 +27,7 @@ const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 
-const revertReasonSupported = false
+const revertReasonSupported = true
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
 
@@ -127,9 +127,9 @@ contract('RelayServer', function (accounts) {
         })
 
         it('#_itTrustedForwarder', function () {
-          assert.isFalse(env.relayServer._isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+          assert.isFalse(env.relayServer.isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
         })
       })
 

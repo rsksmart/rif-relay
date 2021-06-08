@@ -229,7 +229,7 @@ contract('RelayProvider', function (accounts) {
       assert.isTrue((await token.balanceOf(swAddress)).toNumber() < 10, 'Account must have insufficient funds')
 
       const expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -270,7 +270,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -321,7 +321,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -373,7 +373,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       const expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
