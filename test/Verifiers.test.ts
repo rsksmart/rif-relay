@@ -103,8 +103,6 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   })
 
   it('SHOULD fail on address already created on preRelayCall', async function () {
-    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
-
     const toSign: string = web3.utils.soliditySha3(
       { t: 'bytes2', v: '0x1910' },
       { t: 'address', v: ownerAddress },
@@ -144,8 +142,6 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await deployVerifier.acceptToken(token.address, { from: verifierOwner })
-
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
@@ -251,7 +247,6 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     relayRequestData.relayData.callForwarder = other
     // run method
     await expectRevert.unspecified(
@@ -268,7 +263,6 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
   })
 
   it('SHOULD fail on SW different to template of preRelayCall', async function () {
-    await relayVerifier.acceptToken(token.address, { from: verifierOwner })
     // Forwarder needs to be a contract with balance
     // But a different than the template needed
     relayRequestData.relayData.callForwarder = token.address

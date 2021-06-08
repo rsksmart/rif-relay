@@ -127,9 +127,9 @@ contract('RelayServer', function (accounts) {
         })
 
         it('#_itTrustedForwarder', function () {
-          assert.isFalse(env.relayServer._isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+          assert.isFalse(env.relayServer.isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
         })
       })
 

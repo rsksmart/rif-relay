@@ -31,6 +31,8 @@ import { TxStoreManager } from './TxStoreManager'
 import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { constants } from '../common/Constants'
 import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
+import TokenResponse from '../common/TokenResponse'
+import VerifierResponse from '../common/VerifierResponse'
 
 import Timeout = NodeJS.Timeout
 
@@ -112,6 +114,36 @@ export class RelayServer extends EventEmitter {
     }
   }
 
+  async tokenHandler (verifier: Address): Promise<TokenResponse> {
+    let verifiersToQuery: Address[]
+
+    // if a verifier was supplied, check that it is trusted
+    if (verifier !== undefined) {
+      if (!this.trustedVerifiers.has(verifier.toLowerCase())) {
+        throw new Error('supplied verifier is not trusted')
+      }
+      verifiersToQuery = [verifier]
+    } else {
+      // if no verifier was supplied, query all tursted verifiers
+      verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
+    }
+
+    const res: TokenResponse = {}
+    for (const verifier of verifiersToQuery) {
+      const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
+      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call()
+      res[verifier] = acceptedTokens
+    };
+
+    return res
+  }
+
+  async verifierHandler (): Promise<VerifierResponse> {
+    return {
+      trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]
+    }
+  }
+
   isDeployRequest (req: any): boolean {
     let isDeploy = false
     if (req.relayRequest.request.recoverer !== undefined) {
@@ -149,7 +181,7 @@ export class RelayServer extends EventEmitter {
   }
 
   validateVerifier (req: RelayTransactionRequest | DeployTransactionRequest): void {
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+    if (!this.isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error(`Invalid verifier: ${req.relayRequest.relayData.callVerifier}`)
     }
   }
@@ -163,7 +195,7 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number}> {
-    if (!this._isTrustedVerifier(verifier)) {
+    if (!this.isTrustedVerifier(verifier)) {
       throw new Error('Invalid verifier')
     }
 
@@ -237,7 +269,7 @@ export class RelayServer extends EventEmitter {
     this.validateVerifier(req)
     await this.validateMaxNonce(req.metadata.relayMaxNonce)
 
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+    if (!this.isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error('Specified Verifier is not Trusted')
     }
     const { maxPossibleGas } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
@@ -596,7 +628,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     return await this.transactionManager.boostUnderpricedPendingTransactionsForSigner(signer, blockNumber)
   }
 
-  _isTrustedVerifier (verifier: string): boolean {
+  isTrustedVerifier (verifier: string): boolean {
     return this.trustedVerifiers.has(verifier.toLowerCase())
   }
 
