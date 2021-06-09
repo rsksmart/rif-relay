@@ -160,7 +160,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should fail to relay using a lower-than-required forceGas', async function () {
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+      await expectRevert(testRecipient.emitMessage('hello world', {
         from: gaslessAccount.address,
         value: '0',
         callVerifier: verifierInstance.address,
@@ -175,12 +175,24 @@ contract('RelayProvider', function (accounts) {
       // obtained from a simulation
 
       // It reverts in the server, but in a local view call
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
-        from: gaslessAccount.address,
-        value: '0',
-        callVerifier: verifierInstance.address,
-        forceGas: '196000'
-      }), 'local view call to reverted: view call to \'relayCall\' reverted in client: Returned error: VM execution error: Not enough gas left')
+      // await expectRevert(testRecipient.emitMessage('hello world', {
+      //   from: gaslessAccount.address,
+      //   value: '0',
+      //   callVerifier: verifierInstance.address,
+      //   forceGas: '196000'
+      // }), 'local view call reverted: view call to \'relayCall\' reverted in client: Not enough gas left')
+      try {
+        await testRecipient.emitMessage('hello world', {
+          from: gaslessAccount.address,
+          value: '0',
+          callVerifier: verifierInstance.address,
+          forceGas: '196000'
+        })
+      } catch (error) {
+        const err: string = error instanceof Error ? error.message : JSON.stringify(error)
+        console.log(err)
+        assert.isTrue(err.includes('local view call reverted: view call to \'relayCall\' reverted in client: Returned error: VM Exception while processing transaction: revert Not enough gas left'))
+      }
     })
 
     it('should send a transaction when useEnveloping is false', async function () {
@@ -254,7 +266,7 @@ contract('RelayProvider', function (accounts) {
       const initialSwBalance = await token.balanceOf(smartWallet.address)
       const workerInitialBalance = await token.balanceOf(relayServerData.worker)
 
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+      await expectRevert(testRecipient.emitMessage('hello world', {
         from: gaslessAccount.address,
         value: '0',
         callVerifier: verifierInstance.address,
@@ -279,7 +291,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('1', smartWallet.address)
       const initialSwBalance = await token.balanceOf(smartWallet.address)
       const workerInitialBalance = await token.balanceOf(relayServerData.worker)
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+      await expectRevert(testRecipient.emitMessage('hello world', {
         from: gaslessAccount.address,
         value: '0',
         callVerifier: verifierInstance.address,
@@ -298,7 +310,7 @@ contract('RelayProvider', function (accounts) {
     it('should fail to relay transparently with Token Payment included, but when token Balance is not enough', async function () {
       const initialSwBalance = await token.balanceOf(smartWallet.address)
 
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+      await expectRevert(testRecipient.emitMessage('hello world', {
         from: gaslessAccount.address,
         value: '0',
         callVerifier: verifierInstance.address,
@@ -356,7 +368,7 @@ contract('RelayProvider', function (accounts) {
       const differentSender = await getGaslessAccount()
       relayProvider.addAccount(differentSender)
 
-      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+      await expectRevert(testRecipient.emitMessage('hello world', {
         from: differentSender.address, // different sender
         value: '0',
         callVerifier: verifierInstance.address
@@ -426,7 +438,7 @@ contract('RelayProvider', function (accounts) {
       }
     })
 
-    it('should correclty deploy the smart wallet', async function () {
+    it('should correctly deploy the smart wallet', async function () {
       const ownerEOA = await getGaslessAccount()
       const recoverer = constants.ZERO_ADDRESS
       const customLogic = constants.ZERO_ADDRESS
@@ -599,7 +611,7 @@ contract('RelayProvider', function (accounts) {
     // note that the revert reason here was discovered via some truffle/ganache magic (see truffle/reason.js)
     // this is not the way the revert reason is being reported by Enveloping solidity contracts
     it('should fail if transaction failed', async () => {
-      await expectRevert.unspecified(testRecipient.testRevert({
+      await expectRevert(testRecipient.testRevert({
         from: gaslessAccount.address,
         callVerifier: verifierInstance.address
       }), 'Destination contract method reverted in local view call')
