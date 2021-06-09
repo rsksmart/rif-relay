@@ -91,25 +91,19 @@ export class Enveloping {
  * @param to the destination contract address
  * @param gasPrice the gasPrice to use in the transaction
  * @param data the ABI-encoded method to call in the destination contract
+ * @param addCushion if true, it adds a cushion factor (if configured in the environment)
  * @returns The estimated value in gas units
  */
-  async estimateDestinationContractInternalCallGas (forwarder: Address, to: Address, data: PrefixedHexString, gasPrice?: IntString): Promise<number> {
+  async estimateDestinationContractInternalCallGas (forwarder: Address, to: Address, data: PrefixedHexString, gasPrice?: IntString, addCushion: boolean = true): Promise<number> {
     // For relay calls, transactionDetails.gas is only the portion of gas sent to the destination contract, the tokenPayment
     // Part is done before, by the SmartWallet
-    const estimated = await this.dependencies.contractInteractor.estimateGas({
+
+    return await this.dependencies.contractInteractor.estimateDestinationContractCallGas({
       from: forwarder,
       to,
       gasPrice: gasPrice ?? await web3.eth.getGasPrice(),
       data
-    })
-
-    const internalCallCost = estimated > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimated - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimated
-    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
-    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
-    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
-    // the following verification made in the SmartWallet:
-    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
-    return internalCallCost
+    }, addCushion)
   }
 
   /**

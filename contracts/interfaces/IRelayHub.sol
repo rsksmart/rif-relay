@@ -107,14 +107,6 @@ interface IRelayHub {
 
     function isRelayManagerStaked(address relayManager) external view returns(bool);
 
-    /**
-    * @dev the total gas overhead of relayCall(), before the first gasleft() and after the last gasleft().
-    * Assume that relay has non-zero balance (costs 15'000 more otherwise).
-    */
-
-    // Gas cost of all relayCall() instructions after actual 'calculateCharge()'
-    function gasOverhead() external view returns (uint256);
-
     function versionHub() external view returns (string memory);
 
     /// Emitted when a stake or unstakeDelay are initialized or increased
