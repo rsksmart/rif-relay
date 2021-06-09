@@ -14,12 +14,13 @@ export default class BadContractInteractor extends ContractInteractor {
     this.failValidateARC = failValidateARC
   }
 
-  async validateAcceptRelayCall (relayRequest: RelayRequest, signature: string): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
+  async validateAcceptRelayCall (relayRequest: RelayRequest, signature: string): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean, revertedInDestination: boolean }> {
     if (this.failValidateARC) {
       return {
         verifierAccepted: false,
         reverted: true,
-        returnValue: BadContractInteractor.message
+        returnValue: BadContractInteractor.message,
+        revertedInDestination: false
       }
     }
     return await super.validateAcceptRelayCall(relayRequest, signature)

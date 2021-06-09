@@ -10,19 +10,19 @@ import "./MinLibBytes.sol";
  * Bridge Library to map Enveloping RelayRequest into a call of a SmartWallet
  */
 library Eip712Library {
-    function deploy(EnvelopingTypes.DeployRequest calldata relayRequest, bytes calldata signature) internal returns (bool deploySuccess) {
+    function deploy(EnvelopingTypes.DeployRequest calldata relayRequest, bytes calldata signature) internal returns (bool deploySuccess, bytes memory ret) {
 
             // The gas limit for the deploy creation is injected here, since the gasCalculation
             // estimate is done against the whole relayedUserSmartWalletCreation function in
             // the relayClient
 
             /* solhint-disable-next-line avoid-low-level-calls */
-            (deploySuccess,) = relayRequest.relayData.callForwarder.call{gas: relayRequest.request.gas}(
+            (deploySuccess, ret) = relayRequest.relayData.callForwarder.call(
                 abi.encodeWithSelector(IWalletFactory.relayedUserSmartWalletCreation.selector,
                 relayRequest.request, relayRequest.relayData.domainSeparator, 
                 hashRelayData(relayRequest.relayData), signature
             ));
-        
+ 
     }
 
     //forwarderSuccess = Did the call to IForwarder.execute() revert or not?

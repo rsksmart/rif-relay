@@ -14,7 +14,7 @@ import { ethers } from 'ethers'
 import chai from 'chai'
 import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 import { Environment } from '../src/common/Environments'
-import TypedRequestData, { DeployRequestDataType, ForwardRequestType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
 import { DeployRequest } from '../src/common/EIP712/RelayRequest'
 
@@ -41,12 +41,11 @@ contract('CustomSmartWalletFactory', ([from]) => {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: '400000',
       nonce: '0',
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '1',
-      tokenGas: '50000',
+      tokenAmount: '0',
+      tokenGas: '60000',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -653,7 +652,6 @@ contract('SmartWalletFactory', ([from]) => {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: '400000',
       nonce: '0',
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
@@ -1031,7 +1029,7 @@ contract('SmartWalletFactory', ([from]) => {
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -1041,8 +1039,9 @@ contract('SmartWalletFactory', ([from]) => {
           ...request.relayData
         }
       }
+      req.request.relayHub = from
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
@@ -1052,7 +1051,7 @@ contract('SmartWalletFactory', ([from]) => {
 
       req.request.tokenAmount = '8' // change data after signature
 
-      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
       await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
 

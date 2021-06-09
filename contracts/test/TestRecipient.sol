@@ -1,4 +1,5 @@
 /* solhint-disable avoid-tx-origin */
+/* solhint-disable avoid-low-level-calls */
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
 
@@ -40,6 +41,7 @@ contract TestRecipient {
     receive() external payable {}
 
     event SampleRecipientEmitted(string message, address msgSender, address origin, uint256 msgValue, uint256 balance);
+    event SampleRecipientEmittedNew(string message, address msgSender, address origin, uint256 msgValue, uint256 balance);
 
     function emitMessage(string memory message) public payable returns (string memory) {
    
@@ -47,10 +49,32 @@ contract TestRecipient {
         return "emitMessage return value";
     }
 
-    function emitMessage2(string memory message) public payable returns (string memory) {
+
+    function emitMessage3(string memory message) public payable returns (string memory) {
 
         emit SampleRecipientEmitted(message, msg.sender, tx.origin, msg.value, address(this).balance);
-        return "emitMessage return value";
+        emit SampleRecipientEmittedNew("result", msg.sender, tx.origin, msg.value, address(this).balance);
+        emit SampleRecipientEmittedNew("result2", msg.sender, tx.origin, msg.value, address(this).balance);
+        emit SampleRecipientEmittedNew("result3", msg.sender, tx.origin, msg.value, address(this).balance);
+        emit SampleRecipientEmittedNew("result4", msg.sender, tx.origin, msg.value, address(this).balance);
+
+        return message;
+    }
+
+
+ function transferTokens(address tokenRecipient, address tokenAddr, uint256 tokenAmount) public payable {
+
+          if (tokenAmount > 0) {
+            (bool success, bytes memory ret ) = tokenAddr.call(abi.encodeWithSelector(
+                hex"a9059cbb",
+                tokenRecipient,
+                tokenAmount));
+
+            require(
+            success && (ret.length == 0 || abi.decode(ret, (bool))),
+            "Unable to pay for deployment");
+        }
+        emit SampleRecipientEmitted("Payment Successful", msg.sender, tx.origin, msg.value, address(this).balance);
     }
 
     // solhint-disable-next-line no-empty-blocks

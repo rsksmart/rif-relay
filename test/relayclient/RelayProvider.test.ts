@@ -11,7 +11,7 @@ import { toBN, toChecksumAddress } from 'web3-utils'
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
 
-import { BaseTransactionReceipt, RelayProvider } from '../../src/relayclient/RelayProvider'
+import { RelayProvider } from '../../src/relayclient/RelayProvider'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
   RelayHubInstance,
@@ -24,7 +24,7 @@ import {
   TestTokenInstance
 } from '../../types/truffle-contracts'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction, RelayServerData } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
@@ -40,7 +40,7 @@ const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfi
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 
 const underlyingProvider = web3.currentProvider as HttpProvider
-const revertReasonEnabled = false // Enable when the RSK node supports revert reason codes
+const revertReasonEnabled = true // Enable when the RSK node supports revert reason codes
 abiDecoder.addABI(walletFactoryAbi)
 
 contract('RelayProvider', function (accounts) {
@@ -56,7 +56,7 @@ contract('RelayProvider', function (accounts) {
   let sender: string
   let token: TestTokenInstance
   let gaslessAccount: AccountKeypair
-
+  let relayServerData: RelayServerData
   before(async function () {
     sender = accounts[0]
     gaslessAccount = await getGaslessAccount()
@@ -73,7 +73,7 @@ contract('RelayProvider', function (accounts) {
     verifierInstance = await TestVerifierConfigurableMisbehavior.new()
     deployVerifierInstance = await TestDeployVerifierConfigurableMisbehavior.new()
 
-    relayProcess = (await startRelay(relayHub, {
+    relayServerData = (await startRelay(relayHub, {
       relaylog: process.env.relaylog,
       stake: 1e18,
       url: 'asd',
@@ -86,7 +86,9 @@ contract('RelayProvider', function (accounts) {
       managerMinBalance: 0.1e18,
       managerTargetBalance: 0.3e18,
       minHubWithdrawalBalance: 0.1e18
-    })).proc
+    }))
+
+    relayProcess = relayServerData.proc
   })
 
   after(async function () {
@@ -127,13 +129,192 @@ contract('RelayProvider', function (accounts) {
       TestRecipient.web3.setProvider(relayProvider)
       relayProvider.addAccount(gaslessAccount)
     })
+
     it('should relay transparently', async function () {
+      const res = await testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address
+      })
+
+      expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
+        message: 'hello world',
+        msgValue: '0',
+        balance: '0'
+      })
+    })
+
+    it('should relay transparently using forceGas', async function () {
+      const res = await testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        forceGas: '6000'
+      })
+
+      expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
+        message: 'hello world',
+        msgValue: '0',
+        balance: '0'
+      })
+    })
+
+    it('should fail to relay using a lower-than-required forceGas', async function () {
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        forceGas: '4000'
+      }), 'Destination contract method reverted in local view call')
+    })
+
+    it('should fail to relay if forceGas gas is much greater than what is required ', async function () {
+      // Putting a much higher gas may pass in the relayclient, but it will fail in the local view call of the
+      // relay server, because the relayServer estimates the maximum gas to send by estimating it using a node,
+      // whereas the relay client (to avoid another call to a node), estimates the maxGas using a linear fit function
+      // obtained from a simulation
+
+      // It reverts in the server, but in a local view call
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        forceGas: '196000'
+      }), 'local view call to reverted: view call to \'relayCall\' reverted in client: Returned error: VM execution error: Not enough gas left')
+    })
+
+    it('should send a transaction when useEnveloping is false', async function () {
+      const res = await testRecipient.emitMessage('hello world, not using enveloping', {
+        from: accounts[0],
+        useEnveloping: false
+      })
+
+      expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
+        message: 'hello world, not using enveloping',
+        msgValue: '0',
+        balance: '0'
+      })
+    })
+
+    it('should relay transparently, with Token Payment included', async function () {
+      await token.mint('1', smartWallet.address)
+      const initialSwBalance = await token.balanceOf(smartWallet.address)
+      const workerInitialBalance = await token.balanceOf(relayServerData.worker)
+
+      const res = await testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        tokenAmount: '1',
+        tokenContract: token.address
+      })
+
+      const finalSwBalance = await token.balanceOf(smartWallet.address)
+      const workerFinalBalance = await token.balanceOf(relayServerData.worker)
+
+      expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
+        message: 'hello world',
+        msgValue: '0',
+        balance: '0'
+      })
+
+      assert.isTrue(finalSwBalance.add(toBN(1)).eq(initialSwBalance), 'Token Payment did not occurr')
+      assert.isTrue(workerInitialBalance.add(toBN(1)).eq(workerFinalBalance), 'Worker did not get the payment')
+    })
+
+    it('should relay transparently using forceGas, with Token Payment included', async function () {
+      await token.mint('1', smartWallet.address)
+      const initialSwBalance = await token.balanceOf(smartWallet.address)
+      const workerInitialBalance = await token.balanceOf(relayServerData.worker)
+
+      const res = await testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        tokenAmount: '1',
+        tokenContract: token.address,
+        forceGas: '6000'
+      })
+
+      const finalSwBalance = await token.balanceOf(smartWallet.address)
+      const workerFinalBalance = await token.balanceOf(relayServerData.worker)
+
+      expectEvent.inLogs(res.logs, 'SampleRecipientEmitted', {
+        message: 'hello world',
+        msgValue: '0',
+        balance: '0'
+      })
+
+      assert.isTrue(finalSwBalance.add(toBN(1)).eq(initialSwBalance), 'Token Payment did not occurr')
+      assert.isTrue(workerInitialBalance.add(toBN(1)).eq(workerFinalBalance), 'Worker did not get the payment')
+    })
+
+    it('should fail to relay using a lower-than-required forceGas, with Token Payment included', async function () {
+      await token.mint('1', smartWallet.address)
+      const initialSwBalance = await token.balanceOf(smartWallet.address)
+      const workerInitialBalance = await token.balanceOf(relayServerData.worker)
+
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        tokenAmount: '1',
+        tokenContract: token.address,
+        forceGas: '4000'
+      }), 'Destination contract method reverted in local view call')
+
+      const finalSwBalance = await token.balanceOf(smartWallet.address)
+      const workerFinalBalance = await token.balanceOf(relayServerData.worker)
+
+      assert.isTrue(finalSwBalance.eq(initialSwBalance), 'Token Payment did occurr')
+      assert.isTrue(workerInitialBalance.eq(workerFinalBalance), 'Worker did  get the payment')
+    })
+
+    it('should fail to relay if forceGas gas is much greater than what is required, with Token Payment included ', async function () {
+      // Putting a much higher gas may pass in the relayclient, but it will fail in the local view call of the
+      // relay server, because the relayServer estimates the maximum gas to send by estimating it using a node,
+      // whereas the relay client (to avoid another call to a node), estimates the maxGas using a linear fit function
+      // obtained from a simulation
+
+      await token.mint('1', smartWallet.address)
+      const initialSwBalance = await token.balanceOf(smartWallet.address)
+      const workerInitialBalance = await token.balanceOf(relayServerData.worker)
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        tokenAmount: '1',
+        tokenContract: token.address,
+        forceGas: '196000'
+      }), 'Not enough gas left')
+
+      const finalSwBalance = await token.balanceOf(smartWallet.address)
+      const workerFinalBalance = await token.balanceOf(relayServerData.worker)
+
+      assert.isTrue(finalSwBalance.eq(initialSwBalance), 'Token Payment did occurr')
+      assert.isTrue(workerInitialBalance.eq(workerFinalBalance), 'Worker did  get the payment')
+    })
+
+    it('should fail to relay transparently with Token Payment included, but when token Balance is not enough', async function () {
+      const initialSwBalance = await token.balanceOf(smartWallet.address)
+
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: gaslessAccount.address,
+        value: '0',
+        callVerifier: verifierInstance.address,
+        tokenAmount: initialSwBalance.add(toBN(1)).toString(),
+        tokenContract: token.address
+      }), 'Unable to pay for relay')
+
+      const finalSwBalance = await token.balanceOf(smartWallet.address)
+      assert.isTrue(finalSwBalance.eq(initialSwBalance), 'Token Payment did occurr')
+    })
+
+    it('should relay transparently with gasPrice forced', async function () {
       const res = await testRecipient.emitMessage('hello world', {
         from: gaslessAccount.address,
         forceGasPrice: '0x51f4d5c00',
         value: '0',
-        // TODO: for some reason estimated values are crazy high!
-        gas: '100000',
         callVerifier: verifierInstance.address
       })
 
@@ -172,23 +353,14 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should revert if the sender is not the owner of the smart wallet', async function () {
-      try {
-        const differentSender = await getGaslessAccount()
-        relayProvider.addAccount(differentSender)
-        await testRecipient.emitMessage('hello world', {
-          from: differentSender.address, // different sender
-          forceGasPrice: '0x51f4d5c00',
-          value: '0',
-          gas: '100000',
-          callVerifier: verifierInstance.address
-        })
-      } catch (error) {
-        const expectedText = "local view call to 'relayCall()' reverted: view call to 'relayCall' reverted in client"
-        const err: string = String(error)
-        assert.isTrue(err.includes(expectedText))
-        return
-      }
-      assert.fail('It should have thrown an exception')
+      const differentSender = await getGaslessAccount()
+      relayProvider.addAccount(differentSender)
+
+      await expectRevert.unspecified(testRecipient.emitMessage('hello world', {
+        from: differentSender.address, // different sender
+        value: '0',
+        callVerifier: verifierInstance.address
+      }), 'Not the owner of the SmartWallet')
     })
 
     it('should calculate the correct smart wallet address', async function () {
@@ -229,7 +401,7 @@ contract('RelayProvider', function (accounts) {
       assert.isTrue((await token.balanceOf(swAddress)).toNumber() < 10, 'Account must have insufficient funds')
 
       const expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -237,19 +409,20 @@ contract('RelayProvider', function (accounts) {
         data: logicData,
         tokenContract: token.address,
         tokenAmount: '10',
-        tokenGas: '50000',
+        // tokenGas: '50000',
         recoverer: recoverer,
         callForwarder: factory.address,
         index: walletIndex.toString(),
         isSmartWalletDeploy: true,
-        callVerifier: deployVerifierInstance.address
+        callVerifier: deployVerifierInstance.address,
+        smartWalletAddress: swAddress
       }
 
       try {
         await rProvider.deploySmartWallet(trxData)
         assert.fail()
       } catch (error) {
-        assert.include(error.message, 'local view call to \'relayCall()\' reverted: view call to \'deployCall\' reverted in client')
+        assert.include(error.message, 'view call to \'deployCall\' reverted in client')
       }
     })
 
@@ -270,7 +443,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -321,7 +494,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       let expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -373,7 +546,7 @@ contract('RelayProvider', function (accounts) {
       await token.mint('10000', swAddress)
 
       const expectedCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x00', expectedCode)
+      assert.equal('0x', expectedCode)
 
       const trxData: EnvelopingTransactionDetails = {
         from: ownerEOA.address,
@@ -387,7 +560,8 @@ contract('RelayProvider', function (accounts) {
         index: walletIndex.toString(),
         callVerifier: deployVerifierInstance.address,
         callForwarder: factory.address,
-        isSmartWalletDeploy: true
+        isSmartWalletDeploy: true,
+        smartWalletAddress: swAddress
       }
 
       try {
@@ -428,7 +602,7 @@ contract('RelayProvider', function (accounts) {
       await expectRevert.unspecified(testRecipient.testRevert({
         from: gaslessAccount.address,
         callVerifier: verifierInstance.address
-      }), 'always fail')
+      }), 'Destination contract method reverted in local view call')
     })
   })
 
@@ -513,11 +687,9 @@ contract('RelayProvider', function (accounts) {
   })
 
   // TODO: most of this code is copy-pasted from the RelayHub.test.ts. Maybe extract better utils?
-  describe('_getTranslatedResponseResult', function () {
+  describe('_getRelayStatus', function () {
     let relayProvider: RelayProvider
     let testRecipient: TestRecipientInstance
-    let innerTxSucceedReceipt: BaseTransactionReceipt
-    let notRelayedTxReceipt: BaseTransactionReceipt
     const gas = toBN(3e6).toString()
 
     // It is not strictly necessary to make this test against actual tx receipt, but I prefer to do it anyway
@@ -561,7 +733,6 @@ contract('RelayProvider', function (accounts) {
 
       expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'TransactionRelayed')
       expectEvent.inLogs(innerTxSuccessReceiptTruffle.logs, 'SampleRecipientEmitted')
-      innerTxSucceedReceipt = await web3.eth.getTransactionReceipt(innerTxSuccessReceiptTruffle.tx)
 
       const notRelayedTxReceiptTruffle = await testRecipient.emitMessage('hello world with gas', {
         from: gaslessAccount.address,
@@ -571,7 +742,6 @@ contract('RelayProvider', function (accounts) {
       })
       assert.equal(notRelayedTxReceiptTruffle.logs.length, 1)
       expectEvent.inLogs(notRelayedTxReceiptTruffle.logs, 'SampleRecipientEmitted')
-      notRelayedTxReceipt = await web3.eth.getTransactionReceipt(notRelayedTxReceiptTruffle.tx)
     })
 
     it('should fail to send transaction if verifier reverts in local execution', async function () {
@@ -587,9 +757,9 @@ contract('RelayProvider', function (accounts) {
           callVerifier: verifierInstance.address
         })
       } catch (error) {
-        const err: string = String(error)
+        const err: string = error instanceof Error ? error.message : JSON.stringify(error)
         if (revertReasonEnabled) {
-          assert.isTrue(err.includes("verifier rejected in local view call to 'relayCall()' : view call to 'relayCall' reverted in verifier"))
+          assert.isTrue(err.includes("verifier rejected in local view call : view call to 'relayCall' reverted in verifier"))
           assert.isTrue(err.includes('revertPreRelayCall: Reverting'))
         }
         return
@@ -613,25 +783,13 @@ contract('RelayProvider', function (accounts) {
       } catch (error) {
         const err: string = String(error)
         if (revertReasonEnabled) {
-          assert.isTrue(err.includes("verifier rejected in local view call to 'relayCall()' : view call to 'relayCall' reverted in verifier"))
+          assert.isTrue(err.includes("verifier rejected in local view call : view call to 'relayCall' reverted in verifier"))
           assert.isTrue(err.includes('invalid code'))
         }
         return
       }
 
       assert.fail('It should have thrown an exception')
-    })
-
-    it('should not modify relayed transactions receipt with successful internal transaction', function () {
-      assert.equal(innerTxSucceedReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedResponseResult(innerTxSucceedReceipt)
-      assert.equal(modifiedReceipt.status, true)
-    })
-
-    it('should not modify receipts for all other transactions ', function () {
-      assert.equal(notRelayedTxReceipt.status, true)
-      const modifiedReceipt = relayProvider._getTranslatedResponseResult(notRelayedTxReceipt)
-      assert.equal(modifiedReceipt.status, true)
     })
   })
 
