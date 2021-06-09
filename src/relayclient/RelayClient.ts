@@ -257,7 +257,7 @@ export class RelayClient {
         ready: true,
         version: ''
       },
-      relayInfo: { relayManager: '', relayUrl: '' }
+      relayData: { manager: '', url: '', penalized: false, registered: false, stakeAdded: false }
     }, { ...transactionDetails, tokenAmount: '0' })
 
     if (transactionDetails.relayHub === undefined || transactionDetails.relayHub === null || transactionDetails.relayHub === constants.ZERO_ADDRESS) {
