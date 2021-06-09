@@ -129,7 +129,7 @@ export class RelayServer extends EventEmitter {
     const res: TokenResponse = {}
     for (const verifier of verifiersToQuery) {
       const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
-      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens()
+      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call()
       res[verifier] = acceptedTokens
     };
 
