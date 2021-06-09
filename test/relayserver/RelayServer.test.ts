@@ -156,7 +156,7 @@ contract('RelayServer', function (accounts) {
           assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
         })
 
-        it('#verifierHandler', async function(){
+        it('#verifierHandler', async function () {
           const relayVerifier = env.relayVerifier.address.toLowerCase()
           const deployVerifier = env.deployVerifier.address.toLowerCase()
           const trustedVerifiers = (await env.relayServer.verifierHandler()).trustedVerifiers
@@ -640,7 +640,7 @@ contract('RelayServer', function (accounts) {
     })
   })
 
-  describe('acceptTokens', function(){
+  describe('acceptTokens', function () {
     let relayServer: RelayServer
 
     before(async function () {
@@ -650,9 +650,9 @@ contract('RelayServer', function (accounts) {
       await env.relayServer._initTrustedVerifiers([env.relayVerifier.address, env.deployVerifier.address])
     })
 
-    it('should return allowed tokens', async function(){
+    it('should return allowed tokens', async function () {
       const res = await relayServer.tokenHandler(env.deployVerifier.address)
-      assert.isNotEmpty(res)
+      assert.equal(res, undefined)
     })
   })
 })
