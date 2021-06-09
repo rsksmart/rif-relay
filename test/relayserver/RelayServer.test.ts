@@ -522,4 +522,20 @@ contract('RelayServer', function (accounts) {
       }
     })
   })
+
+  describe('acceptTokens', function(){
+    let relayServer: RelayServer
+
+    before(async function () {
+      await env.newServerInstance()
+      relayServer = env.relayServer
+
+      await env.relayServer._initTrustedVerifiers([env.relayVerifier.address, env.deployVerifier.address])
+    })
+
+    it('should return allowed tokens', async function(){
+      const res = await relayServer.tokenHandler(env.deployVerifier.address)
+      assert.isNotEmpty(res)
+    })
+  })
 })
