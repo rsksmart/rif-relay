@@ -74,11 +74,13 @@ interface IRelayHub {
     /// @param signature - client's EIP-712 signature over the relayRequest struct
     ///
     /// Emits a TransactionRelayed event.
+    /// destinationCallSuccess - indicates whether  the call to the destination contract's function was successfull or not,
+    /// is can be false when TransactionRelayedButRevertedByRecipient is emitted.
     function relayCall(
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     )
-    external;
+    external returns (bool destinationCallSuccess);
 
     function deployCall(
         EnvelopingTypes.DeployRequest calldata deployRequest,
@@ -116,14 +118,6 @@ interface IRelayHub {
         bool registered;
         string url;
     }
-
-    /**
-    * @dev the total gas overhead of relayCall(), before the first gasleft() and after the last gasleft().
-    * Assume that relay has non-zero balance (costs 15'000 more otherwise).
-    */
-
-    // Gas cost of all relayCall() instructions after actual 'calculateCharge()'
-    function gasOverhead() external view returns (uint256);
 
     function versionHub() external view returns (string memory);
 

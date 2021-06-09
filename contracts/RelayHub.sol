@@ -20,7 +20,6 @@ contract RelayHub is IRelayHub {
     uint256 public override minimumStake;
     uint256 public override minimumUnstakeDelay;
     uint256 public override minimumEntryDepositValue;
-    uint256 public override gasOverhead;
     uint256 public override maxWorkerCount;
     address public override penalizer;
 
@@ -41,22 +40,19 @@ contract RelayHub is IRelayHub {
     constructor(
         address _penalizer,
         uint256 _maxWorkerCount,
-        uint256 _gasOverhead,
         uint256 _minimumEntryDepositValue,
         uint256 _minimumUnstakeDelay,
         uint256 _minimumStake
     ) public {
         require(
             _maxWorkerCount > 0 &&
-            _gasOverhead > 0 &&
             _minimumStake > 0 &&
-            _minimumEntryDepositValue > 0 &&
-            _minimumUnstakeDelay > 0, "invalid hub init params"
+            _minimumEntryDepositValue > 0 && 
+            _minimumUnstakeDelay > 0, "invalid hub init params"   
         );
 
         penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
-        gasOverhead = _gasOverhead;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake = _minimumStake;
         minimumEntryDepositValue = _minimumEntryDepositValue;
@@ -170,10 +166,6 @@ contract RelayHub is IRelayHub {
 
         address manager = address(uint160(uint256(managerEntry >> 4)));
 
-        require(
-            gasleft() >= gasOverhead.add(deployRequest.request.gas),
-            "Not enough gas left"
-        );
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == deployRequest.relayData.relayWorker,
@@ -187,11 +179,16 @@ contract RelayHub is IRelayHub {
             "Invalid gas price"
         );
 
-        bool deploySuccess = Eip712Library.deploy(deployRequest, signature);
+        bool deploySuccess;
+        bytes memory ret;
+        ( deploySuccess, ret) = Eip712Library.deploy(deployRequest, signature);
 
         if (!deploySuccess) {
             assembly {
-                revert(0, 0)
+                revert(
+                    add(ret, 32),
+                    mload(ret)
+                )
             }
         }
     }
@@ -199,13 +196,9 @@ contract RelayHub is IRelayHub {
     function relayCall(
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
-    ) external override {
+    ) external override returns (bool destinationCallSuccess){
         (signature);
 
-        require(
-            gasleft() >= gasOverhead.add(relayRequest.request.gas),
-            "Not enough gas left"
-        );
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == relayRequest.relayData.relayWorker,
@@ -230,10 +223,9 @@ contract RelayHub is IRelayHub {
         requireManagerStaked(manager);
 
         bool forwarderSuccess;
-        bool succ;
         bytes memory relayedCallReturnValue;
         //use succ as relay call success variable
-        (forwarderSuccess, succ, relayedCallReturnValue) = Eip712Library
+        (forwarderSuccess, destinationCallSuccess, relayedCallReturnValue) = Eip712Library
             .execute(relayRequest, signature);
 
         if (!forwarderSuccess) {
@@ -245,7 +237,7 @@ contract RelayHub is IRelayHub {
             }
         }
 
-        if (succ) {
+        if (destinationCallSuccess) {
             emit TransactionRelayed(
                 manager,
                 msg.sender,

@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 
 import "../interfaces/IRelayVerifier.sol";
 
-contract TestVerifiers {
+contract TestRelayVerifier {
 
     event Deposited(address indexed verifier, address indexed from, uint256 amount);
     event Accepted(uint256 tokenAmount, address from);
