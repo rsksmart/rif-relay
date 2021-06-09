@@ -287,7 +287,6 @@ export async function deployHub (
   return await RelayHub.new(
     penalizer,
     relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasOverhead,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)

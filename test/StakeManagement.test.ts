@@ -14,7 +14,6 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   const initialStake = ether('1')
 
   const maxWorkerCount = 1
-  const gasOverhead = 1000
   const minimumEntryDepositValue = ether('1')
   const minimumStake = ether('1')
   const minimumUnstakeDelay = 1
@@ -56,7 +55,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
     })
 
     testStakeNotValid()
@@ -84,7 +83,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   describe('with stake deposited for relay server', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
 
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
@@ -179,7 +178,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   describe('with authorized hub', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
 
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
@@ -213,7 +212,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   describe('with scheduled deauthorization of an authorized hub', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
 
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
@@ -238,7 +237,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
   describe('with scheduled unlock while hub still authorized', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
 
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
