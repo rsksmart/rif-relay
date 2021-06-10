@@ -112,7 +112,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler (verifier: Address): Promise<TokenResponse> {
+  async tokenHandler (verifier?: Address): Promise<TokenResponse> {
     let verifiersToQuery: Address[]
 
     // if a verifier was supplied, check that it is trusted
