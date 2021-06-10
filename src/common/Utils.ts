@@ -14,8 +14,8 @@ import { constants } from './Constants'
 import { DeployTransactionRequest, RelayTransactionRequest } from '../relayclient/types/RelayTransactionRequest'
 import relayHubAbi from './interfaces/IRelayHub.json'
 import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
-import TruffleContract = require('@truffle/contract')
 import { RelayData } from '../relayclient/types/RelayData'
+import TruffleContract = require('@truffle/contract')
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -207,7 +207,7 @@ export function getLatestEventData (events: EventData[]): EventData | undefined 
 
 export function isRegistrationValid (relayData: RelayData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
   const portIncluded: boolean = config.url.indexOf(':') > 0
-  return relayData != undefined &&
+  return relayData !== undefined &&
     isSameAddress(relayData.manager, managerAddress) &&
       relayData.url.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }

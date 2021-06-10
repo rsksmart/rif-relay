@@ -126,7 +126,7 @@ contract('RelaySelectionManager', async function (accounts) {
       })
 
       it('should fill in the details if the relay was known only by URL', async function () {
-        const relayData = { url: preferredRelayUrl } as RelayData
+        const relayData: RelayData = { url: preferredRelayUrl }
         const pingResponse: PingResponse = {
           relayWorkerAddress: relayManager,
           relayManagerAddress: relayManager,

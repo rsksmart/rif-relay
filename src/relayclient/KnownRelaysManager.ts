@@ -1,17 +1,11 @@
 import log from 'loglevel'
 
-import { addresses2topics } from '../common/Utils'
-
 import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import RelayFailureInfo from './types/RelayFailureInfo'
 import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases'
 import { EnvelopingConfig } from './Configurator'
 
-import ContractInteractor, {
-  RelayServerRegistered,
-  StakePenalized,
-  StakeUnlocked
-} from '../common/ContractInteractor'
+import ContractInteractor from '../common/ContractInteractor'
 import { EventData } from 'web3-eth-contract'
 import { RelayData } from './types/RelayData'
 
@@ -51,9 +45,10 @@ export class KnownRelaysManager {
     this._refreshFailures()
     const recentlyActiveRelayManagers = await this._fetchRecentlyActiveRelayManagers()
     this.preferredRelayers = this.config.preferredRelays.map(relayUrl => {
-      return {
+      const relayData: RelayData = {
         url: relayUrl
-      } as RelayData
+      }
+      return relayData
     })
     this.allRelayers = await this.getRelayDataForManagers(recentlyActiveRelayManagers)
   }

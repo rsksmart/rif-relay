@@ -15,7 +15,6 @@ import {
 } from '../common/Utils'
 import { defaultEnvironment } from '../common/Environments'
 import ContractInteractor, {
-  RelayServerRegistered,
   RelayWorkersAdded,
   StakeAdded,
   StakeUnlocked,
@@ -164,7 +163,7 @@ export class RegistrationManager {
   }
 
   async getRelayData (): Promise<RelayData> {
-    let relayData: RelayData[] = await this.contractInteractor.getRelayData([this.managerAddress])
+    const relayData: RelayData[] = await this.contractInteractor.getRelayData([this.managerAddress])
     if (relayData.length > 0) {
       return relayData[0]
     }
