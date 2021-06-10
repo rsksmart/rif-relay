@@ -24,7 +24,6 @@ interface IForwarder {
         address tokenContract;
         address recoverer; // only used in SmartWallet deploy requests
         uint256 value;
-        uint256 gas;
         uint256 nonce;
         uint256 tokenAmount;
         uint256 tokenGas;

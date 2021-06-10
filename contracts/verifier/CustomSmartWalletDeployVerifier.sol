@@ -8,15 +8,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 import "../factory/CustomSmartWalletFactory.sol";
 import "../interfaces/IDeployVerifier.sol";
+import "../interfaces/ITokenHandler.sol";
 import "../interfaces/EnvelopingTypes.sol";
 
 /**
  * A Verifier to be used on deploys.
  */
-contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
+contract CustomSmartWalletDeployVerifier is IDeployVerifier, ITokenHandler, Ownable {
 
     address private factory;
     mapping (address => bool) public tokens;
+    address[] public acceptedTokens;
 
     constructor(address walletFactory) public {
         factory = walletFactory;
@@ -58,7 +60,17 @@ contract CustomSmartWalletDeployVerifier is IDeployVerifier, Ownable {
 
     function acceptToken(address token) external onlyOwner {
         require(token != address(0), "Token cannot be zero address");
+        require(tokens[token] == false, "Token is already accepted");
         tokens[token] = true;
+        acceptedTokens.push(token);
+    }
+
+    function getAcceptedTokens() external override view returns (address[] memory){
+        return acceptedTokens;
+    }
+
+    function acceptsToken(address token) external override view returns (bool){
+        return tokens[token];
     }
 
     /**

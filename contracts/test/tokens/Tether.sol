@@ -349,7 +349,7 @@ contract TetherToken is Pausable, StandardToken, BlackList {
         require(balances[owner] + amount > balances[owner]);
         balances[owner] += amount;
         _totalSupply += amount;
-        emit Issue(amount);
+        Issue(amount);
     }
     // Redeem tokens.
     // These tokens are withdrawn from the owner address

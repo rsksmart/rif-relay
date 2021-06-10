@@ -221,7 +221,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
         (bool success, ) = addr.call(initdata);
 
         /* solhint-disable-next-line reason-string */
-        require(success);
+        require(success, "Unable to initialize SW");
 
         //No info is returned, an event is emitted to inform the new deployment
         emit Deployed(addr, uint256(salt));
@@ -239,7 +239,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
-                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
                 abi.encode(
                     req.relayHub,
                     req.from,
@@ -247,7 +247,6 @@ contract SmartWalletFactory is ISmartWalletFactory {
                     req.tokenContract,
                     req.recoverer,
                     req.value,
-                    req.gas,
                     req.nonce,
                     req.tokenAmount,
                     req.tokenGas,
