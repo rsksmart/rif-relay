@@ -1,6 +1,6 @@
 import abi from 'web3-eth-abi'
 import { toBN } from 'web3-utils'
-import sigUtil from 'eth-sig-util'
+import sigUtil, { EIP712TypedData } from 'eth-sig-util'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
 import { PrefixedHexString } from 'ethereumjs-tx'
@@ -8,7 +8,6 @@ import { arrayify } from '@ethersproject/bytes'
 import { Address } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
-import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
 import { constants } from './Constants'
 import { DeployTransactionRequest, RelayTransactionRequest } from '../relayclient/types/RelayTransactionRequest'
@@ -67,7 +66,7 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 }
 
 export function getLocalEip712Signature (
-  typedRequestData: TypedRequestData,
+  typedRequestData: EIP712TypedData,
   privateKey: Buffer
 ): PrefixedHexString {
   // @ts-ignore
@@ -76,12 +75,12 @@ export function getLocalEip712Signature (
 
 export async function getEip712Signature (
   web3: Web3,
-  typedRequestData: TypedRequestData,
+  typedRequestData: EIP712TypedData,
   methodSuffix = '',
   jsonStringifyRequest = false
 ): Promise<PrefixedHexString> {
   const senderAddress = typedRequestData.message.from
-  let dataToSign: TypedRequestData | string
+  let dataToSign: EIP712TypedData | string
   if (jsonStringifyRequest) {
     dataToSign = JSON.stringify(typedRequestData)
   } else {
