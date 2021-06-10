@@ -26,14 +26,12 @@ const workerIndex = 0
 const unstakeDelay = 50
 
 const maxWorkerCount = 1
-const gasOverhead = 1000
 const minimumEntryDepositValue = ether('1').toString()
 const minimumStake = ether('1').toString()
 const minimumUnstakeDelay = 50
 
 const hubConfig: Partial<RelayHubConfiguration> = {
   maxWorkerCount,
-  gasOverhead,
   minimumEntryDepositValue,
   minimumStake,
   minimumUnstakeDelay

@@ -46,7 +46,7 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(walletFactoryAbi)
 abiDecoder.addABI(relayHubAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker]) {
   let chainId: number
   let relayHub: string
   let penalizer: PenalizerInstance
@@ -186,7 +186,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
 
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHubInstance.disableRelayWorkers([relayWorker, relayWorker], { from: relayManager }),
         'invalid quantity of workers')
 
@@ -233,7 +233,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
       assert.equal(manager2.toLowerCase(), expectedManager2.toLowerCase(), `Incorrect relay manager: ${manager2}`)
 
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHubInstance.disableRelayWorkers([relayWorker], { from: incorrectRelayManager }),
         'Incorrect Manager')
 
@@ -304,41 +304,78 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     // TODO review gasPrice for RSK
     context('with unknown worker', function () {
-      const signature = '0xdeadbeef'
       const gas = 4e6
       let relayRequest: RelayRequest
+      let signature: string
       beforeEach(async function () {
         relayRequest = cloneRelayRequest(sharedRelayRequestData)
         relayRequest.request.data = '0xdeadbeef'
+        relayRequest.relayData.relayWorker = unknownWorker
+
+        const dataToSign = new TypedRequestData(
+          chainId,
+          forwarder,
+          relayRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
       })
 
+      it('should not accept a relay call with a disabled worker - 2', async function () {
+        await expectRevert(
+          relayHubInstance.relayCall(relayRequest, signature, {
+            from: unknownWorker,
+            gas
+          }),
+          'Not an enabled worker')
+      })
+    })
+
+    context('with manager stake unlocked', function () {
+      const gas = 4e6
+      let relayRequest: RelayRequest
+      let signature: string
+      beforeEach(async function () {
+        relayRequest = cloneRelayRequest(sharedRelayRequestData)
+        relayRequest.request.data = '0xdeadbeef'
+
+        const dataToSign = new TypedRequestData(
+          chainId,
+          forwarder,
+          relayRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
+
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
+          value: ether('1'),
+          from: relayOwner
+        })
+        await relayHubInstance.addRelayWorkers([relayWorker], {
+          from: relayManager
+        })
+      })
       it('should not accept a relay call', async function () {
-        await expectRevert.unspecified(
+        await relayHubInstance.unlockStake(relayManager, { from: relayOwner })
+        await expectRevert(
+          relayHubInstance.relayCall(relayRequest, signature, {
+            from: relayWorker,
+            gas
+          }),
+          'RelayManager not staked')
+      })
+      it('should not accept a relay call with a disabled worker', async function () {
+        await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
+        await expectRevert(
           relayHubInstance.relayCall(relayRequest, signature, {
             from: relayWorker,
             gas
           }),
           'Not an enabled worker')
-      })
-
-      context('with manager stake unlocked', function () {
-        beforeEach(async function () {
-          await relayHubInstance.stakeForAddress(relayManager, 1000, {
-            value: ether('1'),
-            from: relayOwner
-          })
-          await relayHubInstance.addRelayWorkers([relayWorker], {
-            from: relayManager
-          })
-        })
-        it('should not accept a relay call', async function () {
-          await expectRevert.unspecified(
-            relayHubInstance.relayCall(relayRequest, signature, {
-              from: relayWorker,
-              gas
-            }),
-            'relay manager not staked')
-        })
       })
     })
 
@@ -385,7 +422,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           await relayHubInstance.addRelayWorkers([testRelayWorkerContract.address], {
             from: relayManager
           })
-          await expectRevert.unspecified(
+
+          await expectRevert(
             testRelayWorkerContract.relayCall(
               relayHubInstance.address,
               relayRequest,
@@ -1045,7 +1083,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
           assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
               from: relayWorker,
               gas,
@@ -1092,7 +1130,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
           assert.isNotNull(sampleRecipientEmittedEvent)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.relayCall(relayRequest, signatureWithPermissiveVerifier, {
               from: relayWorker,
               gas,
@@ -1160,13 +1198,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('should not accept relay requests if passed gas is too low for a relayed transaction', async function () {
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.relayCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gasPrice,
               gas: '60000'
             }),
-            'Not enough gas left')
+            'transaction reverted')
         })
 
         it('should not accept relay requests with gas price lower than user specified', async function () {
@@ -1183,7 +1221,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             dataToSign,
             gaslessAccount.privateKey
           )
-          await expectRevert.unspecified(
+
+          await expectRevert(
             relayHubInstance.relayCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gas,
@@ -1194,7 +1233,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
         it('should not accept relay requests with incorrect relay worker', async function () {
           await relayHubInstance.addRelayWorkers([incorrectWorker], { from: relayManager })
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.relayCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: incorrectWorker,
               gasPrice,
@@ -1202,21 +1241,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }),
             'Not a right worker')
         })
-
-        it('should not accept relay requests if destination recipient doesn\'t have a balance to pay for it',
-          async function () {
-            const verifier2 = await TestVerifierEverythingAccepted.new()
-            const relayRequestVerifier2 = cloneRelayRequest(relayRequest)
-            relayRequestVerifier2.relayData.callVerifier = verifier2.address
-
-            await expectRevert.unspecified(
-              relayHubInstance.relayCall(relayRequestVerifier2, signatureWithMisbehavingVerifier, {
-                from: relayWorker,
-                gas,
-                gasPrice
-              }),
-              'Verifier balance too low')
-          })
 
         describe('recipient balance withdrawal ban', function () {
           let misbehavingVerifier: TestVerifierConfigurableMisbehaviorInstance
@@ -1293,44 +1317,83 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     // TODO review gasPrice for RSK
     context('with unknown worker', function () {
-      const signature = '0xdeadbeef'
       const gas = 4e6
+      let deployRequest: DeployRequest
+      let signature: string
+
+      beforeEach(async function () {
+        deployRequest = cloneDeployRequest(sharedDeployRequestData)
+        deployRequest.request.index = nextWalletIndex.toString()
+        deployRequest.relayData.relayWorker = unknownWorker
+
+        const dataToSign = new TypedDeployRequestData(
+          chainId,
+          factory.address,
+          deployRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
+        nextWalletIndex++
+      })
+
+      it('should not accept a deploy call - 2', async function () {
+        await expectRevert(
+          relayHubInstance.deployCall(deployRequest, signature, {
+            from: unknownWorker,
+            gas
+          }),
+          'Not an enabled worker')
+      })
+    })
+
+    context('with manager stake unlocked', function () {
+      const gas = 4e6
+      let signature: string
       let deployRequest: DeployRequest
 
       beforeEach(async function () {
         deployRequest = cloneDeployRequest(sharedDeployRequestData)
         deployRequest.request.index = nextWalletIndex.toString()
+
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
+          value: ether('1'),
+          from: relayOwner
+        })
+        await relayHubInstance.addRelayWorkers([relayWorker], {
+          from: relayManager
+        })
+
+        const dataToSign = new TypedDeployRequestData(
+          chainId,
+          factory.address,
+          deployRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
         nextWalletIndex++
       })
 
-      it('should not accept a deploy call', async function () {
-        await expectRevert.unspecified(
+      it('should not accept a deploy call with an unstaked RelayManager', async function () {
+        await relayHubInstance.unlockStake(relayManager, { from: relayOwner })
+        await expectRevert(
           relayHubInstance.deployCall(deployRequest, signature, {
             from: relayWorker,
             gas
           }),
-          'Not an enabled worker')
+          'RelayManager not staked')
       })
-
-      context('with manager stake unlocked', function () {
-        beforeEach(async function () {
-          await relayHubInstance.stakeForAddress(relayManager, 1000, {
-            value: ether('1'),
-            from: relayOwner
-          })
-          await relayHubInstance.addRelayWorkers([relayWorker], {
-            from: relayManager
-          })
-        })
-
-        it('should not accept a deploy call', async function () {
-          await expectRevert.unspecified(
-            relayHubInstance.deployCall(deployRequest, signature, {
-              from: relayWorker,
-              gas
-            }),
-            'relay manager not staked')
-        })
+      it('should not accept a deploy call with a disable', async function () {
+        await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
+        await expectRevert(
+          relayHubInstance.deployCall(deployRequest, signature, {
+            from: unknownWorker,
+            gas
+          }),
+          'Not an enabled worker')
       })
     })
 
@@ -1360,7 +1423,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           await relayHubInstance.addRelayWorkers([testRelayWorkerContract.address], {
             from: relayManager
           })
-          await expectRevert.unspecified(
+          await expectRevert(
             testRelayWorkerContract.deployCall(
               relayHubInstance.address,
               deployRequest,
@@ -1436,7 +1499,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
           assert.equal(manager.toLowerCase(), expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gas,
@@ -1469,7 +1532,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           assert.equal(calculatedAddr, generatedSWAddress)
           assert.equal(calculatedAddr, generatedSWAddress)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gas,
@@ -1479,13 +1542,13 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
 
         it('should not accept deploy requests if passed gas is too low for a relayed transaction', async function () {
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gasPrice,
               gas: '60000'
             }),
-            'Not enough gas left')
+            'transaction reverted')
         })
 
         it('should not accept deploy requests with gas price lower than user specified', async function () {
@@ -1502,7 +1565,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             dataToSign,
             gaslessAccount.privateKey
           )
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: relayWorker,
               gas,
@@ -1513,7 +1576,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
         it('should not accept deploy requests with incorrect relay worker', async function () {
           await relayHubInstance.addRelayWorkers([incorrectWorker], { from: relayManager })
-          await expectRevert.unspecified(
+          await expectRevert(
             relayHubInstance.deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               from: incorrectWorker,
               gasPrice,
@@ -1521,21 +1584,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }),
             'Not a right worker')
         })
-
-        it('should not accept deploy requests if destination recipient doesn\'t have a balance to pay for it',
-          async function () {
-            const verifier2 = await TestDeployVerifierEverythingAccepted.new()
-            const relayRequestVerifier2 = cloneDeployRequest(deployRequest)
-            relayRequestVerifier2.relayData.callVerifier = verifier2.address
-
-            await expectRevert.unspecified(
-              relayHubInstance.deployCall(relayRequestVerifier2, signatureWithMisbehavingVerifier, {
-                from: relayWorker,
-                gas,
-                gasPrice
-              }),
-              'Verifier balance too low')
-          })
       })
     })
   })
