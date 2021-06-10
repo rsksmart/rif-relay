@@ -641,18 +641,24 @@ contract('RelayServer', function (accounts) {
   })
 
   describe('acceptTokens', function () {
-    let relayServer: RelayServer
-
-    before(async function () {
-      await env.newServerInstance()
-      relayServer = env.relayServer
-
-      await env.relayServer._initTrustedVerifiers([env.relayVerifier.address, env.deployVerifier.address])
+    afterEach(async function(){
+      // reset verifiers for each test
+      await env.relayServer._initTrustedVerifiers([]) 
+    })
+    
+    it('should return empty if there are no trusted verifiers', async function () {
+      const res = await env.relayServer.tokenHandler()
+      assert.isEmpty(res)
     })
 
-    it('should return allowed tokens', async function () {
-      const res = await relayServer.tokenHandler(env.deployVerifier.address)
-      assert.equal(res, undefined)
+    it('should return error if verifier is not trusted', async function () {
+      // trust relay verifier, but query deploy verifier
+      await env.relayServer._initTrustedVerifiers([env.relayVerifier.address])
+      try{
+        const res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+      }catch(error){
+        assert.equal(error.message,"supplied verifier is not trusted")
+      } 
     })
   })
 })
