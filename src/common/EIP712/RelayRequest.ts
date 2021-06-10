@@ -11,9 +11,16 @@ export interface DeployRequest {
   relayData: RelayData
 }
 
-export function cloneRelayRequest (relayRequest: RelayRequest | DeployRequest): RelayRequest|DeployRequest {
+export function cloneRelayRequest (relayRequest: RelayRequest): RelayRequest {
   return {
     request: { ...relayRequest.request },
     relayData: { ...relayRequest.relayData }
+  }
+}
+
+export function cloneDeployRequest (deployRequest: DeployRequest): DeployRequest {
+  return {
+    request: { ...deployRequest.request },
+    relayData: { ...deployRequest.relayData }
   }
 }

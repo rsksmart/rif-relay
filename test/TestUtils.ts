@@ -1,13 +1,13 @@
-import { EIP712Domain, TypedDataUtils } from 'eth-sig-util'
+import { TypedDataUtils } from 'eth-sig-util'
 import { ethers } from 'hardhat'
 import { DeployRequest } from '../src/common/EIP712/RelayRequest'
-import { DeployRequestDataType, DomainSeparatorType, EIP712DomainType, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { getLocalEip712Signature } from '../src/common/Utils'
 import { CustomSmartWallet, CustomSmartWalletFactory, CustomSmartWalletFactory__factory, CustomSmartWallet__factory, IForwarder, RelayHub, RelayHub__factory, SmartWallet, SmartWalletFactory__factory, SmartWallet__factory } from '../typechain'
 import { SmartWalletFactory } from '../typechain/SmartWalletFactory'
 import { constants } from '../src/common/Constants'
 import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
-import { Address, PrefixedHexString } from '../src/relayclient/types/Aliases'
+import { PrefixedHexString } from '../src/relayclient/types/Aliases'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
@@ -49,7 +49,6 @@ export async function deployHub (
   const rh = await RelayHub.deploy(
     penalizer,
     relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasOverhead,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
@@ -65,7 +64,7 @@ export async function createSmartWalletFactory (template: IForwarder): Promise<S
 
 export async function createSmartWallet (relayHub: string, ownerEOA: string, factory: SmartWalletFactory, privKey: Uint8Array, chainId: number = -1,
   tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<SmartWallet> {
+  tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<SmartWallet> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -74,7 +73,6 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: '0x',
       tokenContract: tokenContract,
@@ -120,7 +118,7 @@ export async function createCustomSmartWalletFactory (template: IForwarder): Pro
 
 export async function createCustomSmartWallet (relayHub: string, ownerEOA: string, factory: CustomSmartWalletFactory, privKey: Uint8Array, chainId: number = -1, logicAddr: string = constants.ZERO_ADDRESS,
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
-  gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<CustomSmartWallet> {
+  tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<CustomSmartWallet> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
 
   const rReq: DeployRequest = {
@@ -129,7 +127,6 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
       from: ownerEOA,
       to: logicAddr,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: initParams,
       tokenContract: tokenContract,
@@ -173,19 +170,6 @@ export async function getTestingEnvironment (): Promise<Environment> {
   return networkId === 33 ? environments.rsk : defaultEnvironment
 }
 
-export function getDomainSeparatorHash (verifier: Address, chainId: number): PrefixedHexString {
-  return ethers.utils.hexlify(TypedDataUtils.hashStruct('EIP712Domain', getDomainSeparator(verifier, chainId), { EIP712Domain: EIP712DomainType }))
-}
-
-export function getDomainSeparator (verifyingContract: Address, chainId: number): EIP712Domain {
-  return {
-    name: DomainSeparatorType.name,
-    version: DomainSeparatorType.version,
-    chainId: chainId,
-    verifyingContract: verifyingContract
-  }
-}
-
 export function bytes32 (n: number): string {
   return '0x' + n.toString().repeat(64).slice(0, 64)
 }
@@ -206,3 +190,4 @@ export async function increaseTime (time: number): Promise<void> {
   await evmMine()
   return ret
 }
+
