@@ -9,7 +9,7 @@ import { constants } from '../src/common/Constants'
 
 const RelayHub = artifacts.require('RelayHub')
 
-contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonOwner]) {
+contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, owner, nonOwner]) {
   const initialUnstakeDelay = new BN(4)
   const initialStake = ether('1')
 
@@ -35,7 +35,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     })
 
     it('should NOT allow owner to stake for unowned addresses if minimum entry stake is not met', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
           value: initialStake.sub(ether('0.00000000000001')), // slighlty less than allowed
           from: owner
@@ -61,14 +61,14 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     testStakeNotValid()
 
     it('should not allow not owner to schedule unlock', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.unlockStake(nonOwner, { from: owner }),
         'not owner'
       )
     })
 
     it('relay managers cannot stake for themselves', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
           value: initialStake,
           from: relayManager
@@ -92,9 +92,9 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     })
 
     it('should not allow to penalize hub', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.penalize(relayManager, nonOwner, { from: anyRelayHub }),
-        'hub not authorized'
+        'Not penalizer'
       )
     })
 
@@ -110,7 +110,7 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     testCanStake(nonOwner)
 
     it('should not allow one relayManager stake', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.stakeForAddress(nonOwner, initialUnstakeDelay, { from: relayManager }),
         'sender is a relayManager itself'
       )
@@ -148,29 +148,29 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     })
 
     it('should not allow owner to decrease the unstake delay', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.stakeForAddress(relayManager, initialUnstakeDelay.subn(1), { from: owner }),
         'unstakeDelay cannot be decreased'
       )
     })
 
     it('not owner cannot stake for owned relayManager address', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.stakeForAddress(relayManager, initialUnstakeDelay, { from: nonOwner }),
         'not owner'
       )
     })
 
     it('should not allow owner to withdraw stakes when not scheduled', async function () {
-      await expectRevert.unspecified(relayHub.withdrawStake(relayManager, { from: owner }), 'Withdrawal is not scheduled')
+      await expectRevert(relayHub.withdrawStake(relayManager, { from: owner }), 'Withdrawal is not scheduled')
     })
 
     describe('should not allow not owner to call to', function () {
       it('unlock stake', async function () {
-        await expectRevert.unspecified(relayHub.unlockStake(relayManager, { from: nonOwner }), 'not owner')
+        await expectRevert(relayHub.unlockStake(relayManager, { from: nonOwner }), 'not owner')
       })
       it('withdraw stake', async function () {
-        await expectRevert.unspecified(relayHub.withdrawStake(relayManager, { from: nonOwner }), 'not owner')
+        await expectRevert(relayHub.withdrawStake(relayManager, { from: nonOwner }), 'not owner')
       })
     })
   })
@@ -219,13 +219,15 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
 
   describe('with scheduled deauthorization of an authorized hub', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
+      relayHub = await RelayHub.new(anyRelayHub, maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
 
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
       })
+      await relayHub.addRelayWorkers([worker], { from: relayManager })
+      await relayHub.unlockStake(relayManager, { from: owner })
     })
 
     describe('after grace period elapses', function () {
@@ -234,9 +236,9 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
       })
 
       it('should not allow to penalize hub', async function () {
-        await expectRevert.unspecified(
-          relayHub.penalize(relayManager, nonOwner, { from: anyRelayHub }),
-          'hub authorization expired'
+        await expectRevert(
+          relayHub.penalize(worker, nonOwner, { from: anyRelayHub }),
+          'RelayManager not staked'
         )
       })
     })
@@ -266,14 +268,14 @@ contract('StakeManagement', function ([_, relayManager, anyRelayHub, owner, nonO
     testStakeNotValid()
 
     it('should not allow owner to schedule unlock again', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.unlockStake(relayManager, { from: owner }),
         'already pending'
       )
     })
 
     it('should not allow owner to withdraw stakes before it is due', async function () {
-      await expectRevert.unspecified(relayHub.withdrawStake(relayManager, { from: owner }), 'Withdrawal is not due')
+      await expectRevert(relayHub.withdrawStake(relayManager, { from: owner }), 'Withdrawal is not due')
     })
 
     it('should allow to withdraw stake after unstakeDelay', async function () {

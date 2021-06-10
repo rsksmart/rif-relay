@@ -227,8 +227,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
-      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-        index, initParams, signatureCollapsed))
+      await expectRevert(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
+        index, initParams, signatureCollapsed), 'invalid signature')
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -334,7 +334,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      await expectRevert(web3.eth.sendTransaction(newTrx), 'already initialized')
 
       newTrx.data = isInitializedFunc
       result = await web3.eth.call(newTrx)
@@ -491,7 +491,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
+      await expectRevert(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig), 'signature mismatch')
 
       const newBalance = await token.balanceOf(expectedAddress)
       chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
@@ -618,7 +618,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      await expectRevert(web3.eth.sendTransaction(newTrx), 'already initialized')
 
       newTrx.data = isInitializedFunc
 
@@ -817,8 +817,8 @@ contract('SmartWalletFactory', ([from]) => {
 
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
-      await expectRevert.unspecified(factory.createUserSmartWallet(ownerAddress, recoverer,
-        index, signatureCollapsed))
+      await expectRevert(factory.createUserSmartWallet(ownerAddress, recoverer,
+        index, signatureCollapsed), 'invalid signature')
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -910,7 +910,7 @@ contract('SmartWalletFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      await expectRevert(web3.eth.sendTransaction(newTrx), 'already initialized')
 
       newTrx.data = isInitializedFunc
 
@@ -1053,7 +1053,7 @@ contract('SmartWalletFactory', ([from]) => {
 
       const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expectRevert.unspecified(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig))
+      await expectRevert(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig), 'signature mismatch')
 
       const newBalance = await token.balanceOf(expectedAddress)
       chai.expect(originalBalance).to.be.bignumber.equal(newBalance)
@@ -1166,7 +1166,7 @@ contract('SmartWalletFactory', ([from]) => {
       newTrx.data = initFunc
 
       // Trying to manually call the initialize function again (it was called during deploy)
-      await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
+      await expectRevert(web3.eth.sendTransaction(newTrx), 'already initialized')
 
       newTrx.data = isInitializedFunc
 

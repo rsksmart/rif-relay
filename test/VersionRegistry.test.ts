@@ -27,10 +27,10 @@ contract('VersionRegistry', ([account]) => {
   })
   context('contract param validations', () => {
     it('should fail to add without id', async () => {
-      await expectRevert.unspecified(registryContract.addVersion(string32(''), string32(''), 'value'), 'missing id')
+      await expectRevert(registryContract.addVersion(string32(''), string32(''), 'value'), 'missing id')
     })
     it('should fail to add without version', async () => {
-      await expectRevert.unspecified(registryContract.addVersion(string32('id'), string32(''), 'value'), 'missing version')
+      await expectRevert(registryContract.addVersion(string32('id'), string32(''), 'value'), 'missing version')
     })
   })
   context('javascript param validations', () => {

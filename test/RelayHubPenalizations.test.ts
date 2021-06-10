@@ -122,7 +122,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
       let penalizableTxSignature: string
 
       it('penalizeRepeatedNonce', async function () {
-        await expectRevert.unspecified(
+        await expectRevert(
           penalizer.penalizeRepeatedNonce(penalizableTxData, penalizableTxSignature, penalizableTxData, penalizableTxSignature, relayHub.address, { from: other }),
           'Unknown relay manager'
         )
@@ -195,7 +195,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { gasPrice: 70 }), chainId, env) // only gasPrice may be different
 
-          await expectRevert.unspecified(
+          await expectRevert(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
             'tx is equal'
           )
@@ -209,7 +209,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { nonce: 1 }), chainId, env)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
             'Different nonce'
           )
@@ -222,9 +222,9 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const relayRequest: RelayRequest = await createRelayRequest()
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
-          const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, privateKey), chainId, env)
+          const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { privateKey: privateKey }), chainId, env)
 
-          await expectRevert.unspecified(
+          await expectRevert(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
             'Different signer'
           )
@@ -251,7 +251,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
             gasPrice: '1'
           })
 
-          await expectRevert.unspecified(
+          await expectRevert(
             penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
             'Transactions already penalized'
           )
