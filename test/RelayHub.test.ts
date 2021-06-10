@@ -1,5 +1,5 @@
 import { getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
-import { RelayRequest, cloneRelayRequest, DeployRequest } from '../src/common/EIP712/RelayRequest'
+import { RelayRequest, cloneRelayRequest, DeployRequest, cloneDeployRequest } from '../src/common/EIP712/RelayRequest'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { stripHex, deployHub, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory } from './TestUtils'
@@ -32,7 +32,6 @@ describe('RelayHub', () => {
   let gaslessAccount: AccountKeypair
   const gasLimit = '1000000'
   const gasPrice = '1'
-  const parametersGasOverhead = BigInt(40921)
   let sharedRelayRequestData: RelayRequest
   let sharedDeployRequestData: DeployRequest
   let env: Environment
@@ -49,7 +48,9 @@ describe('RelayHub', () => {
   let relayWorkerSigner: SignerWithAddress
   let incorrectWorkerSigner: SignerWithAddress
   let incorrectRelayManagerSigner: SignerWithAddress
+  let unknownWorkerSigner: SignerWithAddress
   let anAccountSigner: SignerWithAddress
+  let unknownWorker: string
   let relayWorker: string
   let incorrectWorker: string
   let relayManager: string
@@ -65,10 +66,11 @@ describe('RelayHub', () => {
     TestVerifierConfigurableMisbehavior = await ethers.getContractFactory('TestVerifierConfigurableMisbehavior') as TestVerifierConfigurableMisbehavior__factory
 
     [anAccountSigner, relayManagerSigner, relayOwnerSigner, relayWorkerSigner,
-      incorrectWorkerSigner, incorrectRelayManagerSigner] = await ethers.getSigners()
+      incorrectWorkerSigner, incorrectRelayManagerSigner, unknownWorkerSigner] = await ethers.getSigners()
     relayManager = await relayManagerSigner.getAddress()
     relayWorker = await relayWorkerSigner.getAddress()
     incorrectWorker = await incorrectWorkerSigner.getAddress()
+    unknownWorker = await unknownWorkerSigner.getAddress()
     incorrectRelayManager = await incorrectRelayManagerSigner.getAddress()
     anAccount = await anAccountSigner.getAddress()
   })
@@ -210,7 +212,7 @@ describe('RelayHub', () => {
       expect(manager.toLowerCase()).to.be.equal(expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
 
       await expect(
-        relayHubInstance.connect(relayManagerSigner).disableRelayWorkers([relayWorker, relayWorker])).to.revertedWith('revert invalid quantity of workers')
+        relayHubInstance.connect(relayManagerSigner).disableRelayWorkers([relayWorker, relayWorker])).to.revertedWith('invalid quantity of workers')
 
       relayWorkersAfter = await relayHubInstance.workerCount(relayManager)
       expect(relayWorkersAfter.toNumber()).to.be.equal(1, 'Workers must be one')
@@ -257,7 +259,7 @@ describe('RelayHub', () => {
 
       await expect(
         relayHubInstance.connect(incorrectRelayManagerSigner).disableRelayWorkers([relayWorker])).to.revertedWith(
-        'revert Incorrect Manager')
+        'Incorrect Manager')
 
       relayWorkersAfter2 = await relayHubInstance.workerCount(incorrectRelayManager)
       expect(relayWorkersAfter2.toNumber()).to.be.equal(1, 'Workers shouldn\'t have changed')
@@ -333,39 +335,72 @@ describe('RelayHub', () => {
 
     // TODO review gasPrice for RSK
     context('with unknown worker', function () {
-      const signature = '0xdeadbeef'
       const gasLimit = 4e6
       let relayRequest: RelayRequest
+      let signature: string
       beforeEach(async function () {
         relayRequest = cloneRelayRequest(sharedRelayRequestData)
         relayRequest.request.data = '0xdeadbeef'
+        relayRequest.relayData.relayWorker = unknownWorker
+
+        const dataToSign = new TypedRequestData(
+          chainId,
+          forwarder,
+          relayRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
       })
 
+      it('should not accept a relay call with a disabled worker - 2', async function () {
+        await expect(
+          relayHubInstance.connect(unknownWorkerSigner).relayCall(relayRequest, signature, {
+            gasLimit
+          })).to.revertedWith(
+          'Not an enabled worker')
+      })
+    })
+
+    context('with manager stake unlocked', function () {
+      const gasLimit = 4e6
+      let relayRequest: RelayRequest
+      let signature: string
+      beforeEach(async function () {
+        relayRequest = cloneRelayRequest(sharedRelayRequestData)
+        relayRequest.request.data = '0xdeadbeef'
+
+        const dataToSign = new TypedRequestData(
+          chainId,
+          forwarder,
+          relayRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
+
+        await relayHubInstance.connect(relayOwnerSigner).stakeForAddress(relayManager, 1000, {
+          value: ethers.utils.parseEther('1'),
+        })
+        await relayHubInstance.connect(relayManagerSigner).addRelayWorkers([relayWorker])
+      })
       it('should not accept a relay call', async function () {
+        await relayHubInstance.connect(relayOwnerSigner).unlockStake(relayManager)
         await expect(
           relayHubInstance.connect(relayWorkerSigner).relayCall(relayRequest, signature, {
             gasLimit
           })).to.revertedWith(
-          'revert Not an enabled worker')
+          'RelayManager not staked')
       })
-
-      context('with manager stake unlocked', function () {
-        beforeEach(async function () {
-          await relayHubInstance.connect(relayOwnerSigner).stakeForAddress(relayManager, 1000, {
-            value: ethers.utils.parseEther('1')
-          })
-          await relayHubInstance.connect(relayManagerSigner).addRelayWorkers([relayWorker])
-        })
-        //  TODO: Check signature
-        it('should not accept a relay call', async function () {
-          await expect(
-            relayHubInstance.connect(relayWorkerSigner).relayCall(relayRequest, signature, {
-              gasLimit
-            })).to.reverted
-            .to.reverted
-            // With(
-            // 'revert relay manager not staked')
-        })
+      it('should not accept a relay call with a disabled worker', async function () {
+        await relayHubInstance.connect(relayManagerSigner).disableRelayWorkers([relayWorker])
+        await expect(
+          relayHubInstance.connect(relayWorkerSigner).relayCall(relayRequest, signature, {
+            gasLimit
+          })).to.revertedWith(
+          'Not an enabled worker')
       })
     })
 
@@ -423,7 +458,7 @@ describe('RelayHub', () => {
               {
                 gasLimit
               })).to.be.revertedWith(
-            'revert RelayWorker cannot be a contract')
+            'RelayWorker cannot be a contract')
         })
       })
       context('with view functions only', function () {
@@ -506,107 +541,21 @@ describe('RelayHub', () => {
           )
         })
 
-        it('gas estimation tests for SmartWallet', async function () {
-          const SmartWallet = await ethers.getContractFactory('SmartWallet') as SmartWallet__factory
-          const smartWalletTemplate: SmartWallet = await SmartWallet.deploy()
-          await smartWalletTemplate.deployed()
-
-          const smartWalletFactory: SmartWalletFactory = await createSmartWalletFactory(smartWalletTemplate)
-          const sWalletInstance = await createSmartWallet(anAccount, gaslessAccount.address, smartWalletFactory, gaslessAccount.privateKey, chainId)
-
-          const nonceBefore = await sWalletInstance.nonce()
-          await token.mint('10000', sWalletInstance.address)
-
-          const completeReq: RelayRequest = cloneRelayRequest(sharedRelayRequestData)
-
-          completeReq.request.data = (await recipientContract.populateTransaction.emitMessage2(message)).data ?? ''
-          completeReq.request.nonce = nonceBefore.toString()
-          completeReq.relayData.callForwarder = sWalletInstance.address
-          completeReq.relayData.domainSeparator = getDomainSeparatorHash(sWalletInstance.address, chainId)
-
-          const reqToSign = new TypedRequestData(
-            chainId,
-            sWalletInstance.address,
-            completeReq
-          )
-
-          const sig = getLocalEip712Signature(
-            reqToSign,
-            gaslessAccount.privateKey
-          )
-
-          const tx = await relayHubInstance.connect(relayWorkerSigner).relayCall(completeReq, sig, {
-            gasLimit,
-            gasPrice
-          })
-
-          const nonceAfter = await sWalletInstance.nonce()
-          expect(nonceBefore.add(1)).to.be.equal(nonceAfter, 'Incorrect nonce after execution')
-          const eventHash = ethers.utils.id('GasUsed(uint256,uint256)')
-          const txReceipt = await tx.wait()
-          const logs = txReceipt.logs
-          console.log('---------------SmartWallet: RelayCall metrics------------------------')
-          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toNumber()}`)
-
-          let previousGas: BigInt = BigInt(0)
-          let previousStep = null
-          for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i]
-            if (eventHash.toString() === log.topics[0]) {
-              const step = log.data.substring(0, 66)
-              const gasUsed: BigInt = BigInt('0x' + log.data.substring(67, log.data.length))
-              console.log('---------------------------------------')
-              console.log('step :', BigInt(step).toString())
-              console.log('gasLeft :', gasUsed.toString())
-
-              if (previousStep != null) {
-                console.log(`Steps substraction ${BigInt(step).toString()} and ${BigInt(previousStep).toString()}`)
-                console.log((previousGas.valueOf() - gasUsed.valueOf()).toString())
-              }
-              console.log('---------------------------------------')
-
-              previousGas = gasUsed
-              previousStep = step
-            }
-          }
-
-          const event = recipientContract.filters.SampleRecipientEmitted(null, null, null, null, null)
-          const eventEmitted = await recipientContract.queryFilter(event)
-
-          expect(message).to.be.equal(eventEmitted[0].args.message)
-          expect(sWalletInstance.address.toLowerCase()).to.be.equal(eventEmitted[0].args.msgSender.toLowerCase())
-          expect(relayWorker.toLowerCase()).to.be.equal(eventEmitted[0].args.origin.toLowerCase())
-
-          const transactionRelayedEvent = logs.find((e: any) => e != null && e.name === 'TransactionRelayed')
-
-          expect(transactionRelayedEvent).is.not.null
-
-          const callWithoutRelayTx = await recipientContract.emitMessage2(message)
-          const callWithoutRelayReceipt = await callWithoutRelayTx.wait()
-          const gasUsed = callWithoutRelayReceipt.cumulativeGasUsed
-          // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
-          console.log('--------------- Destination Call Without enveloping------------------------')
-          console.log(`Cummulative Gas Used: ${gasUsed.toString()}`)
-          console.log('---------------------------------------')
-          console.log('--------------- Enveloping Overhead ------------------------')
-          console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed.sub(gasUsed).toNumber()}`)
-          console.log('---------------------------------------')
-        })
-
         it('gas estimation tests', async function () {
           const nonceBefore = await forwarderInstance.nonce()
           const TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
           const tokenInstance = await TestToken.deploy()
           await tokenInstance.deployed()
           await tokenInstance.mint('1000000', forwarder)
+
           const completeReq = {
             request: {
               ...relayRequest.request,
-              data: (await recipientContract.populateTransaction.emitMessage2(message)).data ?? '',
+              data: (await recipientContract.populateTransaction.emitMessage(message)).data ?? '',
               nonce: nonceBefore.toString(),
               tokenContract: tokenInstance.address,
-              tokenAmount: '1',
-              tokenGas: '50000'
+              tokenAmount: '0',
+              tokenGas: '0'
             },
             relayData: {
               ...relayRequest.relayData
@@ -685,7 +634,7 @@ describe('RelayHub', () => {
           await relayHubInstance.connect(relayManagerSigner).disableRelayWorkers([relayWorker])
           manager = await relayHubInstance.workerToManager(relayWorker)
           expectedManager = '0x00000000000000000000000'.concat(stripHex(relayManager.concat('0')))
-          //
+
           expect(manager.toLowerCase()).to.be.equal(expectedManager.toLowerCase(), `Incorrect relay manager: ${manager}`)
 
           await expect(
@@ -822,15 +771,12 @@ describe('RelayHub', () => {
         })
 
         it('should not accept relay requests if passed gas is too low for a relayed transaction', async function () {
-          const gasOverhead = (await relayHubInstance.gasOverhead()).toNumber()
-          const gasAlreadyUsedBeforeDoingAnythingInRelayCall = parametersGasOverhead// Just by calling and sending the parameters
-          const gasToSend = gasAlreadyUsedBeforeDoingAnythingInRelayCall + BigInt(gasOverhead) + BigInt(relayRequestMisbehavingVerifier.request.gas)
           await expect(
             relayHubInstance.connect(relayWorkerSigner).relayCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               gasPrice,
-              gasLimit: (gasToSend - BigInt(10000)).toString()
+              gasLimit: '60000'
             })).revertedWith(
-            'Not enough gas left')
+            'transaction reverted')
         })
 
         it('should not accept relay requests with gas price lower than user specified', async function () {
@@ -862,47 +808,7 @@ describe('RelayHub', () => {
               gasPrice,
               gasLimit
             })).revertedWith(
-            'revert Not a right worker')
-        })
-
-        //  TODO: Check signature
-        it('should not accept relay requests if destination recipient doesn\'t have a balance to pay for it',
-          async function () {
-            const TestVerifierEverythingAccepted = await ethers.getContractFactory('TestVerifierEverythingAccepted') as TestVerifierEverythingAccepted__factory
-            const verifier2 = await TestVerifierEverythingAccepted.deploy()
-            await verifier2.deployed()
-            // const verifier2 = await TestVerifierEverythingAccepted.new()
-            const relayRequestVerifier2 = cloneRelayRequest(relayRequest)
-            relayRequestVerifier2.relayData.callVerifier = verifier2.address
-
-            await expect(
-              relayHubInstance.connect(relayWorkerSigner).relayCall(relayRequestVerifier2, signatureWithMisbehavingVerifier, {
-                gasLimit,
-                gasPrice
-              })).to.reverted
-            // .to.revertedWith(
-            // 'revert Verifier balance too low')
-          })
-
-        describe('recipient balance withdrawal ban', function () {
-          let misbehavingVerifier: TestVerifierConfigurableMisbehavior
-          let relayRequestMisbehavingVerifier: RelayRequest
-          beforeEach(async function () {
-            misbehavingVerifier = await TestVerifierConfigurableMisbehavior.deploy()
-            await misbehavingVerifier.deployed()
-
-            relayRequestMisbehavingVerifier = cloneRelayRequest(relayRequest)
-            relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
-            const dataToSign = new TypedRequestData(
-              chainId,
-              forwarder,
-              relayRequestMisbehavingVerifier
-            )
-            signature = getLocalEip712Signature(
-              dataToSign,
-              gaslessAccount.privateKey
-            )
-          })
+            'Not a right worker')
         })
       })
     })
@@ -948,7 +854,6 @@ describe('RelayHub', () => {
           from: gaslessAccount.address,
           nonce: (await factory.nonce(gaslessAccount.address)).toString(),
           value: '0',
-          gas: gasLimit,
           tokenContract: token.address,
           tokenAmount: '1',
           tokenGas: '50000',
@@ -967,40 +872,77 @@ describe('RelayHub', () => {
 
     // TODO review gasPrice for RSK
     context('with unknown worker', function () {
-      const signature = '0xdeadbeef'
       const gasLimit = 4e6
       let deployRequest: DeployRequest
+      let signature: string
 
       beforeEach(async function () {
-        deployRequest = cloneRelayRequest(sharedDeployRequestData) as DeployRequest
+        deployRequest = cloneDeployRequest(sharedDeployRequestData)
         deployRequest.request.index = nextWalletIndex.toString()
+        deployRequest.relayData.relayWorker = unknownWorker
+
+        const dataToSign = new TypedDeployRequestData(
+          chainId,
+          factory.address,
+          deployRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
         nextWalletIndex++
       })
 
-      it('should not accept a deploy call', async function () {
+      it('should not accept a deploy call - 2', async function () {
+        await expect(
+          relayHubInstance.connect(unknownWorkerSigner).deployCall(deployRequest, signature, {
+            gasLimit
+          })).to.revertedWith(
+          'Not an enabled worker')
+      })
+    })
+
+    context('with manager stake unlocked', function () {
+      const gasLimit = 4e6
+      let signature: string
+      let deployRequest: DeployRequest
+
+      beforeEach(async function () {
+        deployRequest = cloneDeployRequest(sharedDeployRequestData)
+        deployRequest.request.index = nextWalletIndex.toString()
+
+        await relayHubInstance.connect(relayOwnerSigner).stakeForAddress(relayManager, 1000, {
+          value: ethers.utils.parseEther('1')
+        })
+        await relayHubInstance.connect(relayManagerSigner).addRelayWorkers([relayWorker])
+
+        const dataToSign = new TypedDeployRequestData(
+          chainId,
+          factory.address,
+          deployRequest
+        )
+        signature = getLocalEip712Signature(
+          dataToSign,
+          gaslessAccount.privateKey
+        )
+        nextWalletIndex++
+      })
+
+      it('should not accept a deploy call with an unstaked RelayManager', async function () {
+        await relayHubInstance.connect(relayOwnerSigner).unlockStake(relayManager)
         await expect(
           relayHubInstance.connect(relayWorkerSigner).deployCall(deployRequest, signature, {
             gasLimit
           })).to.revertedWith(
-          'revert Not an enabled worker')
+          'RelayManager not staked')
       })
-
-      context('with manager stake unlocked', function () {
-        beforeEach(async function () {
-          await relayHubInstance.connect(relayOwnerSigner).stakeForAddress(relayManager, 1000, {
-            value: ethers.utils.parseEther('1')
-          })
-          await relayHubInstance.connect(relayManagerSigner).addRelayWorkers([relayWorker])
-        })
-        //  TODO: Check call
-        it('should not accept a deploy call', async function () {
-          await expect(
-            relayHubInstance.connect(relayWorkerSigner).deployCall(deployRequest, signature, {
-              gasLimit
-            })).to.reverted
-          // be.revertedWith(
-          // 'revert relay manager not staked')
-        })
+      it('should not accept a deploy call with a disable', async function () {
+        await relayHubInstance.connect(relayManagerSigner).disableRelayWorkers([relayWorker])
+        await expect(
+          relayHubInstance.connect(unknownWorkerSigner).deployCall(deployRequest, signature, {
+            gasLimit
+          })).to.revertedWith(
+          'Not an enabled worker')
       })
     })
 
@@ -1015,7 +957,7 @@ describe('RelayHub', () => {
         await relayHubInstance.connect(relayManagerSigner).addRelayWorkers([relayWorker])
         await relayHubInstance.connect(relayManagerSigner).registerRelayServer(url)
 
-        deployRequest = cloneRelayRequest(sharedDeployRequestData) as DeployRequest
+        deployRequest = cloneDeployRequest(sharedDeployRequestData)
         deployRequest.request.index = nextWalletIndex.toString()
         nextWalletIndex++
       })
@@ -1053,7 +995,7 @@ describe('RelayHub', () => {
           deployRequest.request.index = nextWalletIndex.toString()
           nextWalletIndex++
 
-          relayRequestMisbehavingVerifier = cloneRelayRequest(deployRequest) as DeployRequest
+          relayRequestMisbehavingVerifier = cloneDeployRequest(deployRequest)
           relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
           const dataToSign = new TypedDeployRequestData(
             chainId,
@@ -1114,7 +1056,6 @@ describe('RelayHub', () => {
             'Not an enabled worker')
         })
 
-        //  TODO: Check call
         it('deployCall should refuse to re-send transaction with same nonce', async function () {
           const calculatedAddr = await factory.getSmartWalletAddress(gaslessAccount.address,
             constants.ZERO_ADDRESS, relayRequestMisbehavingVerifier.request.index)
@@ -1146,25 +1087,21 @@ describe('RelayHub', () => {
             relayHubInstance.connect(relayWorkerSigner).deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               gasLimit,
               gasPrice
-            })).to.reverted
-          // With(
-          // 'nonce mismatch')
+            })).to.revertedWith(
+            'nonce mismatch')
         })
 
         it('should not accept deploy requests if passed gas is too low for a relayed transaction', async function () {
-          const gasOverhead = (await relayHubInstance.gasOverhead()).toNumber()
-          const gasAlreadyUsedBeforeDoingAnythingInRelayCall = parametersGasOverhead// Just by calling and sending the parameters
-          const gasToSend = gasAlreadyUsedBeforeDoingAnythingInRelayCall + BigInt(gasOverhead) + BigInt(relayRequestMisbehavingVerifier.request.gas)
           await expect(
             relayHubInstance.connect(relayWorkerSigner).deployCall(relayRequestMisbehavingVerifier, signatureWithMisbehavingVerifier, {
               gasPrice,
-              gasLimit: (gasToSend - BigInt(10000)).toString()
+              gasLimit: '60000'
             })).to.revertedWith(
-            'Not enough gas left')
+            'transaction reverted')
         })
 
         it('should not accept deploy requests with gas price lower than user specified', async function () {
-          const relayRequestMisbehavingVerifier = cloneRelayRequest(deployRequest) as DeployRequest
+          const relayRequestMisbehavingVerifier = cloneDeployRequest(deployRequest)
           relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
           relayRequestMisbehavingVerifier.relayData.gasPrice = (BigInt(gasPrice) + BigInt(1)).toString()
 
@@ -1194,22 +1131,6 @@ describe('RelayHub', () => {
             })).to.revertedWith(
             'Not a right worker')
         })
-        //  TODO: Check call
-        it('should not accept deploy requests if destination recipient doesn\'t have a balance to pay for it',
-          async function () {
-            const verifier2 = await TestDeployVerifierEverythingAccepted.deploy()
-            await verifier2.deployed()
-            const relayRequestVerifier2 = cloneRelayRequest(deployRequest) as DeployRequest
-            relayRequestVerifier2.relayData.callVerifier = verifier2.address
-
-            await expect(
-              relayHubInstance.connect(relayWorkerSigner).deployCall(relayRequestVerifier2, signatureWithMisbehavingVerifier, {
-                gasLimit,
-                gasPrice
-              })).to.reverted
-            // With(
-            // 'Verifier balance too low')
-          })
       })
     })
   })
