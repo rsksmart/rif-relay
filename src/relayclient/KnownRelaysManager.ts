@@ -45,9 +45,9 @@ export class KnownRelaysManager {
     this._refreshFailures()
     const recentlyActiveRelayManagers = await this._fetchRecentlyActiveRelayManagers()
     this.preferredRelayers = this.config.preferredRelays.map(relayUrl => {
-      const relayData: RelayData = {
+      const relayData: RelayData = Object.assign({} as any, {
         url: relayUrl
-      }
+      })
       return relayData
     })
     this.allRelayers = await this.getRelayDataForManagers(recentlyActiveRelayManagers)

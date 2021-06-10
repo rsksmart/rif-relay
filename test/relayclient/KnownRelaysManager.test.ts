@@ -245,10 +245,10 @@ contract('KnownRelaysManager 2', function (accounts) {
 
   // eslint-disable-next-line @typescript-eslint/no-misused-promises
   describe('#getRelaysSortedForTransaction()', function () {
-    const relayData: RelayData = {
+    const relayData: RelayData = Object.assign({} as any, {
       manager: accounts[0],
       url: 'url'
-    }
+    })
 
     describe('#_refreshFailures()', function () {
       let knownRelaysManager: KnownRelaysManager
