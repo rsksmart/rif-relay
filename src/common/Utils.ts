@@ -207,7 +207,7 @@ export function getLatestEventData (events: EventData[]): EventData | undefined 
 
 export function isRegistrationValid (relayData: RelayData | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
   const portIncluded: boolean = config.url.indexOf(':') > 0
-  return relayData != null &&
+  return relayData != undefined &&
     isSameAddress(relayData.manager, managerAddress) &&
       relayData.url.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }

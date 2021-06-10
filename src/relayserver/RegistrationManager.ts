@@ -164,9 +164,9 @@ export class RegistrationManager {
   }
 
   async getRelayData (): Promise<RelayData> {
-    const activeRelays = await this.contractInteractor.getActiveRelays([this.managerAddress])
-    if (activeRelays.length > 0) {
-      return activeRelays[0]
+    let relayData: RelayData[] = await this.contractInteractor.getRelayData([this.managerAddress])
+    if (relayData.length > 0) {
+      return relayData[0]
     }
     throw new Error('No relay found for manager ' + this.managerAddress)
   }

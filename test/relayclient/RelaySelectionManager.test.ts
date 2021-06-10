@@ -21,6 +21,7 @@ contract('RelaySelectionManager', async function (accounts) {
   const dependencyTree = getDependencies(configure({}), web3.currentProvider as HttpProvider)
   const stubGetRelaysSorted = sinon.stub(dependencyTree.knownRelaysManager, 'getRelaysSortedForTransaction')
   const stubGetActiveRelays = sinon.stub(dependencyTree.contractInteractor, 'getActiveRelays')
+  const stubGetRelayData = sinon.stub(dependencyTree.contractInteractor, 'getRelayData')
   const errors = new Map<string, Error>()
   const config = configure({
     sliceSize,
@@ -65,6 +66,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
     before(async function () {
       stubGetActiveRelays.returns(Promise.resolve([relayData]))
+      stubGetRelayData.returns(Promise.resolve([relayData]))
       stubGetRelaysSorted.returns(Promise.resolve([[relayData]]))
       relaySelectionManager = await new RelaySelectionManager(transactionDetails, dependencyTree.knownRelaysManager, dependencyTree.httpClient, GasPricePingFilter, config).init()
       stubRaceToSuccess = sinon.stub(relaySelectionManager, '_raceToSuccess')
