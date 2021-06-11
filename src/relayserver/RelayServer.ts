@@ -34,6 +34,7 @@ import TokenResponse from '../common/TokenResponse'
 import VerifierResponse from '../common/VerifierResponse'
 
 import Timeout = NodeJS.Timeout
+import { toChecksumAddress } from 'ethereumjs-util'
 
 const VERSION = '2.0.1'
 
@@ -130,7 +131,7 @@ export class RelayServer extends EventEmitter {
     for (const verifier of verifiersToQuery) {
       const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
       const acceptedTokens = await tokenHandlerInstance.getAcceptedTokens()
-      res[verifier] = acceptedTokens
+      res[toChecksumAddress(verifier)] = acceptedTokens
     }
 
     return res

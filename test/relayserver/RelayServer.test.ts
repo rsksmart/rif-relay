@@ -667,22 +667,57 @@ contract('RelayServer', function (accounts) {
 
     it('should return no tokens for verifiers when none were allowed', async function () {
       await env.relayServer._initTrustedVerifiers([env.relayVerifier.address])
-      const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
-
+    
       let exp: TokenResponse = {}
       exp[env.relayVerifier.address] = []
+      const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
 
       assert.deepEqual(res, exp)
     })
 
-    it('should return one allowed token for one trusted verifier', async function () {
+    it('should return allowed tokens for one trusted verifier', async function () {
       await env.relayServer._initTrustedVerifiers([env.deployVerifier.address])
+      
+      // add token 1 to deploy verifier
       await env.deployVerifier.acceptToken(testToken1)
-      const res = await env.relayServer.tokenHandler(env.deployVerifier.address)
-
+  
       let exp: TokenResponse = {}
       exp[env.deployVerifier.address] = [testToken1]
+      let res = await env.relayServer.tokenHandler(env.deployVerifier.address)
 
+      assert.deepEqual(res, exp)
+
+      // add token 2 to deploy verifier
+      await env.deployVerifier.acceptToken(testToken2)
+
+      exp[env.deployVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+      
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return allowed tokens for all trusted verifiers', async function () {
+      await env.relayServer._initTrustedVerifiers([env.deployVerifier.address, env.relayVerifier.address])
+    
+      let exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1, testToken2]
+      exp[env.relayVerifier.address] = []
+      let res = await env.relayServer.tokenHandler()
+
+      assert.deepEqual(res, exp)
+
+      // add token 1 to relay verifier
+      await env.relayVerifier.acceptToken(testToken1)
+
+      exp[env.relayVerifier.address] = [testToken1]
+      res = await env.relayServer.tokenHandler()
+      assert.deepEqual(res, exp)
+
+      // add token 2 to relay verifier
+      await env.relayVerifier.acceptToken(testToken2)
+
+      exp[env.relayVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler()
       assert.deepEqual(res, exp)
     })
   })
