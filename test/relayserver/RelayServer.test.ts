@@ -22,6 +22,7 @@ import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
+import TokenResponse from '../../src/common/TokenResponse'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -641,6 +642,9 @@ contract('RelayServer', function (accounts) {
   })
 
   describe('acceptTokens', function () {
+    let testToken1 = String("0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f")
+    let testToken2 = String("0x85d55E6228C9a6bA73567926f0A0EB3e5f191803")
+
     afterEach(async function(){
       // reset verifiers for each test
       await env.relayServer._initTrustedVerifiers([]) 
@@ -659,6 +663,27 @@ contract('RelayServer', function (accounts) {
       }catch(error){
         assert.equal(error.message,"supplied verifier is not trusted")
       } 
+    })
+
+    it('should return no tokens for verifiers when none were allowed', async function () {
+      await env.relayServer._initTrustedVerifiers([env.relayVerifier.address])
+      const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
+
+      let exp: TokenResponse = {}
+      exp[env.relayVerifier.address] = []
+
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return one allowed token for one trusted verifier', async function () {
+      await env.relayServer._initTrustedVerifiers([env.deployVerifier.address])
+      await env.deployVerifier.acceptToken(testToken1)
+      const res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+
+      let exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1]
+
+      assert.deepEqual(res, exp)
     })
   })
 })

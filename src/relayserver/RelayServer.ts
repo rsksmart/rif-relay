@@ -126,7 +126,7 @@ export class RelayServer extends EventEmitter {
       verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
     }
 
-    const res: TokenResponse = {}
+    let res: TokenResponse = {}
     for (const verifier of verifiersToQuery) {
       const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
       const acceptedTokens = await tokenHandlerInstance.getAcceptedTokens()
