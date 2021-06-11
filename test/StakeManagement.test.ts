@@ -4,7 +4,7 @@ import { isRsk } from '../src/common/Environments'
 import { ethers } from 'hardhat'
 import { constants } from '../src/common/Constants'
 import { BigNumber } from 'ethers'
-import { RelayHub, RelayHub__factory } from '../typechain'
+import { Penalizer, Penalizer__factory, RelayHub, RelayHub__factory } from '../typechain'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 
 describe('StakeManagement', () => {
@@ -13,36 +13,31 @@ describe('StakeManagement', () => {
   let owner: string
   let nonOwner: string
   let relayManager: string
-  let penalizer: string
-  let worker: string
   const maxWorkerCount = 1
   const minimumEntryDepositValue = ethers.utils.parseEther('1')
   const minimumStake = ethers.utils.parseEther('1')
   const minimumUnstakeDelay = 1
   let RelayHubFactory: RelayHub__factory
+  let Penalizer: Penalizer__factory
   let relayHub: RelayHub
+  let penalizer: Penalizer
   let relayManagerSigner: SignerWithAddress
   let ownerSigner: SignerWithAddress
   let anyRelayHubSigner: SignerWithAddress
   let nonOwnerSigner: SignerWithAddress
-  let penalizerSigner: SignerWithAddress
-  let workerSigner: SignerWithAddress
 
   before(async () => {
     RelayHubFactory = await ethers.getContractFactory('RelayHub') as RelayHub__factory
+    Penalizer = await ethers.getContractFactory('Penalizer') as Penalizer__factory
     const signer = await ethers.getSigners()
     owner = await signer[0].getAddress()
     relayManagerSigner = signer[1]
     ownerSigner = signer[0]
     anyRelayHubSigner = signer[2]
     nonOwnerSigner = signer[3]
-    penalizerSigner = signer[4]
-    workerSigner = signer[4]
     relayManager = await relayManagerSigner.getAddress()
     nonOwner = await nonOwnerSigner.getAddress()
-    penalizer = await penalizerSigner.getAddress()
     owner = await ownerSigner.getAddress()
-    worker = await workerSigner.getAddress()
   })
 
   function testCanStakeWithRelayManager (): void {
@@ -96,6 +91,7 @@ describe('StakeManagement', () => {
 
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
+      penalizer = await Penalizer.deploy()
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
@@ -257,34 +253,10 @@ describe('StakeManagement', () => {
     })
   })
 
-  describe('with scheduled deauthorization of an authorized hub', function () {
+  describe('with unlock scheduled', function () {
     beforeEach(async function () {
-      relayHub = await RelayHubFactory.deploy(penalizer, maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
-      await relayHub.deployed()
-      await relayHub.connect(ownerSigner).stakeForAddress(relayManager, initialUnstakeDelay, {
-        value: initialStake
-      })
-      await relayHub.connect(relayManagerSigner).addRelayWorkers([worker])
-      await relayHub.connect(ownerSigner).unlockStake(relayManager)
-    })
-
-    describe('after grace period elapses', function () {
-      beforeEach(async function () {
-        await evmMineMany(initialUnstakeDelay.toNumber())
-      })
-
-      it('should not allow to penalize hub', async function () {
-        await expect(
-          relayHub.connect(penalizerSigner).penalize(worker, nonOwner)).to.revertedWith(
-          'RelayManager not staked'
-        )
-      })
-    })
-  })
-
-  describe('with scheduled unlock while hub still authorized', function () {
-    beforeEach(async function () {
+      penalizer = await Penalizer.deploy()
+      await penalizer.deployed()
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()

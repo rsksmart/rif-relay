@@ -1,20 +1,13 @@
 import chalk from 'chalk'
-import sigUtil from 'eth-sig-util'
+import sigUtil, { EIP712TypedData } from 'eth-sig-util'
 import { Address, PrefixedHexString } from '../relayclient/types/Aliases'
-import TypedRequestData from './EIP712/TypedRequestData'
 
 export function getLocalEip712Signature (
-  typedRequestData: TypedRequestData,
-  privateKey: Uint8Array,
-  jsonStringifyRequest = false): PrefixedHexString {
-  let dataToSign: TypedRequestData | string
-  if (jsonStringifyRequest) {
-    dataToSign = JSON.stringify(typedRequestData)
-  } else {
-    dataToSign = typedRequestData
-  }
+  typedRequestData: EIP712TypedData,
+  privateKey: Uint8Array
+): PrefixedHexString {
   // @ts-ignore
-  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
+  return sigUtil.signTypedData_v4(privateKey, { data: typedRequestData })
 }
 
 export function removeHexPrefix (hex: string): string {

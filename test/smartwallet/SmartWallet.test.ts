@@ -223,7 +223,6 @@ options.forEach(element => {
               request
             )
             const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
-            const sig: string = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x')).to.revertedWith('ECDSA: invalid signature length')
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x123456')).to.revertedWith('ECDSA: invalid signature length')

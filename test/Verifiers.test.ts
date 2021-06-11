@@ -151,6 +151,7 @@ describe('DeployVerifier', function () {
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
+    await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
@@ -310,7 +311,6 @@ describe('RelayVerifier', function () {
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await relayVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
     relayRequestData.relayData.callForwarder = other
     // run method
     await expect(
