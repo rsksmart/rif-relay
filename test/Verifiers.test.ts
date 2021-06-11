@@ -5,9 +5,11 @@ import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
 import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { TestDeployVerifier, TestDeployVerifier__factory, DeployVerifier, DeployVerifier__factory, RelayVerifier__factory, SmartWallet, SmartWalletFactory, SmartWallet__factory, TestRecipient__factory, TestToken, TestToken__factory, TestVerifiers__factory, RelayVerifier, TestVerifiers } from '../typechain'
+import { TestDeployVerifier, TestDeployVerifier__factory, DeployVerifier, DeployVerifier__factory, RelayVerifier__factory, SmartWallet, SmartWalletFactory, SmartWallet__factory, TestRecipient__factory, TestToken, TestToken__factory, RelayVerifier } from '../typechain'
 import { expect } from 'chai'
 import { BigNumber } from 'ethers'
+import { TestRelayVerifier__factory } from '../typechain/factories/TestRelayVerifier__factory'
+import { TestRelayVerifier } from '../typechain/TestRelayVerifier'
 
 const gasPrice = '10'
 const gasLimit = '1000000'
@@ -32,7 +34,7 @@ describe('DeployVerifier', function () {
   let template: SmartWallet
   let factory: SmartWalletFactory
 
-  let testVerifiers: TestDeployVerifier
+  let testDeployVerifier: TestDeployVerifier
   let expectedAddress: Address
 
   const ownerPrivateKey = bytes32(1)
@@ -63,10 +65,10 @@ describe('DeployVerifier', function () {
 
     deployVerifier = await DeployVerifier.connect(verifierOwnerSigner).deploy(factory.address)
     await deployVerifier.deployed()
-    testVerifiers = await TestDeployVerifier.deploy(deployVerifier.address)
-    await testVerifiers.deployed()
+    testDeployVerifier = await TestDeployVerifier.deploy(deployVerifier.address)
+    await testDeployVerifier.deployed()
 
-    // We simulate the testVerifiers contract is a relayHub to make sure
+    // We simulate the testDeployVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
     deployRequestData = {
       request: {
@@ -76,7 +78,6 @@ describe('DeployVerifier', function () {
         from: ownerAddress,
         nonce: senderNonce,
         value: '0',
-        gas: gasLimit,
         recoverer: recoverer,
         index: index,
         tokenContract: token.address,
@@ -99,8 +100,8 @@ describe('DeployVerifier', function () {
 
   it('Should not fail on checks of preRelayCall', async function () {
     await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
-    await expect(testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.emit(
-      testVerifiers, 'Accepted').withArgs(
+    await expect(testDeployVerifier.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.emit(
+      testDeployVerifier, 'Accepted').withArgs(
       tokensPaid,
       ownerAddress
     )
@@ -145,27 +146,25 @@ describe('DeployVerifier', function () {
     )
 
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
+      testDeployVerifier.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
       'Address already created!')
   })
 
   it('SHOULD fail on Balance Too Low of preRelayCall', async function () {
-    await deployVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
-
     // We change the initParams so the smart wallet address will be different
     // So there wont be any balance
     deployRequestData.request.data = '0x01'
     deployRequestData.request.tokenAmount = (tokensPaid + 100).toString()
 
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
+      testDeployVerifier.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
+      testDeployVerifier.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
       'Token contract not allowed'
     )
   })
@@ -176,10 +175,10 @@ describe('DeployVerifier', function () {
 
     // We simulate the testVerifiers contract is a relayHub to make sure
     // the onlyRelayHub condition is correct
-    testVerifiers = await TestDeployVerifier.deploy(deployVerifier.address)
+    testDeployVerifier = await TestDeployVerifier.deploy(deployVerifier.address)
 
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
+      testDeployVerifier.connect(relayHubSigner).verifyRelayedCall(deployRequestData, '0x00')).to.revertedWith(
       'Invalid factory'
     )
   })
@@ -193,7 +192,7 @@ describe('RelayVerifier', function () {
   let relayRequestData: RelayRequest
   let incorrectTokenRelayRequestData: RelayRequest
   let factory: SmartWalletFactory
-  let testVerifiers: TestVerifiers
+  let testRelayVerifier: TestRelayVerifier
   let relayHubSigner: SignerWithAddress
   let relayWorkerSigner: SignerWithAddress
   let otherSigner: SignerWithAddress
@@ -204,7 +203,7 @@ describe('RelayVerifier', function () {
   let SmartWallet: SmartWallet__factory
   let RelayVerifier: RelayVerifier__factory
   let TestToken: TestToken__factory
-  let TestVerifiers: TestVerifiers__factory
+  let TestRelayVerifier: TestRelayVerifier__factory
   let TestRecipient: TestRecipient__factory
 
   const senderPrivateKey = bytes32(1)
@@ -215,7 +214,7 @@ describe('RelayVerifier', function () {
     RelayVerifier = await ethers.getContractFactory('RelayVerifier') as RelayVerifier__factory
     TestToken = await ethers.getContractFactory('TestToken') as TestToken__factory
     TestRecipient = await ethers.getContractFactory('TestRecipient') as TestRecipient__factory
-    TestVerifiers = await ethers.getContractFactory('TestVerifiers') as TestVerifiers__factory
+    TestRelayVerifier = await ethers.getContractFactory('TestRelayVerifier') as TestRelayVerifier__factory
     [relayHubSigner, relayWorkerSigner, otherSigner, verifierOwnerSigner] = await ethers.getSigners()
     relayHub = await relayHubSigner.getAddress()
     relayWorker = await relayWorkerSigner.getAddress()
@@ -234,8 +233,8 @@ describe('RelayVerifier', function () {
 
     relayVerifier = await RelayVerifier.connect(verifierOwnerSigner).deploy(factory.address)
     await relayVerifier.deployed()
-    testVerifiers = await TestVerifiers.deploy(relayVerifier.address)
-    await testVerifiers.deployed()
+    testRelayVerifier = await TestRelayVerifier.deploy(relayVerifier.address)
+    await testRelayVerifier.deployed()
 
     sw = await createSmartWallet(relayHub, senderAddress, factory, ethers.utils.arrayify(senderPrivateKey), chainId)
     const smartWallet = sw.address
@@ -294,8 +293,8 @@ describe('RelayVerifier', function () {
   it('Should not fail on checks of preRelayCall', async function () {
     await relayVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
     // run method
-    await expect(await testVerifiers.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.emit(
-      testVerifiers, 'Accepted'
+    await expect(await testRelayVerifier.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.emit(
+      testRelayVerifier, 'Accepted'
     ).withArgs(
       tokensPaid,
       senderAddress
@@ -315,27 +314,26 @@ describe('RelayVerifier', function () {
     relayRequestData.relayData.callForwarder = other
     // run method
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.revertedWith(
+      testRelayVerifier.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.revertedWith(
       'balance too low'
     )
   })
 
   it('SHOULD fail on Token contract not allowed of preRelayCall', async function () {
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(incorrectTokenRelayRequestData, '0x00')).to.revertedWith(
+      testRelayVerifier.connect(relayHubSigner).verifyRelayedCall(incorrectTokenRelayRequestData, '0x00')).to.revertedWith(
       'Token contract not allowed'
     )
   })
 
   it('SHOULD fail on SW different to template of preRelayCall', async function () {
-    await relayVerifier.connect(verifierOwnerSigner).acceptToken(token.address)
     // Forwarder needs to be a contract with balance
     // But a different than the template needed
     relayRequestData.relayData.callForwarder = token.address
     await token.mint(tokensPaid + 4, token.address)
     // run method
     await expect(
-      testVerifiers.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.revertedWith(
+      testRelayVerifier.connect(relayHubSigner).verifyRelayedCall(relayRequestData, '0x00')).to.revertedWith(
       'SW different to template'
     )
   })
