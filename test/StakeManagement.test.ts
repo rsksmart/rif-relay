@@ -13,8 +13,9 @@ describe('StakeManagement', () => {
   let owner: string
   let nonOwner: string
   let relayManager: string
+  let penalizer: string
+  let worker: string
   const maxWorkerCount = 1
-  const gasOverhead = 1000
   const minimumEntryDepositValue = ethers.utils.parseEther('1')
   const minimumStake = ethers.utils.parseEther('1')
   const minimumUnstakeDelay = 1
@@ -24,6 +25,8 @@ describe('StakeManagement', () => {
   let ownerSigner: SignerWithAddress
   let anyRelayHubSigner: SignerWithAddress
   let nonOwnerSigner: SignerWithAddress
+  let penalizerSigner: SignerWithAddress
+  let workerSigner: SignerWithAddress
 
   before(async () => {
     RelayHubFactory = await ethers.getContractFactory('RelayHub') as RelayHub__factory
@@ -33,8 +36,13 @@ describe('StakeManagement', () => {
     ownerSigner = signer[0]
     anyRelayHubSigner = signer[2]
     nonOwnerSigner = signer[3]
+    penalizerSigner = signer[4]
+    workerSigner = signer[4]
     relayManager = await relayManagerSigner.getAddress()
     nonOwner = await nonOwnerSigner.getAddress()
+    penalizer = await penalizerSigner.getAddress()
+    owner = await ownerSigner.getAddress()
+    worker = await workerSigner.getAddress()
   })
 
   function testCanStakeWithRelayManager (): void {
@@ -89,7 +97,7 @@ describe('StakeManagement', () => {
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
     })
 
@@ -117,7 +125,7 @@ describe('StakeManagement', () => {
   describe('with stake deposited for relay server', function () {
     beforeEach(async function () {
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
       await relayHub.connect(ownerSigner).stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake
@@ -127,7 +135,7 @@ describe('StakeManagement', () => {
     it('should not allow to penalize hub', async function () {
       await expect(
         relayHub.connect(anyRelayHubSigner).penalize(relayManager, nonOwner)).to.be.revertedWith(
-        'VM Exception while processing transaction: revert Not penalizer'
+        'Not penalizer'
       )
     })
 
@@ -209,7 +217,7 @@ describe('StakeManagement', () => {
   describe('with authorized hub', function () {
     beforeEach(async function () {
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
@@ -251,12 +259,14 @@ describe('StakeManagement', () => {
 
   describe('with scheduled deauthorization of an authorized hub', function () {
     beforeEach(async function () {
-      relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+      relayHub = await RelayHubFactory.deploy(penalizer, maxWorkerCount,
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
       await relayHub.connect(ownerSigner).stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake
       })
+      await relayHub.connect(relayManagerSigner).addRelayWorkers([worker])
+      await relayHub.connect(ownerSigner).unlockStake(relayManager)
     })
 
     describe('after grace period elapses', function () {
@@ -266,8 +276,8 @@ describe('StakeManagement', () => {
 
       it('should not allow to penalize hub', async function () {
         await expect(
-          relayHub.connect(anyRelayHubSigner).penalize(relayManager, nonOwner)).to.revertedWith(
-          'VM Exception while processing transaction: revert Not penalizer'
+          relayHub.connect(penalizerSigner).penalize(worker, nonOwner)).to.revertedWith(
+          'RelayManager not staked'
         )
       })
     })
@@ -276,11 +286,10 @@ describe('StakeManagement', () => {
   describe('with scheduled unlock while hub still authorized', function () {
     beforeEach(async function () {
       relayHub = await RelayHubFactory.deploy(constants.ZERO_ADDRESS, maxWorkerCount,
-        gasOverhead, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       await relayHub.deployed()
-      await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
-        value: initialStake,
-        from: owner
+      await relayHub.connect(ownerSigner).stakeForAddress(relayManager, initialUnstakeDelay, {
+        value: initialStake
       })
       await relayHub.connect(ownerSigner).unlockStake(relayManager)
     })
@@ -290,7 +299,7 @@ describe('StakeManagement', () => {
     it('should not allow owner to schedule unlock again', async function () {
       await expect(
         relayHub.connect(ownerSigner).unlockStake(relayManager)).to.revertedWith(
-        'revert already pending'
+        'already pending'
       )
     })
 
