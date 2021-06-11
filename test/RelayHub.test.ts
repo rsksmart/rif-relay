@@ -24,7 +24,7 @@ import {
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory } from './TestUtils'
+import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, evmMineMany } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
@@ -46,7 +46,7 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(walletFactoryAbi)
 abiDecoder.addABI(relayHubAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock]) {
   let chainId: number
   let relayHub: string
   let penalizer: PenalizerInstance
@@ -69,10 +69,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
   describe('add/disable relay workers', function () {
     beforeEach(async function () {
+      penalizer = await Penalizer.new()
       env = await getTestingEnvironment()
       chainId = env.chainId
-
-      penalizer = await Penalizer.new()
       relayHubInstance = await deployHub(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
@@ -1241,26 +1240,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }),
             'Not a right worker')
         })
-
-        describe('recipient balance withdrawal ban', function () {
-          let misbehavingVerifier: TestVerifierConfigurableMisbehaviorInstance
-          let relayRequestMisbehavingVerifier: RelayRequest
-          beforeEach(async function () {
-            misbehavingVerifier = await TestVerifierConfigurableMisbehavior.new()
-
-            relayRequestMisbehavingVerifier = cloneRelayRequest(relayRequest)
-            relayRequestMisbehavingVerifier.relayData.callVerifier = misbehavingVerifier.address
-            const dataToSign = new TypedRequestData(
-              chainId,
-              forwarder,
-              relayRequestMisbehavingVerifier
-            )
-            signature = getLocalEip712Signature(
-              dataToSign,
-              gaslessAccount.privateKey
-            )
-          })
-        })
       })
     })
   })
@@ -1386,7 +1365,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           }),
           'RelayManager not staked')
       })
-      it('should not accept a deploy call with a disable', async function () {
+      it('should not accept a deploy call with a disabled relay worker', async function () {
         await relayHubInstance.disableRelayWorkers([relayWorker], { from: relayManager })
         await expectRevert(
           relayHubInstance.deployCall(deployRequest, signature, {
@@ -1584,6 +1563,193 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
             }),
             'Not a right worker')
         })
+      })
+    })
+  })
+
+  describe('penalize', function () {
+    const gas = 4e6
+
+    beforeEach(async function () {
+      relayHubInstance = await deployHub(penalizerMock)
+    })
+
+    context('with unknown worker', function () {
+      beforeEach(async function () {
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
+          value: ether('1'),
+          from: relayOwner
+        })
+        await relayHubInstance.addRelayWorkers([relayWorker], {
+          from: relayManager
+        })
+      })
+
+      it('should not penalize when an unknown worker is specified', async function () {
+        try {
+          await relayHubInstance.penalize(unknownWorker, beneficiary, {
+            from: penalizerMock,
+            gas
+          })
+        } catch (error) {
+          const err: string = error instanceof Error ? error.message : JSON.stringify(error)
+          assert.isTrue(err.includes('Unknown relay worker'))
+        }
+      })
+    })
+
+    context('with manager stake unlocked', function () {
+      beforeEach(async function () {
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
+          value: ether('1'),
+          from: relayOwner
+        })
+        await relayHubInstance.addRelayWorkers([relayWorker], {
+          from: relayManager
+        })
+        await relayHubInstance.unlockStake(relayManager, { from: relayOwner })
+      })
+
+      it('should not penalize when an unknown penalizer is specified', async function () {
+        await expectRevert(relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: relayOwner,
+          gas
+        }), 'Not penalizer')
+      })
+
+      it('should penalize when the stake is unlocked', async function () {
+        let stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0
+        assert.isTrue(isUnlocked, 'Stake is not unlocked')
+
+        const stakeBalanceBefore = toBN(stakeInfo.stake)
+        const beneficiaryBalanceBefore = toBN(await web3.eth.getBalance(beneficiary))
+        const toBurn = stakeBalanceBefore.div(toBN(2))
+        const reward = stakeBalanceBefore.sub(toBurn)
+
+        await relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: penalizerMock,
+          gas
+        })
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeBalanceAfter = toBN(stakeInfo.stake)
+        const beneficiaryBalanceAfter = toBN(await web3.eth.getBalance(beneficiary))
+
+        assert.isTrue(stakeBalanceAfter.eq(toBN(0)), 'Stake after penalization must be zero')
+        assert.isTrue(beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)), 'Beneficiary did not receive half the stake')
+      })
+
+      it('should revert if stake is already zero', async function () {
+        let stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0
+        assert.isTrue(isUnlocked, 'Stake is not unlocked')
+
+        await evmMineMany(Number(stakeInfo.unstakeDelay))
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeBalanceBefore = toBN(stakeInfo.stake)
+
+        const relayOwnerBalanceBefore = toBN(await web3.eth.getBalance(relayOwner))
+        const gasPrice = toBN('60000000')
+        const txResponse = await relayHubInstance.withdrawStake(relayManager, { from: relayOwner, gasPrice })
+
+        const rbtcUsed = toBN((await web3.eth.getTransactionReceipt(txResponse.tx)).cumulativeGasUsed).mul(gasPrice)
+
+        const relayOwnerBalanceAfter = toBN(await web3.eth.getBalance(relayOwner))
+
+        assert.isTrue(relayOwnerBalanceAfter.eq(relayOwnerBalanceBefore.sub(rbtcUsed).add(stakeBalanceBefore)), 'Withdraw process failed')
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeAfterWithdraw = toBN(stakeInfo.stake)
+
+        assert.isTrue(stakeAfterWithdraw.isZero(), 'Stake must be zero')
+
+        const beneficiaryBalanceBefore = toBN(await web3.eth.getBalance(beneficiary))
+
+        try {
+          await relayHubInstance.penalize(relayWorker, beneficiary, {
+            from: penalizerMock,
+            gas
+          })
+        } catch (error) {
+          const err: string = error instanceof Error ? error.message : JSON.stringify(error)
+          assert.isTrue(err.includes('Unstaked relay manager'))
+        }
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeBalanceAfter = toBN(stakeInfo.stake)
+        const beneficiaryBalanceAfter = toBN(await web3.eth.getBalance(beneficiary))
+
+        assert.isTrue(stakeBalanceAfter.isZero(), 'Stake after penalization must still be zero')
+        assert.isTrue(beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore), 'Beneficiary balance must remain unchanged')
+      })
+    })
+
+    context('with staked and registered relay', function () {
+      const url = 'http://relay.com'
+
+      beforeEach(async function () {
+        await relayHubInstance.stakeForAddress(relayManager, 1000, {
+          value: ether('2'),
+          from: relayOwner
+        })
+        await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
+        await relayHubInstance.registerRelayServer(url, { from: relayManager })
+      })
+
+      it('should not penalize when an unknown penalizer is specified', async function () {
+        await expectRevert(relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: relayOwner,
+          gas
+        }), 'Not penalizer')
+      })
+
+      it('should penalize', async function () {
+        let stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+
+        const stakeBalanceBefore = toBN(stakeInfo.stake)
+        const beneficiaryBalanceBefore = toBN(await web3.eth.getBalance(beneficiary))
+        const toBurn = stakeBalanceBefore.div(toBN(2))
+        const reward = stakeBalanceBefore.sub(toBurn)
+
+        await relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: penalizerMock,
+          gas
+        })
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeBalanceAfter = toBN(stakeInfo.stake)
+        const beneficiaryBalanceAfter = toBN(await web3.eth.getBalance(beneficiary))
+
+        assert.isTrue(stakeBalanceAfter.eq(toBN(0)), 'Stake after penalization must be zero')
+        assert.isTrue(beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)), 'Beneficiary did not receive half the stake')
+      })
+
+      it('should revert if trying to penalize twice', async function () {
+        let stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+
+        const stakeBalanceBefore = toBN(stakeInfo.stake)
+        const beneficiaryBalanceBefore = toBN(await web3.eth.getBalance(beneficiary))
+        const toBurn = stakeBalanceBefore.div(toBN(2))
+        const reward = stakeBalanceBefore.sub(toBurn)
+
+        await relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: penalizerMock,
+          gas
+        })
+
+        stakeInfo = await relayHubInstance.getStakeInfo(relayManager)
+        const stakeBalanceAfter = toBN(stakeInfo.stake)
+        const beneficiaryBalanceAfter = toBN(await web3.eth.getBalance(beneficiary))
+
+        assert.isTrue(stakeBalanceAfter.eq(toBN(0)), 'Stake after penalization must be zero')
+        assert.isTrue(beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)), 'Beneficiary did not receive half the stake')
+
+        await expectRevert(relayHubInstance.penalize(relayWorker, beneficiary, {
+          from: penalizerMock,
+          gas
+        }), 'Unstaked relay manager')
       })
     })
   })

@@ -190,7 +190,6 @@ contract('RelayProvider', function (accounts) {
         })
       } catch (error) {
         const err: string = error instanceof Error ? error.message : JSON.stringify(error)
-        console.log(err)
         assert.isTrue(err.includes('local view call reverted: view call to \'relayCall\' reverted in client: Returned error: VM Exception while processing transaction: revert Not enough gas left'))
       }
     })
