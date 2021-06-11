@@ -216,7 +216,6 @@ options.forEach(element => {
 
             await expect(sw.verify(domainSeparatorHash, suffixData, req.request, sig)).to.revertedWith('nonce mismatch')
           })
-          //  TODO: Check revert message
           it('should fail on invalid signature', async () => {
             const dataToSign = new TypedRequestData(
               chainId,
@@ -229,9 +228,6 @@ options.forEach(element => {
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x')).to.revertedWith('ECDSA: invalid signature length')
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x123456')).to.revertedWith('ECDSA: invalid signature length')
             await expect(sw.verify(domainSeparatorHash, suffixData, request.request, '0x' + '1b'.repeat(65))).to.revertedWith('signature mismatch')
-            const newSig = sig.replace('a', 'b').replace('1', '2').replace('3', '4').replace('5', '6').replace('7', '8')
-            await expect(sw.verify(domainSeparatorHash, suffixData, request.request, newSig)).to.reverted
-            //  With('invalid signature')
           })
         })
         describe('#verify success', () => {
@@ -433,7 +429,7 @@ options.forEach(element => {
             const encoded = TypedDataUtils.encodeData(reqData.primaryType, reqData.message, reqData.types)
             const suffixData = ethers.utils.hexlify(encoded.slice((1 + countParams) * 32))
 
-            await testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { value })
+            await testfwd.connect(workerSigner).callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { value: '0' })
             const event = testfwd.filters.Result(null, null)
             const eventEmitted = await testfwd.queryFilter(event)
             expect(eventEmitted[0].args.success).to.be.false
@@ -685,14 +681,14 @@ options.forEach(element => {
             template = await SmartWallet.deploy()
             await template.deployed()
             factory = await createSmartWalletFactory(template)
-            sw = await createSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0', '400000', '0', recovererAccount)
+            sw = await createSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0', '0', recovererAccount)
           } else {
             const CustomSmartWallet = await ethers.getContractFactory('CustomSmartWallet') as CustomSmartWallet__factory
             template = await CustomSmartWallet.deploy()
             await template.deployed()
             factory = await createCustomSmartWalletFactory(template)
             sw = await createCustomSmartWallet(defaultAccount, otherAccount, factory, otherAccountPrivateKey, chainId, constants.ZERO_ADDRESS, '0x',
-              constants.ZERO_ADDRESS, '0', '400000', '0', recovererAccount)
+              constants.ZERO_ADDRESS, '0', '0', recovererAccount)
           }
 
           await fillTokens(tokenToUse.tokenIndex, token, sw.address, tokenToSend.toString())
@@ -805,7 +801,6 @@ options.forEach(element => {
           expect(recovererBalanceAfter).to.be.equal(recovererBalanceBefore, 'Recoverer balance must be be the same')
         })
 
-        // TODO: check revert message.
         it('should recover wallet RBTC funds even if destination contract call fails', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
           const balanceBefore = await ethers.provider.getBalance(sw.address)
@@ -869,10 +864,8 @@ options.forEach(element => {
             const maxGasLimit = 100000
             if (element.simple) {
               await expect((sw as SmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              // With('Invalid recoverer')
             } else {
               await expect((sw as CustomSmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              // With('Invalid recoverer')
             }
 
             const balanceLost = BigNumber.from(maxGasLimit).mul(gasPrice)
@@ -890,7 +883,6 @@ options.forEach(element => {
             expect(recovererBalanceAfter).to.be.equal(recovererBalanceBefore.sub(balanceLost), 'Recoverer balance must be less due to the lost gas')
           }
         })
-        //  TODO: Check revert message
         it('should recover wallet RBTC funds even if destination contract call fails - 2', async () => {
           const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
           const balanceBefore = await ethers.provider.getBalance(sw.address)
@@ -953,10 +945,8 @@ options.forEach(element => {
             const maxGasLimit = 100000
             if (element.simple) {
               await expect((sw as SmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              //  With('Invalid recoverer')
             } else {
               await expect((sw as CustomSmartWallet).connect(recovererAccountSigner).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { gasPrice, gasLimit: maxGasLimit })).to.reverted
-              //  With('Invalid recoverer')
             }
 
             const balanceLost = BigNumber.from(maxGasLimit).mul(gasPrice)
