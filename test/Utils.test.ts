@@ -7,7 +7,7 @@ import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/T
 import { createSmartWalletFactory, createSmartWallet, encodeRevertReason } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { getLocalEip712Signature } from '../src/common/Utils'
+import { estimateMaxPossibleRelayCallWithLinearFit, getLocalEip712Signature } from '../src/common/Utils'
 import { ethers } from 'hardhat'
 import { Signer } from 'ethers'
 import { SmartWallet, SmartWalletFactory, SmartWallet__factory, TestRecipient, TestRecipient__factory, TestUtil, TestUtil__factory } from '../typechain'
@@ -126,6 +126,20 @@ describe('#getLocalEip712Signature()', function () {
       expect(senderAddress.toLowerCase()).to.be.equals(recoveredAccount.toLowerCase())
       const expectedReturnValue = encodeRevertReason('always fail')
       await expect(testUtil.callForwarderVerifyAndCall(relayRequest, sig)).to.emit(testUtil, 'Called').withArgs(false, expectedReturnValue)
+    })
+
+    it('should correctly calculate the linear estimation', async function () {
+      const gas = 40000
+      const tokenGas = 18000
+
+      const expectedRelayGasNoToken = 127771
+      const expectedRelayGasWithToken = 136993
+
+      const gasNoToken = estimateMaxPossibleRelayCallWithLinearFit(gas, 0)
+      const gasToken = estimateMaxPossibleRelayCallWithLinearFit(gas, tokenGas)
+
+      expect(expectedRelayGasNoToken).to.be.equal(gasNoToken, 'Estimation with no tokenGas differs')
+      expect(expectedRelayGasWithToken).to.be.equal(gasToken, 'Estimation with tokenGas differs')
     })
 
     it('should call target', async function () {
