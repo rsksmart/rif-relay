@@ -379,7 +379,7 @@ export default class ContractInteractor {
   }
 
   async estimateRelayTransactionMaxPossibleGas (relayRequest: RelayRequest, signature: PrefixedHexString): Promise<number> {
-    const maxPossibleGas = await web3.eth.estimateGas({
+    const maxPossibleGas = await this.estimateGas({
       from: relayRequest.relayData.relayWorker,
       to: relayRequest.request.relayHub,
       data: this.relayHubInstance.contract.methods.relayCall(relayRequest, signature).encodeABI(),
