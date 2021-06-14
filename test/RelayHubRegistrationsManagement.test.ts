@@ -19,14 +19,12 @@ describe('RelayHub Relay Management', function () {
   let relayWorker3: string
   const relayUrl = 'http://new-relay.com'
   const maxWorkerCount = 3
-  const gasOverhead = 1000
   const minimumEntryDepositValue = ethers.utils.parseEther('1').toString()
   const minimumStake = ethers.utils.parseEther('1').toString()
   const minimumUnstakeDelay = 50
 
   const hubConfig: Partial<RelayHubConfiguration> = {
     maxWorkerCount,
-    gasOverhead,
     minimumEntryDepositValue,
     minimumStake,
     minimumUnstakeDelay
