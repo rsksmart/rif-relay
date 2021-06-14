@@ -5,7 +5,7 @@ import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
 // @ts-ignore
 import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { Environment } from '../src/common/Environments'
-import TypedRequestData, { DeployRequestDataType, ForwardRequestType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
 import { constants } from '../src/common/Constants'
 import { DeployRequest } from '../src/common/EIP712/RelayRequest'
 import { CustomSmartWallet, CustomSmartWalletFactory, CustomSmartWalletFactory__factory, CustomSmartWallet__factory, SmartWallet, SmartWalletFactory, SmartWalletFactory__factory, SmartWallet__factory, TestToken, TestToken__factory } from '../typechain'
@@ -33,12 +33,11 @@ describe('CustomSmartWalletFactory', () => {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: '400000',
       nonce: '0',
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '1',
-      tokenGas: '50000',
+      tokenAmount: '0',
+      tokenGas: '60000',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -201,7 +200,7 @@ describe('CustomSmartWalletFactory', () => {
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
       await expect(factory.createUserSmartWallet(ownerAddress, recoverer, logicAddress,
-        index, initParams, signatureCollapsed)).to.be.reverted
+        index, initParams, signatureCollapsed)).to.be.revertedWith('invalid signature')
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -307,7 +306,7 @@ describe('CustomSmartWalletFactory', () => {
 
       // Trying to manually call the initialize function again (it was called during deploy)
       const signer = await ethers.getSigner(trx.from)
-      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('already initialized')
       // await expectRevert.unspecified(web3.eth.sendTransaction(newTrx), 'Already initialized')
 
       newTrx.data = isInitializedFunc
@@ -468,7 +467,7 @@ describe('CustomSmartWalletFactory', () => {
 
       const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.reverted
+      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.revertedWith('signature mismatch')
 
       const newBalance = await token.balanceOf(expectedAddress)
       expect(originalBalance).to.be.equal(newBalance)
@@ -598,7 +597,7 @@ describe('CustomSmartWalletFactory', () => {
 
       // Trying to manually call the initialize function again (it was called during deploy)
       const signer = await ethers.getSigner(trx.from)
-      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('already initialized')
 
       newTrx.data = isInitializedFunc
       result = await ethers.provider.call(newTrx)
@@ -629,7 +628,6 @@ describe('SmartWalletFactory', () => {
       from: constants.ZERO_ADDRESS,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: '400000',
       nonce: '0',
       data: '0x',
       tokenContract: constants.ZERO_ADDRESS,
@@ -779,7 +777,7 @@ describe('SmartWalletFactory', () => {
       signatureCollapsed = signatureCollapsed.substr(0, signatureCollapsed.length - 1).concat('0')
 
       await expect(factory.createUserSmartWallet(ownerAddress, recoverer,
-        index, signatureCollapsed)).to.be.reverted
+        index, signatureCollapsed)).to.be.revertedWith('invalid signature')
     })
 
     it('should not initialize if a second initialize() call to the Smart Wallet is attempted', async () => {
@@ -868,7 +866,7 @@ describe('SmartWalletFactory', () => {
 
       // Trying to manually call the initialize function again (it was called during deploy)
       const signer = await ethers.getSigner(trx.from)
-      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('revert already initialized')
+      await expect(signer.sendTransaction(newTrx)).to.be.revertedWith('already initialized')
 
       newTrx.data = isInitializedFunc
       result = await ethers.provider.call(newTrx)
@@ -987,7 +985,7 @@ describe('SmartWalletFactory', () => {
 
       const originalBalance = await token.balanceOf(expectedAddress)
 
-      const req = {
+      const req: DeployRequest = {
         request: {
           ...request.request,
           tokenContract: token.address,
@@ -998,7 +996,7 @@ describe('SmartWalletFactory', () => {
         }
       }
 
-      const dataToSign = new TypedRequestData(
+      const dataToSign = new TypedDeployRequestData(
         env.chainId,
         factory.address,
         req
@@ -1008,9 +1006,9 @@ describe('SmartWalletFactory', () => {
 
       req.request.tokenAmount = '8' // change data after signature
 
-      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
+      const suffixData = ethers.utils.hexlify(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + DeployRequestDataType.length) * 32))
 
-      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.reverted
+      await expect(factory.relayedUserSmartWalletCreation(req.request, getDomainSeparatorHash(factory.address, env.chainId), suffixData, sig)).to.be.revertedWith('signature mismatch')
 
       const newBalance = await token.balanceOf(expectedAddress)
       expect(originalBalance).to.be.equal(newBalance)
