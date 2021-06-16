@@ -1,5 +1,5 @@
 import log from 'loglevel'
-import { HttpProvider } from 'web3-core'
+import { HttpProvider, TransactionReceipt } from 'web3-core'
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import { constants } from '../common/Constants'
@@ -641,6 +641,10 @@ export class RelayClient {
     }
 
     return params
+  }
+
+  async getTransactionReceipt(transactionHash: PrefixedHexString): Promise<TransactionReceipt> {
+    return this.contractInteractor.getTransactionReceipt(transactionHash); 
   }
 }
 

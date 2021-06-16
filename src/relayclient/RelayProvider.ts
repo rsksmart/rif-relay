@@ -304,7 +304,7 @@ export class RelayProvider implements HttpProvider {
         if (relayingResult.transaction !== undefined && relayingResult.transaction !== null) {
           const txHash = '0x' + relayingResult.transaction.hash(true).toString('hex')
 
-          web3.eth.getTransactionReceipt(txHash).then((receipt) => {
+          this.relayClient.getTransactionReceipt(txHash).then((receipt) => {
             const relayStatus = this._getRelayStatus(receipt)
 
             if (relayingResult.transaction === undefined || relayingResult.transaction === null) {

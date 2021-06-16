@@ -22,7 +22,7 @@ import forwarderAbi from './interfaces/IForwarder.json'
 import smartWalletFactoryAbi from './interfaces/IWalletFactory.json'
 import tokenHandlerAbi from './interfaces/ITokenHandler.json'
 
-import { event2topic } from './Utils'
+import { event2topic, sleep } from './Utils'
 import { constants } from './Constants'
 import replaceErrors from './ErrorReplacerJSON'
 import VersionsManager from './VersionsManager'
@@ -68,6 +68,9 @@ export const StakeAdded: EventName = 'StakeAdded'
 export const StakeUnlocked: EventName = 'StakeUnlocked'
 export const StakeWithdrawn: EventName = 'StakeWithdrawn'
 export const StakePenalized: EventName = 'StakePenalized'
+
+export const WAIT_FOR_RECEIPT_RETRIES = 5;
+export const WAIT_FOR_RECEIPT_INITIAL_BACKOFF = 1000;
 
 export type Web3Provider =
   | HttpProvider
@@ -631,6 +634,19 @@ export default class ContractInteractor {
       })
     })
   }
+  
+    async getTransactionReceipt(transactionHash: PrefixedHexString, 
+        retries: number = WAIT_FOR_RECEIPT_RETRIES, 
+        initialBackoff: number = WAIT_FOR_RECEIPT_INITIAL_BACKOFF ): Promise<TransactionReceipt> {
+    for (let tryCount = 0, backoff = initialBackoff; tryCount < retries; tryCount++, backoff *= 2) {
+      const receipt = await this.web3.eth.getTransactionReceipt(transactionHash);
+      if (receipt) {
+        return receipt;
+      }
+      await sleep(backoff);
+    }
+    throw new Error(`No receipt found for this transaction ${transactionHash}`);
+  }
 }
 
 /**
@@ -653,4 +669,5 @@ export function getRawTxOptions (chainId: number, networkId: number, chain?: str
         networkId
       }, 'istanbul')
   }
+  
 }
