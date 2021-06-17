@@ -643,8 +643,8 @@ export class RelayClient {
     return params
   }
 
-  async getTransactionReceipt(transactionHash: PrefixedHexString): Promise<TransactionReceipt> {
-    return this.contractInteractor.getTransactionReceipt(transactionHash); 
+  async getTransactionReceipt (transactionHash: PrefixedHexString): Promise<TransactionReceipt> {
+    return await this.contractInteractor.getTransactionReceipt(transactionHash)
   }
 }
 
