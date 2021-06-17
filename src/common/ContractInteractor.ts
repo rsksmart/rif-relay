@@ -20,6 +20,7 @@ import deployVerifierAbi from './interfaces/IDeployVerifier.json'
 import relayHubAbi from './interfaces/IRelayHub.json'
 import forwarderAbi from './interfaces/IForwarder.json'
 import smartWalletFactoryAbi from './interfaces/IWalletFactory.json'
+import tokenHandlerAbi from './interfaces/ITokenHandler.json'
 
 import { event2topic } from './Utils'
 import { constants } from './Constants'
@@ -30,14 +31,16 @@ import {
   IRelayVerifierInstance,
   IRelayHubInstance,
   IDeployVerifierInstance,
-  IWalletFactoryInstance
+  IWalletFactoryInstance,
+  ITokenHandlerInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
 import { EnvelopingConfig } from '../relayclient/Configurator'
 import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
-import { toBN } from 'web3-utils'
+import { toBN, toHex } from 'web3-utils'
 import BN from 'bn.js'
+import { DeployTransactionRequest, RelayTransactionRequest } from '../relayclient/types/RelayTransactionRequest'
 
 // Truffle Contract typings seem to be completely out of their minds
 import TruffleContract = require('@truffle/contract')
@@ -46,6 +49,13 @@ import Contract = Truffle.Contract
 require('source-map-support').install({ errorFormatterForce: true })
 
 type EventName = string
+
+export interface EstimateGasParams {
+  from: Address
+  to: Address
+  data: PrefixedHexString
+  gasPrice?: PrefixedHexString
+}
 
 export const RelayServerRegistered: EventName = 'RelayServerRegistered'
 export const RelayWorkersAdded: EventName = 'RelayWorkersAdded'
@@ -69,6 +79,7 @@ export default class ContractInteractor {
 
   private readonly IRelayVerifierContract: Contract<IRelayVerifierInstance>
   private readonly IDeployVerifierContract: Contract<IDeployVerifierInstance>
+  private readonly ITokenHandlerContract: Contract<ITokenHandlerInstance>
 
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
@@ -120,11 +131,17 @@ export default class ContractInteractor {
       contractName: 'IWalletFactory',
       abi: smartWalletFactoryAbi
     })
+    // @ts-ignore
+    this.ITokenHandlerContract = TruffleContract({
+      contractName: 'ITokenHandler',
+      abi: tokenHandlerAbi
+    })
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IRelayVerifierContract.setProvider(this.provider, undefined)
     this.IDeployVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IWalletFactoryContract.setProvider(this.provider, undefined)
+    this.ITokenHandlerContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -197,6 +214,10 @@ export default class ContractInteractor {
     return await this.IDeployVerifierContract.at(address)
   }
 
+  async createTokenHandler (address: Address): Promise<ITokenHandlerInstance> {
+    return await this.ITokenHandlerContract.at(address)
+  }
+
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {
     return await this.IRelayHubContract.at(address)
   }
@@ -228,9 +249,18 @@ export default class ContractInteractor {
 
   async validateAcceptRelayCall (
     relayRequest: RelayRequest,
-    signature: PrefixedHexString): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
+    signature: PrefixedHexString): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean, revertedInDestination: boolean }> {
     const relayHub = this.relayHubInstance
-    const externalGasLimit = await this.getMaxViewableGasLimit(relayRequest)
+    const externalGasLimit: number = await this.getMaxViewableRelayGasLimit(relayRequest, signature)
+    if (externalGasLimit === 0) {
+      // The relayWorker does not have enough balance for this transaction
+      return {
+        verifierAccepted: false,
+        reverted: false,
+        returnValue: `relayWorker ${relayRequest.relayData.relayWorker} does not have enough balance to cover the maximum possible gas for this transaction`,
+        revertedInDestination: false
+      }
+    }
 
     // First call the verifier
     try {
@@ -242,7 +272,8 @@ export default class ContractInteractor {
       return {
         verifierAccepted: false,
         reverted: false,
-        returnValue: `view call to 'relayCall' reverted in verifier: ${message}`
+        returnValue: `view call to 'relayCall' reverted in verifier: ${message}`,
+        revertedInDestination: false
       }
     }
 
@@ -255,34 +286,45 @@ export default class ContractInteractor {
         .call({
           from: relayRequest.relayData.relayWorker,
           gasPrice: relayRequest.relayData.gasPrice,
-          gas: externalGasLimit
+          gas: toHex(externalGasLimit)
         })
 
+      // res is destinationCallSuccess
       return {
         verifierAccepted: true,
         reverted: false,
-        returnValue: res.returnValue
+        returnValue: '',
+        revertedInDestination: !(res as boolean)
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
         verifierAccepted: true,
         reverted: true,
-        returnValue: `view call to 'relayCall' reverted in client: ${message}`
+        returnValue: `view call to 'relayCall' reverted in client: ${message}`,
+        revertedInDestination: false
       }
     }
   }
 
   async validateAcceptDeployCall (
-    relayRequest: DeployRequest,
-    signature: PrefixedHexString): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
+    request: DeployTransactionRequest): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean }> {
     const relayHub = this.relayHubInstance
-    const externalGasLimit = await this.getMaxViewableGasLimit(relayRequest)
+    const externalGasLimit = await this.getMaxViewableDeployGasLimit(request)
+
+    if (externalGasLimit.eq(toBN(0))) {
+      // The relayWorker does not have enough balance for this transaction
+      return {
+        verifierAccepted: false,
+        reverted: false,
+        returnValue: `relayWorker ${request.relayRequest.relayData.relayWorker} does not have enough balance to cover the maximum possible gas for this transaction`
+      }
+    }
 
     // First call the verifier
     try {
-      await this.deployVerifierInstance.contract.methods.verifyRelayedCall(relayRequest, signature).call({
-        from: relayRequest.relayData.relayWorker
+      await this.deployVerifierInstance.contract.methods.verifyRelayedCall(request.relayRequest, request.metadata.signature).call({
+        from: request.relayRequest.relayData.relayWorker
       })
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
@@ -296,12 +338,12 @@ export default class ContractInteractor {
     // If the verified passed, try relaying the transaction (in local view call)
     try {
       const res = await relayHub.contract.methods.deployCall(
-        relayRequest,
-        signature
+        request.relayRequest,
+        request.metadata.signature
       )
         .call({
-          from: relayRequest.relayData.relayWorker,
-          gasPrice: relayRequest.relayData.gasPrice,
+          from: request.relayRequest.relayData.relayWorker,
+          gasPrice: request.relayRequest.relayData.gasPrice,
           gas: externalGasLimit
         })
 
@@ -320,11 +362,90 @@ export default class ContractInteractor {
     }
   }
 
-  async getMaxViewableGasLimit (relayRequest: RelayRequest | DeployRequest): Promise<BN> {
-    const blockGasLimit = await this._getBlockGasLimit()
-    const blockGasWorthOfEther = toBN(relayRequest.relayData.gasPrice).mul(toBN(blockGasLimit))
-    const workerBalance = toBN(await this.getBalance(relayRequest.relayData.relayWorker))
-    return BN.min(blockGasWorthOfEther, workerBalance)
+  async getMaxViewableDeployGasLimit (request: DeployTransactionRequest): Promise<BN> {
+    const gasPrice = toBN(request.relayRequest.relayData.gasPrice)
+    let gasLimit = toBN(0)
+
+    if (!gasPrice.eq(toBN(0))) {
+      const maxEstimatedGas = toBN(await this.walletFactoryEstimateGasOfDeployCall(request))
+      const workerBalanceAsUnitsOfGas = toBN(await this.getBalance(request.relayRequest.relayData.relayWorker)).div(gasPrice)
+
+      if (workerBalanceAsUnitsOfGas.gte(maxEstimatedGas)) {
+        gasLimit = maxEstimatedGas
+      }
+    }
+
+    return gasLimit
+  }
+
+  async estimateRelayTransactionMaxPossibleGas (relayRequest: RelayRequest, signature: PrefixedHexString): Promise<number> {
+    const maxPossibleGas = await web3.eth.estimateGas({
+      from: relayRequest.relayData.relayWorker,
+      to: relayRequest.request.relayHub,
+      data: this.relayHubInstance.contract.methods.relayCall(relayRequest, signature).encodeABI(),
+      gasPrice: relayRequest.relayData.gasPrice
+    })
+
+    // TODO RIF Team: Once the exactimator is available on the RSK node, then ESTIMATED_GAS_CORRECTION_FACTOR can be removed (in our tests it is 1.0 anyway, so it's not active)
+    return Math.ceil(maxPossibleGas * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
+  }
+
+  async estimateRelayTransactionMaxPossibleGasWithTransactionRequest (request: RelayTransactionRequest): Promise<number> {
+    if (request.metadata.relayHubAddress === undefined || request.metadata.relayHubAddress === null || request.metadata.relayHubAddress === constants.ZERO_ADDRESS) {
+      throw new Error('calculateDeployCallGas: RelayHub must be defined')
+    }
+
+    const rHub = await this._createRelayHub(request.metadata.relayHubAddress)
+    const method = rHub.contract.methods.relayCall(request.relayRequest, request.metadata.signature)
+
+    const maxPossibleGas = await method.estimateGas({
+      from: request.relayRequest.relayData.relayWorker,
+      gasPrice: request.relayRequest.relayData.gasPrice
+    })
+
+    // TODO RIF Team: Once the exactimator is available on the RSK node, then ESTIMATED_GAS_CORRECTION_FACTOR can be removed (in our tests it is 1.0 anyway, so it's not active)
+    return Math.ceil(maxPossibleGas * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
+  }
+
+  async estimateDestinationContractCallGas (transactionDetails: EstimateGasParams, addCushion: boolean = true): Promise<number> {
+    // For relay calls, transactionDetails.gas is only the portion of gas sent to the destination contract, the tokenPayment
+    // Part is done before, by the SmartWallet
+
+    const estimated = await this.estimateGas({
+      from: transactionDetails.from,
+      to: transactionDetails.to,
+      gasPrice: transactionDetails.gasPrice,
+      data: transactionDetails.data
+    })
+    let internalCallCost = estimated > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimated - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimated
+
+    // The INTERNAL_TRANSACTION_ESTIMATE_CORRECTION is substracted because the estimation is done using web3.eth.estimateGas which
+    // estimates the call as if it where an external call, and in our case it will be called internally (it's not the same cost).
+    // Because of this, the estimated maxPossibleGas in the server (which estimates the whole transaction) might not be enough to successfully pass
+    // the following verification made in the SmartWallet:
+    // require(gasleft() > req.gas, "Not enough gas left"). This is done right before calling the destination internally
+
+    if (addCushion) {
+      internalCallCost = internalCallCost * constants.ESTIMATED_GAS_CORRECTION_FACTOR
+    }
+
+    return internalCallCost
+  }
+
+  async getMaxViewableRelayGasLimit (relayRequest: RelayRequest, signature: PrefixedHexString): Promise<number> {
+    const gasPrice = toBN(relayRequest.relayData.gasPrice)
+    let gasLimit = 0
+
+    if (gasPrice.gt(toBN(0))) {
+      const maxEstimatedGas: number = await this.estimateRelayTransactionMaxPossibleGas(relayRequest, signature)
+      const workerBalanceAsUnitsOfGas = toBN(await this.getBalance(relayRequest.relayData.relayWorker)).div(gasPrice)
+
+      if (workerBalanceAsUnitsOfGas.gte(toBN(maxEstimatedGas))) {
+        gasLimit = maxEstimatedGas
+      }
+    }
+
+    return gasLimit
   }
 
   encodeRelayCallABI (relayRequest: RelayRequest, sig: PrefixedHexString): PrefixedHexString {
@@ -440,7 +561,7 @@ export default class ContractInteractor {
     return await this.relayHubInstance.getStakeInfo(managerAddress)
   }
 
-  async walletFactoryDeployEstimageGas (request: DeployRequest, factory: Address, domainHash: string,
+  async walletFactoryDeployEstimateGasForInternalCall (request: DeployRequest, factory: Address, domainHash: string,
     suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
     const pFactory = await this._createFactory(factory)
 
@@ -451,7 +572,23 @@ export default class ContractInteractor {
       await method.call({ from: request.request.relayHub })
     }
 
-    return method.estimateGas({ from: request.request.relayHub })
+    return method.estimateGas({
+      from: request.request.relayHub,
+      gasPrice: request.relayData.gasPrice
+    })
+  }
+
+  async walletFactoryEstimateGasOfDeployCall (request: DeployTransactionRequest): Promise<number> {
+    if (request.metadata.relayHubAddress === undefined || request.metadata.relayHubAddress === null || request.metadata.relayHubAddress === constants.ZERO_ADDRESS) {
+      throw new Error('calculateDeployCallGas: RelayHub must be defined')
+    }
+    const rHub = await this._createRelayHub(request.metadata.relayHubAddress)
+    const method = rHub.contract.methods.deployCall(request.relayRequest, request.metadata.signature)
+
+    return method.estimateGas({
+      from: request.relayRequest.relayData.relayWorker,
+      gasPrice: request.relayRequest.relayData.gasPrice
+    })
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction

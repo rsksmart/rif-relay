@@ -16,7 +16,7 @@ interface IDeployVerifier {
      *              Note that in most cases the verifier shouldn't try use it at all. It is always checked
      *              by the forwarder immediately after verifyRelayedCall returns.
      */
-   function verifyRelayedCall(
+    function verifyRelayedCall(
         EnvelopingTypes.DeployRequest calldata relayRequest,
         bytes calldata signature
     ) external returns (bytes memory context);

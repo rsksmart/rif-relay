@@ -30,7 +30,6 @@ import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
@@ -214,22 +213,26 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
-    const transactionDetails: EnvelopingTransactionDetails = {
+    let transactionDetails: EnvelopingTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,
       relayHub: this.relayHub.address,
       callVerifier: this.relayVerifier.address,
       callForwarder: this.forwarder.address,
-      gas: toHex(1000000),
-      gasPrice: toHex(20000000000),
+      gasPrice: toHex(60000000),
       tokenAmount: toHex(0),
       tokenGas: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: false
     }
 
-    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, transactionDetails, overrideDetails))
+    transactionDetails = Object.assign({}, transactionDetails, overrideDetails)
+
+    const destinationGas = await this.contractInteractor.estimateDestinationContractCallGas(this.relayClient.getEstimateGasParams(transactionDetails))
+    transactionDetails.gas = toHex(destinationGas)
+
+    return await this.relayClient._prepareRelayHttpRequest(relayInfo, transactionDetails)
   }
 
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}): Promise<{
@@ -238,15 +241,14 @@ export class ServerTestEnvironment {
     reqSigHash: PrefixedHexString
   }> {
     const req = await this.createRelayHttpRequest(overrideDetails)
-    const signedTx = await this.relayServer.createRelayTransaction(req)
-    const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
+    const txDetails = await this.relayServer.createRelayTransaction(req)
     const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
     if (assertRelayed) {
-      await this.assertTransactionRelayed(txHash, keccak256(req.metadata.signature))
+      await this.assertTransactionRelayed(txDetails.transactionHash, keccak256(req.metadata.signature))
     }
     return {
-      txHash,
-      signedTx,
+      txHash: txDetails.transactionHash,
+      signedTx: txDetails.signedTx,
       reqSigHash
     }
   }

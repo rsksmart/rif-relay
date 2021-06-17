@@ -1,16 +1,19 @@
 import abi from 'web3-eth-abi'
-import ethUtils from 'ethereumjs-util'
-import web3Utils from 'web3-utils'
-import sigUtil from 'eth-sig-util'
+import { toBN } from 'web3-utils'
+import sigUtil, { EIP712TypedData } from 'eth-sig-util'
 import { EventData } from 'web3-eth-contract'
 import { JsonRpcResponse } from 'web3-core-helpers'
 import { PrefixedHexString } from 'ethereumjs-tx'
-
+import { arrayify } from '@ethersproject/bytes'
 import { Address } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
-import TypedRequestData from './EIP712/TypedRequestData'
 import chalk from 'chalk'
+import { constants } from './Constants'
+import { DeployTransactionRequest, RelayTransactionRequest } from '../relayclient/types/RelayTransactionRequest'
+import relayHubAbi from './interfaces/IRelayHub.json'
+import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
+import TruffleContract = require('@truffle/contract')
 
 export function removeHexPrefix (hex: string): string {
   if (hex == null || typeof hex.replace !== 'function') {
@@ -63,29 +66,21 @@ export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError
 }
 
 export function getLocalEip712Signature (
-  typedRequestData: TypedRequestData,
-  privateKey: Buffer,
-  jsonStringifyRequest = false
+  typedRequestData: EIP712TypedData,
+  privateKey: Buffer
 ): PrefixedHexString {
-  let dataToSign: TypedRequestData | string
-  if (jsonStringifyRequest) {
-    dataToSign = JSON.stringify(typedRequestData)
-  } else {
-    dataToSign = typedRequestData
-  }
-
   // @ts-ignore
-  return sigUtil.signTypedData_v4(privateKey, { data: dataToSign })
+  return sigUtil.signTypedData_v4(privateKey, { data: typedRequestData })
 }
 
 export async function getEip712Signature (
   web3: Web3,
-  typedRequestData: TypedRequestData,
+  typedRequestData: EIP712TypedData,
   methodSuffix = '',
   jsonStringifyRequest = false
 ): Promise<PrefixedHexString> {
   const senderAddress = typedRequestData.message.from
-  let dataToSign: TypedRequestData | string
+  let dataToSign: EIP712TypedData | string
   if (jsonStringifyRequest) {
     dataToSign = JSON.stringify(typedRequestData)
   } else {
@@ -120,38 +115,48 @@ export async function getEip712Signature (
 }
 
 /**
- * @returns maximum possible gas consumption by this relayed call
+ * @returns maximum possible gas consumption by this deploy call
  */
-export function calculateTransactionMaxPossibleGas (
-
-  hubOverhead: number,
-  relayCallGasLimit: string,
-  cushion: number
-): number {
-  return hubOverhead +
-    parseInt(relayCallGasLimit) + cushion
+export function calculateDeployTransactionMaxPossibleGas (
+  estimatedDeployGas: string,
+  estimatedTokenPaymentGas?: string): BN {
+  if (estimatedTokenPaymentGas === undefined || estimatedTokenPaymentGas == null || toBN(estimatedTokenPaymentGas).isZero()) {
+    // Subsidized case
+    return toBN(estimatedDeployGas).add(toBN('12000'))
+  } else {
+    return toBN(estimatedDeployGas)
+  }
 }
 
-export function getEcRecoverMeta (message: PrefixedHexString, signature: string | Signature): PrefixedHexString {
-  if (typeof signature === 'string') {
-    const r = parseHexString(signature.substr(2, 65))
-    const s = parseHexString(signature.substr(66, 65))
-    const v = parseHexString(signature.substr(130, 2))
+/**
+ * @returns maximum possible gas consumption by this relay call
+ * Note that not using the linear fit would result in an Inadequate amount of gas
+ * You can add another kind of estimation (a hardcoded value for example) in that "else" statement
+ * if you don't then use this function with usingLinearFit = true
+ */
+export function estimateMaxPossibleRelayCallWithLinearFit (
+  relayCallGasLimit: number,
+  tokenPaymentGas: number,
+  addCushion: boolean = false
+): number {
+  const cushion = addCushion ? constants.ESTIMATED_GAS_CORRECTION_FACTOR : 1.0
 
-    signature = {
-      v: v,
-      r: r,
-      s: s
-    }
+  if (toBN(tokenPaymentGas).isZero()) {
+    // Subsidized case
+    // y = a0 + a1 * x = 85090.977 + 1.067 * x
+    const a0 = Number('85090.977')
+    const a1 = Number('1.067')
+    const estimatedCost = a1 * relayCallGasLimit + a0
+    const costWithCushion = Math.ceil(estimatedCost * cushion)
+    return costWithCushion
+  } else {
+    // y = a0 + a1 * x = 72530.9611 + 1.1114 * x
+    const a0 = Number('72530.9611')
+    const a1 = Number('1.1114')
+    const estimatedCost = a1 * (relayCallGasLimit + tokenPaymentGas) + a0
+    const costWithCushion = Math.ceil(estimatedCost * cushion)
+    return costWithCushion
   }
-  const msg = Buffer.concat([Buffer.from('\x19Ethereum Signed Message:\n32'), Buffer.from(removeHexPrefix(message), 'hex')])
-  const signed = web3Utils.sha3('0x' + msg.toString('hex'))
-  if (signed == null) {
-    throw new Error('web3Utils.sha3 failed somehow')
-  }
-  const bufSigned = Buffer.from(removeHexPrefix(signed), 'hex')
-  const recoveredPubKey = ethUtils.ecrecover(bufSigned, signature.v[0], Buffer.from(signature.r), Buffer.from(signature.s))
-  return ethUtils.bufferToHex(ethUtils.pubToAddress(recoveredPubKey))
 }
 
 export function parseHexString (str: string): number[] {
@@ -205,19 +210,6 @@ export function isRegistrationValid (registerEvent: EventData | undefined, confi
     registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
 }
 
-/**
- * @param gasLimits
- * @param hubOverhead
- * @param relayCallGasLimit
- * @param calldataSize
- * @param gtxdatanonzero
- */
-interface TransactionGasComponents {
-  gasLimits: VerifierGasLimits
-  hubOverhead: number
-  relayCallGasLimit: string
-}
-
 export interface VerifierGasLimits {
   preRelayedCallGasLimit: string
   postRelayedCallGasLimit: string
@@ -231,4 +223,50 @@ interface Signature {
 
 export function boolString (bool: boolean): string {
   return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
+}
+
+function isDeployRequest (req: any): boolean {
+  let isDeploy = false
+  if (req.relayRequest.request.recoverer !== undefined) {
+    isDeploy = true
+  }
+  return isDeploy
+}
+
+export function transactionParamDataCost (req: RelayTransactionRequest | DeployTransactionRequest): number {
+  // @ts-ignore
+  const IRelayHubContract = TruffleContract({
+    contractName: 'IRelayHub',
+    abi: relayHubAbi
+  })
+  IRelayHubContract.setProvider(web3.currentProvider, undefined)
+
+  const relayHub = new IRelayHubContract('')
+
+  const isDeploy = isDeployRequest(req)
+  const method = isDeploy ? relayHub.contract.methods.deployCall(
+    req.relayRequest as DeployRequest, req.metadata.signature) : relayHub.contract.methods.relayCall(
+    req.relayRequest as RelayRequest, req.metadata.signature)
+
+  const encodedCall = method.encodeABI() ?? '0x'
+
+  const dataAsByteArray: Uint8Array = arrayify(encodedCall)
+  const nonZeroes = nonZeroDataBytes(dataAsByteArray)
+
+  const zeroVals = dataAsByteArray.length - nonZeroes
+
+  return constants.TRANSACTION_GAS_COST + zeroVals * constants.TX_ZERO_DATA_GAS_COST + nonZeroes * constants.TX_NO_ZERO_DATA_GAS_COST
+}
+
+function nonZeroDataBytes (data: Uint8Array): number {
+  let counter = 0
+
+  for (let i = 0; i < data.length; i++) {
+    const byte = data[i]
+    if (byte !== 0) {
+      ++counter
+    }
+  }
+
+  return counter
 }

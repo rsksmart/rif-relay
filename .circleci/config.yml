@@ -1,4 +1,17 @@
 version: 2.1 # use CircleCI 2.0
+parameters:
+    repo:
+        type: string
+        default: "rsksmart/rskj.git"
+    version:
+        type: string
+        default: "3.0.0-SNAPSHOT"
+    branch:
+        type: string
+        default: "master"
+    hardfork:
+        type: string
+        default: "-Dblockchain.config.hardforkActivationHeights.iris300=0"
 commands:
   prepare:
     description: "Prepare enveloping and rskj apps"
@@ -12,18 +25,18 @@ commands:
           name: Clone and Build RSKj
           command: |
                   GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
-                  git clone -b PAPYRUS-2.1.0 git@github.com:rsksmart/rskj.git ~/rsksmart/rskj
+                  git clone -b << pipeline.parameters.branch >> git@github.com:<< pipeline.parameters.repo >>  ~/rsksmart/rskj
                   cd ~/rsksmart/rskj/
                   ./configure.sh
                   ./gradlew clean build -x test
 
       - restore_cache: # special step to restore the dependency cache
-          key: dependency-cachev2-{{ checksum "package.json" }}-yarn2
+          key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
           command: yarn
       - save_cache: # special step to save the dependency cache
-          key: dependency-cachev2-{{ checksum "package.json" }}-yarn2
+          key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
           paths:
             - ./node_modules
       - run:
@@ -34,7 +47,7 @@ commands:
     steps:
       - checkout # special step to check out source code to working directory
       - restore_cache: # special step to restore the dependency cache
-          key: dependency-cachev2-{{ checksum "package.json" }}-yarn2
+          key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
           command: yarn  
@@ -56,7 +69,7 @@ commands:
       - run:
           name: "Execute << parameters.test >>"
           command: |
-                  java -Dminer.client.autoMine=true  -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                   until nc -z 127.0.0.1 4444
                   do
                    echo "Waiting for RskJ..."
@@ -75,12 +88,13 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set B
           command: |
-                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
                       sleep 1
                     done
+                    npx truffle test --network rsk test/Verifiers.test.ts
                     npx truffle test --network rsk test/RelayHubPenalizations.test.ts
                     npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
                     npx truffle test --network rsk test/TxStoreManager.test.ts
@@ -150,7 +164,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set A
           command: |
-                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
@@ -173,7 +187,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set C
           command: |
-                    java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-2.1.0-PAPYRUS-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
@@ -203,6 +217,9 @@ jobs: # a collection of steps
           test: "test/relayclient/RelaySelectionManager.test.ts"
       - store_artifacts:
           path: ~/gls/logs
+      - store_artifacts:
+          path: ~/rsksmart/rskj/rskj-core/build/libs/logs
+          destination: ~/rskj/logs
 workflows:
   commit:
       jobs:

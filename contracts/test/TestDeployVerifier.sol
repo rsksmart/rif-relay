@@ -2,28 +2,28 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../interfaces/IRelayVerifier.sol";
+import "../interfaces/IDeployVerifier.sol";
 
-contract TestVerifiers {
+contract TestDeployVerifier {
 
     event Deposited(address indexed verifier, address indexed from, uint256 amount);
     event Accepted(uint256 tokenAmount, address from);
 
-    IRelayVerifier public verifierContract;
+    IDeployVerifier public verifierContract;
 
     constructor ( address verifier) public {
-        verifierContract =  IRelayVerifier(verifier);
+        verifierContract =  IDeployVerifier(verifier);
     }
 
     function verifyRelayedCall(
-        EnvelopingTypes.RelayRequest calldata relayRequest,
+        EnvelopingTypes.DeployRequest calldata deployRequest,
         bytes calldata signature
     )
     external
     virtual
     returns (bytes memory context) {
-        (context) = verifierContract.verifyRelayedCall(relayRequest, signature);
-        emit Accepted(relayRequest.request.tokenAmount, relayRequest.request.from);
+        (context) = verifierContract.verifyRelayedCall(deployRequest, signature);
+        emit Accepted(deployRequest.request.tokenAmount, deployRequest.request.from);
     }
 
     function depositFor(address target) public payable {

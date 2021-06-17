@@ -270,7 +270,6 @@ export default class CommandsLogic {
       arguments: [
         penalizer.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
-        deployOptions.relayHubConfiguration.gasOverhead,
         deployOptions.relayHubConfiguration.minimumEntryDepositValue,
         deployOptions.relayHubConfiguration.minimumUnstakeDelay,
         deployOptions.relayHubConfiguration.minimumStake]

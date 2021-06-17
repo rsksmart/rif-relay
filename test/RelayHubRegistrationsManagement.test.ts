@@ -16,14 +16,12 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   let penalizer: PenalizerInstance
 
   const maxWorkerCount = 3
-  const gasOverhead = 1000
   const minimumEntryDepositValue = ether('1').toString()
   const minimumStake = ether('1').toString()
   const minimumUnstakeDelay = 50
 
   const hubConfig: Partial<RelayHubConfiguration> = {
     maxWorkerCount,
-    gasOverhead,
     minimumEntryDepositValue,
     minimumStake,
     minimumUnstakeDelay
@@ -36,11 +34,11 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
   context('without stake for relayManager', function () {
     it('should not allow relayManager to add relay workers', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.addRelayWorkers([relayWorker1], {
           from: relayManager
         }),
-        'relay manager not staked')
+        'RelayManager not staked')
     })
     context('after stake unlocked for relayManager', function () {
       beforeEach(async function () {
@@ -53,9 +51,9 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
       })
 
       it('should not allow relayManager to register a relay server', async function () {
-        await expectRevert.unspecified(
+        await expectRevert(
           relayHub.registerRelayServer(relayUrl, { from: relayManager }),
-          'relay manager not staked')
+          'RelayManager not staked')
       })
     })
   })
@@ -69,7 +67,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
     })
 
     it('should not allow relayManager to register a relay server', async function () {
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.registerRelayServer(relayUrl, { from: relayManager }),
         'no relay workers')
     })
@@ -86,7 +84,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
 
     it('should not allow relayManager to register already registered workers', async function () {
       await relayHub.addRelayWorkers([relayWorker1], { from: relayManager })
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.addRelayWorkers([relayWorker1], { from: relayManager }),
         'this worker has a manager')
     })
@@ -106,7 +104,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
       for (let i = 0; i < 11; i++) {
         newRelayWorkers.push(relayWorker1)
       }
-      await expectRevert.unspecified(
+      await expectRevert(
         relayHub.addRelayWorkers(newRelayWorkers, { from: relayManager }),
         'too many workers')
     })
