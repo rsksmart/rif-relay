@@ -79,6 +79,3 @@ run_batch RelayHub test/RelayHub.test.ts
 run_batch VersionRegistry test/VersionRegistry.test.ts
 run_batch RelayProvider test/relayclient/RelayProvider.test.ts
 run_batch RelaySelectionManager test/relayclient/RelaySelectionManager.test.ts
-
-# Arbiter
-run_batch EnvelopingArbiter test/enveloping/EnvelopingArbiter.test.ts
