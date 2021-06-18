@@ -27,7 +27,8 @@
     "compile": "npx hardhat compile",
     "extract_abi": "./scripts/extract_abi.js",
     "lint": "yarn run lint:js",
-    "lint:js": "eslint -f unix ."
+    "lint:js": "eslint -f unix .",
+    "postinstall": "patch-package"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
@@ -60,8 +61,10 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^3.2.0",
+    "axios": "^0.21.1",
     "loglevel": "^1.7.1",
     "nedb-async": "^0.1.3",
-    "ow": "^0.23.0"
+    "ow": "^0.23.0",
+    "patch-package": "^6.4.7"
   }
 }
