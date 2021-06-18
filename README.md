@@ -40,42 +40,29 @@ The following technical content is available:
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [Penalizer][1]       | 0x39D731b481553E476fC82C64dA75EFDd03B41A0F |
-| [RelayHub][2]        | 0x1c3aB77f8E1eCB6D61f7eb2733D69037C8F5485D |
-| [SmartWallet][3]     | 0xC4dC9FDC6A397Cf8c4E7f2EAaEbEa9c865390C4b |
-| [SmartWalletFactory][4]    | 0x8D47dC700Bb8e53e61Fbb6344d541E75B8A841b8 |
-| [DeployVerifier][5] | 0x62a037a371539FD936361d93D3Da4b91fC2306EB |
-| [RelayVerifier][6]  | 0x6270D9f0E1ed28f5A69Db56287F41ad8016C83Cf |
+| Penalizer       | 0x5FdeE07Fa5Fed81bd82e3C067e322B44589362d9 |
+| RelayHub        | 0xe90592939fE8bb6017A8a533264a5894B41aF7d5 |
+| SmartWallet     | 0x27646c85F9Ad255989797DB0d99bC4a9DF2EdA68 |
+| SmartWalletFactory    | 0xEbb8AA43CA09fD39FC712eb57F47A9534F251996 |
+| DeployVerifier | 0x345799D90aF318fd2d8CbA87cAD4894feF2f3518 |
+| RelayVerifier  | 0xDe988dB9a901C29A9f04050eB7ab08f71868a8fc |
 
 ### For CustomSmartWallet support
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [CustomSmartWallet][7]     | 0x5ae8c096b29a5352dbd76eE458C8094EB63CF3Fb |
-| [CustomSmartWalletFactory][8]    | 0x04B867e93104E752457736763417D322A1f5e8f3 |
-| [CustomSmartWalletDeployVerifier][9] | 0xeaC0935274d0B62E0803a6C5Eb1043aB97801aD3 |
-| [CustomSmartWalletRelayVerifier][10] | 0xB7cD33d2ebb3aF38988a6E78725d453B87D66437 |
+| CustomSmartWallet     | 0xB8dB52615B1a94a03C2251fD417cA4d945484530 |
+| CustomSmartWalletFactory    | 0xA756bD95D8647be254de40B842297c945D8bB9a5 |
+| CustomSmartWalletDeployVerifier]  0x3c26685CE3ac89F755D68A81175655b4bBE54AE0 |
+| CustomSmartWalletRelayVerifier | 0xBcCA9B8faA9cee911849bFF83B869d230f83f945 |
 
 
 ### For Testing purposes
 
 | Contract          | Address                                    |
 |-------------------|--------------------------------------------|
-| [SampleRecipient][11]   | 0x18122D5Da028E4B9869311aeCE66A9DD7F00746B |
-| [TestToken][12]   | 0x93160B8b13F14589758Ee84D1BfD51562A614Dd7 |
-
-[1]: https://explorer.testnet.rsk.co/address/0x39D731b481553E476fC82C64dA75EFDd03B41A0F
-[2]: https://explorer.testnet.rsk.co/address/0x1c3aB77f8E1eCB6D61f7eb2733D69037C8F5485D
-[3]: https://explorer.testnet.rsk.co/address/0xC4dC9FDC6A397Cf8c4E7f2EAaEbEa9c865390C4b
-[4]: https://explorer.testnet.rsk.co/address/0x8D47dC700Bb8e53e61Fbb6344d541E75B8A841b8
-[5]: https://explorer.testnet.rsk.co/address/0x62a037a371539FD936361d93D3Da4b91fC2306EB
-[6]: https://explorer.testnet.rsk.co/address/0x6270D9f0E1ed28f5A69Db56287F41ad8016C83Cf
-[7]: https://explorer.testnet.rsk.co/address/0x5ae8c096b29a5352dbd76eE458C8094EB63CF3Fb
-[8]: https://explorer.testnet.rsk.co/address/0x04B867e93104E752457736763417D322A1f5e8f3
-[9]: https://explorer.testnet.rsk.co/address/0xeaC0935274d0B62E0803a6C5Eb1043aB97801aD3
-[10]: https://explorer.testnet.rsk.co/address/0xB7cD33d2ebb3aF38988a6E78725d453B87D66437
-[11]: https://explorer.testnet.rsk.co/address/0x18122D5Da028E4B9869311aeCE66A9DD7F00746B
-[12]: https://explorer.testnet.rsk.co/address/0x93160B8b13F14589758Ee84D1BfD51562A614Dd7
+| SampleRecipient   | 0x4De3eB249409e8E40a99e3264a379BCfa10634F5 |
+| TestToken   | 0x77740cE4d7897430E74D5E06540A9Eac2C2Dee70 |
 
 ## Changelog
 
