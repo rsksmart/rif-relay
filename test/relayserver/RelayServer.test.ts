@@ -658,12 +658,12 @@ contract('RelayServer', function (accounts) {
     it('should return error if verifier is not trusted', async function () {
       // trust relay verifier, but query deploy verifier
       env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
-      const err = new Error('supplied verifier is not trusted')
-      assert.throws(async() => {
+      try {
         await env.relayServer.tokenHandler(env.deployVerifier.address)
-      },
-      err.message
-      )
+        assert.fail() // previous line should throw exception
+      } catch (error) {
+        assert.equal(error.message, 'supplied verifier is not trusted')
+      }
     })
 
     it('should return no tokens for verifiers when none were allowed', async function () {
