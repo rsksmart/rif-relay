@@ -642,14 +642,14 @@ contract('RelayServer', function (accounts) {
   })
 
   describe('acceptTokens', function () {
-    let testToken1 = String("0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f")
-    let testToken2 = String("0x85d55E6228C9a6bA73567926f0A0EB3e5f191803")
+    const testToken1 = String('0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f')
+    const testToken2 = String('0x85d55E6228C9a6bA73567926f0A0EB3e5f191803')
 
-    afterEach(async function(){
+    afterEach(async function () {
       // reset verifiers for each test
-      await env.relayServer._initTrustedVerifiers([]) 
+      await env.relayServer._initTrustedVerifiers([])
     })
-    
+
     it('should return empty if there are no trusted verifiers', async function () {
       const res = await env.relayServer.tokenHandler()
       assert.isEmpty(res)
@@ -658,17 +658,17 @@ contract('RelayServer', function (accounts) {
     it('should return error if verifier is not trusted', async function () {
       // trust relay verifier, but query deploy verifier
       await env.relayServer._initTrustedVerifiers([env.relayVerifier.address])
-      try{
+      try {
         const res = await env.relayServer.tokenHandler(env.deployVerifier.address)
-      }catch(error){
-        assert.equal(error.message,"supplied verifier is not trusted")
-      } 
+      } catch (error) {
+        assert.equal(error.message, 'supplied verifier is not trusted')
+      }
     })
 
     it('should return no tokens for verifiers when none were allowed', async function () {
       await env.relayServer._initTrustedVerifiers([env.relayVerifier.address])
-    
-      let exp: TokenResponse = {}
+
+      const exp: TokenResponse = {}
       exp[env.relayVerifier.address] = []
       const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
 
@@ -677,11 +677,11 @@ contract('RelayServer', function (accounts) {
 
     it('should return allowed tokens for one trusted verifier', async function () {
       await env.relayServer._initTrustedVerifiers([env.deployVerifier.address])
-      
+
       // add token 1 to deploy verifier
       await env.deployVerifier.acceptToken(testToken1)
-  
-      let exp: TokenResponse = {}
+
+      const exp: TokenResponse = {}
       exp[env.deployVerifier.address] = [testToken1]
       let res = await env.relayServer.tokenHandler(env.deployVerifier.address)
 
@@ -692,14 +692,14 @@ contract('RelayServer', function (accounts) {
 
       exp[env.deployVerifier.address].push(testToken2)
       res = await env.relayServer.tokenHandler(env.deployVerifier.address)
-      
+
       assert.deepEqual(res, exp)
     })
 
     it('should return allowed tokens for all trusted verifiers', async function () {
       await env.relayServer._initTrustedVerifiers([env.deployVerifier.address, env.relayVerifier.address])
-    
-      let exp: TokenResponse = {}
+
+      const exp: TokenResponse = {}
       exp[env.deployVerifier.address] = [testToken1, testToken2]
       exp[env.relayVerifier.address] = []
       let res = await env.relayServer.tokenHandler()
