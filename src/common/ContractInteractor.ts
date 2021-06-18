@@ -69,9 +69,6 @@ export const StakeUnlocked: EventName = 'StakeUnlocked'
 export const StakeWithdrawn: EventName = 'StakeWithdrawn'
 export const StakePenalized: EventName = 'StakePenalized'
 
-export const WAIT_FOR_RECEIPT_RETRIES = 5
-export const WAIT_FOR_RECEIPT_INITIAL_BACKOFF = 1000
-
 export type Web3Provider =
   | HttpProvider
   | IpcProvider
@@ -636,9 +633,11 @@ export default class ContractInteractor {
   }
 
   async getTransactionReceipt (transactionHash: PrefixedHexString,
-    retries: number = WAIT_FOR_RECEIPT_RETRIES,
-    initialBackoff: number = WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
-    for (let tryCount = 0, backoff = initialBackoff; tryCount < retries; tryCount++, backoff *= 2) {
+    retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
+    initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+    console.log(retries, initialBackoff)
+      for (let tryCount = 0, backoff = initialBackoff; tryCount < retries; tryCount++, backoff *= 2) {
+      console.log(tryCount, backoff)
       const receipt = await this.web3.eth.getTransactionReceipt(transactionHash)
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
       if (receipt) {

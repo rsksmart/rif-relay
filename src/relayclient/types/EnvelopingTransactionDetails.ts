@@ -48,5 +48,8 @@ export default interface EnvelopingTransactionDetails {
   /**
    * Use this to force the RelayClient to use only the preferred relays when searching for a suitable relay server
    */
-  readonly onlyPreferredRelays?: boolean
+  readonly onlyPreferredRelays?: boolean,
+
+  retries?: number,
+  initialBackoff?: number,
 }
