@@ -635,8 +635,10 @@ export default class ContractInteractor {
   async getTransactionReceipt (transactionHash: PrefixedHexString,
     retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
     initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+    console.log("retries | backoff")
     console.log(retries, initialBackoff)
       for (let tryCount = 0, backoff = initialBackoff; tryCount < retries; tryCount++, backoff *= 2) {
+      console.log("tryCount | backoff")    
       console.log(tryCount, backoff)
       const receipt = await this.web3.eth.getTransactionReceipt(transactionHash)
       // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
