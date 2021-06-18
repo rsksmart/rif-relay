@@ -32,6 +32,7 @@ module.exports = async function (deployer) {
 
   const customSmartWalletRelayVerifierAddress = RelayVerifier.address;
 
+  await deployer.deploy(TestToken)
   await deployer.deploy(SampleRecipient)
 
   console.log('Done! Summary:')
