@@ -51,8 +51,5 @@ module.exports = async function (deployer) {
   console.log(`| CustomSmartWalletFactory          | ${CustomSmartWalletFactory.address} |`)
   console.log(`| CustomSmartWalletDeployVerifier   | ${CustomSmartWalletDeployVerifier.address} |`)
   console.log(`| CustomSmartWalletRelayVerifier    | ${customSmartWalletRelayVerifierAddress} |`)
-  console.log(`| Testing Contracts =============================================================|`)
-  console.log(`| SampleRecipient                   | ${SampleRecipient.address} |`)
-  console.log(`| TestToken                         | ${TestToken.address} |`)
   console.log('|===================================|============================================|\n')
 }
