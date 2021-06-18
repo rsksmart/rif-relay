@@ -392,9 +392,8 @@ export class RelayClient {
     } else if (transactionDetails.gas === undefined || transactionDetails.gas == null) {
       const internalCallCost = await this.contractInteractor.estimateDestinationContractCallGas(this.getEstimateGasParams(transactionDetails))
       transactionDetails.gas = toHex(internalCallCost)
-      log.debug(`Relay Client - Estimated gas for calling: ${transactionDetails.gas}`)
     }
-
+    log.debug(`Relay Client - Estimated gas for relaying: ${transactionDetails.gas}`)
     const relaySelectionManager = await new RelaySelectionManager(transactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     const count = relaySelectionManager.relaysLeft().length
     this.emit(new DoneRefreshRelaysEvent(count))

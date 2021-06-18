@@ -150,10 +150,10 @@ export default class ContractInteractor {
   async init (): Promise<void> {
     log.debug('Contract Interactor - Initializing')
     if (this.isInitialized()) {
-      throw new Error('_init was already called')
+      throw new Error('_init has already called')
     }
     await this._initializeContracts()
-    log.debug('Contract Interactor - Already initialized')
+    log.debug('Contract Interactor - Initialized succesfully')
     await this._validateCompatibility().catch(err => console.log('WARNING: beta ignore version compatibility', err.message))
     const chain = await this.web3.eth.net.getNetworkType()
     this.chainId = await this.getAsyncChainId()

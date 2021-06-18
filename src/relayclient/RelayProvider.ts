@@ -130,7 +130,7 @@ export class RelayProvider implements HttpProvider {
    * @returns The transaction hash
    */
   async deploySmartWallet (transactionDetails: EnvelopingTransactionDetails): Promise<string> {
-    log.debug('Relay Provider - Deploying Smart wallet')    
+    log.debug('Relay Provider - Deploying Smart wallet')
     let isSmartWalletDeployValue = transactionDetails.isSmartWalletDeploy
     let relayHubValue = transactionDetails.relayHub
     let onlyPreferredRelaysValue = transactionDetails.onlyPreferredRelays
