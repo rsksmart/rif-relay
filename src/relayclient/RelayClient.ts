@@ -644,8 +644,8 @@ export class RelayClient {
   }
 
   async getTransactionReceipt (transactionHash: PrefixedHexString,
-      retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
-      initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+    retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
+    initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
     return await this.contractInteractor.getTransactionReceipt(transactionHash, retries, initialBackoff)
   }
 }
