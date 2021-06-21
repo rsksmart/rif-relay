@@ -267,11 +267,7 @@ export class RelayClient {
     const estimatedGas: number = await this.contractInteractor.estimateRelayTransactionMaxPossibleGasWithTransactionRequest(testInfo)
     return estimatedGas
   }
-
-  async getTransactionReceipt (txHash: string): Promise<TransactionReceipt> {
-    return await this.contractInteractor.web3.eth.getTransactionReceipt(txHash)
-  }
-
+  
   async _prepareFactoryGasEstimationRequest (
     transactionDetails: EnvelopingTransactionDetails, relayWorker: string
   ): Promise<DeployTransactionRequest> {
