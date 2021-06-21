@@ -20,9 +20,26 @@ We use `truffle` for deploying contracts.
 
 In order to run an instance of Enveloping in Regtest:
 
-1. From the jsrelay directory `npx webpack`
-2. From the root directory run `node dist/src/cli/commands/enveloping.js boot-test --network http://localhost:4444/`. (With localhost:4444 a port to an RSK regtest node).
-3. TO check if it is working, run `curl http://localhost:8090/getaddr`
+1. From the jsrelay directory `npx webpack`.
+2. Configure the server, to do it just edit the config file located at `jsrelay/config/relay-config.json`. You
+   need to specify some parameters there like this:
+   ```json5
+    {
+        "url": "localhost", // the interface where the relay server will be exposed
+        "port": 8090, // the port where it will be running
+        "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701", // the relay hub contract address (can be retrieved from the summary of the deployment).
+        "relayVerifierAddress": "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2", // the relay verifier contract address (can be retrieved from the summary of the deployment).
+        "deployVerifierAddress": "0x1938517B0762103d52590Ca21d459968c25c9E67", // the deploy verifier contract address (can be retrieved from the summary of the deployment).
+        "gasPriceFactor": 1, // a gas price factor to use on gas price calculation, the price will be multiplied by this factor
+        "rskNodeUrl": "http://localhost:4444", // endpoint where the RSK node is running
+        "devMode": true, // a flag to set development mode
+        "customReplenish": false, // set if the server uses a custom replenish function or not
+        "logLevel": 1, // the log level
+        "workdir": "/some/absolute/path" // an absolute path to the working directory of the server, the server will store all the information there
+    }
+   ```
+3. From the root directory run `node dist/src/cli/commands/enveloping.js relayer-run --config jsrelay/config/relay-config.json`.
+4. To check if it is working, run `curl http://localhost:8090/getaddr`.
 
 ## Deploy contracts on testnet
 
@@ -41,7 +58,8 @@ To implement and use your own replenish strategy:
 1. In the folder `src/relayserver`, open `ReplenishFunction.ts` with a text editor.
 2. On the function `replenishStrategy` write your replenish strategy on the then branch.
 3. Re build the project `yarn && yarn prepare`
-4. Add the command `--customReplenish` when running a Relay Server.
+4. Add the command `--customReplenish` when running a Relay Server or change the config json file to set `customReplenish` on true.
+
 ## Run a Relay Server on testnet
 
 In order to run an Enveloping instance in Testnet, clone the project then run the following from the project's root directory:
