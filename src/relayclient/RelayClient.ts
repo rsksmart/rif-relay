@@ -267,7 +267,7 @@ export class RelayClient {
     const estimatedGas: number = await this.contractInteractor.estimateRelayTransactionMaxPossibleGasWithTransactionRequest(testInfo)
     return estimatedGas
   }
-  
+
   async _prepareFactoryGasEstimationRequest (
     transactionDetails: EnvelopingTransactionDetails, relayWorker: string
   ): Promise<DeployTransactionRequest> {
