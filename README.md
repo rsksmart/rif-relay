@@ -53,7 +53,7 @@ The following technical content is available:
 |-------------------|--------------------------------------------|
 | CustomSmartWallet     | 0xB8dB52615B1a94a03C2251fD417cA4d945484530 |
 | CustomSmartWalletFactory    | 0xA756bD95D8647be254de40B842297c945D8bB9a5 |
-| CustomSmartWalletDeployVerifier]  0x3c26685CE3ac89F755D68A81175655b4bBE54AE0 |
+| CustomSmartWalletDeployVerifier |  0x3c26685CE3ac89F755D68A81175655b4bBE54AE0 |
 | CustomSmartWalletRelayVerifier | 0xBcCA9B8faA9cee911849bFF83B869d230f83f945 |
 
 
