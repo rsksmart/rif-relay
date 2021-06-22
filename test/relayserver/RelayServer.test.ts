@@ -22,6 +22,7 @@ import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
+import TokenResponse from '../../src/common/TokenResponse'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -156,10 +157,19 @@ contract('RelayServer', function (accounts) {
           await env.relayServer._initTrustedVerifiers([])
         })
 
-        it('#_itTrustedForwarder', function () {
+        it('#isTrustedVerifier', function () {
           assert.isFalse(env.relayServer.isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
           assert.isTrue(env.relayServer.isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
           assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+        })
+
+        it('#verifierHandler', async function () {
+          const relayVerifier = env.relayVerifier.address.toLowerCase()
+          const deployVerifier = env.deployVerifier.address.toLowerCase()
+          const trustedVerifiers = (await env.relayServer.verifierHandler()).trustedVerifiers
+          assert.isTrue(trustedVerifiers.includes(relayVerifier))
+          assert.isTrue(trustedVerifiers.includes(deployVerifier))
+          assert.equal(trustedVerifiers.length, 2)
         })
       })
 
@@ -667,6 +677,89 @@ contract('RelayServer', function (accounts) {
       } catch (error) {
         assert.equal(error.message, 'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.')
       }
+    })
+  })
+
+  describe('acceptTokens', function () {
+    const testToken1 = String('0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f')
+    const testToken2 = String('0x85d55E6228C9a6bA73567926f0A0EB3e5f191803')
+
+    afterEach(async function () {
+      // reset verifiers for each test
+      await env.relayServer.trustedVerifiers.clear()
+    })
+
+    it('should return empty if there are no trusted verifiers', async function () {
+      const res = await env.relayServer.tokenHandler()
+      assert.isEmpty(res)
+    })
+
+    it('should return error if verifier is not trusted', async function () {
+      // trust relay verifier, but query deploy verifier
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+      try {
+        await env.relayServer.tokenHandler(env.deployVerifier.address)
+        assert.fail() // previous line should throw exception
+      } catch (error) {
+        assert.equal(error.message, 'supplied verifier is not trusted')
+      }
+    })
+
+    it('should return no tokens for verifiers when none were allowed', async function () {
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+
+      const exp: TokenResponse = {}
+      exp[env.relayVerifier.address] = []
+      const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
+
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return allowed tokens for one trusted verifier', async function () {
+      env.relayServer.trustedVerifiers.add(env.deployVerifier.address.toLowerCase())
+
+      // add token 1 to deploy verifier
+      await env.deployVerifier.acceptToken(testToken1)
+
+      const exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1]
+      let res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+
+      assert.deepEqual(res, exp)
+
+      // add token 2 to deploy verifier
+      await env.deployVerifier.acceptToken(testToken2)
+
+      exp[env.deployVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return allowed tokens for all trusted verifiers', async function () {
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+      env.relayServer.trustedVerifiers.add(env.deployVerifier.address.toLowerCase())
+
+      const exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1, testToken2]
+      exp[env.relayVerifier.address] = []
+      let res = await env.relayServer.tokenHandler()
+
+      assert.deepEqual(res, exp)
+
+      // add token 1 to relay verifier
+      await env.relayVerifier.acceptToken(testToken1)
+
+      exp[env.relayVerifier.address] = [testToken1]
+      res = await env.relayServer.tokenHandler()
+      assert.deepEqual(res, exp)
+
+      // add token 2 to relay verifier
+      await env.relayVerifier.acceptToken(testToken2)
+
+      exp[env.relayVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler()
+      assert.deepEqual(res, exp)
     })
   })
 })

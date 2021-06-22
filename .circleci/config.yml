@@ -125,6 +125,8 @@ jobs: # a collection of steps
           test: "test/relayclient/KnownRelaysManager.test.ts"
       - run_rskj_test:
           test: "test/smartwallet/SmartWallet.test.ts"
+      - run_rskj_test:
+          test: "test/smartwallet/CustomSmartWallet.test.ts"
       - store_artifacts:
           path: ~/gls/logs
   Test_Thread_3: # Test thread
@@ -217,7 +219,6 @@ jobs: # a collection of steps
           test: "test/relayclient/RelaySelectionManager.test.ts"
       - store_artifacts:
           path: ~/gls/logs
-<<<<<<< HEAD
   Test_Thread_7: # Test thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
@@ -229,11 +230,6 @@ jobs: # a collection of steps
          test: "test/enveloping/EnvelopingArbiter.test.ts"  
       - store_artifacts:
           path: ~/gls/logs
-=======
-      - store_artifacts:
-          path: ~/rsksmart/rskj/rskj-core/build/libs/logs
-          destination: ~/rskj/logs
->>>>>>> e197f5492ef012544f307868cb38284bfd64fedc
 workflows:
   commit:
       jobs:

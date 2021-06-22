@@ -35,6 +35,7 @@ import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
 import { ethers } from 'ethers'
 import TokenResponse from '../common/TokenResponse'
 import VerifierResponse from '../common/VerifierResponse'
+import { toChecksumAddress } from 'ethereumjs-util'
 
 import Timeout = NodeJS.Timeout
 
@@ -135,7 +136,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler (verifier: Address): Promise<TokenResponse> {
+  async tokenHandler (verifier?: Address): Promise<TokenResponse> {
     let verifiersToQuery: Address[]
 
     // if a verifier was supplied, check that it is trusted
@@ -152,9 +153,9 @@ export class RelayServer extends EventEmitter {
     const res: TokenResponse = {}
     for (const verifier of verifiersToQuery) {
       const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
-      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call()
-      res[verifier] = acceptedTokens
-    };
+      const acceptedTokens = await tokenHandlerInstance.getAcceptedTokens()
+      res[toChecksumAddress(verifier)] = acceptedTokens
+    }
 
     return res
   }

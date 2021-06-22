@@ -273,10 +273,6 @@ export class RelayClient {
     return estimatedGas
   }
 
-  async getTransactionReceipt (txHash: string): Promise<TransactionReceipt> {
-    return await this.contractInteractor.web3.eth.getTransactionReceipt(txHash)
-  }
-
   async _prepareFactoryGasEstimationRequest (
     transactionDetails: EnvelopingTransactionDetails, relayWorker: string
   ): Promise<DeployTransactionRequest> {
@@ -666,6 +662,12 @@ export class RelayClient {
     }
 
     return params
+  }
+
+  async getTransactionReceipt (transactionHash: PrefixedHexString,
+    retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
+    initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+    return await this.contractInteractor.getTransactionReceipt(transactionHash, retries, initialBackoff)
   }
 }
 

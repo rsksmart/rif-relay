@@ -313,14 +313,12 @@ contract CustomSmartWallet is IForwarder {
                 "initialize call in logic failed"
             );
 
-            bytes memory logicCell = abi.encodePacked(logic);
-
             assembly {
                 //The slot used complies with EIP-1967, obtained as:
                 //bytes32(uint256(keccak256('eip1967.proxy.implementation')) - 1)
                 sstore(
                     0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc,
-                    logicCell
+                    logic
                 )
             }
         }
