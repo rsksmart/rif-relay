@@ -30,7 +30,6 @@ import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { removeHexPrefix } from '../../src/common/Utils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
 import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
@@ -40,6 +39,7 @@ import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfi
 import { ether } from '@openzeppelin/test-helpers'
 import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
 import { CommitmentReceipt } from '../../src/enveloping/Commitment'
+import { removeHexPrefix } from '../../src/common/Utils'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
@@ -220,15 +220,14 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
-    const transactionDetails: EnvelopingTransactionDetails = {
+    let transactionDetails: EnvelopingTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,
       relayHub: this.relayHub.address,
       callVerifier: this.relayVerifier.address,
       callForwarder: this.forwarder.address,
-      gas: toHex(1000000),
-      gasPrice: toHex(20000000000),
+      gasPrice: toHex(60000000),
       tokenAmount: toHex(0),
       tokenGas: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
@@ -267,6 +266,7 @@ export class ServerTestEnvironment {
     const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
     const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
+    const txDetails = await this.relayServer.createRelayTransaction(req)
     const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
 
     if (assertRelayed) {

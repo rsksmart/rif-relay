@@ -11,7 +11,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { encodeRevertReason, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { getLocalEip712Signature } from '../src/common/Utils'
+import { estimateMaxPossibleRelayCallWithLinearFit, getLocalEip712Signature } from '../src/common/Utils'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const { assert } = chai.use(chaiAsPromised)
@@ -113,6 +113,20 @@ contract('Utils', function (accounts) {
           success: false,
           error: expectedReturnValue
         })
+      })
+
+      it('should correctly calculate the linear estimation', async function () {
+        const gas = 40000
+        const tokenGas = 18000
+
+        const expectedRelayGasNoToken = 127771
+        const expectedRelayGasWithToken = 136993
+
+        const gasNoToken = estimateMaxPossibleRelayCallWithLinearFit(gas, 0)
+        const gasToken = estimateMaxPossibleRelayCallWithLinearFit(gas, tokenGas)
+
+        assert.equal(expectedRelayGasNoToken, gasNoToken, 'Estimation with no tokenGas differs')
+        assert.equal(expectedRelayGasWithToken, gasToken, 'Estimation with tokenGas differs')
       })
 
       it('should call target', async function () {

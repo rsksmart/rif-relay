@@ -42,7 +42,7 @@ export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 //  stake, delay, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
 //
 
-interface RelayServerData {
+export interface RelayServerData {
   proc: ChildProcessWithoutNullStreams
   worker: Address
   manager: Address
@@ -287,7 +287,6 @@ export async function deployHub (
   return await RelayHub.new(
     penalizer,
     relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasOverhead,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
@@ -309,7 +308,6 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: '0x',
       tokenContract: tokenContract,
@@ -364,7 +362,6 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
       from: ownerEOA,
       to: logicAddr,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: initParams,
       tokenContract: tokenContract,

@@ -33,7 +33,6 @@ const minimumUnstakeDelay = 50
 
 const hubConfig: Partial<RelayHubConfiguration> = {
   maxWorkerCount,
-  gasOverhead,
   minimumEntryDepositValue,
   minimumStake,
   minimumUnstakeDelay

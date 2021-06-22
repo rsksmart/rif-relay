@@ -17,7 +17,6 @@ import VersionsManager from '../common/VersionsManager'
 import { AmountRequired } from '../common/AmountRequired'
 import {
   address2topic,
-  calculateTransactionMaxPossibleGas,
   getLatestEventData,
   randomInRange,
   sleep
@@ -34,11 +33,12 @@ import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
 import { ethers } from 'ethers'
+import TokenResponse from '../common/TokenResponse'
+import VerifierResponse from '../common/VerifierResponse'
 
 import Timeout = NodeJS.Timeout
 
 const VERSION = '2.0.1'
-const PARAMETERS_COST = 43782
 
 export class RelayServer extends EventEmitter {
   lastScannedBlock = 0
@@ -135,6 +135,36 @@ export class RelayServer extends EventEmitter {
     }
   }
 
+  async tokenHandler (verifier: Address): Promise<TokenResponse> {
+    let verifiersToQuery: Address[]
+
+    // if a verifier was supplied, check that it is trusted
+    if (verifier !== undefined) {
+      if (!this.trustedVerifiers.has(verifier.toLowerCase())) {
+        throw new Error('supplied verifier is not trusted')
+      }
+      verifiersToQuery = [verifier]
+    } else {
+      // if no verifier was supplied, query all tursted verifiers
+      verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
+    }
+
+    const res: TokenResponse = {}
+    for (const verifier of verifiersToQuery) {
+      const tokenHandlerInstance = await this.contractInteractor.createTokenHandler(verifier)
+      const acceptedTokens = await tokenHandlerInstance.contract.methods.getAcceptedTokens().call()
+      res[verifier] = acceptedTokens
+    };
+
+    return res
+  }
+
+  async verifierHandler (): Promise<VerifierResponse> {
+    return {
+      trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]
+    }
+  }
+
   isDeployRequest (req: any): boolean {
     let isDeploy = false
     if (req.relayRequest.request.recoverer !== undefined) {
@@ -172,7 +202,7 @@ export class RelayServer extends EventEmitter {
   }
 
   validateVerifier (req: RelayTransactionRequest | DeployTransactionRequest): void {
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
+    if (!this.isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
       throw new Error(`Invalid verifier: ${req.relayRequest.relayData.callVerifier}`)
     }
   }
@@ -185,14 +215,18 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validateRequestWithVerifier (verifier: Address, req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: number}> {
-    if (!this._isTrustedVerifier(verifier)) {
+  async validateRequestWithVerifier (req: RelayTransactionRequest|DeployTransactionRequest): Promise<{maxPossibleGas: BN}> {
+    const verifier = req.relayRequest.relayData.callVerifier
+
+    if (!this.isTrustedVerifier(verifier)) {
       throw new Error('Invalid verifier')
     }
 
     let verifierContract: IRelayVerifierInstance | IDeployVerifierInstance
+    const isDeployRequest: boolean = this.isDeployRequest(req)
+
     try {
-      if (this.isDeployRequest(req)) {
+      if (isDeployRequest) {
         verifierContract = await this.contractInteractor._createDeployVerifier(verifier)
       } else {
         verifierContract = await this.contractInteractor._createRelayVerifier(verifier)
@@ -208,14 +242,46 @@ export class RelayServer extends EventEmitter {
       throw new Error(message)
     }
 
-    const gasAlreadyUsedBeforeDoingAnythingInRelayCall = PARAMETERS_COST // the hubOverhead needs a cushion, which is the gas used to just receive the parameters
-    // TODO , move the cushion to the gasOverhead once it is calculated properly
-    const hubOverhead = (await this.relayHubContract.gasOverhead()).toNumber()
-    const maxPossibleGas = calculateTransactionMaxPossibleGas(
-      hubOverhead,
-      req.relayRequest.request.gas,
-      gasAlreadyUsedBeforeDoingAnythingInRelayCall
-    )
+    let maxPossibleGas: BN
+
+    if (isDeployRequest) {
+      const deployReq = req as DeployTransactionRequest
+      // Actual Maximum gas needed to send to the deploy request tx
+      maxPossibleGas = toBN(await this.contractInteractor.walletFactoryEstimateGasOfDeployCall(deployReq))
+
+      // TODO: For RIF team
+      // Here the server has the last chance to compare the maxPossibleGas the deploy transaction needs with
+      // the aggreement signed between the client and the relayer. Take this into account during the Arbiter integration.
+    } else {
+      const relayReq = req as RelayTransactionRequest
+
+      // TODO: For RIF Team
+      // The maxPossibleGas must be compared against the commitment signed with the user.
+      // The relayServer must not allow a call that requires more gas than it was agreed with the user
+      // For now, we can call estimateDestinationContractCallGas to get the "ACTUAL" gas required for the
+      // field req.relayRequest.request.gas and not relay requests that deviated too much from what the user signed
+
+      // But take into acconunt that the aggreement with the user (the one from the Arbiter) has the final decision.
+      // If the Relayer agreeed with the Client a certain percentage of deviation from the original maxGas, then it must honor that agreement
+      // and not the current hardcoded deviation
+
+      const estimatedDesinationGasCost: number = await this.contractInteractor.estimateDestinationContractCallGas({
+        from: relayReq.relayRequest.relayData.callForwarder,
+        to: relayReq.relayRequest.request.to,
+        gasPrice: relayReq.relayRequest.relayData.gasPrice,
+        data: relayReq.relayRequest.request.data
+      })
+
+      const gasFromRequest = toBN(relayReq.relayRequest.request.gas).toNumber()
+      const gasFromRequestMaxAgreed = Math.ceil(gasFromRequest * (1 + constants.MAX_ESTIMATED_GAS_DEVIATION))
+
+      if (estimatedDesinationGasCost > gasFromRequestMaxAgreed) {
+        throw new Error("Request payload's gas parameters deviate too much fom the estimated gas for this transaction")
+      }
+
+      // Actual maximum gas needed to  send the relay transaction
+      maxPossibleGas = toBN(await this.contractInteractor.estimateRelayTransactionMaxPossibleGasWithTransactionRequest(relayReq))
+    }
 
     const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
 
@@ -233,13 +299,15 @@ export class RelayServer extends EventEmitter {
     return { maxPossibleGas }
   }
 
-  async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: number): Promise<void> {
+  async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: BN): Promise<void> {
     const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
+    log.debug('Relay Server - Request sent to the worker')
+    log.debug('Relay Server - req: ', req)
     try {
       await method.call({
         from: this.workerAddress[workerIndex],
         gasPrice: req.relayRequest.relayData.gasPrice,
-        gas: maxPossibleGas
+        gas: maxPossibleGas.toString()
       }, 'pending')
     } catch (e) {
       throw new Error(`relayCall (local call) reverted in server: ${(e as Error).message}`)
@@ -262,13 +330,10 @@ export class RelayServer extends EventEmitter {
     this.validateVerifier(req)
     await this.validateMaxNonce(req.metadata.relayMaxNonce, workerIndex)
 
-    if (!this._isTrustedVerifier(req.relayRequest.relayData.callVerifier)) {
-      throw new Error('Specified Verifier is not Trusted')
-    }
-    const { maxPossibleGas } = await this.validateRequestWithVerifier(req.relayRequest.relayData.callVerifier, req)
+    const { maxPossibleGas } = await this.validateRequestWithVerifier(req)
 
     // Send relayed transaction
-    log.debug('maxPossibleGas is', maxPossibleGas)
+    log.debug('maxPossibleGas is', maxPossibleGas.toString())
 
     const isDeploy = this.isDeployRequest(req)
 
@@ -285,7 +350,7 @@ export class RelayServer extends EventEmitter {
         serverAction: ServerAction.RELAY_CALL,
         method,
         destination: req.metadata.relayHubAddress,
-        gasLimit: maxPossibleGas,
+        gasLimit: maxPossibleGas.toNumber(),
         creationBlockNumber: currentBlock,
         gasPrice: req.relayRequest.relayData.gasPrice
       }
@@ -415,12 +480,14 @@ export class RelayServer extends EventEmitter {
     if (this.initialized) {
       throw new Error('_init was already called')
     }
+    log.debug('Relay Server - Relay Server initializing')
 
     await this.transactionManager._init()
+    log.debug('Relay Server - Transaction Manager initialized')
     await this._initTrustedVerifiers(this.config.trustedVerifiers)
     this.relayHubContract = this.contractInteractor.relayHubInstance
-
     const relayHubAddress = this.relayHubContract.address
+    log.debug(`Relay Server - Relay hub: ${relayHubAddress}`)
     const code = await this.contractInteractor.getCode(relayHubAddress)
     if (code.length < 10) {
       this.fatal(`No RelayHub deployed at address ${relayHubAddress}.`)
@@ -436,9 +503,12 @@ export class RelayServer extends EventEmitter {
       this.workerAddress
     )
     await this.registrationManager.init()
+    log.debug('Relay Server - Registration manager initialized')
 
     this.chainId = this.contractInteractor.getChainId()
     this.networkId = this.contractInteractor.getNetworkId()
+    log.debug(`Relay Server - chainId: ${this.chainId}`)
+    log.debug(`Relay Server - networkId: ${this.networkId}`)
 
     /* TODO CHECK against RSK ChainId
     if (this.config.devMode && (this.chainId < 1000 || this.networkId < 1000)) {
@@ -656,7 +726,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     return await this.transactionManager.boostUnderpricedPendingTransactionsForSigner(signer, blockNumber)
   }
 
-  _isTrustedVerifier (verifier: string): boolean {
+  isTrustedVerifier (verifier: string): boolean {
     return this.trustedVerifiers.has(verifier.toLowerCase())
   }
 

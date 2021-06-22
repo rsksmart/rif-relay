@@ -144,6 +144,18 @@ contract CustomSmartWallet is IForwarder {
             )
         }
 
+            //Why this require is not needed: in the case that the EVM implementation 
+            //sends gasleft() as req.gas  if gasleft() < req.gas (see EIP-1930),  which would end in the call reverting
+            //If the relayer made this on purpose in order to collect the payment, since all gasLeft()
+            //was sent to this call, then the next line would give an out of gas, and, as a consequence, will
+            //revert the whole transaction, and the payment will not happen
+            //But it could happen that the destination call makes a gasleft() check and decides to revert if it is
+            //not enough, in that case there might be enough gas to complete the relay and the token payment would be collected
+            //For that reason, the next require line must be left uncommented, to avoid malicious relayer attacks to destination contract
+            //methods that revert if the gasleft() is not enough to execute whatever logic they have.
+
+            require(gasleft() > req.gas,"Not enough gas left");
+            
         // If there's no extra logic, then call the destination contract
         if (logicStrg == bytes32(0)) {
             (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
