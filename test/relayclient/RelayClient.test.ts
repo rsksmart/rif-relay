@@ -114,13 +114,16 @@ gasOptions.forEach(gasOption => {
     let relayWorker: Address
 
     async function registerRelayer (relayHub: RelayHubInstance): Promise<void> {
-      let relayWorker = '0x'.padEnd(42, '2')
+      const relayWorker = '0x'.padEnd(42, '2')
       const relayOwner = accounts[3]
       const relayManager = accounts[4]
       await relayHub.stakeForAddress(relayManager, 1000, {
         value: ether('2'),
         from: relayOwner
       })
+
+      await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
+      await relayHub.registerRelayServer(cheapRelayerUrl, { from: relayManager })
     }
 
     before(async function () {
@@ -319,7 +322,7 @@ gasOptions.forEach(gasOption => {
         }
 
         const tokenPaymentEstimate = await relayClient.estimateTokenTransferGas(details, relayWorker)
-        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker)
+        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker, 10)
         const estimatedGasResultWithoutTokenPayment = await relayClient.calculateDeployCallGas(testRequest)
 
         const originalBalance = await token.balanceOf(swAddress)

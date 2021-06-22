@@ -19,10 +19,11 @@ import { evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnv
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
-import { PrefixedHexString } from 'ethereumjs-tx'
+import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
 import TokenResponse from '../../src/common/TokenResponse'
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -278,13 +279,14 @@ contract('RelayServer', function (accounts) {
         assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
-        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
-
+        const txDetails: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
+        const tx = new Transaction(txDetails.signedTx, this.contractInteractor.getRawTxOptions());
+        const txHash = '0x' + tx.hash(true).toString('hex')
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()
         assert.equal(pendingTransactions.length, 1)
         assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
 
-        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+        const receipt = await web3.eth.getTransactionReceipt(txHash)
 
         console.log('Estimated gas is:', result.maxPossibleGas.toNumber())
         console.log('Actual gas used is: ', receipt.cumulativeGasUsed)
@@ -317,7 +319,7 @@ contract('RelayServer', function (accounts) {
             }
           ]
         },
-        [env.relayServer.workerAddress, '1'])
+        [env.relayServer.workerAddress[0], '1'])
 
         let tokenGasCost = await env.contractInteractor.estimateGas({
           from: env.forwarder.address, // token holder is the smart wallet
@@ -338,13 +340,15 @@ contract('RelayServer', function (accounts) {
         assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
-        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
+        const txDetails: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
+        const tx = new Transaction(txDetails.signedTx, this.contractInteractor.getRawTxOptions());
+        const txHash = '0x' + tx.hash(true).toString('hex')
 
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()
         assert.equal(pendingTransactions.length, 1)
         assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
 
-        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+        const receipt = await web3.eth.getTransactionReceipt(txHash)
 
         // console.log("Estimated gas is:", result.maxPossibleGas.toNumber())
         // console.log("Actual gas used is: ", receipt.cumulativeGasUsed)
