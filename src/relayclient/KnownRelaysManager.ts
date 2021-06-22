@@ -49,9 +49,13 @@ export class KnownRelaysManager {
 
   async refresh (): Promise<void> {
     this._refreshFailures()
+    log.debug('KnownRelaysManager - Refresh failures done')
     const recentlyActiveRelayManagers = await this._fetchRecentlyActiveRelayManagers()
+    log.debug('KnownRelaysManager - Fetched recently active Relay Managers done')
     this.preferredRelayers = this.config.preferredRelays.map(relayUrl => { return { relayUrl } })
     this.allRelayers = await this.getRelayInfoForManagers(recentlyActiveRelayManagers)
+    log.debug('KnownRelaysManager - Get relay info for Managers done')
+    log.debug('KnownRelaysManager - Refresh done')
   }
 
   async getRelayInfoForManagers (relayManagers: Set<Address>): Promise<RelayRegisteredEventInfo[]> {

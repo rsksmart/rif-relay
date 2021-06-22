@@ -1,5 +1,5 @@
 import log from 'loglevel'
-import { HttpProvider } from 'web3-core'
+import { HttpProvider, TransactionReceipt } from 'web3-core'
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import { constants } from '../common/Constants'
@@ -375,6 +375,8 @@ export class RelayClient {
 
   async relayTransaction (transactionDetails: EnvelopingTransactionDetails): Promise<RelayingResult> {
     await this._init()
+    log.debug('Relay Client - Relaying transaction')
+    log.debug(`Relay Client - Relay Hub:${transactionDetails.relayHub}`)
     // TODO: should have a better strategy to decide how often to refresh known relays
     this.emit(new RefreshRelaysEvent())
     await this.knownRelaysManager.refresh()
@@ -391,7 +393,7 @@ export class RelayClient {
       const internalCallCost = await this.contractInteractor.estimateDestinationContractCallGas(this.getEstimateGasParams(transactionDetails))
       transactionDetails.gas = toHex(internalCallCost)
     }
-
+    log.debug(`Relay Client - Estimated gas for relaying: ${transactionDetails.gas}`)
     const relaySelectionManager = await new RelaySelectionManager(transactionDetails, this.knownRelaysManager, this.httpClient, this.pingFilter, this.config).init()
     const count = relaySelectionManager.relaysLeft().length
     this.emit(new DoneRefreshRelaysEvent(count))
@@ -399,6 +401,7 @@ export class RelayClient {
       throw new Error('no registered relayers')
     }
     const relayingErrors = new Map<string, Error>()
+    log.debug('Relay Client - Selecting active relay')
     while (true) {
       let relayingAttempt: RelayingAttempt | undefined
       const activeRelay = await relaySelectionManager.selectNextRelay()
@@ -416,6 +419,7 @@ export class RelayClient {
           relayingErrors.set(activeRelay.relayInfo.relayUrl, relayingAttempt.error ?? new Error('No error reason was given'))
           continue
         }
+        log.debug('Relay Client - Relayed done')
       }
       return {
         transaction: relayingAttempt?.transaction,
@@ -641,6 +645,12 @@ export class RelayClient {
     }
 
     return params
+  }
+
+  async getTransactionReceipt (transactionHash: PrefixedHexString,
+    retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
+    initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+    return await this.contractInteractor.getTransactionReceipt(transactionHash, retries, initialBackoff)
   }
 }
 

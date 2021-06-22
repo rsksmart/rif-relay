@@ -8,6 +8,7 @@ import { TxStoreManager, TXSTORE_FILENAME } from './TxStoreManager'
 import ContractInteractor from '../common/ContractInteractor'
 import { configure } from '../relayclient/Configurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
+import log from 'loglevel'
 
 function error (err: string): never {
   console.error(err)
@@ -30,7 +31,9 @@ async function run (): Promise<void> {
     }
 
     web3provider = new Web3.providers.HttpProvider(conf.rskNodeUrl)
+    log.debug('runServer() - web3Provider done')
     config = await resolveServerConfig(conf, web3provider) as ServerConfigParams
+    log.debug('runServer() - config done')
     if (trustedVerifiers.length > 0) {
       config.trustedVerifiers = trustedVerifiers
     }
@@ -46,6 +49,7 @@ async function run (): Promise<void> {
 
   const managerKeyManager = new KeyManager(1, workdir + '/manager')
   const workersKeyManager = new KeyManager(1, workdir + '/workers')
+  log.debug('runServer() - manager and workers configured')
   const txStoreManager = new TxStoreManager({ workdir })
   const contractInteractor = new ContractInteractor(web3provider, configure({
     relayHubAddress: config.relayHubAddress,
@@ -53,6 +57,7 @@ async function run (): Promise<void> {
     relayVerifierAddress: config.relayVerifierAddress
   }))
   await contractInteractor.init()
+  log.debug('runServer() - contract interactor initilized')
 
   const dependencies: ServerDependencies = {
     txStoreManager,
@@ -63,8 +68,10 @@ async function run (): Promise<void> {
 
   const relayServer = new RelayServer(config, dependencies)
   await relayServer.init()
+  log.debug('runServer() - Relay Server initialized')
   const httpServer = new HttpServer(config.port, relayServer)
   httpServer.start()
+  log.debug('runServer() - Relay Server started')
 }
 
 // eslint-disable-next-line @typescript-eslint/no-floating-promises
