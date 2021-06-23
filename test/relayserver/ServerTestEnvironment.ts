@@ -220,6 +220,7 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
+
     let transactionDetails: EnvelopingTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
@@ -233,7 +234,8 @@ export class ServerTestEnvironment {
       tokenContract: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: false
     }
-
+    const internalCallCost = await this.contractInteractor.estimateDestinationContractCallGas(this.relayClient.getEstimateGasParams(transactionDetails))
+    transactionDetails.gas = toHex(internalCallCost)
     let maxTime, delay
     if (useValidMaxDelay) {
       if (workerIndex === 0) {
