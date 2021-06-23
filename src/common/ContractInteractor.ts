@@ -2,7 +2,7 @@ import Common from 'ethereumjs-common'
 
 import { ethers } from 'hardhat'
 import { BigNumber, Event, EventFilter, providers } from 'ethers'
-
+import log from 'loglevel'
 import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
 import { constants } from './Constants'
 import replaceErrors from './ErrorReplacerJSON'
@@ -70,16 +70,20 @@ export default class ContractInteractor {
   getProvider (): providers.JsonRpcProvider { return this.provider }
 
   async init (): Promise<void> {
+    log.debug('Contract Interactor - Initializing')
     if (this.isInitialized()) {
-      throw new Error('_init was already called')
+      log.debug('Contract Interactor - Initialized succesfully')
+      throw new Error('_init has already called')
     }
     await this._initializeContracts()
+    log.debug('Contract Interactor - Initialized succesfully')
     await this._validateCompatibility().catch(err => console.log('WARNING: beta ignore version compatibility', err.message))
     const chain = this.provider.network.name
     this.chainId = (await this.provider.getNetwork()).chainId
     this.networkId = await this._networkId()
     this.networkType = this.provider.network.name
     // chain === 'private' means we're on ganache, and ethereumjs-tx.Transaction doesn't support that chain type
+    log.debug(`Contract Interactor - Using chainId: ${this.chainId}, netowrkId:${this.networkId} , networkType:${this.networkType} `)
     this.rawTxOptions = getRawTxOptions(this.chainId, this.networkId, chain)
   }
 
@@ -113,12 +117,15 @@ export default class ContractInteractor {
   async _initializeContracts (): Promise<void> {
     if (this.config.relayHubAddress !== constants.ZERO_ADDRESS) {
       this.relayHubInstance = await this._createRelayHub(this.config.relayHubAddress)
+      log.debug(`Contract Interactor - Relay Hub initialized: ${this.relayHubInstance.address}`)
     }
     if (this.config.relayVerifierAddress !== constants.ZERO_ADDRESS) {
       this.relayVerifierInstance = await this._createRelayVerifier(this.config.relayVerifierAddress)
+      log.debug(`Contract Interactor - Relay Verifier initialized: ${this.relayVerifierInstance.address}`)
     }
     if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
       this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
+      log.debug(`Contract Interactor - Deploy Verifier initialized: ${this.deployVerifierInstance.address}`)
     }
 
     console.log('Contracts initialized correctly')
