@@ -151,6 +151,16 @@ gasOptions.forEach(gasOption => {
         managerTargetBalance: 0.03e18
       })).proc
 
+      relayWorker = accounts[2]
+      const relayOwner = accounts[3]
+      const relayManager = accounts[4]
+      await relayHub.stakeForAddress(relayManager, 1000, {
+        value: ether('2'),
+        from: relayOwner
+      })
+
+      await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
+      
       config = {
         logLevel: 5,
         relayHubAddress: relayHub.address,
@@ -851,7 +861,7 @@ gasOptions.forEach(gasOption => {
           relayClient.accountManager.addAccount(gaslessAccount)
           const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
           assert.isUndefined(transaction)
-          assert.equal(error!.message, `local view call to 'relayCall()' reverted: ${BadContractInteractor.message}`)
+          assert.equal(error!.message, `local view call reverted: ${BadContractInteractor.message}`)
         })
 
         it('should report relays that timeout to the Known Relays Manager', async function () {
