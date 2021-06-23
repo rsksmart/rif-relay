@@ -160,7 +160,7 @@ gasOptions.forEach(gasOption => {
       })
 
       await relayHub.addRelayWorkers([relayWorker], { from: relayManager })
-      
+
       config = {
         logLevel: 5,
         relayHubAddress: relayHub.address,
@@ -832,9 +832,18 @@ gasOptions.forEach(gasOption => {
           },
           pingResponse
         }
+        let gasToSend = await web3.eth.estimateGas({
+          from: options.callForwarder,
+          to: options.to,
+          gasPrice: toHex('6000000000'),
+          data: options.data
+        })
+
+        gasToSend = gasToSend > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? gasToSend - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : gasToSend
+
         optionsWithGas = Object.assign({}, options, {
-          gas: '0xf4240',
-          gasPrice: '0x51f4d5c00'
+          gas: toHex(gasToSend),
+          gasPrice: toHex('6000000000')
         })
         const commitment = new Commitment(
           pingResponse.maxDelay,
@@ -867,11 +876,11 @@ gasOptions.forEach(gasOption => {
         it('should report relays that timeout to the Known Relays Manager', async function () {
           const badHttpClient = new BadHttpClient(configure(config), false, false, true)
           const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
-          const relayClient =
-            new RelayClient(underlyingProvider, config, dependencyTree)
+          const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
           await relayClient._init()
 
-          const tokenGas = (gasOption.estimateGas ? (await relayClient.estimateTokenTransferGas(options, relayWorkerAddress)).toString() : options.tokenGas)
+          // register gasless account in RelayClient to avoid signing with RSKJ
+          relayClient.accountManager.addAccount(gaslessAccount)
 
           // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
           sinon.spy(dependencyTree.knownRelaysManager)
