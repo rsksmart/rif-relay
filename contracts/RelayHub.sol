@@ -265,7 +265,7 @@ contract RelayHub is IRelayHub {
         require(relayManager != address(0), "Unknown relay worker");
 
         StakeInfo storage stakeInfo = stakes[relayManager];
-
+        
         uint256 amount = stakeInfo.stake;
 
         //In the case the stake owner have already withrawn their funds

@@ -10,6 +10,7 @@ import { defaultEnvironment, Environment, environments } from '../src/common/Env
 import { PrefixedHexString } from '../src/relayclient/types/Aliases'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
+import { Contract, ContractReceipt } from 'ethers'
 
 export async function getGaslessAccount (): Promise<AccountKeypair> {
   const a = ethers.Wallet.createRandom()
@@ -189,4 +190,13 @@ export async function increaseTime (time: number): Promise<void> {
   const ret = await ethers.provider.send('evm_increaseTime', [time])
   await evmMine()
   return ret
+}
+
+/**
+ * Returns given a receipt if an event was emitted
+ */
+export function emittedEvent (contract: Contract, receipt: ContractReceipt, eventName: string, params: any[]): boolean {
+  const encodedEvent = contract.interface.encodeFilterTopics(contract.interface.events[eventName], params)
+  const topicsWithEncodedEvent = receipt.logs.filter(log => log.topics.some(topic => encodedEvent.includes(topic)))
+  return topicsWithEncodedEvent.length !== 0
 }

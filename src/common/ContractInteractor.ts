@@ -415,6 +415,20 @@ export default class ContractInteractor {
   //       ]
   //     )
   // }
+
+  // async getTransactionReceipt (transactionHash: PrefixedHexString,
+  //   retries: number = constants.WAIT_FOR_RECEIPT_RETRIES,
+  //   initialBackoff: number = constants.WAIT_FOR_RECEIPT_INITIAL_BACKOFF): Promise<TransactionReceipt> {
+  //   for (let tryCount = 0, backoff = initialBackoff; tryCount < retries; tryCount++, bacTkoff *= 2) {
+  //     const receipt = await this.provider.getTransactionReceipt(transactionHash)
+  //     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  //     if (receipt) {
+  //       return receipt
+  //     }
+  //     await sleep(backoff)
+  //   }
+  //   throw new Error(`No receipt found for this transaction ${transactionHash}`)
+  // }
 }
 
 /**
