@@ -69,6 +69,7 @@ commands:
       - run:
           name: "Execute << parameters.test >>"
           command: |
+                  cat ~/gls/rsknode/node.conf
                   java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                   until nc -z 127.0.0.1 4444
                   do
@@ -88,6 +89,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set B
           command: |
+                    cat ~/gls/rsknode/node.conf
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
                     until nc -z 127.0.0.1 4444
                     do
