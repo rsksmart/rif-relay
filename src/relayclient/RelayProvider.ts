@@ -478,10 +478,6 @@ export class RelayProvider implements HttpProvider {
       delete p.params[0].onlyPreferredRelays
     }
 
-    if (typeof payload.params[1] !== 'undefined') {
-      p.params.splice(1, 1)
-    }
-
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (payload.params[0]?.hasOwnProperty('tokenAmount')) {
       delete p.params[0].tokenAmount
