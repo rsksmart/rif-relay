@@ -280,7 +280,7 @@ contract('RelayServer', function (accounts) {
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
         const txDetails: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
-        const tx = new Transaction(txDetails.signedTx, env.contractInteractor.getRawTxOptions());
+        const tx = new Transaction(txDetails.signedTx, env.contractInteractor.getRawTxOptions())
         const txHash = '0x' + tx.hash(true).toString('hex')
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()
         assert.equal(pendingTransactions.length, 1)
@@ -341,7 +341,7 @@ contract('RelayServer', function (accounts) {
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
         const txDetails: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
-        const tx = new Transaction(txDetails.signedTx, env.contractInteractor.getRawTxOptions());
+        const tx = new Transaction(txDetails.signedTx, env.contractInteractor.getRawTxOptions())
         const txHash = '0x' + tx.hash(true).toString('hex')
 
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()

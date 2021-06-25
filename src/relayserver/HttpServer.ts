@@ -115,6 +115,7 @@ export class HttpServer {
     const feesTable = await this.backend.envelopingArbiter.getFeesTable()
     res.send(feesTable)
   }
+
   async tokenHandler (req: Request, res: Response): Promise<void> {
     try {
       const verifier = req.query.verifier as Address

@@ -220,8 +220,7 @@ export class ServerTestEnvironment {
       relayInfo: eventInfo
     }
 
-
-    let transactionDetails: EnvelopingTransactionDetails = {
+    const transactionDetails: EnvelopingTransactionDetails = {
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,

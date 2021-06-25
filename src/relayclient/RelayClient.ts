@@ -26,8 +26,7 @@ import {
   DoneRefreshRelaysEvent,
   RefreshRelaysEvent, RelayerResponseEvent, SendToRelayerEvent, SignRequestEvent, ValidateRequestEvent
 } from './RelayEvents'
-import { getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType } from '../common/EIP712/TypedRequestData'
-import { TypedDataUtils } from 'eth-sig-util'
+import { getDomainSeparatorHash } from '../common/EIP712/TypedRequestData'
 import { toBN, toHex } from 'web3-utils'
 import { CommitmentValidator } from '../enveloping/CommitmentValidator'
 import { CommitmentReceipt } from '../enveloping/Commitment'
