@@ -219,8 +219,8 @@ export class ServerTestEnvironment {
       pingResponse: pingResponse as PingResponse,
       relayInfo: eventInfo
     }
-
-    const transactionDetails: EnvelopingTransactionDetails = {
+    
+    const transactionDetails: EnvelopingTransactionDetails = Object.assign({
       from: this.gasLess,
       to: this.recipient.address,
       data: this.encodedFunction,
@@ -232,7 +232,7 @@ export class ServerTestEnvironment {
       tokenGas: toHex(0),
       tokenContract: constants.ZERO_ADDRESS,
       isSmartWalletDeploy: false
-    }
+    }, overrideDetails)
     const internalCallCost = await this.contractInteractor.estimateDestinationContractCallGas(this.relayClient.getEstimateGasParams(transactionDetails))
     transactionDetails.gas = toHex(internalCallCost)
     let maxTime, delay
@@ -255,7 +255,7 @@ export class ServerTestEnvironment {
       pingResponse.relayWorkerAddress = this.relayServer.workerAddress[3]
     }
 
-    return await this.relayClient._prepareRelayHttpRequest(relayInfo, Object.assign({}, transactionDetails, overrideDetails), maxTime)
+    return await this.relayClient._prepareRelayHttpRequest(relayInfo, transactionDetails, maxTime)
   }
 
   async relayTransaction (assertRelayed = true, overrideDetails: Partial<EnvelopingTransactionDetails> = {}, useValidMaxDelay = true, useValidWorker = true, workerIndex = 1): Promise<{
