@@ -219,7 +219,6 @@ export class ServerTestEnvironment {
       pingResponse: pingResponse as PingResponse,
       relayInfo: eventInfo
     }
-    
     const transactionDetails: EnvelopingTransactionDetails = Object.assign({
       from: this.gasLess,
       to: this.recipient.address,
