@@ -40,9 +40,8 @@ import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransa
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { toBN, toHex } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
-import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
-import { bufferToHex } from 'ethereumjs-util'
-import { expectEvent, ether } from '@openzeppelin/test-helpers'
+import { getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
+import { ether } from '@openzeppelin/test-helpers'
 import { Commitment, CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
 import { MockCommitmentValidator } from '../dummies/MockCommitmentValidator'
 
@@ -193,7 +192,6 @@ gasOptions.forEach(gasOption => {
         tokenGas: '50000',
         isSmartWalletDeploy: false
       }
-
     })
 
     after(async function () {
@@ -860,43 +858,42 @@ gasOptions.forEach(gasOption => {
         }
       })
 
-        it('should return error if view call to \'relayCall()\' fails', async function () {
-          const badContractInteractor = new BadContractInteractor(web3.currentProvider as Web3Provider, configure(config), true)
-          const relayClient =
+      it('should return error if view call to \'relayCall()\' fails', async function () {
+        const badContractInteractor = new BadContractInteractor(web3.currentProvider as Web3Provider, configure(config), true)
+        const relayClient =
             new RelayClient(underlyingProvider, config, { contractInteractor: badContractInteractor })
-          await relayClient._init()
+        await relayClient._init()
 
-          // register gasless account in RelayClient to avoid signing with RSKJ
-          relayClient.accountManager.addAccount(gaslessAccount)
-          const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
-          assert.isUndefined(transaction)
-          assert.equal(error!.message, `local view call reverted: ${BadContractInteractor.message}`)
-        })
+        // register gasless account in RelayClient to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
+        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+        assert.isUndefined(transaction)
+        assert.equal(error!.message, `local view call reverted: ${BadContractInteractor.message}`)
+      })
 
-        it('should report relays that timeout to the Known Relays Manager', async function () {
-          const badHttpClient = new BadHttpClient(configure(config), false, false, true)
-          const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
-          const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
-          await relayClient._init()
+      it('should report relays that timeout to the Known Relays Manager', async function () {
+        const badHttpClient = new BadHttpClient(configure(config), false, false, true)
+        const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
+        const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
+        await relayClient._init()
 
-          // register gasless account in RelayClient to avoid signing with RSKJ
-          relayClient.accountManager.addAccount(gaslessAccount)
+        // register gasless account in RelayClient to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
 
-          // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
-          sinon.spy(dependencyTree.knownRelaysManager)
-          const attempt = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
-          assert.equal(attempt.error?.message, 'some error describing how timeout occurred somewhere')
-          expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
-        })
+        // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+        sinon.spy(dependencyTree.knownRelaysManager)
+        const attempt = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+        assert.equal(attempt.error?.message, 'some error describing how timeout occurred somewhere')
+        expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+      })
 
-
-        it('should not report relays if error is not timeout', async function () {
-          const badHttpClient = new BadHttpClient(configure(config), false, true, false)
-          const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
-          dependencyTree.httpClient = badHttpClient
-          const relayClient =
+      it('should not report relays if error is not timeout', async function () {
+        const badHttpClient = new BadHttpClient(configure(config), false, true, false)
+        const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
+        dependencyTree.httpClient = badHttpClient
+        const relayClient =
             new RelayClient(underlyingProvider, config, dependencyTree)
-          await relayClient._init()
+        await relayClient._init()
 
         relayClient.accountManager.addAccount(gaslessAccount)
 
@@ -929,34 +926,34 @@ gasOptions.forEach(gasOption => {
             new RelayClient(underlyingProvider, config, dependencyTree)
 
           await relayClient._init()
-        relayClient.accountManager.addAccount(gaslessAccount)
-        // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
-        sinon.spy(dependencyTree.knownRelaysManager)
-        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
-        assert.isUndefined(transaction)
-        assert.equal(error!.message, 'Returned transaction did not pass validation')
-        expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
-      })
-
-      it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
-        const dependencyTree = getDependencies(configure(config), underlyingProvider, {
-          httpClient: badHttpClient
+          relayClient.accountManager.addAccount(gaslessAccount)
+          // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+          sinon.spy(dependencyTree.knownRelaysManager)
+          const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+          assert.isUndefined(transaction)
+          assert.equal(error!.message, 'Returned transaction did not pass validation')
+          expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
         })
-        const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
-        await relayClient._init()
 
-        // register gasless account in RelayClient to avoid signing with RSKJ
-        relayClient.accountManager.addAccount(gaslessAccount)
+        it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
+          const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
+          const dependencyTree = getDependencies(configure(config), underlyingProvider, {
+            httpClient: badHttpClient
+          })
+          const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
+          await relayClient._init()
 
-        // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
-        sinon.spy(dependencyTree.knownRelaysManager)
-        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
-        assert.isUndefined(transaction)
-        assert.equal(error!.message, 'Returned commitment did not pass validation')
-        expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+          // register gasless account in RelayClient to avoid signing with RSKJ
+          relayClient.accountManager.addAccount(gaslessAccount)
+
+          // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+          sinon.spy(dependencyTree.knownRelaysManager)
+          const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+          assert.isUndefined(transaction)
+          assert.equal(error!.message, 'Returned commitment did not pass validation')
+          expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+        })
       })
-    })
 
       describe('#_broadcastRawTx()', function () {
         // TODO: TBD: there has to be other behavior then that. Maybe query the transaction with the nonce somehow?
