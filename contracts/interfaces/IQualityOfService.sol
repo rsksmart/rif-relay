@@ -22,7 +22,4 @@ interface IQualityOfService {
         address relayHubAddress;
         address relayWorker;
     }
-
-    function penalize(CommitmentResponse calldata res) external;
-
 }
