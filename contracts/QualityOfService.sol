@@ -7,14 +7,25 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 import "./utils/RLPReader.sol";
 import "./utils/RSKAddrValidator.sol";
 import "./interfaces/IRelayHub.sol";
-import "./interfaces/IPenalizer.sol";
-import "./interfaces/IQualityofService.sol";
+import "./interfaces/IQualityOfService.sol";
 
-contract QualityofService is IQualityofService {
+contract QualityofService is IQualityOfService {
     
+    string public override versionQualityOfService = "2.0.1+enveloping.qos.iqualityofservice";
+
     mapping(bytes32 => bool) public penalizedTransactions;
 
     using ECDSA for bytes32;
+
+    function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
+        (transaction.nonce,
+        transaction.gasPrice,
+        transaction.gasLimit,
+        transaction.to,
+        transaction.value,
+        transaction.data) = RLPReader.decodeTransaction(rawTransaction);
+        return transaction;
+    }
 
     modifier relayManagerOnly(IRelayHub hub) {
         require(hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
