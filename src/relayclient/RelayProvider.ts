@@ -444,7 +444,7 @@ export class RelayProvider implements HttpProvider {
   // When using the original provider with the RSKJ node it is necessary to remove the additional useEnveloping property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    let p: JsonRpcPayload = JSON.parse(JSON.stringify(payload))
+    const p: JsonRpcPayload = JSON.parse(JSON.stringify(payload))
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (payload.params[0]?.hasOwnProperty('useEnveloping')) {
