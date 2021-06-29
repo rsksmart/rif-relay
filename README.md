@@ -3,6 +3,27 @@
 A secure transaction relay system to enable users to pay fees using ERC-20 tokens.
 
 [![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
+
+
+## Table of contents
+
+- [Description](#Description)
+- [Requirements](#Requirements)
+- [Launching](#Launching)
+- [Testnet Contracts](#Testnet-Contracts-V2)
+- [Troubleshooting](#Troubleshooting)
+- [Changelog](#Changelog)
+
+## Additional Technical Documentation
+
+The following technical content is available:
+
+- Architecture [docs/enveloping_architecture](docs/enveloping_architecture.md)
+- Launching RIF Enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
+- Development guide [docs/development_guide](docs/development_guide.md)
+- Integration guide [docs/integration_guide](docs/integration_guide.md)
+- Gas costs [docs/overhead_tx_costs](docs/overhead_tx_costs.md)
+
 ## Description
 
 RIF Enveloping takes its inspiration from the [Gas Station Network (GSN) project](https://github.com/opengsn/gsn). GSN is a decentralized system that improves dApp usability without sacrificing security. In a nutshell, GSN abstracts away gas (used to pay transaction fees) to minimize onboarding and UX friction for dApps. With GSN, "gasless clients" can interact with smart contracts paying for gas with tokens instead of native-currency.
@@ -22,44 +43,25 @@ Our main objective is to provide the RSK ecosystem with the means to enable bloc
 
 It is important to recall that - as a security measure - the version 1 contracts deployed on Mainnet have limits on the staked amounts to operate, these limits were removed in version 2.
 
-## Table of contents
+## Requirements
 
-- [Requirements](#Requirements)
-- [Launching](#Launching)
-- [Testnet Contracts](#Testnet-Contracts-V2)
-- [Troubleshooting](#Troubleshooting)
-- [Changelog](#Changelog)
-
-## Additional Technical Documentation
-
-The following technical content is available:
-
-- Architecture [docs/enveloping_architecture](docs/enveloping_architecture.md)
-- Launching RIF Enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
-- Development guide [docs/development_guide](docs/development_guide.md)
-- Integration guide [docs/integration_guide](docs/integration_guide.md)
-- Gas costs [docs/overhead_tx_costs](docs/overhead_tx_costs.md)
-
-
-# Requirements
-
-## RSK Node
+### RSK Node
 
 You need to have a running RSK node version [PAPYRUS-2.2.0](https://github.com/rsksmart/rskj/releases) or higher.
 
-## Yarn
+### Yarn
 
 We use `yarn` version `v1.22.0` for package management. 
 
 Installation instructions at Yarn's [site](https://yarnpkg.com/getting-started/install). Check the install by running `yarn version`.
 
-## Node & NPM
+### Node & NPM
 
 We use `Node` version `v12.18.3`.
 
 Installation instructions at Node's [site](https://nodejs.org/en/). Check the install by running `node -v`.
 
-## Npx & Truffle
+### Npx & Truffle
 
 An important tool we use for interacting with the blockchain is `Truffle` version `v5.0.33`.
 
@@ -71,7 +73,7 @@ Checking the install by running `npx truffle version`.
 
 The configuration file is `truffle.js`. Please see Truffle's documentation for details about this file and how to use it.
 
-## Docker
+### Docker
 
 We recommend following the official [documentation](https://docs.docker.com/get-docker/) for installing Docker and keeping it updated.
 
@@ -90,16 +92,16 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can check this with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
-# Launching
+## Launching
 
-## Building the project
+### Building the project
 
 Clone the project. Then run the following from the project's root directory to build it.
 
 `yarn install`
 `yarn prepare`
 
-## Deploy contracts
+### Deploy contracts
 
 ### Locally
 
@@ -140,7 +142,7 @@ We'll use `truffle` for deploying contracts.
 
 These contracts have been deployed on Testnet. See [here](#testnet-contracts) for their addresses.
 
-## Run the Relay Server
+### Run the Relay Server
 Now you need to start the relay server, to do so you need to configure the json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` which has this structure:
    
 ```
@@ -219,7 +221,7 @@ To implement and use your own replenish strategy:
 3. Re build the project `yarn && yarn prepare`
 4. Add the command `--customReplenish` when running a Relay Server or change the config json file to set `customReplenish` on true.
 
-# Testnet Contracts V2
+## Testnet Contracts V2
 
 ### Primary contracts
 
