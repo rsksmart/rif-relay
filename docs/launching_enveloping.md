@@ -1,53 +1,124 @@
 # Launching
 
-## Prerequisites
-
-Prepare the environment by following the instructions in [docs/basic_requirements](docs/basic_requirements.md)
-
 ## Building the project
 
-Clone the project. Then run the following from the Enveloping project's root directory
--  `yarn install && yarn prepare`.
-- Move [here](../rsknode/README.md) (optional: it runs an RSK node)
+Clone the project. Then run the following from the Enveloping project's root directory to build it.
 
-## Deploy contracts locally
+`yarn install`
+`yarn prepare`
 
-We use `truffle` for deploying contracts.
+## Deploy contracts
 
-`npx truffle migrate --network rsk` (disclaimer: rsk network is for [Regtest](https://developers.rsk.co/quick-start/step1-install-rsk-local-node/) network).
+### Locally
 
-## Run a Relay Server locally
+Use `truffle` for deploying contracts.
 
-In order to run an instance of Enveloping in Regtest:
+Having an RSK node up and running in regtest mode:
 
-1. From the jsrelay directory `npx webpack`.
-2. Configure the server, to do it just edit the config file located at `jsrelay/config/relay-config.json`. You
-   need to specify some parameters there like this:
-   ```json5
-    {
-        "url": "localhost", // the interface where the relay server will be exposed
-        "port": 8090, // the port where it will be running
-        "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701", // the relay hub contract address (can be retrieved from the summary of the deployment).
-        "relayVerifierAddress": "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2", // the relay verifier contract address (can be retrieved from the summary of the deployment).
-        "deployVerifierAddress": "0x1938517B0762103d52590Ca21d459968c25c9E67", // the deploy verifier contract address (can be retrieved from the summary of the deployment).
-        "gasPriceFactor": 1, // a gas price factor to use on gas price calculation, the price will be multiplied by this factor
-        "rskNodeUrl": "http://localhost:4444", // endpoint where the RSK node is running
-        "devMode": true, // a flag to set development mode
-        "customReplenish": false, // set if the server uses a custom replenish function or not
-        "logLevel": 1, // the log level
-        "workdir": "/some/absolute/path" // an absolute path to the working directory of the server, the server will store all the information there
-    }
-   ```
-3. From the root directory run `node dist/src/cli/commands/enveloping.js relayer-run --config jsrelay/config/relay-config.json`.
-4. To check if it is working, run `curl http://localhost:8090/getaddr`.
+`npx truffle migrate --network rsk`
 
-## Deploy contracts on testnet
 
-We use `truffle` for deploying contracts.
+After running this command you will see a summary of contracts on the 
+terminal something similar to this:
+
+```
+|===================================|============================================|
+| Contract                          | Address                                    |
+|===================================|============================================|
+| Penalizer                         | 0xe8C7C6f18c3B9532343487faD807060750C1fE95 |
+| RelayHub                          | 0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701 |
+| SampleRecipient                   | 0x5D0aBdE7Ed6B7e122eD55EAe514E617d6c08f407 |
+| SmartWallet                       | 0xB7a001eE69E7C1eef25Eb8e628e46214Ea74BF0F |
+| SmartWalletFactory                | 0x8C1108cFCd7ddad09D8910e5f42982A6c54aD9cD |
+| SmartWalletDeployVerifier         | 0x1938517B0762103d52590Ca21d459968c25c9E67 |
+| SmartWalletRelayVerifier          | 0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2 |
+| CustomSmartWallet                 | 0x96A90Ee24C20c78Ba20AcE1a2aa4D59F79353C54 |
+| CustomSmartWalletFactory          | 0x89bac3BB0517F7Dc0E5E94265217A9Acc5cc489f |
+| CustomSmartWalletDeployVerifier   | 0x3eE31F6049065B616f85470985c0eF067f2bEbDE |
+| CustomSmartWalletRelayVerifier    | 0xDE8Ae20488BE104f0782C0126038b6682ECc1eC7 |
+|===================================|============================================|
+```
+
+You need to copy that summary and save it in some place to retrieve it later.
+
+### On Testnet
+
+
+Use `truffle` for deploying contracts.
 
 `npx truffle migrate --network rsktestnet` (disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`).
 
 We have already deployed these contracts on Testnet. See [here](#testnet-contracts)
+
+## Run the Relay Server
+Now you need to start the relay server, to do so you need to configure a 
+json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` that has this structure:
+   
+```
+{
+  "url": "localhost",
+  "port": 8090,
+  "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701",
+  "relayVerifierAddress": "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2",
+  "deployVerifierAddress": "0x1938517B0762103d52590Ca21d459968c25c9E67",
+  "gasPriceFactor": 1,
+  "rskNodeUrl": "http://rsk-node:4444",
+  "devMode": true,
+  "customReplenish": false,
+  "logLevel": 1,
+  "workdir": "/home/jonathan/workspace/enveloping/environment"
+}
+```
+
+Where:
+
+* **url**: is the url where the relay server will be deployed, it could be localhost or the ip of the host machine
+* **port**: as url is the port where the relay server will be hosted.
+* **relayHubAddress**: is the relay hub contract address, you can retrieve this from the contract summary.
+* **relayVerifierAddress**: is the relay verifier contract address, you can retrieve this from the contract summary.
+* **deployVerifierAddress**: is the deploy verifier contract address, you can retrieve this from the contract summary.
+* **gasPriceFactor**: is the gas price factor used to calculate the gas on the server, you can leave it as 1.
+* **rskNodeUrl**: is the RSK node endpoint url, where the RSK node is located.
+* **devMode**: it indicates to the server if we are in development mode or not.
+* **customReplenish**: (Pending documentation)
+* **logLevel**: is the log level for the relay server.
+* **workdir**: is the absolute path to the folder where the server will store the database and all it's data.
+
+3. Now we can use the command `yarn relay` (on the root of the enveloping project) to start the relay server.
+After running that command you will see a log saying that the relay server is not ready and that some values are wrong, that's ok you just need to register this relay server into the relay hub in order to be usable by the clients.
+
+## Register the Relay Server
+
+### On Regtest
+
+The relay server is running, now you need to register this server in order to be usable, to do so you
+first need to configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
+   values as you consider, the script contains something like this:
+
+```
+node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 200 --network http://rsk-node:4444/ --hub "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"
+```
+
+Where:
+
+* **--fund**: indicates the amount of rbtc that you will transfer from accounts[0] to the worker manager account.
+* **--stake**: (Pending documentation) this should be twice the value of funds.
+* **--hub**: is the relay hub contract address, you can retrieve this from the contract summary.
+
+After doing that you need to open another terminal and run this command `yarn registerRelay` \
+(on the root of the enveloping project) in order to register the relay. After running that command you will
+be seeing some logs saying that everything executes correctly. Then if you go to the relay server
+logs you will be seing a lot of interaction but you need to see this log to be sure the server is ready:
+
+```
+Relayer state: READY
+```
+
+### On Testnet
+
+1. Send to relayManagerAddress at least 0.001 tRBTC to set it up
+2. Send to relayWorkerAddress at least 0.001 tRBTC to set it up
+3. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m <secret_mnemonic> --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `<secret_mnemonic>` contains the path to a file with the mnemonic of a funded account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic.
 
 ## Custom worker replenish function in the Relay Server
 
@@ -59,22 +130,6 @@ To implement and use your own replenish strategy:
 2. On the function `replenishStrategy` write your replenish strategy on the then branch.
 3. Re build the project `yarn && yarn prepare`
 4. Add the command `--customReplenish` when running a Relay Server or change the config json file to set `customReplenish` on true.
-
-## Run a Relay Server on testnet
-
-In order to run an Enveloping instance in Testnet, clone the project then run the following from the project's root directory:
-
-1. Create the project home folder, in this folder the jsrelay databases will be placed: `mkdir enveloping_relay`
-2. In a terminal run `node dist/src/cli/commands/enveloping.js relayer-run  --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --deployVerifierAddress=<DEPLOY_VERIFIER_CONTRACT_ADDRESS> --relayVerifierAddress=<RELAY_VERIFIER_CONTRACT_ADDRESS> --versionRegistryAddress=<VERSION_REGISTRY_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8090 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8090/jsrelay`)
-3. In another terminal run `curl http://localhost:8090/getaddr` which will return some JSON with information of the running jsRelay Server, for example:
-```json
-{"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
-"relayHubAddress":"0x38bebd507aBC3D76B10d61f5C95668e1240D087F", "minGasPrice":"6000000000", "chainId":"31", "networkId":"31","ready":false,"version":"2.0.1"}
-```
-4. Send to relayManagerAddress at least 0.001 tRBTC to set it up
-5. Send to relayWorkerAddress at least 0.001 tRBTC to set it up
-6. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m secret_mnemonic --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `secret_mnemonic` contains the path to a file with the mnemonic of the account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic
-7.  Wait until the relay server prints a message saying `RELAY: READY`.
 
 ## Troubleshooting
 
