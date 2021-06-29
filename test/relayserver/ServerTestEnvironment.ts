@@ -268,7 +268,7 @@ export class ServerTestEnvironment {
     reqSigHash: PrefixedHexString
     signedReceipt: CommitmentReceipt | undefined
   }> {
-    const req = await this.createRelayHttpRequest(overrideDetails)
+    const req = await this.createRelayHttpRequest(overrideDetails, useValidMaxDelay, useValidWorker, workerIndex)
     const { signedTx, signedReceipt } = await this.relayServer.createRelayTransaction(req)
     const txHash = ethUtils.bufferToHex(ethUtils.keccak256(Buffer.from(removeHexPrefix(signedTx), 'hex')))
     const reqSigHash = ethUtils.bufferToHex(ethUtils.keccak256(req.metadata.signature))
