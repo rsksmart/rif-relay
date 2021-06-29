@@ -4,10 +4,11 @@ import BN from 'bn.js'
 import { evmMineMany, getTestingEnvironment } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
 
-import { RelayHubInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, PenalizerInstance } from '../types/truffle-contracts'
 import { constants } from '../src/common/Constants'
 
 const RelayHub = artifacts.require('RelayHub')
+const Penalizer = artifacts.require('Penalizer')
 
 contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, owner, nonOwner]) {
   const initialUnstakeDelay = new BN(4)
@@ -19,6 +20,7 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
   const minimumUnstakeDelay = 1
 
   let relayHub: RelayHubInstance
+  let penalizer: PenalizerInstance
 
   function testCanStake (relayManager: string): void {
     it('should allow owner to stake for unowned addresses', async function () {
@@ -54,7 +56,8 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
 
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
+      penalizer = await Penalizer.new()
+      relayHub = await RelayHub.new(penalizer.address, maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
     })
 
@@ -217,34 +220,7 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
     })
   })
 
-  describe('with scheduled deauthorization of an authorized hub', function () {
-    beforeEach(async function () {
-      relayHub = await RelayHub.new(anyRelayHub, maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
-
-      await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
-        value: initialStake,
-        from: owner
-      })
-      await relayHub.addRelayWorkers([worker], { from: relayManager })
-      await relayHub.unlockStake(relayManager, { from: owner })
-    })
-
-    describe('after grace period elapses', function () {
-      beforeEach(async function () {
-        await evmMineMany(initialUnstakeDelay.toNumber())
-      })
-
-      it('should not allow to penalize hub', async function () {
-        await expectRevert(
-          relayHub.penalize(worker, nonOwner, { from: anyRelayHub }),
-          'RelayManager not staked'
-        )
-      })
-    })
-  })
-
-  describe('with scheduled unlock while hub still authorized', function () {
+  describe('with unlock scheduled', function () {
     beforeEach(async function () {
       relayHub = await RelayHub.new(constants.ZERO_ADDRESS, maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)

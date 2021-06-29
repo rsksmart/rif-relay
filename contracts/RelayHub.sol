@@ -259,6 +259,9 @@ contract RelayHub is IRelayHub {
         _;
     }
 
+    /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.
+    /// @param relayWorker - worker whose manager will be penalized
+    /// @param beneficiary - address that receives half of the penalty amount
     function penalize(address relayWorker, address payable beneficiary)
         external
         override
@@ -269,9 +272,26 @@ contract RelayHub is IRelayHub {
             address(uint160(uint256(workerToManager[relayWorker] >> 4)));
         require(relayManager != address(0), "Unknown relay worker");
 
-        requireManagerStaked(relayManager);
+        StakeInfo storage stakeInfo = stakes[relayManager];
 
-        penalizeRelayManager(relayManager, beneficiary);
+        uint256 amount = stakeInfo.stake;
+
+        //In the case the stake owner have already withrawn their funds
+        require(amount > 0, "Unstaked relay manager");
+
+        // Half of the stake will be burned (sent to address 0)
+        stakeInfo.stake = 0;
+
+        uint256 toBurn = SafeMath.div(amount, 2);
+        uint256 reward = SafeMath.sub(amount, toBurn);
+
+        require(relayData[relayManager].manager != address(0), "Relay is not registered");
+        relayData[relayManager].penalized = true;
+
+        // RBTC is burned and transferred
+        address(0).transfer(toBurn);
+        beneficiary.transfer(reward);
+        emit StakePenalized(relayManager, beneficiary, reward);
     }
 
     function getRelayData(address relayManager) external view override returns (RelayData memory relayInfo) {
@@ -286,32 +306,6 @@ contract RelayHub is IRelayHub {
     {
         return stakes[relayManager];
     }
-
-    /// Slash the stake of the relay relayManager. In order to prevent stake kidnapping, burns half of stake on the way.
-    /// @param relayManager - entry to penalize
-    /// @param beneficiary - address that receives half of the penalty amount
-    function penalizeRelayManager(
-        address relayManager,
-        address payable beneficiary
-    ) internal {
-        StakeInfo storage stakeInfo = stakes[relayManager];
-        uint256 amount = stakeInfo.stake;
-
-        // Half of the stake will be burned (sent to address 0)
-        stakeInfo.stake = 0;
-
-        uint256 toBurn = SafeMath.div(amount, 2);
-        uint256 reward = SafeMath.sub(amount, toBurn);
-
-        require(relayData[relayManager].manager != address(0), "Relay is not registered");
-        relayData[relayManager].penalized = true;
-
-        // Ether is burned and transferred
-        address(0).transfer(toBurn);
-        beneficiary.transfer(reward);
-        emit StakePenalized(relayManager, beneficiary, reward);
-    }
-
     // Put a stake for a relayManager and set its unstake delay.
     // If the entry does not exist, it is created, and the caller of this function becomes its owner.
     // If the entry already exists, only the owner can call this function.
@@ -322,13 +316,16 @@ contract RelayHub is IRelayHub {
         payable
         override
     {
+
+        StakeInfo storage stakeInfo = stakes[relayManager];
+
         require(
-            stakes[relayManager].owner == address(0) ||
-                stakes[relayManager].owner == msg.sender,
+            stakeInfo.owner == address(0) ||
+                stakeInfo.owner == msg.sender,
             "not owner"
         );
         require(
-            unstakeDelay >= stakes[relayManager].unstakeDelay,
+            unstakeDelay >= stakeInfo.unstakeDelay,
             "unstakeDelay cannot be decreased"
         );
         require(msg.sender != relayManager, "caller is the relayManager");
@@ -338,23 +335,23 @@ contract RelayHub is IRelayHub {
         );
 
         //If it is the initial stake, it must meet the entry value
-        if (stakes[relayManager].owner == address(0)) {
+        if (stakeInfo.owner == address(0)) {
             require(
                 msg.value >= minimumEntryDepositValue,
                 "Insufficient intitial stake"
             );
         }
 
-        stakes[relayManager].owner = msg.sender;
-        stakes[relayManager].stake += msg.value;
-        stakes[relayManager].unstakeDelay = unstakeDelay;
+        stakeInfo.owner = msg.sender;
+        stakeInfo.stake += msg.value;
+        stakeInfo.unstakeDelay = unstakeDelay;
         relayData[relayManager].manager = relayManager;
         relayData[relayManager].stakeAdded = true;
         emit StakeAdded(
             relayManager,
-            stakes[relayManager].owner,
-            stakes[relayManager].stake,
-            stakes[relayManager].unstakeDelay
+            stakeInfo.owner,
+            stakeInfo.stake,
+            stakeInfo.unstakeDelay
         );
     }
 
