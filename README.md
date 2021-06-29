@@ -253,14 +253,7 @@ To implement and use your own replenish strategy:
 | SampleRecipient   | 0x4De3eB249409e8E40a99e3264a379BCfa10634F5 |
 | TestToken   | 0x77740cE4d7897430E74D5E06540A9Eac2C2Dee70 |
 
-
-# Troubleshooting
-
-#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
-
-The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
-
-# Changelog
+## Changelog
 
 ### V2
 
