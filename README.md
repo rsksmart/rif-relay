@@ -61,21 +61,21 @@ Installation instructions at Node's [site](https://nodejs.org/en/). Check the in
 
 ## Npx & Truffle
 
-An important tool we use for interacting with blockchain is `Truffle` version `v5.0.33`.
+An important tool we use for interacting with the blockchain is `Truffle` version `v5.0.33`.
 
 You can follow the installation guide in the official [site](https://www.trufflesuite.com/truffle).
 
 We run all truffle commands with the prefix `npx`. This is to execute node packages using the project's version.
 
-Checking the install by running `npx truffle version`
+Checking the install by running `npx truffle version`.
 
-The configuration file is `truffle.js`.Please see Truffle's documentation for details about this file and how to use it .
+The configuration file is `truffle.js`. Please see Truffle's documentation for details about this file and how to use it.
 
 ## Docker
 
 We recommend following the official [documentation](https://docs.docker.com/get-docker/) for installing Docker and keeping it updated.
 
-You need to install `docker` and `docker-compose`
+You'll need to install both `docker` as well as `docker-compose`.
 
 ### Running on macOS
 To run the project using Docker on a Mac, please follow these steps or the scripts and web apps will not work. 
@@ -94,7 +94,7 @@ After this step, you must make sure that your `PATH` variable gives priority to 
 
 ## Building the project
 
-Clone the project. Then run the following from the Enveloping project's root directory to build it.
+Clone the project. Then run the following from the project's root directory to build it.
 
 `yarn install`
 `yarn prepare`
@@ -103,9 +103,7 @@ Clone the project. Then run the following from the Enveloping project's root dir
 
 ### Locally
 
-Use `truffle` for deploying contracts.
-
-Having an RSK node up and running in regtest mode:
+We'll use `truffle` for deploying contracts. Have an RSK node up and running in regtest mode and then execute the following on the project's root folder:
 
 `npx truffle migrate --network rsk`
 
@@ -131,20 +129,19 @@ terminal something similar to this:
 |===================================|============================================|
 ```
 
-You need to copy that summary and save it in some place to retrieve it later.
+You'll need to save this summary for later use.
 
 ### On Testnet
 
 
-Use `truffle` for deploying contracts.
+We'll use `truffle` for deploying contracts.
 
 `npx truffle migrate --network rsktestnet` (disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`).
 
-We have already deployed these contracts on Testnet. See [here](#testnet-contracts)
+These contracts have been deployed on Testnet. See [here](#testnet-contracts) for their addresses.
 
 ## Run the Relay Server
-Now you need to start the relay server, to do so you need to configure a 
-json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` that has this structure:
+Now you need to start the relay server, to do so you need to configure the json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` which has this structure:
    
 ```
 {
@@ -164,28 +161,28 @@ json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` th
 
 Where:
 
-* **url**: is the url where the relay server will be deployed, it could be localhost or the ip of the host machine
-* **port**: as url is the port where the relay server will be hosted.
+* **url**: is the URL where the relay server will be deployed, it could be localhost or the IP of the host machine.
+* **port**: the port where the relay server will be hosted.
 * **relayHubAddress**: is the relay hub contract address, you can retrieve this from the contract summary.
 * **relayVerifierAddress**: is the relay verifier contract address, you can retrieve this from the contract summary.
 * **deployVerifierAddress**: is the deploy verifier contract address, you can retrieve this from the contract summary.
 * **gasPriceFactor**: is the gas price factor used to calculate the gas on the server, you can leave it as 1.
-* **rskNodeUrl**: is the RSK node endpoint url, where the RSK node is located.
+* **rskNodeUrl**: is the RSK node endpoint URL, where the RSK node is located.
 * **devMode**: it indicates to the server if we are in development mode or not.
-* **customReplenish**: (Pending documentation)
+* **customReplenish**: set if the server uses a custom replenish function or not.
 * **logLevel**: is the log level for the relay server.
-* **workdir**: is the absolute path to the folder where the server will store the database and all it's data.
+* **workdir**: is the absolute path to the folder where the server will store the database and all its data.
 
-3. Now we can use the command `yarn relay` (on the root of the enveloping project) to start the relay server.
+3. Now we can use the command `yarn relay` (on the root of the relay project) to start the relay server.
 After running that command you will see a log saying that the relay server is not ready and that some values are wrong, that's ok you just need to register this relay server into the relay hub in order to be usable by the clients.
 
 ## Register the Relay Server
 
 ### On Regtest
 
-The relay server is running, now you need to register this server in order to be usable, to do so you
+Once the relay server is running, you need to register this server in order for it to be usable, to do so
 first need to configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
-   values as you consider, the script contains something like this:
+   values as you consider. The script contains the following:
 
 ```
 node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 200 --network http://rsk-node:4444/ --hub "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"
@@ -193,14 +190,13 @@ node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 20
 
 Where:
 
-* **--fund**: indicates the amount of rbtc that you will transfer from accounts[0] to the worker manager account.
-* **--stake**: (Pending documentation) this should be twice the value of funds.
+* **--funds**: indicates the amount of RBTC that you will transfer from accounts[0] to the worker manager account.
+* **--stake**: how much RBTC the server will stake. twice the value of funds is an acceptable value.
 * **--hub**: is the relay hub contract address, you can retrieve this from the contract summary.
 
-After doing that you need to open another terminal and run this command `yarn registerRelay` \
-(on the root of the enveloping project) in order to register the relay. After running that command you will
-be seeing some logs saying that everything executes correctly. Then if you go to the relay server
-logs you will be seing a lot of interaction but you need to see this log to be sure the server is ready:
+After doing that you need to open another terminal and run the `yarn registerRelay` command on the root of the relay project in order to register the relay. 
+
+After running this command you will be seeing several log entries indicating how everything is turning out. After a little while, look for this entry in the relay server execution terminal to make sure that the server is ready:
 
 ```
 Relayer state: READY
@@ -267,4 +263,3 @@ To implement and use your own replenish strategy:
 * Paymaster verifications are done off-chain to optimize gas costs, thus the paymasters are now called Verifiers and they are not part of the on-chain relay flow nor they handle payments at all.
 * Big gas cost optimization.
 * Security issues fixed.
-
