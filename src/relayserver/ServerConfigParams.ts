@@ -8,6 +8,7 @@ import { Address } from '../relayclient/types/Aliases'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager } from './TxStoreManager'
 import { LogLevelNumbers } from 'loglevel'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -56,6 +57,7 @@ export interface ServerDependencies {
   workersKeyManager: KeyManager
   contractInteractor: ContractInteractor
   txStoreManager: TxStoreManager
+  envelopingArbiter: EnvelopingArbiter
 }
 
 const serverDefaultConfiguration: ServerConfigParams = {

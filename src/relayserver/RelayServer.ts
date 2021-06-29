@@ -33,6 +33,9 @@ import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
 import TokenResponse from '../common/TokenResponse'
 import VerifierResponse from '../common/VerifierResponse'
 import { toChecksumAddress } from 'ethereumjs-util'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
+import { Commitment, CommitmentResponse } from '../enveloping/Commitment'
+import { ethers } from 'ethers'
 
 import Timeout = NodeJS.Timeout
 
@@ -44,7 +47,8 @@ export class RelayServer extends EventEmitter {
   ready = false
   lastSuccessfulRounds = Number.MAX_SAFE_INTEGER
   readonly managerAddress: PrefixedHexString
-  readonly workerAddress: PrefixedHexString
+  // TODO: this should be changed to workerAddresses
+  readonly workerAddress: PrefixedHexString[]
   gasPrice: number = 0
   _workerSemaphoreOn = false
   alerted = false
@@ -67,6 +71,7 @@ export class RelayServer extends EventEmitter {
   trustedVerifiers: Set<String | undefined> = new Set<String | undefined>()
 
   workerBalanceRequired: AmountRequired
+  envelopingArbiter: EnvelopingArbiter
 
   private readonly customReplenish: boolean
 
@@ -76,9 +81,10 @@ export class RelayServer extends EventEmitter {
     this.config = configureServer(config)
     this.contractInteractor = dependencies.contractInteractor
     this.txStoreManager = dependencies.txStoreManager
+    this.envelopingArbiter = dependencies.envelopingArbiter
     this.transactionManager = new TransactionManager(dependencies, this.config)
     this.managerAddress = this.transactionManager.managerKeyManager.getAddress(0)
-    this.workerAddress = this.transactionManager.workersKeyManager.getAddress(0)
+    this.workerAddress = this.transactionManager.workersKeyManager.getAddresses()
     this.customReplenish = this.config.customReplenish
     this.workerBalanceRequired = new AmountRequired('Worker Balance', toBN(this.config.workerMinBalance))
     this.printServerAddresses()
@@ -88,8 +94,11 @@ export class RelayServer extends EventEmitter {
   }
 
   printServerAddresses (): void {
-    log.info(`Server manager address  | ${this.managerAddress}`)
-    log.info(`Server worker  address  | ${this.workerAddress}`)
+    log.info(`Server manager address           | ${this.managerAddress}`)
+    log.info(`Server worker  address (Tier 1)  | ${this.workerAddress[0]} |`)
+    log.info(`Server worker  address (Tier 2)  | ${this.workerAddress[1]} |`)
+    log.info(`Server worker  address (Tier 3)  | ${this.workerAddress[2]} |`)
+    log.info(`Server worker  address (Tier 4)  | ${this.workerAddress[3]} |`)
   }
 
   getMinGasPrice (): number {
@@ -100,12 +109,26 @@ export class RelayServer extends EventEmitter {
     return this.customReplenish
   }
 
-  async pingHandler (verifier?: string): Promise<PingResponse> {
+  getWorkerIndex (address: PrefixedHexString): number {
+    const workerIndex = this.workerAddress.indexOf(address)
+    if (workerIndex > -1) {
+      return workerIndex
+    } else {
+      throw new Error(
+          `Wrong worker address: ${address}\n`)
+    }
+  }
+
+  async pingHandler (verifier?: string, maxTime?: string): Promise<PingResponse> {
+    const relayWorkerAddress = this.envelopingArbiter.getQueueWorker(this.workerAddress, maxTime)
+    const minGasPrice = await this.envelopingArbiter.getQueueGasPrice(maxTime)
+    const maxDelay = this.envelopingArbiter.checkMaxDelayForResponse(maxTime)
     return {
-      relayWorkerAddress: this.workerAddress,
+      relayWorkerAddress,
       relayManagerAddress: this.managerAddress,
       relayHubAddress: this.relayHubContract?.address ?? '',
-      minGasPrice: this.getMinGasPrice().toString(),
+      minGasPrice,
+      maxDelay,
       chainId: this.chainId.toString(),
       networkId: this.networkId.toString(),
       ready: this.isReady() ?? false,
@@ -159,7 +182,7 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  validateInput (req: RelayTransactionRequest | DeployTransactionRequest): void {
+  validateInput (req: RelayTransactionRequest | DeployTransactionRequest, workerIndex: number): void {
     // Check that the relayHub is the correct one
     if (req.metadata.relayHubAddress.toLowerCase() !== this.relayHubContract.address.toLowerCase()) {
       throw new Error(
@@ -167,7 +190,7 @@ export class RelayServer extends EventEmitter {
     }
 
     // Check the relayWorker (todo: once migrated to multiple relays, check if exists)
-    if (req.relayRequest.relayData.relayWorker.toLowerCase() !== this.workerAddress.toLowerCase()) {
+    if (req.relayRequest.relayData.relayWorker.toLowerCase() !== this.workerAddress[workerIndex].toLowerCase()) {
       throw new Error(
         `Wrong worker address: ${req.relayRequest.relayData.relayWorker}\n`)
     }
@@ -185,9 +208,9 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async validateMaxNonce (relayMaxNonce: number): Promise<void> {
+  async validateMaxNonce (relayMaxNonce: number, workerIndex: number): Promise<void> {
     // Check that max nonce is valid
-    const nonce = await this.transactionManager.pollNonce(this.workerAddress)
+    const nonce = await this.transactionManager.pollNonce(this.workerAddress[workerIndex])
     if (nonce > relayMaxNonce) {
       throw new Error(`Unacceptable relayMaxNonce: ${relayMaxNonce}. current nonce: ${nonce}`)
     }
@@ -261,11 +284,13 @@ export class RelayServer extends EventEmitter {
       maxPossibleGas = toBN(await this.contractInteractor.estimateRelayTransactionMaxPossibleGasWithTransactionRequest(relayReq))
     }
 
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
+
     try {
       if (this.isDeployRequest(req)) {
-        await (verifierContract as IDeployVerifierInstance).contract.methods.verifyRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IDeployVerifierInstance).contract.methods.verifyRelayedCall((req as DeployTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress[workerIndex] }, 'pending')
       } else {
-        await (verifierContract as IRelayVerifierInstance).contract.methods.verifyRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress }, 'pending')
+        await (verifierContract as IRelayVerifierInstance).contract.methods.verifyRelayedCall((req as RelayTransactionRequest).relayRequest, req.metadata.signature).call({ from: this.workerAddress[workerIndex] }, 'pending')
       }
     } catch (e) {
       const error = e as Error
@@ -276,11 +301,12 @@ export class RelayServer extends EventEmitter {
   }
 
   async validateViewCallSucceeds (method: any, req: RelayTransactionRequest|DeployTransactionRequest, maxPossibleGas: BN): Promise<void> {
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     log.debug('Relay Server - Request sent to the worker')
     log.debug('Relay Server - req: ', req)
     try {
       await method.call({
-        from: this.workerAddress,
+        from: this.workerAddress[workerIndex],
         gasPrice: req.relayRequest.relayData.gasPrice,
         gas: maxPossibleGas.toString()
       }, 'pending')
@@ -289,7 +315,8 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async createRelayTransaction (req: RelayTransactionRequest | DeployTransactionRequest): Promise<SignedTransactionDetails> {
+  async createRelayTransaction (req: RelayTransactionRequest | DeployTransactionRequest): Promise<CommitmentResponse> {
+    const workerIndex = this.getWorkerIndex(req.relayRequest.relayData.relayWorker)
     log.debug(`dump request params: ${JSON.stringify(req)}`)
     if (!this.isReady()) {
       throw new Error('relay not ready')
@@ -300,8 +327,9 @@ export class RelayServer extends EventEmitter {
       log.error('Alerted state: slowing down traffic')
       await sleep(randomInRange(this.config.minAlertedDelayMS, this.config.maxAlertedDelayMS))
     }
-    this.validateInput(req)
-    await this.validateMaxNonce(req.metadata.relayMaxNonce)
+    this.validateInput(req, workerIndex)
+    this.validateVerifier(req)
+    await this.validateMaxNonce(req.metadata.relayMaxNonce, workerIndex)
 
     const { maxPossibleGas } = await this.validateRequestWithVerifier(req)
 
@@ -319,7 +347,7 @@ export class RelayServer extends EventEmitter {
     const currentBlock = await this.contractInteractor.getBlockNumber()
     const details: SendTransactionDetails =
       {
-        signer: this.workerAddress,
+        signer: this.workerAddress[workerIndex],
         serverAction: ServerAction.RELAY_CALL,
         method,
         destination: req.metadata.relayHubAddress,
@@ -327,10 +355,36 @@ export class RelayServer extends EventEmitter {
         creationBlockNumber: currentBlock,
         gasPrice: req.relayRequest.relayData.gasPrice
       }
-    const txDetails = await this.transactionManager.sendTransaction(details)
+
+    if (!this.envelopingArbiter.isValidTime(req.metadata.maxTime.toString())) {
+      throw new Error('Error: invalid maxTime.')
+    }
+    if (this.envelopingArbiter.getQueueWorker(this.workerAddress, req.metadata.maxTime.toString()) !== req.relayRequest.relayData.relayWorker) {
+      throw new Error('Error: invalid workerAddress/maxTime combination.')
+    }
+    const commitment = new Commitment(
+      req.metadata.maxTime,
+      req.relayRequest.request.from,
+      req.relayRequest.request.to,
+      req.relayRequest.request.data,
+      req.metadata.relayHubAddress,
+      req.relayRequest.relayData.relayWorker
+    )
+    const digest = ethers.utils.keccak256(commitment.encodeForSign(this.relayHubContract.address))
+    const signature = await this.envelopingArbiter.signCommitment(this.transactionManager, commitment.relayWorker, ethers.utils.arrayify(digest))
+    const commitmentReceipt = {
+      commitment: commitment,
+      workerSignature: signature,
+      workerAddress: this.workerAddress[workerIndex]
+    }
+    if (!this.envelopingArbiter.validateCommitmentSig(commitmentReceipt)) {
+      throw new Error('Error: Invalid receipt. Worker signature invalid.')
+    }
+
+    const { signedTx, transactionHash } = await this.transactionManager.sendTransaction(details)
     // after sending a transaction is a good time to check the worker's balance, and replenish it.
-    await this.replenishServer(0, currentBlock)
-    return txDetails
+    await this.replenishServer(workerIndex, currentBlock)
+    return { signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash }
   }
 
   async intervalHandler (): Promise<void> {
@@ -363,10 +417,11 @@ export class RelayServer extends EventEmitter {
       })
   }
 
-  start (): void {
+  async start (): Promise<void> {
     log.debug(`Started polling for new blocks every ${this.config.checkInterval}ms`)
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     this.workerTask = setInterval(this.intervalHandler.bind(this), this.config.checkInterval)
+    await this.envelopingArbiter.start()
   }
 
   stop (): void {
@@ -374,6 +429,7 @@ export class RelayServer extends EventEmitter {
       throw new Error('Server not started')
     }
     clearInterval(this.workerTask)
+    this.envelopingArbiter.stop()
     log.info('Successfully stopped polling!!')
   }
 
@@ -531,12 +587,13 @@ latestBlock timestamp   | ${latestBlock.timestamp}
       return transactionHashes
     }
     await this.handlePastHubEvents(currentBlockNumber, hubEventsSinceLastScan)
-    const workerIndex = 0
-    transactionHashes = transactionHashes.concat(await this.replenishServer(workerIndex, currentBlockNumber))
-    const workerBalance = await this.getWorkerBalance(workerIndex)
-    if (workerBalance.lt(toBN(this.config.workerMinBalance))) {
-      this.setReadyState(false)
-      return transactionHashes
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      transactionHashes = transactionHashes.concat(await this.replenishServer(index, currentBlockNumber))
+      const workerBalance = await this.getWorkerBalance(index)
+      if (workerBalance.lt(toBN(this.config.workerMinBalance))) {
+        this.setReadyState(false)
+        return transactionHashes
+      }
     }
     this.setReadyState(true)
     if (this.alerted && this.alertedBlock + this.config.alertedBlockDelay < currentBlockNumber) {
@@ -551,7 +608,15 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   }
 
   async getWorkerBalance (workerIndex: number): Promise<BN> {
-    return toBN(await this.contractInteractor.getBalance(this.workerAddress, 'pending'))
+    return toBN(await this.contractInteractor.getBalance(this.workerAddress[workerIndex], 'pending'))
+  }
+
+  async getWorkersTotalBalance (): Promise<BN> {
+    let totalBalance: number = 0
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      totalBalance += parseInt(await this.contractInteractor.getBalance(this.workerAddress[index], 'pending'))
+    }
+    return toBN(totalBalance)
   }
 
   async _shouldRegisterAgain (currentBlock: number, hubEventsSinceLastScan: EventData[]): Promise<boolean> {
@@ -646,8 +711,8 @@ latestBlock timestamp   | ${latestBlock.timestamp}
     for (const [txHash, boostedTxDetails] of managerBoostedTransactions) {
       transactionDetails.set(txHash, boostedTxDetails)
     }
-    for (const workerIndex of [0]) {
-      const workerBoostedTransactions = await this._boostStuckTransactionsForWorker(blockNumber, workerIndex)
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      const workerBoostedTransactions = await this._boostStuckTransactionsForWorker(blockNumber, index)
       for (const [txHash, boostedTxDetails] of workerBoostedTransactions) {
         transactionDetails.set(txHash, boostedTxDetails)
       }
@@ -660,7 +725,7 @@ latestBlock timestamp   | ${latestBlock.timestamp}
   }
 
   async _boostStuckTransactionsForWorker (blockNumber: number, workerIndex: number): Promise<Map<PrefixedHexString, SignedTransactionDetails>> {
-    const signer = this.workerAddress
+    const signer = this.workerAddress[workerIndex]
     return await this.transactionManager.boostUnderpricedPendingTransactionsForSigner(signer, blockNumber)
   }
 

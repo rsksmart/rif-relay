@@ -9,6 +9,7 @@ import ContractInteractor from '../common/ContractInteractor'
 import { configure } from '../relayclient/Configurator'
 import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import log from 'loglevel'
+import { EnvelopingArbiter } from '../enveloping/EnvelopingArbiter'
 
 function error (err: string): never {
   console.error(err)
@@ -48,7 +49,7 @@ async function run (): Promise<void> {
   }
 
   const managerKeyManager = new KeyManager(1, workdir + '/manager')
-  const workersKeyManager = new KeyManager(1, workdir + '/workers')
+  const workersKeyManager = new KeyManager(4, workdir + '/workers')
   log.debug('runServer() - manager and workers configured')
   const txStoreManager = new TxStoreManager({ workdir })
   const contractInteractor = new ContractInteractor(web3provider, configure({
@@ -57,13 +58,16 @@ async function run (): Promise<void> {
     relayVerifierAddress: config.relayVerifierAddress
   }))
   await contractInteractor.init()
-  log.debug('runServer() - contract interactor initilized')
-
+  log.debug('runServer() - ContractInteractor initilized')
+  const envelopingArbiter = new EnvelopingArbiter(config, web3provider)
+  await envelopingArbiter.start()
+  log.debug('runServer() - Arbiter initilized')
   const dependencies: ServerDependencies = {
     txStoreManager,
     managerKeyManager,
     workersKeyManager,
-    contractInteractor
+    contractInteractor,
+    envelopingArbiter
   }
 
   const relayServer = new RelayServer(config, dependencies)

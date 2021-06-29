@@ -55,9 +55,11 @@ export class TransactionManager {
   }
 
   _initNonces (): void {
-    // todo: initialize nonces for all signers (currently one manager, one worker)
     this.nonces[this.managerKeyManager.getAddress(0)] = 0
-    this.nonces[this.workersKeyManager.getAddress(0)] = 0
+    const workerCount = this.workersKeyManager.getAddresses().length
+    for (let index = 0; index < workerCount; index++) {
+      this.nonces[this.workersKeyManager.getAddress(index)] = 0
+    }
   }
 
   async _init (): Promise<void> {

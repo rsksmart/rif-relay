@@ -69,7 +69,7 @@ commands:
       - run:
           name: "Execute << parameters.test >>"
           command: |
-                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
+                  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
                   until nc -z 127.0.0.1 4444
                   do
                    echo "Waiting for RskJ..."
@@ -88,7 +88,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set B
           command: |
-                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
@@ -166,7 +166,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set A
           command: |
-                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
@@ -189,7 +189,7 @@ jobs: # a collection of steps
       - run:
           name: Tests without DB reset Set C
           command: |
-                    java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
+                    java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
                     until nc -z 127.0.0.1 4444
                     do
                       echo "Waiting for RskJ..."
@@ -222,6 +222,17 @@ jobs: # a collection of steps
       - store_artifacts:
           path: ~/rsksmart/rskj/rskj-core/build/libs/logs
           destination: ~/rskj/logs
+  Test_Thread_7: # Test thread
+    working_directory: ~/gls # directory where steps will run
+    docker: # run the steps with Docker
+      - image: cimg/openjdk:8.0-node
+
+    steps: # a collection of executable commands
+      - prepare
+      - run_rskj_test:
+          test: "test/enveloping/EnvelopingArbiter.test.ts"
+      - store_artifacts:
+          path: ~/gls/logs
 workflows:
   commit:
       jobs:
@@ -232,3 +243,4 @@ workflows:
           - Test_Thread_4
           - Test_Thread_5
           - Test_Thread_6
+          - Test_Thread_7

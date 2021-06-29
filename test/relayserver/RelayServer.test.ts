@@ -11,7 +11,12 @@ import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
-import { TestDeployVerifierConfigurableMisbehaviorInstance, TestRecipientInstance, TestTokenInstance, TestVerifierConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
+import {
+  TestDeployVerifierConfigurableMisbehaviorInstance,
+  TestRecipientInstance,
+  TestVerifierConfigurableMisbehaviorInstance,
+  TestTokenInstance
+} from '../../types/truffle-contracts'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
 
@@ -23,6 +28,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
 import TokenResponse from '../../src/common/TokenResponse'
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
@@ -51,7 +57,10 @@ contract('RelayServer', function (accounts) {
     await env.init(relayClientConfig)
     const overrideParams: Partial<ServerConfigParams> = {
       alertedBlockDelay,
-      workerTargetBalance: 0.6e18
+      workerMinBalance: 0.01e18,
+      workerTargetBalance: 0.03e18,
+      managerMinBalance: 0.01e18,
+      managerTargetBalance: 0.03e18
     }
     await env.newServerInstance(overrideParams)
     await env.clearServerStorage()
@@ -105,9 +114,10 @@ contract('RelayServer', function (accounts) {
     describe('#validateInput()', function () {
       it('should fail to relay with wrong relay worker', async function () {
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.relayRequest.relayData.relayWorker = accounts[1]
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message, `Wrong worker address: ${accounts[1]}`)
@@ -117,26 +127,28 @@ contract('RelayServer', function (accounts) {
       it('should fail to relay with unacceptable gasPrice', async function () {
         const wrongGasPrice = isRsk(await getTestingEnvironment()) ? '0.5' : '100'
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.relayRequest.relayData.gasPrice = wrongGasPrice
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message,
-            `Unacceptable gasPrice: relayServer's gasPrice:${env.relayServer.gasPrice} request's gasPrice: ${wrongGasPrice}`)
+                        `Unacceptable gasPrice: relayServer's gasPrice:${env.relayServer.gasPrice} request's gasPrice: ${wrongGasPrice}`)
         }
       })
 
       it('should fail to relay with wrong hub address', async function () {
         const wrongHubAddress = '0xdeadface'
         const req = await env.createRelayHttpRequest()
+        const workerIndex = env.relayServer.getWorkerIndex(req.relayRequest.relayData.relayWorker)
         req.metadata.relayHubAddress = wrongHubAddress
         try {
-          env.relayServer.validateInput(req)
+          env.relayServer.validateInput(req, workerIndex)
           assert.fail()
         } catch (e) {
           assert.include(e.message,
-            `Wrong hub address.\nRelay server's hub address: ${env.relayServer.config.relayHubAddress}, request's hub address: ${wrongHubAddress}\n`)
+                        `Wrong hub address.\nRelay server's hub address: ${env.relayServer.config.relayHubAddress}, request's hub address: ${wrongHubAddress}\n`)
         }
       })
     })
@@ -168,11 +180,12 @@ contract('RelayServer', function (accounts) {
       })
 
       describe('#validateMaxNonce()', function () {
+        const workerIndex = 0
         before(async function () {
           // this is a new worker account - create transaction
           const latestBlock = (await env.web3.eth.getBlock('latest')).number
           await env.relayServer._worker(latestBlock)
-          const signer = env.relayServer.workerAddress
+          const signer = env.relayServer.workerAddress[workerIndex]
 
           console.log(`THE BALANCE OF THE WORKER ${signer} is`)
           console.log(await web3.eth.getBalance(signer))
@@ -186,12 +199,12 @@ contract('RelayServer', function (accounts) {
         })
 
         it('should not throw with relayMaxNonce above current nonce', async function () {
-          await env.relayServer.validateMaxNonce(1000)
+          await env.relayServer.validateMaxNonce(1000, workerIndex)
         })
 
         it('should throw exception with relayMaxNonce below current nonce', async function () {
           try {
-            await env.relayServer.validateMaxNonce(0)
+            await env.relayServer.validateMaxNonce(0, workerIndex)
             assert.fail()
           } catch (e) {
             assert.include(e.message, 'Unacceptable relayMaxNonce:')
@@ -271,13 +284,13 @@ contract('RelayServer', function (accounts) {
         assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
-        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
+        const commitmentResponse: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
 
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()
         assert.equal(pendingTransactions.length, 1)
         assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
 
-        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+        const receipt = await web3.eth.getTransactionReceipt(commitmentResponse.transactionHash)
 
         console.log('Estimated gas is:', result.maxPossibleGas.toNumber())
         console.log('Actual gas used is: ', receipt.cumulativeGasUsed)
@@ -297,6 +310,8 @@ contract('RelayServer', function (accounts) {
 
         estimatedGas = estimatedGas > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimatedGas - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimatedGas
 
+        const pingResponse = await env.relayServer.pingHandler()
+
         const encodedFunction = env.contractInteractor.web3.eth.abi.encodeFunctionCall({
           name: 'transfer',
           type: 'function',
@@ -310,7 +325,7 @@ contract('RelayServer', function (accounts) {
             }
           ]
         },
-        [env.relayServer.workerAddress, '1'])
+        [pingResponse.relayWorkerAddress, '1'])
 
         let tokenGasCost = await env.contractInteractor.estimateGas({
           from: env.forwarder.address, // token holder is the smart wallet
@@ -331,13 +346,13 @@ contract('RelayServer', function (accounts) {
         assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
 
         const result = await env.relayServer.validateRequestWithVerifier(req)
-        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
+        const commitmentResponse: CommitmentResponse = await env.relayServer.createRelayTransaction(req)
 
         const pendingTransactions = await env.relayServer.txStoreManager.getAll()
         assert.equal(pendingTransactions.length, 1)
         assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
 
-        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+        const receipt = await web3.eth.getTransactionReceipt(commitmentResponse.transactionHash)
 
         // console.log("Estimated gas is:", result.maxPossibleGas.toNumber())
         // console.log("Actual gas used is: ", receipt.cumulativeGasUsed)
@@ -377,7 +392,7 @@ contract('RelayServer', function (accounts) {
       relayServer = env.relayServer
       beforeDescribeId = (await snapshot()).result
       await relayServer.transactionManager.sendTransaction({
-        signer: relayServer.workerAddress,
+        signer: relayServer.workerAddress[workerIndex],
         serverAction: ServerAction.VALUE_TRANSFER,
         destination: accounts[0],
         gasLimit: defaultEnvironment.mintxgascost,
@@ -412,7 +427,11 @@ contract('RelayServer', function (accounts) {
         value: relayServer.config.managerTargetBalance
       })
       await env.web3.eth.sendTransaction(
-        { from: accounts[0], to: relayServer.workerAddress, value: relayServer.config.workerTargetBalance })
+        {
+          from: accounts[0],
+          to: relayServer.workerAddress[workerIndex],
+          value: relayServer.config.workerTargetBalance
+        })
       const currentBlockNumber = await env.web3.eth.getBlockNumber()
       const receipts = await relayServer.replenishServer(workerIndex, 0)
       assert.deepEqual(receipts, [])
@@ -434,7 +453,12 @@ contract('RelayServer', function (accounts) {
       const refill = toBN(relayServer.config.workerTargetBalance.toString()).sub(workerBalanceBefore)
 
       await env.web3.eth.sendTransaction(
-        { from: accounts[0], to: relayServer.managerAddress, value: toBN(relayServer.config.managerTargetBalance).add(refill), gasPrice: 1 })
+        {
+          from: accounts[0],
+          to: relayServer.managerAddress,
+          value: toBN(relayServer.config.managerTargetBalance).add(refill),
+          gasPrice: 1
+        })
       const managerEthBalanceBefore = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceBefore.gt(toBN(relayServer.config.managerTargetBalance.toString())),
         'manager RBTC balance should be greater than target')
@@ -442,7 +466,7 @@ contract('RelayServer', function (accounts) {
       const totalTxCosts = await getTotalTxCosts(receipts, await env.web3.eth.getGasPrice())
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
       assert.isTrue(workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
-        `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()})`)
+                `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()})`)
       const managerEthBalanceAfter = await relayServer.getManagerBalance()
       assert.isTrue(managerEthBalanceAfter.eq(managerEthBalanceBefore.sub(refill).sub(totalTxCosts)),
         'manager RBTC balance should increase by hub balance minus txs costs')
@@ -461,7 +485,7 @@ contract('RelayServer', function (accounts) {
       await relayServer.replenishServer(workerIndex, 0)
       const workerBalanceAfter = await relayServer.getWorkerBalance(workerIndex)
       assert.isTrue(workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
-        `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
+                `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`)
     })
 
     it('should emit \'funding needed\' when both rbtc and hub balances are too low', async function () {
@@ -479,7 +503,9 @@ contract('RelayServer', function (accounts) {
       const refill = toBN(relayServer.config.workerTargetBalance).sub(workerBalanceBefore)
       assert.isTrue(managerEthBalance.lt(refill), 'manager RBTC balance should be insufficient to replenish worker')
       let fundingNeededEmitted = false
-      relayServer.on('fundingNeeded', () => { fundingNeededEmitted = true })
+      relayServer.on('fundingNeeded', () => {
+        fundingNeededEmitted = true
+      })
       await relayServer.replenishServer(workerIndex, 0)
       assert.isTrue(fundingNeededEmitted, 'fundingNeeded not emitted')
     })
@@ -535,7 +561,7 @@ contract('RelayServer', function (accounts) {
         }
         const latestBlock = await env.web3.eth.getBlock('latest')
         // eslint-disable-next-line
-        relayServer._workerSemaphore(latestBlock.number)
+                relayServer._workerSemaphore(latestBlock.number)
         assert.isTrue(relayServer._workerSemaphoreOn, '_workerSemaphoreOn should be true after')
         shouldRun = false
         await sleep(200)
@@ -566,7 +592,10 @@ contract('RelayServer', function (accounts) {
         refreshStateTimeoutBlocks,
         relayVerifierAddress: rejectingVerifier.address,
         deployVerifierAddress: rejectingDeployVerifier.address,
-        workerTargetBalance: 0.6e18
+        workerMinBalance: 0.01e18,
+        workerTargetBalance: 0.03e18,
+        managerMinBalance: 0.01e18,
+        managerTargetBalance: 0.03e18
       })
       newServer = env.relayServer
       await attackTheServer(newServer)
@@ -579,9 +608,27 @@ contract('RelayServer', function (accounts) {
     async function attackTheServer (server: RelayServer): Promise<void> {
       const _sendTransactionOrig = server.transactionManager.sendTransaction
 
-      server.transactionManager.sendTransaction = async function ({ signer, method, destination, value = '0x', gasLimit, gasPrice, creationBlockNumber, serverAction }: SendTransactionDetails): Promise<SignedTransactionDetails> {
+      server.transactionManager.sendTransaction = async function ({
+        signer,
+        method,
+        destination,
+        value = '0x',
+        gasLimit,
+        gasPrice,
+        creationBlockNumber,
+        serverAction
+      }: SendTransactionDetails): Promise<SignedTransactionDetails> {
         await recipient.setNextRevert()
-        return (await _sendTransactionOrig.call(server.transactionManager, { signer, method, destination, value, gasLimit, gasPrice, creationBlockNumber, serverAction }))
+        return (await _sendTransactionOrig.call(server.transactionManager, {
+          signer,
+          method,
+          destination,
+          value,
+          gasLimit,
+          gasPrice,
+          creationBlockNumber,
+          serverAction
+        }))
       }
 
       const req = await env.createRelayHttpRequest({

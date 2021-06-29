@@ -27,7 +27,7 @@ import EnvelopingTransactionDetails from '../../src/relayclient/types/Enveloping
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
-import { stripHex, deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
+import { stripHex, deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert, INCORRECT_ECDSA_SIGNATURE } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import PingResponse from '../../src/common/PingResponse'
 import { RelayEvent } from '../../src/relayclient/RelayEvents'
@@ -42,6 +42,8 @@ import { toBN, toHex } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
 import { getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
 import { ether } from '@openzeppelin/test-helpers'
+import { Commitment, CommitmentReceipt, CommitmentResponse } from '../../src/enveloping/Commitment'
+import { MockCommitmentValidator } from '../dummies/MockCommitmentValidator'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestRelayVerifier = artifacts.require('TestVerifierEverythingAccepted')
@@ -68,7 +70,7 @@ class MockHttpClient extends HttpClient {
     super(httpWrapper, config)
   }
 
-  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<PrefixedHexString> {
+  async relayTransaction (relayUrl: string, request: RelayTransactionRequest): Promise<CommitmentResponse> {
     return await super.relayTransaction(this.mapUrl(relayUrl), request)
   }
 
@@ -143,8 +145,10 @@ gasOptions.forEach(gasOption => {
         rskNodeUrl: underlyingProvider.host,
         deployVerifierAddress: deployVerifier.address,
         relayVerifierAddress: relayVerifier.address,
-        workerTargetBalance: 0.6e18//,
-        // relaylog:true
+        workerMinBalance: 0.01e18,
+        workerTargetBalance: 0.03e18,
+        managerMinBalance: 0.01e18,
+        managerTargetBalance: 0.03e18
       })
 
       relayWorker = accounts[2]
@@ -245,7 +249,7 @@ gasOptions.forEach(gasOption => {
 
           await new Promise((resolve) => {
             // @ts-ignore
-            server = mockServer.listen(0, resolve)
+            server = mockServer.listen(0, () => resolve(true))
           })
           const mockServerPort = (server as any).address().port
 
@@ -333,7 +337,7 @@ gasOptions.forEach(gasOption => {
         }
 
         const tokenPaymentEstimate = await relayClient.estimateTokenTransferGas(details, relayWorker)
-        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker)
+        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker, Date.now() + (300 * 1000))
         const estimatedGasResultWithoutTokenPayment = await relayClient.calculateDeployCallGas(testRequest)
 
         const originalBalance = await token.balanceOf(swAddress)
@@ -807,6 +811,8 @@ gasOptions.forEach(gasOption => {
       let pingResponse: PingResponse
       let relayInfo: RelayInfo
       let optionsWithGas: EnvelopingTransactionDetails
+      let maxTime: number
+      let badCommitmentReceipt: CommitmentReceipt
 
       before(async function () {
         await relayHub.stakeForAddress(relayManager, 7 * 24 * 3600, {
@@ -819,6 +825,7 @@ gasOptions.forEach(gasOption => {
           relayWorkerAddress: relayWorkerAddress,
           relayManagerAddress: relayManager,
           relayHubAddress: relayManager,
+          maxDelay: Date.now() + (300 * 1000),
           minGasPrice: '',
           ready: true,
           version: ''
@@ -844,6 +851,20 @@ gasOptions.forEach(gasOption => {
           gas: toHex(gasToSend),
           gasPrice: toHex('6000000000')
         })
+
+        const commitment = new Commitment(
+          pingResponse.maxDelay,
+          from,
+          to,
+          data,
+          relayHub.address,
+          relayWorkerAddress
+        )
+        badCommitmentReceipt = {
+          commitment: commitment,
+          workerSignature: INCORRECT_ECDSA_SIGNATURE,
+          workerAddress: relayWorkerAddress
+        }
       })
 
       it('should return error if view call to \'relayCall()\' fails', async function () {
@@ -854,7 +875,7 @@ gasOptions.forEach(gasOption => {
 
         // register gasless account in RelayClient to avoid signing with RSKJ
         relayClient.accountManager.addAccount(gaslessAccount)
-        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
+        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
         assert.isUndefined(transaction)
         assert.equal(error!.message, `local view call reverted: ${BadContractInteractor.message}`)
       })
@@ -875,7 +896,7 @@ gasOptions.forEach(gasOption => {
         sinon.spy(dependencyTree.knownRelaysManager)
         const attempt = await relayClient._attemptRelay(relayInfo, Object.assign({}, optionsWithGas, {
           tokenGas
-        }))
+        }), maxTime)
         assert.equal(attempt.error?.message, 'some error describing how timeout occurred somewhere')
         expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
       })
@@ -893,7 +914,7 @@ gasOptions.forEach(gasOption => {
 
         // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
         sinon.spy(dependencyTree.knownRelaysManager)
-        await relayClient._attemptRelay(relayInfo, optionsWithGas)
+        await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
         expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.not.been.called
       })
 
@@ -901,9 +922,11 @@ gasOptions.forEach(gasOption => {
         const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123')
         let dependencyTree = getDependencies(configure(config), underlyingProvider)
         const badTransactionValidator = new BadRelayedTransactionValidator(true, dependencyTree.contractInteractor, configure(config))
+        const mockCommitmentValidator = new MockCommitmentValidator(true)
         dependencyTree = getDependencies(configure(config), underlyingProvider, {
           httpClient: badHttpClient,
-          transactionValidator: badTransactionValidator
+          transactionValidator: badTransactionValidator,
+          commitmentValidator: mockCommitmentValidator
         })
         const relayClient =
           new RelayClient(underlyingProvider, config, dependencyTree)
@@ -915,9 +938,28 @@ gasOptions.forEach(gasOption => {
 
         // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
         sinon.spy(dependencyTree.knownRelaysManager)
-        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
+        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
         assert.isUndefined(transaction)
         assert.equal(error!.message, 'Returned transaction did not pass validation')
+        expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
+      })
+
+      it('should return error if commitment receipt returned by a relay does not pass validation', async function () {
+        const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123', badCommitmentReceipt)
+        const dependencyTree = getDependencies(configure(config), underlyingProvider, {
+          httpClient: badHttpClient
+        })
+        const relayClient = new RelayClient(underlyingProvider, config, dependencyTree)
+        await relayClient._init()
+
+        // register gasless account in RelayClient to avoid signing with RSKJ
+        relayClient.accountManager.addAccount(gaslessAccount)
+
+        // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
+        sinon.spy(dependencyTree.knownRelaysManager)
+        const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas, maxTime)
+        assert.isUndefined(transaction)
+        assert.equal(error!.message, 'Returned commitment did not pass validation')
         expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
       })
     })

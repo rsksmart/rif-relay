@@ -7,14 +7,20 @@ import { constants } from '../common/Constants'
 import { HttpProvider } from 'web3-core'
 import { RelayingAttempt } from './RelayClient'
 
-import { getDependencies, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
+import { EnvelopingConfig, EnvelopingDependencies, getDependencies } from './Configurator'
 import { Address, IntString } from './types/Aliases'
 
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 
 import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
 
-import { DiscoveryConfig, SmartWalletDiscovery, Web3Provider, AccountReaderFunction, DiscoveredAccount } from '../relayclient/SmartWalletDiscovery'
+import {
+  AccountReaderFunction,
+  DiscoveredAccount,
+  DiscoveryConfig,
+  SmartWalletDiscovery,
+  Web3Provider
+} from '../relayclient/SmartWalletDiscovery'
 import Web3 from 'web3'
 import { toHex } from 'web3-utils'
 
@@ -195,43 +201,42 @@ export class Enveloping {
   }
 
   /**
-    * creates a deploy transaction request ready for sending through http
-    * @param signature - the signature of a deploy request
-    * @param deployRequest - the signed deploy request
-    * @return a deploy transaction request
-    */
-  async generateDeployTransactionRequest (signature: PrefixedHexString, deployRequest: DeployRequest): Promise<DeployTransactionRequest> {
+   * creates a deploy transaction request ready for sending through http
+   * @param signature - the signature of a deploy request
+   * @param deployRequest - the signed deploy request
+   * @param maxTime the timestamp to use for calculation on Arbiter
+   * @return a deploy transaction request
+   */
+  async generateDeployTransactionRequest (signature: PrefixedHexString, deployRequest: DeployRequest, maxTime?: number): Promise<DeployTransactionRequest> {
     const request: DeployTransactionRequest = {
       relayRequest: deployRequest,
-      metadata: await this.generateMetadata(signature)
+      metadata: await this.generateMetadata(signature, maxTime)
     }
 
     return request
   }
 
   /**
-    * creates a realy transaction request ready for sending through http
-    * @param signature - the signature of a relay request
-    * @param relayRequest - the signed relay request
-    * @return a relay transaction request
-    */
-  async generateRelayTransactionRequest (signature: PrefixedHexString, relayRequest: RelayRequest): Promise<RelayTransactionRequest> {
-    const request: RelayTransactionRequest = {
+   * creates a realy transaction request ready for sending through http
+   * @param signature - the signature of a relay request
+   * @param relayRequest - the signed relay request
+   * @param maxTime the timestamp to use for calculation on Arbiter
+   * @return a relay transaction request
+   */
+  async generateRelayTransactionRequest (signature: PrefixedHexString, relayRequest: RelayRequest, maxTime?: number): Promise<RelayTransactionRequest> {
+    return {
       relayRequest,
-      metadata: await this.generateMetadata(signature)
+      metadata: await this.generateMetadata(signature, maxTime)
     }
-
-    return request
   }
 
-  async generateMetadata (signature: PrefixedHexString): Promise<RelayMetadata> {
-    const metadata: RelayMetadata = {
+  async generateMetadata (signature: PrefixedHexString, maxTime?: number): Promise<RelayMetadata> {
+    return {
       relayHubAddress: this.config.relayHubAddress,
       signature: signature,
-      relayMaxNonce: await this.dependencies.contractInteractor.getTransactionCount(this.relayWorkerAddress) + this.config.maxRelayNonceGap
+      relayMaxNonce: await this.dependencies.contractInteractor.getTransactionCount(this.relayWorkerAddress) + this.config.maxRelayNonceGap,
+      maxTime: maxTime ?? (Date.now() + (300 * 1000))
     }
-
-    return metadata
   }
 
   async getSenderNonce (sWallet: Address): Promise<IntString> {
@@ -251,12 +256,8 @@ export class Enveloping {
   async sendTransaction (relayUrl: string, request: DeployTransactionRequest|RelayTransactionRequest): Promise<RelayingAttempt> {
     const httpClient = new HttpClient(new HttpWrapper(), {})
     try {
-      const hexTransaction = await httpClient.relayTransaction(relayUrl, request)
-      console.log(`hexTrx is ${hexTransaction}`)
-      const transaction = new Transaction(hexTransaction, this.dependencies.contractInteractor.getRawTxOptions())
-      const txHash: string = transaction.hash(true).toString('hex')
-      const hash = `0x${txHash}`
-      console.log('tx hash: ' + hash)
+      const commitmentResponse = await httpClient.relayTransaction(relayUrl, request)
+      const transaction = new Transaction(commitmentResponse?.signedTx, this.dependencies.contractInteractor.getRawTxOptions())
       return { transaction }
     } catch (error) {
       const reasonStr = error instanceof Error ? error.message : JSON.stringify(error)

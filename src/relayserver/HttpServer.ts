@@ -23,6 +23,7 @@ export class HttpServer {
     this.app.get('/status', this.statusHandler.bind(this))
     this.app.get('/tokens', this.tokenHandler.bind(this))
     this.app.get('/verifiers', this.verifierHandler.bind(this))
+    this.app.get('/feestable', this.feeEstimatorHandler.bind(this))
     this.app.post('/relay', this.relayHandler.bind(this))
     this.backend.once('removed', this.stop.bind(this))
     this.backend.once('unstaked', this.close.bind(this))
@@ -35,13 +36,15 @@ export class HttpServer {
       this.serverInstance = this.app.listen(this.port, () => {
         console.log('Listening on port', this.port)
         this.startBackend()
+          .then(() => console.log('Started Backend Successfully'))
+          .catch(error => console.error('Error starting backend', error))
       })
     }
   }
 
-  startBackend (): void {
+  async startBackend (): Promise<void> {
     try {
-      this.backend.start()
+      await this.backend.start()
     } catch (e) {
       log.error('relay task error', e)
     }
@@ -83,7 +86,7 @@ export class HttpServer {
 
   async pingHandler (req: Request, res: Response): Promise<void> {
     try {
-      const pingResponse = await this.backend.pingHandler(req.query.verifier as string)
+      const pingResponse = await this.backend.pingHandler(req.query.verifier as string, req.query.maxTime as string)
       res.send(pingResponse)
       console.log(`address ${pingResponse.relayWorkerAddress} sent. ready: ${pingResponse.ready}`)
     } catch (e) {
@@ -100,8 +103,8 @@ export class HttpServer {
 
   async relayHandler (req: Request, res: Response): Promise<void> {
     try {
-      const signedTx = (await this.backend.createRelayTransaction(req.body)).signedTx
-      res.send({ signedTx })
+      const { signedTx, signedReceipt, transactionHash } = await this.backend.createRelayTransaction(req.body)
+      res.send({ signedTx, signedReceipt, transactionHash })
     } catch (e) {
       res.send({ error: e.message })
       console.log('tx failed:', e)
@@ -129,5 +132,10 @@ export class HttpServer {
       res.send({ message })
       log.error(`verified handler rejected: ${message}`)
     }
+  }
+
+  async feeEstimatorHandler (req: any, res: any): Promise<void> {
+    const feesTable = await this.backend.envelopingArbiter.getFeesTable()
+    res.send(feesTable)
   }
 }

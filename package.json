@@ -74,6 +74,7 @@
     "chalk": "^4.1.0",
     "commander": "^6.1.0",
     "console-read-write": "^0.1.1",
+    "dataframe-js": "^1.4.4",
     "date-format": "^3.0.0",
     "eth-sig-util": "2.5.2",
     "ethereum-cryptography": "^0.1.3",

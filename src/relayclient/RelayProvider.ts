@@ -179,9 +179,11 @@ export class RelayProvider implements HttpProvider {
       throw Error('In a deploy, if tokenGas is not defined, then the calculated SmartWallet address is needed to estimate the tokenGas value')
     }
 
+    const maxTime = Date.now() + (300 * 1000)
+
     try {
       log.debug('Relay Provider - Relaying transaction started')
-      const relayingResult = await this.relayClient.relayTransaction(transactionDetails)
+      const relayingResult = await this.relayClient.relayTransaction(transactionDetails, maxTime)
       if (relayingResult.transaction != null) {
         const txHash: string = relayingResult.transaction.hash(true).toString('hex')
         const hash = `0x${txHash}`
@@ -268,6 +270,7 @@ export class RelayProvider implements HttpProvider {
     log.info('calling sendAsync' + JSON.stringify(payload))
     log.debug('Relay Provider - _ethSendTransaction called')
     let transactionDetails: EnvelopingTransactionDetails = payload.params[0]
+    const maxTime = (typeof payload.params[1] !== 'undefined') ? payload.params[1].maxTime : Date.now() + (300 * 1000)
 
     let callForwarderValue = transactionDetails.callForwarder
     let relayHubValue = transactionDetails.relayHub
@@ -310,7 +313,7 @@ export class RelayProvider implements HttpProvider {
     log.debug(`Relay Provider - Relay hub: ${transactionDetails.relayHub}`)
     log.debug(`Relay Provider - callForwarder: ${transactionDetails.callForwarder}`)
 
-    this.relayClient.relayTransaction(transactionDetails)
+    this.relayClient.relayTransaction(transactionDetails, maxTime)
       .then((relayingResult) => {
         if (relayingResult.transaction !== undefined && relayingResult.transaction !== null) {
           const txHash = '0x' + relayingResult.transaction.hash(true).toString('hex')
@@ -440,10 +443,8 @@ export class RelayProvider implements HttpProvider {
   // The RSKJ node doesn't support additional parameters in RPC calls.
   // When using the original provider with the RSKJ node it is necessary to remove the additional useEnveloping property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
-    let p: JsonRpcPayload = payload
-
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    p = JSON.parse(JSON.stringify(payload))
+    const p: JsonRpcPayload = JSON.parse(JSON.stringify(payload))
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (payload.params[0]?.hasOwnProperty('useEnveloping')) {

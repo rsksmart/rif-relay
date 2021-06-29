@@ -19,18 +19,20 @@ export default class RelaySelectionManager {
   private readonly config: EnvelopingConfig
   private readonly pingFilter: PingFilter
   private readonly transactionDetails: EnvelopingTransactionDetails
+  private readonly maxTime?: number
 
   private remainingRelays: RelayInfoUrl[][] = []
   private isInitialized = false
 
   public errors: Map<string, Error> = new Map<string, Error>()
 
-  constructor (transactionDetails: EnvelopingTransactionDetails, knownRelaysManager: KnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: EnvelopingConfig) {
+  constructor (transactionDetails: EnvelopingTransactionDetails, knownRelaysManager: KnownRelaysManager, httpClient: HttpClient, pingFilter: PingFilter, config: EnvelopingConfig, maxTime?: number) {
     this.transactionDetails = transactionDetails
     this.knownRelaysManager = knownRelaysManager
     this.httpClient = httpClient
     this.pingFilter = pingFilter
     this.config = config
+    this.maxTime = maxTime
   }
 
   /**
@@ -139,7 +141,7 @@ export default class RelaySelectionManager {
    */
   async _getRelayAddressPing (relayInfo: RelayInfoUrl): Promise<PartialRelayInfo> {
     log.info(`getRelayAddressPing URL: ${relayInfo.relayUrl}`)
-    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.transactionDetails.callVerifier)
+    const pingResponse = await this.httpClient.getPingResponse(relayInfo.relayUrl, this.transactionDetails.callVerifier, this.maxTime)
 
     if (!pingResponse.ready) {
       throw new Error(`Relay not ready ${JSON.stringify(pingResponse)}`)

@@ -43,7 +43,7 @@ export class RegistrationManager {
   hubAddress: Address
 
   managerAddress: Address
-  workerAddress: Address
+  workerAddress: Address[]
 
   eventEmitter: EventEmitter
 
@@ -78,7 +78,7 @@ export class RegistrationManager {
     config: ServerConfigParams,
     // exposed from key manager?
     managerAddress: Address,
-    workerAddress: Address
+    workerAddress: Address[]
   ) {
     const listener = (): void => {
       this.printNotRegisteredMessage()
@@ -258,7 +258,7 @@ export class RegistrationManager {
 
   async addRelayWorker (currentBlock: number): Promise<PrefixedHexString> {
     // register on chain
-    const addRelayWorkerMethod = await this.contractInteractor.getAddRelayWorkersMethod([this.workerAddress])
+    const addRelayWorkerMethod = await this.contractInteractor.getAddRelayWorkersMethod(this.workerAddress)
     const gasLimit = await this.transactionManager.attemptEstimateGas('AddRelayWorkers', addRelayWorkerMethod, this.managerAddress)
     const details: SendTransactionDetails = {
       signer: this.managerAddress,
@@ -285,9 +285,14 @@ export class RegistrationManager {
 
     let transactions: PrefixedHexString[] = []
     // add worker only if not already added
-    const workersAdded = this._isWorkerValid()
+    let workersAdded: boolean = false
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      workersAdded = this._isWorkerValid(this.workerAddress[index])
+      if (workersAdded) { break }
+    }
     const addWorkersPending = await this.txStoreManager.isActionPending(ServerAction.ADD_WORKER)
-    if (!(workersAdded || addWorkersPending)) {
+    if (!workersAdded || addWorkersPending) {
+      console.log('Adding workers to relay hub', this.workerAddress)
       const txHash = await this.addRelayWorker(currentBlock)
       transactions = transactions.concat(txHash)
     }
@@ -338,27 +343,28 @@ export class RegistrationManager {
   }
 
   async _sendWorkersEthBalancesToOwner (currentBlock: number): Promise<PrefixedHexString[]> {
-    // sending workers' balance to owner (currently one worker, todo: extend to multiple)
     const transactionHashes: PrefixedHexString[] = []
     const gasPrice = await this.contractInteractor.getGasPrice()
     const gasLimit = mintxgascost
     const txCost = toBN(gasLimit * parseInt(gasPrice))
-    const workerBalance = toBN(await this.contractInteractor.getBalance(this.workerAddress))
-    if (workerBalance.gte(txCost)) {
-      log.info(`Sending workers' RBTC balance ${workerBalance.toString()} to owner`)
-      const details = {
-        signer: this.workerAddress,
-        serverAction: ServerAction.VALUE_TRANSFER,
-        destination: this.ownerAddress as string,
-        gasLimit,
-        gasPrice,
-        value: toHex(workerBalance.sub(txCost)),
-        creationBlockNumber: currentBlock
+    for (let index = 0; index < this.workerAddress.length; index++) {
+      const workerBalance = toBN(await this.contractInteractor.getBalance(this.workerAddress[index]))
+      if (workerBalance.gte(txCost)) {
+        log.info(`Sending workers' RBTC balance ${workerBalance.toString()} to owner`)
+        const details = {
+          signer: this.workerAddress[index],
+          serverAction: ServerAction.VALUE_TRANSFER,
+          destination: this.ownerAddress as string,
+          gasLimit,
+          gasPrice,
+          value: toHex(workerBalance.sub(txCost)),
+          creationBlockNumber: currentBlock
+        }
+        const { transactionHash } = await this.transactionManager.sendTransaction(details)
+        transactionHashes.push(transactionHash)
+      } else {
+        log.info(`balance too low: ${workerBalance.toString()}, tx cost: ${gasLimit * parseInt(gasPrice)}`)
       }
-      const { transactionHash } = await this.transactionManager.sendTransaction(details)
-      transactionHashes.push(transactionHash)
-    } else {
-      log.info(`balance too low: ${workerBalance.toString()}, tx cost: ${gasLimit * parseInt(gasPrice)}`)
     }
     return transactionHashes
   }
@@ -372,10 +378,10 @@ export class RegistrationManager {
     return getLatestEventData(workersAddedEvents)
   }
 
-  _isWorkerValid (): boolean {
+  _isWorkerValid (workerAddress: PrefixedHexString): boolean {
     // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
     return this.lastWorkerAddedTransaction != null && this.lastWorkerAddedTransaction.returnValues.newRelayWorkers
-      .map((a: string) => a.toLowerCase()).includes(this.workerAddress.toLowerCase())
+      .map((a: string) => a.toLowerCase()).includes(workerAddress.toLowerCase())
   }
 
   async isRegistered (): Promise<boolean> {
@@ -394,7 +400,10 @@ ${this.balanceRequired.description}
 ${this.stakeRequired.description}
 Stake locked   | ${boolString(this.isStakeLocked)}
 Manager        | ${this.managerAddress}
-Worker         | ${this.workerAddress}
+Worker Tier 1  | ${this.workerAddress[0]}
+Worker Tier 2  | ${this.workerAddress[1]}
+Worker Tier 3  | ${this.workerAddress[2]}
+Worker Tier 4  | ${this.workerAddress[3]}
 Owner          | ${this.ownerAddress ?? chalk.red('unknown')}
 `
     log.info(message)

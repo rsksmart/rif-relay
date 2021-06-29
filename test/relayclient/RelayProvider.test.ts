@@ -76,15 +76,14 @@ contract('RelayProvider', function (accounts) {
     relayServerData = (await startRelay(relayHub, {
       relaylog: process.env.relaylog,
       stake: 1e18,
-      url: 'asd',
       relayOwner: accounts[1],
       rskNodeUrl: underlyingProvider.host,
       deployVerifierAddress: deployVerifierInstance.address,
       relayVerifierAddress: verifierInstance.address,
-      workerMinBalance: 0.1e18,
-      workerTargetBalance: 0.3e18,
-      managerMinBalance: 0.1e18,
-      managerTargetBalance: 0.3e18,
+      workerMinBalance: 0.01e18,
+      workerTargetBalance: 0.03e18,
+      managerMinBalance: 0.01e18,
+      managerTargetBalance: 0.03e18,
       minHubWithdrawalBalance: 0.1e18
     }))
 

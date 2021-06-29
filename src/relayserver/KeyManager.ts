@@ -4,6 +4,7 @@ import fs from 'fs'
 import ow from 'ow'
 import { toHex } from 'web3-utils'
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
+import { Bytes, ethers } from 'ethers'
 
 export const KEYSTORE_FILENAME = 'keystore'
 
@@ -88,5 +89,16 @@ export class KeyManager {
     tx.sign(privateKey)
     const rawTx = '0x' + tx.serialize().toString('hex')
     return rawTx
+  }
+
+  async signMessage (signer: string, message: Bytes): Promise<PrefixedHexString> {
+    ow(signer, ow.string)
+    const privateKey = this._privateKeys[signer]
+    if (privateKey === undefined) {
+      throw new Error(`Can't sign: signer=${signer} is not managed`)
+    }
+    const signerWallet = new ethers.Wallet(privateKey)
+    const sig = await signerWallet.signMessage(message)
+    return sig
   }
 }
