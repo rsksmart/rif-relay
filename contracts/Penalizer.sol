@@ -87,4 +87,17 @@ contract Penalizer is IPenalizer{
 
         hub.penalize(addr1, msg.sender);
     }
+
+    function fullfil(CommitmentResponse calldata res) external {
+        keccak256(abi.encodePacked(unsignedTx1));
+        bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
+
+        keccak256(res.signedTx)
+    }
+
+    function penalize(CommitmentResponse calldata res) external {
+        bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
+
+        keccak256(res.signedTx)
+    }
 }
