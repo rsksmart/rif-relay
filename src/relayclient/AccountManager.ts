@@ -57,15 +57,17 @@ export default class AccountManager {
 
     const isDeploy = this.isDeployRequest(relayRequest)
 
-    const signedData = isDeploy ? new TypedDeployRequestData(
-      this.chainId,
-      relayRequest.relayData.callForwarder,
-      cloneRequest as DeployRequest
-    ) : new TypedRequestData(
-      this.chainId,
-      relayRequest.relayData.callForwarder,
-      cloneRequest as RelayRequest
-    )
+    const signedData = isDeploy
+      ? new TypedDeployRequestData(
+        this.chainId,
+        relayRequest.relayData.callForwarder,
+        cloneRequest as DeployRequest
+      )
+      : new TypedRequestData(
+        this.chainId,
+        relayRequest.relayData.callForwarder,
+        cloneRequest as RelayRequest
+      )
 
     const keypair = this.accounts.find(account => isSameAddress(account.address, relayRequest.request.from))
     let rec: Address
