@@ -42,7 +42,7 @@ export const deployTypeHash = web3.utils.keccak256(deployTypeName)
 //  stake, delay, url, relayOwner: parameters to pass to registerNewRelay, to stake and register it.
 //
 
-interface RelayServerData {
+export interface RelayServerData {
   proc: ChildProcessWithoutNullStreams
   worker: Address
   manager: Address
@@ -287,7 +287,6 @@ export async function deployHub (
   return await RelayHub.new(
     penalizer,
     relayHubConfiguration.maxWorkerCount,
-    relayHubConfiguration.gasOverhead,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
@@ -309,7 +308,6 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       from: ownerEOA,
       to: constants.ZERO_ADDRESS,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: '0x',
       tokenContract: tokenContract,
@@ -357,14 +355,12 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
   initParams: string = '0x', tokenContract: string = constants.ZERO_ADDRESS, tokenAmount: string = '0',
   gas: string = '400000', tokenGas: string = '0', recoverer: string = constants.ZERO_ADDRESS): Promise<CustomSmartWalletInstance> {
   chainId = (chainId < 0 ? (await getTestingEnvironment()).chainId : chainId)
-
   const rReq: DeployRequest = {
     request: {
       relayHub: relayHub,
       from: ownerEOA,
       to: logicAddr,
       value: '0',
-      gas: gas,
       nonce: '0',
       data: initParams,
       tokenContract: tokenContract,
@@ -394,7 +390,6 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
   const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)) // keccak256 of suffixData
   const txResult = await factory.relayedUserSmartWalletCreation(rReq.request, getDomainSeparatorHash(factory.address, chainId), suffixData, deploySignature, { from: relayHub })
   console.log('Cost of deploying SmartWallet: ', txResult.receipt.cumulativeGasUsed)
-
   const swAddress = await factory.getSmartWalletAddress(ownerEOA, recoverer, logicAddr, soliditySha3Raw({ t: 'bytes', v: initParams }), '0')
 
   const CustomSmartWallet = artifacts.require('CustomSmartWallet')
@@ -492,6 +487,31 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
     relayRequest,
     signature
   }
+}
+
+/**
+ * Decodes events which satisfies an ABI specification
+ */
+export function containsEvent (abi: any, rawLogs: any, eventName: string): boolean {
+  const eventsAbiByTopic = getEventsAbiByTopic(abi)
+  // @ts-ignore
+  return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) &&
+      eventsAbiByTopic.get(log.topics[0]).name === eventName
+  )
+}
+
+/**
+ * Get a Map from topics to their corresponding event's ABI
+ */
+function getEventsAbiByTopic (abi: any): Map<string, any> {
+  const eventsAbiByTopic = new Map<string, any>()
+  // @ts-ignore
+  const logicEvents = abi.filter(elem => elem.type === 'event')
+  // @ts-ignore
+  logicEvents.forEach(abi => {
+    eventsAbiByTopic.set(abi.signature, abi)
+  })
+  return eventsAbiByTopic
 }
 
 /**

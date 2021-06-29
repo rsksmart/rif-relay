@@ -41,7 +41,15 @@ export default interface EnvelopingTransactionDetails {
   readonly forceGasPrice?: PrefixedHexString
 
   /**
+   * Use this to force the {@link RelayProvider} to use provided gas instead of the one estimated by the {@link RelayClient}.
+   */
+  readonly forceGas?: PrefixedHexString
+
+  /**
    * Use this to force the RelayClient to use only the preferred relays when searching for a suitable relay server
    */
   readonly onlyPreferredRelays?: boolean
+
+  retries?: number
+  initialBackoff?: number
 }

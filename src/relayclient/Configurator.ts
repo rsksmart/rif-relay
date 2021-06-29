@@ -25,7 +25,7 @@ const defaultEnvelopingConfig: EnvelopingConfig = {
   relayLookupWindowParts: 1,
   relayLookupWindowBlocks: DEFAULT_LOOKUP_WINDOW_BLOCKS,
   gasPriceFactorPercent: GAS_PRICE_PERCENT,
-  minGasPrice: 1e09,
+  minGasPrice: 60000000, // 0.06 GWei
   maxRelayNonceGap: MAX_RELAY_NONCE_GAP,
   sliceSize: 3,
   relayTimeoutGrace: DEFAULT_RELAY_TIMEOUT_GRACE_SEC,

@@ -16,7 +16,6 @@ import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toBN } from 'web3-utils'
-import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment, createCustomSmartWalletFactory, createCustomSmartWallet, bytes32, createSmartWalletFactory, createSmartWallet } from '../TestUtils'
 import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
 import { constants } from '../../src/common/Constants'
@@ -182,14 +181,10 @@ options.forEach(element => {
             )
             const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
             const sig = signTypedData_v4(senderPrivateKey, { data: dataToSign })
-            // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(dummyDomainSeparator, suffixData, request.request, sig), 'unregistered domain separator')
+            await expectRevert(sw.verify(dummyDomainSeparator, suffixData, request.request, sig), 'Invalid domain separator')
           })
 
           it('should fail on wrong nonce', async () => {
-            const env: Environment = await getTestingEnvironment()
-            const message: string = isRsk(env) ? 'Returned error: VM execution error: nonce mismatch' : 'revert nonce mismatch'
-
             const req = {
               request: {
                 ...request.request,
@@ -207,8 +202,7 @@ options.forEach(element => {
             const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
             const sig = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
-            // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, req.request, sig), message)
+            await expectRevert(sw.verify(domainSeparatorHash, suffixData, req.request, sig), 'nonce mismatch')
           })
           it('should fail on invalid signature', async () => {
             const dataToSign = new TypedRequestData(
@@ -217,14 +211,10 @@ options.forEach(element => {
               request
             )
             const suffixData = bufferToHex(TypedDataUtils.encodeData(dataToSign.primaryType, dataToSign.message, dataToSign.types).slice((1 + ForwardRequestType.length) * 32))
-            const sig: string = signTypedData_v4(senderPrivateKey, { data: dataToSign })
 
-            // TODO: when the RSKJ node includes the functionality to return the revert reason for require we need to remove the .unspecified from the expectRevert.
-            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x'), 'ECDSA: invalid signature length')
-            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x123456'), 'ECDSA: invalid signature length')
-            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, '0x' + '1b'.repeat(65)), 'signature mismatch')
-            const newSig = sig.replace('a', 'b').replace('1', '2').replace('3', '4').replace('5', '6').replace('7', '8')
-            await expectRevert.unspecified(sw.verify(domainSeparatorHash, suffixData, request.request, newSig), 'signature mismatch')
+            await expectRevert(sw.verify(domainSeparatorHash, suffixData, request.request, '0x'), 'ECDSA: invalid signature length')
+            await expectRevert(sw.verify(domainSeparatorHash, suffixData, request.request, '0x123456'), 'ECDSA: invalid signature length')
+            await expectRevert(sw.verify(domainSeparatorHash, suffixData, request.request, '0x' + '1b'.repeat(65)), 'signature mismatch')
           })
         })
         describe('#verify success', () => {
@@ -279,7 +269,7 @@ options.forEach(element => {
 
           const sig = signTypedData_v4(senderPrivateKey, { data: reqData })
 
-          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'Unable to pay for relay')
+          await expectRevert(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'Unable to pay for relay')
 
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           const swTknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -377,7 +367,7 @@ options.forEach(element => {
           const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           assert.equal(tknBalance.toString(), initialWorkerTokenBalance.add(new BN(1)).toString())
 
-          await expectRevert.unspecified(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'nonce mismatch')
+          await expectRevert(testfwd.callExecute(sw.address, req1.request, domainSeparatorHash, suffixData, sig, { from: worker }), 'nonce mismatch')
 
           const tknBalance2 = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
           assert.equal(tknBalance.toString(), tknBalance2.toString())
@@ -573,7 +563,7 @@ options.forEach(element => {
 
         it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
           const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-          await expectRevert.unspecified(sw.directExecute(recipient.address, func, { from: defaultAccount }), 'Not the owner of the SmartWallet')
+          await expectRevert(sw.directExecute(recipient.address, func, { from: defaultAccount }), 'Not the owner of the SmartWallet')
         })
 
         it('should return revert message of target revert', async () => {
@@ -750,9 +740,11 @@ options.forEach(element => {
           [recovererAccount, tokenBalanceBefore.toNumber().toString()])
 
           if (element.simple) {
-            await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
+            const swInstance = sw as SmartWalletInstance
+            await expectRevert(swInstance.recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
           } else {
-            await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
+            const swInstance = sw as CustomSmartWalletInstance
+            await expectRevert(swInstance.recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: defaultAccount, gasPrice }), 'Invalid recoverer')
           }
 
           const tokenBalanceAfter = await getTokenBalance(tokenToUse.tokenIndex, token, sw.address)
@@ -830,9 +822,9 @@ options.forEach(element => {
           } else { // Tether token depletes the gas on error (it uses 'assert' instead of 'require'), so in this case the whole transaction will revert
             const maxGas = 100000
             if (element.simple) {
-              await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+              await expectRevert((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'transaction reverted')
             } else {
-              await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+              await expectRevert((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'transaction reverted')
             }
 
             const balanceLost = new BN(maxGas).mul(new BN(gasPrice))
@@ -912,9 +904,9 @@ options.forEach(element => {
           } else { // Tether token depletes the gas on error (it uses 'assert' instead of 'require'), so in this case the whole transaction will revert
             const maxGas = 100000
             if (element.simple) {
-              await expectRevert.unspecified((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+              await expectRevert((sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'transaction reverted')
             } else {
-              await expectRevert.unspecified((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'Invalid recoverer')
+              await expectRevert((sw as CustomSmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, constants.ZERO_ADDRESS, 0, constants.SHA3_NULL_S, tokenTransferCall, { from: recovererAccount, gasPrice, gas: maxGas }), 'transaction reverted')
             }
 
             const balanceLost = new BN(maxGas).mul(new BN(gasPrice))

@@ -124,7 +124,7 @@ options.forEach(params => {
       let res
       try {
         const gas = await sr.contract.methods.emitMessage('hello').estimateGas()
-        res = await sr.emitMessage('hello', { from: from, gas })
+        res = params.relay ? await sr.emitMessage('hello', { from }) : await sr.emitMessage('hello', { from, gas })
       } catch (e) {
         console.log('error is ', e.message)
         throw e

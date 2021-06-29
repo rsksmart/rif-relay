@@ -14,7 +14,8 @@ import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import {
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestRecipientInstance,
-  TestVerifierConfigurableMisbehaviorInstance
+  TestVerifierConfigurableMisbehaviorInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
@@ -25,19 +26,23 @@ import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransa
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
+import { constants } from '../../src/common/Constants'
+import TokenResponse from '../../src/common/TokenResponse'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 
+const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')
 
-const revertReasonSupported = false
+const revertReasonSupported = true
 contract('RelayServer', function (accounts) {
   const alertedBlockDelay = 0
 
   let id: string
   let globalId: string
   let env: ServerTestEnvironment
+  let token: TestTokenInstance
 
   before(async function () {
     globalId = (await snapshot()).result
@@ -58,6 +63,8 @@ contract('RelayServer', function (accounts) {
     }
     await env.newServerInstance(overrideParams)
     await env.clearServerStorage()
+    token = await TestToken.new()
+    await token.mint('1000', env.forwarder.address)
   })
 
   after(async function () {
@@ -84,6 +91,25 @@ contract('RelayServer', function (accounts) {
   })
 
   describe('validation', function () {
+    beforeEach(async function () {
+      await env.relayServer.txStoreManager.clearAll()
+    })
+
+    describe('#validateInputTypes()', function () {
+      // skipped because error message changed here for no apparent reason
+      it.skip('should throw on undefined data', async function () {
+        const req = await env.createRelayHttpRequest()
+        // @ts-ignore
+        req.relayRequest.request.data = undefined
+        try {
+          env.relayServer.validateInputTypes(req)
+          assert.fail()
+        } catch (e) {
+          assert.include(e.message, 'Expected argument to be of type `string` but received type `undefined`')
+        }
+      })
+    })
+
     describe('#validateInput()', function () {
       it('should fail to relay with wrong relay worker', async function () {
         const req = await env.createRelayHttpRequest()
@@ -136,10 +162,19 @@ contract('RelayServer', function (accounts) {
           await env.relayServer._initTrustedVerifiers([])
         })
 
-        it('#_itTrustedForwarder', function () {
-          assert.isFalse(env.relayServer._isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
-          assert.isTrue(env.relayServer._isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+        it('#isTrustedVerifier', function () {
+          assert.isFalse(env.relayServer.isTrustedVerifier(accounts[1]), 'identify untrusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.relayVerifier.address), 'identify trusted verifier')
+          assert.isTrue(env.relayServer.isTrustedVerifier(env.deployVerifier.address), 'identify trusted verifier')
+        })
+
+        it('#verifierHandler', async function () {
+          const relayVerifier = env.relayVerifier.address.toLowerCase()
+          const deployVerifier = env.deployVerifier.address.toLowerCase()
+          const trustedVerifiers = (await env.relayServer.verifierHandler()).trustedVerifiers
+          assert.isTrue(trustedVerifiers.includes(relayVerifier))
+          assert.isTrue(trustedVerifiers.includes(deployVerifier))
+          assert.equal(trustedVerifiers.length, 2)
         })
       })
 
@@ -220,7 +255,7 @@ contract('RelayServer', function (accounts) {
         const method = env.relayHub.contract.methods.relayCall(req.relayRequest, req.metadata.signature)
 
         try {
-          await env.relayServer.validateViewCallSucceeds(method, req, 2000000)
+          await env.relayServer.validateViewCallSucceeds(method, req, toBN(2000000))
           assert.fail()
         } catch (e) {
           if (revertReasonSupported) {
@@ -229,6 +264,99 @@ contract('RelayServer', function (accounts) {
             assert.include(e.message, 'relayCall (local call) reverted in server: Returned error: VM execution error: transaction reverted')
           }
         }
+      })
+
+      it('should estimate the transaction max gas properly for subsidized transactions', async function () {
+        let estimatedGas = (await env.contractInteractor.estimateGas({
+          from: env.forwarder.address,
+          to: env.recipient.address,
+          gasPrice: toHex(60000000),
+          data: env.encodedFunction
+        }))
+
+        estimatedGas = estimatedGas > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimatedGas - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimatedGas
+
+        const req = await env.createRelayHttpRequest({
+          gas: toHex(estimatedGas)
+        })
+
+        assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
+
+        const result = await env.relayServer.validateRequestWithVerifier(req)
+        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
+
+        const pendingTransactions = await env.relayServer.txStoreManager.getAll()
+        assert.equal(pendingTransactions.length, 1)
+        assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
+
+        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+
+        console.log('Estimated gas is:', result.maxPossibleGas.toNumber())
+        console.log('Actual gas used is: ', receipt.cumulativeGasUsed)
+        assert.equal(receipt.cumulativeGasUsed, result.maxPossibleGas.toNumber())
+
+        const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
+        assert(receipt.logs.find(log => log.topics.includes(topic)), 'SampleRecipientEmitted event not found')
+      })
+
+      it('should estimate the transaction max gas properly', async function () {
+        let estimatedGas = (await env.contractInteractor.estimateGas({
+          from: env.forwarder.address,
+          to: env.recipient.address,
+          gasPrice: toHex(60000000),
+          data: env.encodedFunction
+        }))
+
+        estimatedGas = estimatedGas > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? estimatedGas - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : estimatedGas
+
+        const encodedFunction = env.contractInteractor.web3.eth.abi.encodeFunctionCall({
+          name: 'transfer',
+          type: 'function',
+          inputs: [
+            {
+              type: 'address',
+              name: 'recipient'
+            }, {
+              type: 'uint256',
+              name: 'amount'
+            }
+          ]
+        },
+        [env.relayServer.workerAddress, '1'])
+
+        let tokenGasCost = await env.contractInteractor.estimateGas({
+          from: env.forwarder.address, // token holder is the smart wallet
+          to: token.address,
+          gasPrice: toHex(60000000),
+          data: encodedFunction
+        })
+
+        tokenGasCost = tokenGasCost > constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION ? tokenGasCost - constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION : tokenGasCost
+
+        const req = await env.createRelayHttpRequest({
+          tokenContract: token.address,
+          tokenAmount: '1',
+          gas: toHex(estimatedGas),
+          tokenGas: toHex(tokenGasCost)
+        })
+
+        assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
+
+        const result = await env.relayServer.validateRequestWithVerifier(req)
+        const txDetails: SignedTransactionDetails = await env.relayServer.createRelayTransaction(req)
+
+        const pendingTransactions = await env.relayServer.txStoreManager.getAll()
+        assert.equal(pendingTransactions.length, 1)
+        assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
+
+        const receipt = await web3.eth.getTransactionReceipt(txDetails.transactionHash)
+
+        // console.log("Estimated gas is:", result.maxPossibleGas.toNumber())
+        // console.log("Actual gas used is: ", receipt.cumulativeGasUsed)
+        assert.equal(receipt.cumulativeGasUsed, result.maxPossibleGas.toNumber())
+
+        const topic: string = web3.utils.sha3('SampleRecipientEmitted(string,address,address,uint256,uint256)') ?? ''
+        assert(receipt.logs.find(log => log.topics.includes(topic)), 'SampleRecipientEmitted event not found')
       })
     })
   })
@@ -554,6 +682,89 @@ contract('RelayServer', function (accounts) {
       } catch (error) {
         assert.equal(error.message, 'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.')
       }
+    })
+  })
+
+  describe('acceptTokens', function () {
+    const testToken1 = String('0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f')
+    const testToken2 = String('0x85d55E6228C9a6bA73567926f0A0EB3e5f191803')
+
+    afterEach(async function () {
+      // reset verifiers for each test
+      await env.relayServer.trustedVerifiers.clear()
+    })
+
+    it('should return empty if there are no trusted verifiers', async function () {
+      const res = await env.relayServer.tokenHandler()
+      assert.isEmpty(res)
+    })
+
+    it('should return error if verifier is not trusted', async function () {
+      // trust relay verifier, but query deploy verifier
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+      try {
+        await env.relayServer.tokenHandler(env.deployVerifier.address)
+        assert.fail() // previous line should throw exception
+      } catch (error) {
+        assert.equal(error.message, 'supplied verifier is not trusted')
+      }
+    })
+
+    it('should return no tokens for verifiers when none were allowed', async function () {
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+
+      const exp: TokenResponse = {}
+      exp[env.relayVerifier.address] = []
+      const res = await env.relayServer.tokenHandler(env.relayVerifier.address)
+
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return allowed tokens for one trusted verifier', async function () {
+      env.relayServer.trustedVerifiers.add(env.deployVerifier.address.toLowerCase())
+
+      // add token 1 to deploy verifier
+      await env.deployVerifier.acceptToken(testToken1)
+
+      const exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1]
+      let res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+
+      assert.deepEqual(res, exp)
+
+      // add token 2 to deploy verifier
+      await env.deployVerifier.acceptToken(testToken2)
+
+      exp[env.deployVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler(env.deployVerifier.address)
+
+      assert.deepEqual(res, exp)
+    })
+
+    it('should return allowed tokens for all trusted verifiers', async function () {
+      env.relayServer.trustedVerifiers.add(env.relayVerifier.address.toLowerCase())
+      env.relayServer.trustedVerifiers.add(env.deployVerifier.address.toLowerCase())
+
+      const exp: TokenResponse = {}
+      exp[env.deployVerifier.address] = [testToken1, testToken2]
+      exp[env.relayVerifier.address] = []
+      let res = await env.relayServer.tokenHandler()
+
+      assert.deepEqual(res, exp)
+
+      // add token 1 to relay verifier
+      await env.relayVerifier.acceptToken(testToken1)
+
+      exp[env.relayVerifier.address] = [testToken1]
+      res = await env.relayServer.tokenHandler()
+      assert.deepEqual(res, exp)
+
+      // add token 2 to relay verifier
+      await env.relayVerifier.acceptToken(testToken2)
+
+      exp[env.relayVerifier.address].push(testToken2)
+      res = await env.relayServer.tokenHandler()
+      assert.deepEqual(res, exp)
     })
   })
 })
