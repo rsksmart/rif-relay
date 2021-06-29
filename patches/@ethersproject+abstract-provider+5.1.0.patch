@@ -1,0 +1,20 @@
+diff --git a/node_modules/@ethersproject/abstract-provider/src.ts/index.ts b/node_modules/@ethersproject/abstract-provider/src.ts/index.ts
+index cbe5527..d585d83 100644
+--- a/node_modules/@ethersproject/abstract-provider/src.ts/index.ts
++++ b/node_modules/@ethersproject/abstract-provider/src.ts/index.ts
+@@ -27,6 +27,15 @@ export type TransactionRequest = {
+     value?: BigNumberish,
+     chainId?: number
+ 
++    /* Enveloping-specific transaction details */
++    callVerifier?: string;
++    callForwarder?: string;
++    useEnveloping?: boolean;
++    forceGasPrice?: string;
++    tokenAmount?: BigNumberish | number | string;
++    tokenContract?: string;
++    forceGas?: BigNumberish | number | string;
++
+     type?: number;
+     accessList?: AccessListish;
+ }
