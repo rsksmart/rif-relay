@@ -79,7 +79,7 @@ We recommend following the official [documentation](https://docs.docker.com/get-
 
 You'll need to install both `docker` as well as `docker-compose`.
 
-### Running on macOS
+#### Running on macOS
 To run the project using Docker on a Mac, please follow these steps or the scripts and web apps will not work. 
 
 - Patch `readlink`
@@ -92,7 +92,7 @@ ln -s /usr/local/bin/greadlink /usr/local/bin/readlink
 
 After this step, you must make sure that your `PATH` variable gives priority to `/usr/local/bin` over `/usr/bin`. You can check this with `which readlink`, which should output `/usr/local/bin/readlink`. Alternatively try executing `readlink -f .`, if it works you're ok.
 
-## Launching
+## Installation
 
 ### Building the project
 
@@ -101,9 +101,7 @@ Clone the project. Then run the following from the project's root directory to b
 `yarn install`
 `yarn prepare`
 
-### Deploy contracts
-
-### Locally
+### Deploy contracts Locally
 
 We'll use `truffle` for deploying contracts. Have an RSK node up and running in regtest mode and then execute the following on the project's root folder:
 
@@ -133,7 +131,8 @@ terminal something similar to this:
 
 You'll need to save this summary for later use.
 
-### On Testnet
+
+### Deploy contracts On Testnet
 
 
 We'll use `truffle` for deploying contracts.
@@ -141,6 +140,8 @@ We'll use `truffle` for deploying contracts.
 `npx truffle migrate --network rsktestnet` (disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`).
 
 These contracts have been deployed on Testnet. See [here](#testnet-contracts) for their addresses.
+
+## Launching
 
 ### Run the Relay Server
 Now you need to start the relay server, to do so you need to configure the json config file located at `<PROJECT_ROOT>/jsrelay/config/relay-config.json` which has this structure:
@@ -182,8 +183,7 @@ After running that command you will see a log saying that the relay server is no
 
 ### On Regtest
 
-Once the relay server is running, you need to register this server in order for it to be usable, to do so
-first need to configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
+The first time you run the server, once the relay server is up, you need to register this server in order for it to be usable, to do so, first configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
    values as you consider. The script contains the following:
 
 ```
