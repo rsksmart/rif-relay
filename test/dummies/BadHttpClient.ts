@@ -43,10 +43,10 @@ export default class BadHttpClient extends HttpClient {
       throw new Error('some error describing how timeout occurred somewhere')
     }
     if (this.stubRelay != null && this.stubCommitment !== null) {
-      return { signedTx: this.stubRelay, signedReceipt: this.stubCommitment }
+      return { signedTx: this.stubRelay, signedReceipt: this.stubCommitment, transactionHash: '' }
     }
     if (this.stubRelay != null && this.stubRelay !== '') {
-      return { signedTx: this.stubRelay }
+      return { signedTx: this.stubRelay, signedReceipt: undefined, transactionHash: '' }
     }
     return await super.relayTransaction(relayUrl, request)
   }

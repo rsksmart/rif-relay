@@ -39,6 +39,7 @@ import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfi
 import { ether } from '@openzeppelin/test-helpers'
 import { EnvelopingArbiter } from '../../src/enveloping/EnvelopingArbiter'
 import { CommitmentReceipt } from '../../src/enveloping/Commitment'
+import {removeHexPrefix} from "../../src/common/Utils";
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')

@@ -212,9 +212,10 @@ export class RelayClient {
    * Can be used to get an estimate of the maximum possible gas to be used by the transaction
    * @param transactionDetails
    * @param relayWorker
+   * @param maxTime
    * @returns maxPossibleGas: The maximum expected gas to be used by the transaction
    */
-  async estimateMaxPossibleRelayGas (transactionDetails: EnvelopingTransactionDetails, relayWorker: Address): Promise<number> {
+  async estimateMaxPossibleRelayGas (transactionDetails: EnvelopingTransactionDetails, relayWorker: Address, maxTime: number): Promise<number> {
     const trxDetails = { ...transactionDetails }
 
     trxDetails.gasPrice = trxDetails.forceGasPrice ?? await this._calculateGasPrice()
@@ -231,7 +232,7 @@ export class RelayClient {
       deployCallEstimate = (await this.calculateDeployCallGas(testRequest)) + Number(trxDetails.tokenGas)
       maxPossibleGas = calculateDeployTransactionMaxPossibleGas(deployCallEstimate.toString(), trxDetails.tokenGas)
     } else {
-      const estimated = (await this.calculateSmartWalletRelayGas(trxDetails, relayWorker)) + Number(trxDetails.tokenGas)
+      const estimated = (await this.calculateSmartWalletRelayGas(trxDetails, relayWorker, maxTime)) + Number(trxDetails.tokenGas)
       maxPossibleGas = toBN(Math.ceil(estimated * constants.ESTIMATED_GAS_CORRECTION_FACTOR))
     }
 
@@ -251,7 +252,7 @@ export class RelayClient {
   // The reason the tokenPayment is removed is for allowing the user to sign the payload for an estimate, being
   // assured she won't be charged since tokenAmount is 0
   // The tokenGas must be added to this result in order to get the full estimate
-  async calculateSmartWalletRelayGas (transactionDetails: EnvelopingTransactionDetails, relayWorker: string): Promise<number> {
+  async calculateSmartWalletRelayGas (transactionDetails: EnvelopingTransactionDetails, relayWorker: string, maxTime: number): Promise<number> {
     const testInfo = await this._prepareRelayHttpRequest({
       pingResponse: {
         relayWorkerAddress: relayWorker,
@@ -259,10 +260,11 @@ export class RelayClient {
         relayHubAddress: constants.ZERO_ADDRESS,
         minGasPrice: '0',
         ready: true,
-        version: ''
+        version: '',
+        maxDelay: maxTime
       },
       relayInfo: { relayManager: '', relayUrl: '' }
-    }, { ...transactionDetails, tokenAmount: '0' })
+    }, { ...transactionDetails, tokenAmount: '0' }, maxTime)
 
     if (transactionDetails.relayHub === undefined || transactionDetails.relayHub === null || transactionDetails.relayHub === constants.ZERO_ADDRESS) {
       throw new Error('calculateSmartWalletDeployGasNewWay: RelayHub must be defined')

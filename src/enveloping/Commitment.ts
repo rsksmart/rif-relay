@@ -11,6 +11,7 @@ export interface CommitmentReceipt {
 export interface CommitmentResponse {
   signedTx: PrefixedHexString
   signedReceipt?: CommitmentReceipt
+  transactionHash: PrefixedHexString
 }
 
 export class Commitment {

@@ -363,12 +363,12 @@ export class RelayServer extends EventEmitter {
       throw new Error('Error: invalid workerAddress/maxTime combination.')
     }
     const commitment = new Commitment(
-        req.metadata.maxTime,
-        req.relayRequest.request.from,
-        req.relayRequest.request.to,
-        req.relayRequest.request.data,
-        req.metadata.relayHubAddress,
-        req.relayRequest.relayData.relayWorker
+      req.metadata.maxTime,
+      req.relayRequest.request.from,
+      req.relayRequest.request.to,
+      req.relayRequest.request.data,
+      req.metadata.relayHubAddress,
+      req.relayRequest.relayData.relayWorker
     )
     const digest = ethers.utils.keccak256(commitment.encodeForSign(this.relayHubContract.address))
     const signature = await this.envelopingArbiter.signCommitment(this.transactionManager, commitment.relayWorker, ethers.utils.arrayify(digest))
@@ -381,10 +381,10 @@ export class RelayServer extends EventEmitter {
       throw new Error('Error: Invalid receipt. Worker signature invalid.')
     }
 
-    const { signedTx } = await this.transactionManager.sendTransaction(details)
+    const { signedTx, transactionHash } = await this.transactionManager.sendTransaction(details)
     // after sending a transaction is a good time to check the worker's balance, and replenish it.
     await this.replenishServer(workerIndex, currentBlock)
-    return { signedTx: signedTx, signedReceipt: commitmentReceipt }
+    return { signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash }
   }
 
   async intervalHandler (): Promise<void> {

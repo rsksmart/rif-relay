@@ -103,8 +103,8 @@ export class HttpServer {
 
   async relayHandler (req: Request, res: Response): Promise<void> {
     try {
-      const { signedTx, signedReceipt } = await this.backend.createRelayTransaction(req.body)
-      res.send({ signedTx, signedReceipt })
+      const { signedTx, signedReceipt, transactionHash } = await this.backend.createRelayTransaction(req.body)
+      res.send({ signedTx, signedReceipt, transactionHash })
     } catch (e) {
       res.send({ error: e.message })
       console.log('tx failed:', e)

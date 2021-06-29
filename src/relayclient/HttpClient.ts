@@ -5,6 +5,7 @@ import HttpWrapper from './HttpWrapper'
 import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import { EnvelopingConfig } from './Configurator'
 import { CommitmentReceipt, CommitmentResponse } from '../enveloping/Commitment'
+import {PrefixedHexString} from "ethereumjs-tx";
 
 export default class HttpClient {
   private readonly httpWrapper: HttpWrapper
@@ -29,7 +30,7 @@ export default class HttpClient {
   }
 
   async relayTransaction (relayUrl: string, request: RelayTransactionRequest | DeployTransactionRequest): Promise<CommitmentResponse> {
-    const { signedTx, signedReceipt, error }: { signedTx: string, signedReceipt: CommitmentReceipt, error: string } = await this.httpWrapper.sendPromise(relayUrl + '/relay', request)
+    const { signedTx, signedReceipt, transactionHash, error }: { signedTx: string, signedReceipt: CommitmentReceipt, transactionHash: PrefixedHexString, error: string } = await this.httpWrapper.sendPromise(relayUrl + '/relay', request)
     log.info('relayTransaction response:', signedTx, error)
     if (error != null) {
       throw new Error(`Got error response from relay: ${error}`)
@@ -40,6 +41,6 @@ export default class HttpClient {
     if (signedReceipt == null) {
       throw new Error('body.signedReceipt field missing.')
     }
-    return { signedTx, signedReceipt }
+    return { signedTx, signedReceipt, transactionHash }
   }
 }
