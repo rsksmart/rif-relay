@@ -337,7 +337,7 @@ gasOptions.forEach(gasOption => {
         }
 
         const tokenPaymentEstimate = await relayClient.estimateTokenTransferGas(details, relayWorker)
-        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker)
+        const testRequest = await relayClient._prepareFactoryGasEstimationRequest(details, relayWorker, Date.now() + (300 * 1000))
         const estimatedGasResultWithoutTokenPayment = await relayClient.calculateDeployCallGas(testRequest)
 
         const originalBalance = await token.balanceOf(swAddress)
@@ -853,12 +853,12 @@ gasOptions.forEach(gasOption => {
         })
 
         const commitment = new Commitment(
-            pingResponse.maxDelay,
-            from,
-            to,
-            data,
-            relayHub.address,
-            relayWorkerAddress
+          pingResponse.maxDelay,
+          from,
+          to,
+          data,
+          relayHub.address,
+          relayWorkerAddress
         )
         badCommitmentReceipt = {
           commitment: commitment,

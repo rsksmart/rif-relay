@@ -170,7 +170,7 @@ export class RelayClient {
    * @param relayWorker
    * @returns maxPossibleGas: The maximum expected gas to be used by the transaction
    */
-  async estimateMaxPossibleRelayGasWithLinearFit (transactionDetails: EnvelopingTransactionDetails, relayWorker: Address): Promise<number> {
+  async estimateMaxPossibleRelayGasWithLinearFit (transactionDetails: EnvelopingTransactionDetails, relayWorker: Address, maxTime: number): Promise<number> {
     const trxDetails = { ...transactionDetails }
 
     trxDetails.gasPrice = trxDetails.forceGasPrice ?? await this._calculateGasPrice()
@@ -191,7 +191,7 @@ export class RelayClient {
       let deployCallEstimate: number = 0
 
       trxDetails.gas = '0x00'
-      const testRequest = await this._prepareFactoryGasEstimationRequest(trxDetails, relayWorker)
+      const testRequest = await this._prepareFactoryGasEstimationRequest(trxDetails, relayWorker, maxTime)
       deployCallEstimate = (await this.calculateDeployCallGas(testRequest)) + Number(trxDetails.tokenGas)
       maxPossibleGas = calculateDeployTransactionMaxPossibleGas(deployCallEstimate.toString(), trxDetails.tokenGas).toNumber()
     } else {
@@ -228,7 +228,7 @@ export class RelayClient {
 
     if (isSmartWalletDeploy) {
       trxDetails.gas = '0x00'
-      const testRequest = await this._prepareFactoryGasEstimationRequest(trxDetails, relayWorker)
+      const testRequest = await this._prepareFactoryGasEstimationRequest(trxDetails, relayWorker, maxTime)
       deployCallEstimate = (await this.calculateDeployCallGas(testRequest)) + Number(trxDetails.tokenGas)
       maxPossibleGas = calculateDeployTransactionMaxPossibleGas(deployCallEstimate.toString(), trxDetails.tokenGas)
     } else {
@@ -275,7 +275,7 @@ export class RelayClient {
   }
 
   async _prepareFactoryGasEstimationRequest (
-    transactionDetails: EnvelopingTransactionDetails, relayWorker: string
+    transactionDetails: EnvelopingTransactionDetails, relayWorker: string, maxTime: number
   ): Promise<DeployTransactionRequest> {
     if (transactionDetails.isSmartWalletDeploy === undefined || !transactionDetails.isSmartWalletDeploy) {
       throw new Error('Request type is not for SmartWallet deploy')
@@ -319,7 +319,7 @@ export class RelayClient {
       relayHubAddress: this.config.relayHubAddress,
       signature,
       relayMaxNonce: 0,
-      maxTime: Date.now() + (300 * 1000)
+      maxTime
     }
 
     const httpRequest: DeployTransactionRequest = {

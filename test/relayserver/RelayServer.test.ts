@@ -28,7 +28,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
 import TokenResponse from '../../src/common/TokenResponse'
-import {CommitmentResponse} from "../../src/enveloping/Commitment";
+import { CommitmentResponse } from '../../src/enveloping/Commitment'
 
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 

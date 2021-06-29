@@ -5,7 +5,7 @@ import HttpWrapper from './HttpWrapper'
 import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import { EnvelopingConfig } from './Configurator'
 import { CommitmentReceipt, CommitmentResponse } from '../enveloping/Commitment'
-import {PrefixedHexString} from "ethereumjs-tx";
+import { PrefixedHexString } from 'ethereumjs-tx'
 
 export default class HttpClient {
   private readonly httpWrapper: HttpWrapper

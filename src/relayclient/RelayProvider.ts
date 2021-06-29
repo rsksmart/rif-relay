@@ -443,10 +443,8 @@ export class RelayProvider implements HttpProvider {
   // The RSKJ node doesn't support additional parameters in RPC calls.
   // When using the original provider with the RSKJ node it is necessary to remove the additional useEnveloping property.
   _getPayloadForRSKProvider (payload: JsonRpcPayload): JsonRpcPayload {
-    let p: JsonRpcPayload = payload
-
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-    p = JSON.parse(JSON.stringify(payload))
+    const p: JsonRpcPayload = JSON.parse(JSON.stringify(payload))
 
     // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
     if (payload.params[0]?.hasOwnProperty('useEnveloping')) {
