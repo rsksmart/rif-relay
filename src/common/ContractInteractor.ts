@@ -91,6 +91,7 @@ export default class ContractInteractor {
 
   private relayVerifierInstance!: IRelayVerifierInstance
   private deployVerifierInstance!: IDeployVerifierInstance
+  private penalizerInstance!: IPenalizerInstance
 
   relayHubInstance!: IRelayHubInstance
 
@@ -209,6 +210,10 @@ export default class ContractInteractor {
     if (this.config.deployVerifierAddress !== constants.ZERO_ADDRESS) {
       this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
       log.debug(`Contract Interactor - Deploy Verifier initialized: ${this.deployVerifierInstance.address}`)
+    }
+    if (this.config.penalizerAddress !== constants.ZERO_ADDRESS) {
+      this.penalizerInstance = await this.createPenalizer(this.config.penalizerAddress)
+      log.debug(`Contract Interactor - Penalizer initialized: ${this.penalizerInstance.address}`)
     }
 
     console.log('Contracts initialized correctly')
