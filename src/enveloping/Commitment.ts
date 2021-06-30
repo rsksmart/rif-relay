@@ -41,7 +41,7 @@ export class Commitment {
     this.enabledQos = enabledQos === 'true' ? 'true' : 'false'
   }
 
-  public static TypeEncoding = 'commit(uint,address,address,bytes,address,address)'
+  public static TypeEncoding = 'commit(uint,address,address,bytes,address,address,bool)'
 
   orderForEnc (): any[] {
     return [
