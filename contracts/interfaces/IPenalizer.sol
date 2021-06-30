@@ -24,6 +24,11 @@ interface IPenalizer {
 
     function versionPenalizer() external view returns (string memory);
 
+    function fulfill(
+        address worker,
+        bytes32 txSignature
+    ) external;
+
     struct CommitmentResponse {
         bytes signedTx;
         CommitmentReceipt signedReceipt;

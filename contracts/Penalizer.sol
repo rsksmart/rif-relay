@@ -14,6 +14,7 @@ contract Penalizer is IPenalizer{
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     
     mapping(bytes32 => bool) public penalizedTransactions;
+    mapping(bytes32 => bool) public fulfilledTransactions;
 
     using ECDSA for bytes32;
 
@@ -88,10 +89,11 @@ contract Penalizer is IPenalizer{
         hub.penalize(addr1, msg.sender);
     }
 
-    function fullfil(CommitmentResponse calldata res) external {
-        keccak256(abi.encodePacked(unsignedTx1));
-        bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
-
-        keccak256(res.signedTx)
+    function fulfill(
+        address worker,
+        bytes32 txSignature
+    ) external override {
+        bytes32 txHash = keccak256(abi.encodePacked(worker, txSignature));
+        fulfilledTransactions[txHash] = true;
     }
 }

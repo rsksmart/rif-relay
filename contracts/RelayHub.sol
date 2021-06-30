@@ -13,6 +13,7 @@ import "./utils/Eip712Library.sol";
 import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
+import "./interfaces/IPenalizer.sol";
 
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
@@ -189,8 +190,6 @@ contract RelayHub is IRelayHub {
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     ) external override returns (bool destinationCallSuccess){
-        (signature);
-
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == relayRequest.relayData.relayWorker,
@@ -244,6 +243,11 @@ contract RelayHub is IRelayHub {
                 relayedCallReturnValue
             );
         }
+
+        IPenalizer(penalizer).fulfill(
+            msg.sender,
+            keccak256(signature)
+        );
     }
 
     modifier penalizerOnly() {
