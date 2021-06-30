@@ -22,6 +22,7 @@ import relayHubAbi from './interfaces/IRelayHub.json'
 import forwarderAbi from './interfaces/IForwarder.json'
 import smartWalletFactoryAbi from './interfaces/IWalletFactory.json'
 import tokenHandlerAbi from './interfaces/ITokenHandler.json'
+import penalizerAbi from './interfaces/IPenalizer.json'
 
 import { event2topic, sleep } from './Utils'
 import { constants } from './Constants'
@@ -33,7 +34,8 @@ import {
   IRelayHubInstance,
   IDeployVerifierInstance,
   IWalletFactoryInstance,
-  ITokenHandlerInstance
+  ITokenHandlerInstance,
+  IPenalizerInstance
 } from '../../types/truffle-contracts'
 
 import { Address, IntString } from '../relayclient/types/Aliases'
@@ -81,6 +83,7 @@ export default class ContractInteractor {
   private readonly IRelayVerifierContract: Contract<IRelayVerifierInstance>
   private readonly IDeployVerifierContract: Contract<IDeployVerifierInstance>
   private readonly ITokenHandlerContract: Contract<ITokenHandlerInstance>
+  private readonly IPenalizerContract: Contract<IPenalizerInstance>
 
   private readonly IRelayHubContract: Contract<IRelayHubInstance>
   private readonly IForwarderContract: Contract<IForwarderInstance>
@@ -137,12 +140,18 @@ export default class ContractInteractor {
       contractName: 'ITokenHandler',
       abi: tokenHandlerAbi
     })
+    // @ts-ignore
+    this.IPenalizerContract = TruffleContract({
+      contractName: 'IPenalizer',
+      abi: penalizerAbi
+    })
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IRelayVerifierContract.setProvider(this.provider, undefined)
     this.IDeployVerifierContract.setProvider(this.provider, undefined)
     this.IForwarderContract.setProvider(this.provider, undefined)
     this.IWalletFactoryContract.setProvider(this.provider, undefined)
     this.ITokenHandlerContract.setProvider(this.provider, undefined)
+    this.IPenalizerContract.setProvider(this.provider, undefined)
   }
 
   getProvider (): provider { return this.provider }
@@ -223,6 +232,10 @@ export default class ContractInteractor {
 
   async createTokenHandler (address: Address): Promise<ITokenHandlerInstance> {
     return await this.ITokenHandlerContract.at(address)
+  }
+
+  async createPenalizer(address: Address): Promise<IPenalizerInstance> {
+    return await this.IPenalizerContract.at(address)
   }
 
   async _createRelayHub (address: Address): Promise<IRelayHubInstance> {
