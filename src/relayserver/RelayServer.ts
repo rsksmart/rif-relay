@@ -160,6 +160,11 @@ export class RelayServer extends EventEmitter {
     return res
   }
 
+  //temp
+  async penalizerHandler(penalizer: Address): Promise<any> {
+    const penalizerInstance = await this.contractInteractor.createPenalizer(penalizer);
+  }
+
   async verifierHandler (): Promise<VerifierResponse> {
     return {
       trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]

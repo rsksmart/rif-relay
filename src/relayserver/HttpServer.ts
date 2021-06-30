@@ -134,6 +134,19 @@ export class HttpServer {
     }
   }
 
+  // temp
+  async penalizerHandler (req: Request, res: Response): Promise<void> {
+    try {
+      const penalizerAddress = req.query.penalizer as Address
+      const verifierResponse = await this.backend.penalizerHandler(penalizerAddress)
+      res.send(verifierResponse)
+    } catch (e) {
+      const message: string = e.message
+      res.send({ message })
+      log.error(`penalizer handler rejected: ${message}`)
+    }
+  }
+
   async feeEstimatorHandler (req: any, res: any): Promise<void> {
     const feesTable = await this.backend.envelopingArbiter.getFeesTable()
     res.send(feesTable)
