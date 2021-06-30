@@ -246,7 +246,7 @@ contract RelayHub is IRelayHub {
 
         IPenalizer penalizerContract = IPenalizer(penalizer);
         penalizerContract.fulfill(
-            msg.sender,
+            relayRequest.relayData.relayWorker,
             keccak256(signature)
         );
     }
