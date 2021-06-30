@@ -1,4 +1,4 @@
-import { Address, IntString } from '../../relayclient/types/Aliases'
+import {Address, BoolString, IntString} from '../../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 export interface ForwardRequest {
@@ -12,6 +12,7 @@ export interface ForwardRequest {
   tokenAmount: IntString
   tokenGas: IntString
   data: PrefixedHexString
+  enabledQos?: BoolString
 }
 
 export interface DeployRequestStruct {
@@ -26,5 +27,5 @@ export interface DeployRequestStruct {
   tokenGas: IntString
   index: IntString
   data: PrefixedHexString
-
+  enabledQos?: BoolString
 }

@@ -368,7 +368,8 @@ export class RelayServer extends EventEmitter {
       req.relayRequest.request.to,
       req.relayRequest.request.data,
       req.metadata.relayHubAddress,
-      req.relayRequest.relayData.relayWorker
+      req.relayRequest.relayData.relayWorker,
+      req.relayRequest.request.enabledQos
     )
     const digest = ethers.utils.keccak256(commitment.encodeForSign(this.relayHubContract.address))
     const signature = await this.envelopingArbiter.signCommitment(this.transactionManager, commitment.relayWorker, ethers.utils.arrayify(digest))

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
+pragma experimental ABIEncoderV2;
 
 import "./IRelayHub.sol";
 
@@ -29,13 +30,8 @@ interface IPenalizer {
         bytes32 txSignature
     ) external;
 
-    struct CommitmentResponse {
-        bytes signedTx;
-        CommitmentReceipt signedReceipt;
-    }
-
     struct CommitmentReceipt {
-        Commitment commitment ;
+        Commitment commitment;
         bytes workerSignature;
         address workerAddress;
     }
@@ -47,5 +43,8 @@ interface IPenalizer {
         bytes data;
         address relayHubAddress;
         address relayWorker;
+        bool enabledQos;
     }
+
+    function claim(CommitmentReceipt calldata commitmentReceipt) external;
 }

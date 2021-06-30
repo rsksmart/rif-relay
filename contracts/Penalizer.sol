@@ -9,7 +9,7 @@ import "./utils/RSKAddrValidator.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
-contract Penalizer is IPenalizer{
+contract Penalizer is IPenalizer {
 
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     
@@ -95,5 +95,63 @@ contract Penalizer is IPenalizer{
     ) external override {
         bytes32 txHash = keccak256(abi.encodePacked(worker, txSignature));
         fulfilledTransactions[txHash] = true;
+    }
+
+    function claim(CommitmentReceipt calldata commitmentReceipt) external override {
+
+        // check if the commitment has enabled qos
+        require(commitmentReceipt.commitment.enabledQos, "This commitment has not enabled QOS");
+
+        // check the worker address and the signature
+        address workerAddress = commitmentReceipt.workerAddress;
+        bytes memory workerSignature = commitmentReceipt.workerSignature;
+        bytes32 commitmentHash = keccak256(abi.encodePacked(commitmentReceipt.commitment.time, commitmentReceipt.commitment.from, commitmentReceipt.commitment.to, commitmentReceipt.commitment.data, commitmentReceipt.commitment.relayHubAddress, commitmentReceipt.commitment.relayWorker, commitmentReceipt.commitment.enabledQos));
+
+        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "This commitment is not signed by the specified worker");
+        require(workerAddress == commitmentReceipt.commitment.relayWorker, "The worker address in the receipt is not the same as the commitment");
+        // we should check the address of the hub here to check if the specified hub is the same
+        // but we need the hub instance (probably we need it on the constructor)
+        // require(commitmentReceipt.commitment.relayHubAddress == hub.address)
+
+        // check if the claimer is who made the relay transaction and not other
+        require(msg.sender == commitmentReceipt.commitment.from, "Only the original sender can claim a commitment");
+
+        // check if the time has past or not
+
+        require(commitmentReceipt.commitment.time <= block.timestamp, "The time you agreed to wait is not due yet, this claim is not valid");
+
+        // check if the transaction have been executed or not
+
+        // check if the transaction was executed in time
+
+    }
+
+    function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
+        require(signature.length == 65);
+
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+
+        assembly {
+            // first 32 bytes, after the length prefix
+            r := mload(add(signature, 32))
+            // second 32 bytes
+            s := mload(add(signature, 64))
+            // final byte (first byte of the next 32 bytes)
+            v := byte(0, mload(add(signature, 96)))
+        }
+
+        return (v, r, s);
+    }
+
+    function recoverSigner(bytes32 message, bytes memory signature) internal pure returns (address) {
+        uint8 v;
+        bytes32 r;
+        bytes32 s;
+
+        (v, r, s) = splitSignature(signature);
+
+        return ecrecover(message, v, r, s);
     }
 }

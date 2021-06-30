@@ -1,4 +1,4 @@
-import { Address } from '../relayclient/types/Aliases'
+import {Address, BoolString} from '../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 
@@ -21,6 +21,7 @@ export class Commitment {
   data: PrefixedHexString
   relayHubAddress: Address
   relayWorker: Address
+  enabledQos: BoolString
 
   constructor (
     time: Number,
@@ -28,7 +29,8 @@ export class Commitment {
     to: Address,
     data: PrefixedHexString,
     relayHubAddress: Address,
-    relayWorker: Address
+    relayWorker: Address,
+    enabledQos: BoolString | undefined
   ) {
     this.time = time
     this.from = from
@@ -36,6 +38,7 @@ export class Commitment {
     this.data = data
     this.relayHubAddress = relayHubAddress
     this.relayWorker = relayWorker
+    this.enabledQos = enabledQos === 'true' ? 'true' : 'false'
   }
 
   public static TypeEncoding = 'commit(uint,address,address,bytes,address,address)'
@@ -47,7 +50,8 @@ export class Commitment {
       this.to,
       this.data,
       this.relayHubAddress,
-      this.relayWorker
+      this.relayWorker,
+      this.enabledQos
     ]
   }
 

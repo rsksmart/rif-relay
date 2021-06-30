@@ -858,7 +858,8 @@ gasOptions.forEach(gasOption => {
           to,
           data,
           relayHub.address,
-          relayWorkerAddress
+          relayWorkerAddress,
+          'false'
         )
         badCommitmentReceipt = {
           commitment: commitment,
