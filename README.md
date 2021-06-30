@@ -19,7 +19,6 @@ A secure transaction relay system to enable users to pay fees using ERC-20 token
 The following technical content is available:
 
 - [Architecture](docs/enveloping_architecture.md)
-- [Launching RIF Enveloping](docs/launching_enveloping.md)
 - [Development guide](docs/development_guide.md)
 - [Integration guide](docs/integration_guide.md)
 - [Gas costs](docs/overhead_tx_costs.md)
