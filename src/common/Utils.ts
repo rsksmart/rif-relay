@@ -1,10 +1,59 @@
 import chalk from 'chalk'
 import sigUtil, { EIP712TypedData } from 'eth-sig-util'
-import { BigNumber, providers } from 'ethers'
+import { BigNumber, providers, Event } from 'ethers'
 import { defaultAbiCoder } from 'ethers/lib/utils'
 import { IRelayHub } from '../../typechain'
 import { Address, PrefixedHexString } from '../relayclient/types/Aliases'
 import { constants } from './Constants'
+
+export function removeHexPrefix (hex: string): string {
+  if (hex == null || typeof hex.replace !== 'function') {
+    throw new Error('Cannot remove hex prefix')
+  }
+  return hex.replace(/^0x/, '')
+}
+
+const zeroPad = '0000000000000000000000000000000000000000000000000000000000000000'
+
+export function padTo64 (hex: string): string {
+  if (hex.length < 64) {
+    hex = (zeroPad + hex).slice(-64)
+  }
+  return hex
+}
+
+export function event2topic (contract: IRelayHub, names: string[]): any {
+  // for testing: don't crash on mockup..
+  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+  // if (!contract.options || !contract.options.jsonInterface) { return names }
+  if (typeof names === 'string') {
+    return event2topic(contract, [names])[0]
+  }
+  return contract.interface.fragments
+    .filter((e: any) => names.includes(e.name))
+    .map((e: any) => contract.interface.encodeFilterTopics(e, []))
+    .flat()
+}
+
+export function addresses2topics (addresses: string[]): string[] {
+  return addresses.map(address2topic)
+}
+
+export function address2topic (address: string): string {
+  return '0x' + '0'.repeat(24) + address.toLowerCase().slice(2)
+}
+
+// extract revert reason from a revert bytes array.
+export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError = false): string | null {
+  if (revertBytes == null) { return null }
+  if (!revertBytes.startsWith('0x08c379a0')) {
+    if (throwOnError) {
+      throw new Error('invalid revert bytes: ' + revertBytes)
+    }
+    return revertBytes
+  }
+  return (defaultAbiCoder.decode(['string'], '0x' + revertBytes.slice(10))).toString()
+}
 
 export function getLocalEip712Signature (
   typedRequestData: EIP712TypedData,
@@ -101,54 +150,66 @@ export function estimateMaxPossibleRelayCallWithLinearFit (
   }
 }
 
-export function addresses2topics (addresses: string[]): string[] {
-  return addresses.map(address2topic)
-}
+export function parseHexString (str: string): number[] {
+  const result = []
+  while (str.length >= 2) {
+    result.push(parseInt(str.substring(0, 2), 16))
 
-export function address2topic (address: string): string {
-  return '0x' + '0'.repeat(24) + address.toLowerCase().slice(2)
-}
-
-// extract revert reason from a revert bytes array.
-export function decodeRevertReason (revertBytes: PrefixedHexString, throwOnError = false): string | null {
-  if (revertBytes == null) { return null }
-  if (!revertBytes.startsWith('0x08c379a0')) {
-    if (throwOnError) {
-      throw new Error('invalid revert bytes: ' + revertBytes)
-    }
-    return revertBytes
+    str = str.substring(2, str.length)
   }
-  return (defaultAbiCoder.decode(['string'], '0x' + revertBytes.slice(10))).toString()
-}
 
-export function removeHexPrefix (hex: string): string {
-  if (hex == null || typeof hex.replace !== 'function') {
-    throw new Error('Cannot remove hex prefix')
-  }
-  return hex.replace(/^0x/, '')
-}
-
-export async function sleep (ms: number): Promise<void> {
-  return await new Promise(resolve => setTimeout(resolve, ms))
+  return result
 }
 
 export function isSameAddress (address1: Address, address2: Address): boolean {
   return address1.toLowerCase() === address2.toLowerCase()
 }
 
+export async function sleep (ms: number): Promise<void> {
+  return await new Promise(resolve => setTimeout(resolve, ms))
+}
+
+export function isSecondEventLater (a: Event, b: Event): boolean {
+  if (a.blockNumber === b.blockNumber) {
+    return b.transactionIndex > a.transactionIndex
+  }
+  return b.blockNumber > a.blockNumber
+}
+
+export function getLatestEventData (events: Event[]): Event | undefined {
+  if (events.length === 0) {
+    return
+  }
+  const eventDataSorted = events.sort(
+    (a: Event, b: Event) => {
+      if (a.blockNumber === b.blockNumber) {
+        return b.transactionIndex - a.transactionIndex
+      }
+      return b.blockNumber - a.blockNumber
+    })
+  return eventDataSorted[0]
+}
+
+// export function isRegistrationValid (registerEvent: Event | undefined, config: ServerConfigParams, managerAddress: Address): boolean {
+//   const portIncluded: boolean = config.url.indexOf(':') > 0
+//   return registerEvent != null &&
+//     isSameAddress(registerEvent.returnValues.relayManager, managerAddress) &&
+//     registerEvent.returnValues.relayUrl.toString() === (config.url.toString() + ((!portIncluded && config.port > 0) ? ':' + config.port.toString() : ''))
+// }
+
+export interface VerifierGasLimits {
+  preRelayedCallGasLimit: string
+  postRelayedCallGasLimit: string
+}
+
 export function boolString (bool: boolean): string {
   return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
 }
 
-export function event2topic (contract: IRelayHub, names: string[]): any {
-  // for testing: don't crash on mockup..
-  // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
-  // if (!contract.options || !contract.options.jsonInterface) { return names }
-  if (typeof names === 'string') {
-    return event2topic(contract, [names])[0]
+function isDeployRequest (req: any): boolean {
+  let isDeploy = false
+  if (req.relayRequest.request.recoverer !== undefined) {
+    isDeploy = true
   }
-  return contract.interface.fragments
-    .filter((e: any) => names.includes(e.name))
-    .map((e: any) => contract.interface.encodeFilterTopics(e, []))
-    .flat()
+  return isDeploy
 }
