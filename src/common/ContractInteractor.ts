@@ -211,10 +211,6 @@ export default class ContractInteractor {
       this.deployVerifierInstance = await this._createDeployVerifier(this.config.deployVerifierAddress)
       log.debug(`Contract Interactor - Deploy Verifier initialized: ${this.deployVerifierInstance.address}`)
     }
-    if (this.config.penalizerAddress !== constants.ZERO_ADDRESS) {
-      this.penalizerInstance = await this.createPenalizer(this.config.penalizerAddress)
-      log.debug(`Contract Interactor - Penalizer initialized: ${this.penalizerInstance.address}`)
-    }
 
     console.log('Contracts initialized correctly')
   }
