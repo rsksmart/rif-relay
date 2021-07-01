@@ -121,8 +121,15 @@ contract Penalizer is IPenalizer {
         require(commitmentReceipt.commitment.time <= block.timestamp, "The time you agreed to wait is not due yet, this claim is not valid");
 
         // check if the transaction have been executed or not
+        bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
 
-        // TODO next iteration: check if the transaction was executed in time
+        if (fulfilledTransactions[txId]) {
+            // tx was executed
+            // TODO next iteration: check if the transaction was executed in time
+        } else {
+            // tx was not executed so we should probably penalize the manager here
+        }
+        // we should return something to show the outcome of the claim call (manager was penalized or not?)
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {

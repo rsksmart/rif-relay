@@ -43,6 +43,7 @@ interface IPenalizer {
         address relayHubAddress;
         address relayWorker;
         bool enabledQos;
+        bytes signature;
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external;
