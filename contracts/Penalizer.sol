@@ -92,7 +92,7 @@ contract Penalizer is IPenalizer {
     function fulfill(
         address worker,
         bytes32 txSignature
-    ) external override returns (bool) {
+    ) external override{
         bytes32 txHash = keccak256(abi.encodePacked(worker, txSignature));
         require(!fulfilledTransactions[txHash], "tx already fulfilled");
         fulfilledTransactions[txHash] = true;

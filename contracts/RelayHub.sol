@@ -243,10 +243,8 @@ contract RelayHub is IRelayHub {
             );
         }
 
-        bool fulfilled;
-        bytes memory fulfillCallReturnValue;
-        (fulfilled, fulfillCallReturnValue) = penalizer.call(abi.encodeWithSignature("fulfill(address,bytes32)", relayRequest.relayData.relayWorker, keccak256(signature)));
-        require(fulfilled == true, "Penalizer not fulfilled");
+        (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(address,bytes32)", relayRequest.relayData.relayWorker, keccak256(signature)));
+        require(success, "Penalizer fulfill call failed");
     }
 
     modifier penalizerOnly() {
