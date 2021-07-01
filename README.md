@@ -11,7 +11,6 @@ A secure transaction relay system to enable users to pay fees using ERC-20 token
 - [Requirements](#Requirements)
 - [Launching](#Launching)
 - [Testnet Contracts](#Testnet-Contracts-V2)
-- [Troubleshooting](#Troubleshooting)
 - [Changelog](#Changelog)
 
 ## Additional Technical Documentation
@@ -95,10 +94,13 @@ After this step, you must make sure that your `PATH` variable gives priority to 
 
 ### Building the project
 
-Clone the project. Then run the following from the project's root directory to build it.
+Clone the project. Then run the following from the project's 
+root directory to build it.
 
-`yarn install`
-`yarn prepare`
+```
+yarn install
+yarn prepare
+```
 
 ### Deploy contracts Locally
 
@@ -136,7 +138,10 @@ You'll need to save this summary for later use.
 
 We'll use `truffle` for deploying contracts.
 
-`npx truffle migrate --network rsktestnet` (disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`).
+```
+npx truffle migrate --network rsktestnet
+``` 
+*Disclaimer: to use testnet, you should have an unlocked account with funds or configure it in `truffle.js`.*
 
 These contracts have been deployed on Testnet. See [here](#testnet-contracts) for their addresses.
 
