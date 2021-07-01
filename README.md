@@ -162,7 +162,7 @@ Now you need to start the relay server, to do so you need to configure the json 
   "devMode": true,
   "customReplenish": false,
   "logLevel": 1,
-  "workdir": "/home/user/workspace"
+  "workdir": "/home/user/workspace/relay"
 }
 ```
 
