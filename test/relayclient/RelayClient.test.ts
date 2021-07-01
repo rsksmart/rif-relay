@@ -859,7 +859,8 @@ gasOptions.forEach(gasOption => {
           data,
           relayHub.address,
           relayWorkerAddress,
-          'false'
+          'false',
+          INCORRECT_ECDSA_SIGNATURE
         )
         badCommitmentReceipt = {
           commitment: commitment,

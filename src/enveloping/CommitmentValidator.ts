@@ -20,7 +20,8 @@ export class CommitmentValidator {
         receipt.commitment.data,
         receipt.commitment.relayHubAddress,
         receipt.commitment.relayWorker,
-        receipt.commitment.enabledQos
+        receipt.commitment.enabledQos,
+        receipt.commitment.signature
       )
       try {
         const hash = ethers.utils.keccak256(commitment.encodeForSign(receipt.commitment.relayHubAddress))
