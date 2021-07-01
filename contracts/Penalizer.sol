@@ -97,6 +97,10 @@ contract Penalizer is IPenalizer {
         fulfilledTransactions[txId] = true;
     }
 
+    function fulfilled(bytes calldata signature) external view override returns (bool){
+        return fulfilledTransactions[keccak256(signature)];
+    }
+
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
 
         // check if the commitment has enabled qos
