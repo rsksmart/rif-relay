@@ -243,7 +243,7 @@ contract RelayHub is IRelayHub {
             );
         }
 
-        (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(address,bytes32)", relayRequest.relayData.relayWorker, keccak256(signature)));
+        (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
         require(success, "Penalizer fulfill call failed");
     }
 

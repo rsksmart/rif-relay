@@ -90,12 +90,11 @@ contract Penalizer is IPenalizer {
     }
 
     function fulfill(
-        address worker,
-        bytes32 txSignature
+        bytes memory txSignature
     ) external override{
-        bytes32 txHash = keccak256(abi.encodePacked(worker, txSignature));
-        require(!fulfilledTransactions[txHash], "tx already fulfilled");
-        fulfilledTransactions[txHash] = true;
+        bytes32 txId = keccak256(txSignature);
+        require(!fulfilledTransactions[txId], "tx already fulfilled");
+        fulfilledTransactions[txId] = true;
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
@@ -123,8 +122,7 @@ contract Penalizer is IPenalizer {
 
         // check if the transaction have been executed or not
 
-        // check if the transaction was executed in time
-
+        // TODO next iteration: check if the transaction was executed in time
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
