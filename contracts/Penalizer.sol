@@ -89,9 +89,15 @@ contract Penalizer is IPenalizer {
         hub.penalize(addr1, msg.sender);
     }
 
+    modifier relayHubOnly(IRelayHub hub) {
+        require(msg.sender == address(hub), "Unknown relay hub");
+        _;
+    }
+
     function fulfill(
-        bytes memory txSignature
-    ) external override{
+        bytes memory txSignature,
+        IRelayHub hub
+    ) external override relayHubOnly(hub) {
         bytes32 txId = keccak256(txSignature);
         require(!fulfilledTransactions[txId], "tx already fulfilled");
         fulfilledTransactions[txId] = true;

@@ -140,7 +140,7 @@ export class HttpServer {
     try {
       const penalizerAddress = req.query.penalizer as Address
       const signature = req.query.signature as PrefixedHexString
-      const penalizerResponse = await this.backend.penalizerHandler(penalizerAddress)
+      const penalizerResponse = await this.backend.penalizerHandler(penalizerAddress, signature)
       res.send(penalizerResponse)
     } catch (e) {
       const message: string = e.message
