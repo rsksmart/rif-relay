@@ -94,8 +94,8 @@ contract Penalizer is IPenalizer {
         bytes32 txSignature
     ) external override returns (bool) {
         bytes32 txHash = keccak256(abi.encodePacked(worker, txSignature));
+        require(!fulfilledTransactions[txHash], "tx already fulfilled");
         fulfilledTransactions[txHash] = true;
-        return fulfilledTransactions[txHash];
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
