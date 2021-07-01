@@ -29,7 +29,7 @@ interface IPenalizer {
         bytes memory txSignature
     ) external;
 
-    function fulfilled(bytes calldata signature) external view returns (bool);
+    function fulfilled(bytes calldata txSignature) external view returns (bool);
 
     struct CommitmentReceipt {
         Commitment commitment;
