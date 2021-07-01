@@ -206,10 +206,35 @@ export function boolString (bool: boolean): string {
   return bool ? chalk.green('good'.padEnd(14)) : chalk.red('wrong'.padEnd(14))
 }
 
-function isDeployRequest (req: any): boolean {
-  let isDeploy = false
-  if (req.relayRequest.request.recoverer !== undefined) {
-    isDeploy = true
-  }
-  return isDeploy
-}
+// function isDeployRequest (req: any): boolean {
+//   let isDeploy = false
+//   if (req.relayRequest.request.recoverer !== undefined) {
+//     isDeploy = true
+//   }
+//   return isDeploy
+// }
+
+// export function transactionParamDataCost (req: RelayTransactionRequest | DeployTransactionRequest): number {
+//   // @ts-ignore
+//   const IRelayHubContract = TruffleContract({
+//     contractName: 'IRelayHub',
+//     abi: relayHubAbi
+//   })
+//   IRelayHubContract.setProvider(web3.currentProvider, undefined)
+
+//   const relayHub = new IRelayHubContract('')
+
+//   const isDeploy = isDeployRequest(req)
+//   const method = isDeploy ? relayHub.contract.methods.deployCall(
+//     req.relayRequest as DeployRequest, req.metadata.signature) : relayHub.contract.methods.relayCall(
+//     req.relayRequest as RelayRequest, req.metadata.signature)
+
+//   const encodedCall = method.encodeABI() ?? '0x'
+
+//   const dataAsByteArray: Uint8Array = arrayify(encodedCall)
+//   const nonZeroes = nonZeroDataBytes(dataAsByteArray)
+
+//   const zeroVals = dataAsByteArray.length - nonZeroes
+
+//   return constants.TRANSACTION_GAS_COST + zeroVals * constants.TX_ZERO_DATA_GAS_COST + nonZeroes * constants.TX_NO_ZERO_DATA_GAS_COST
+// }
