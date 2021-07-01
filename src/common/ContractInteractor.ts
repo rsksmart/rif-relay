@@ -106,7 +106,7 @@ export default class ContractInteractor {
   }
 
   isInitialized (): boolean {
-    return this.initialized
+    return this.chainId == null
   }
 
   async _networkId (): Promise<number> {
@@ -151,7 +151,7 @@ export default class ContractInteractor {
 
   // must use these options when creating Transaction object
   getRawTxOptions (): number {
-    if (this.chainId == null) {
+    if (!this.isInitialized()) {
       throw new Error('_init not called')
     }
     return this.chainId
@@ -193,6 +193,11 @@ export default class ContractInteractor {
     return nonce.toString()
   }
 
+  async _getBlockGasLimit (): Promise<BigNumber> {
+    const latestBlock = await this.provider.getBlock('latest')
+    return latestBlock.gasLimit
+  }
+
   async validateAcceptRelayCall (
     relayRequest: RelayRequest,
     signature: PrefixedHexString): Promise<{ verifierAccepted: boolean, returnValue: string, reverted: boolean, revertedInDestination: boolean }> {
@@ -210,9 +215,11 @@ export default class ContractInteractor {
 
     // First call the verifier
     try {
-      await this.relayVerifierInstance.contract.methods.verifyRelayedCall(relayRequest, signature).call({
-        from: relayRequest.relayData.relayWorker
-      }, 'pending')
+      const tx = await this.relayVerifierInstance.connect(await ethers.getSigner(relayRequest.relayData.relayWorker)).populateTransaction.verifyRelayedCall(relayRequest, signature, {})
+      await ethers.provider.call(tx, 'pending')
+      // await this.relayVerifierInstance.contract.methods.verifyRelayedCall(relayRequest, signature).call({
+      //   from: relayRequest.relayData.relayWorker
+      // }, 'pending')
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
@@ -225,22 +232,24 @@ export default class ContractInteractor {
 
     // If the verified passed, try relaying the transaction (in local view call)
     try {
-      const res = await relayHub.contract.methods.relayCall(
-        relayRequest,
-        signature
-      )
-        .call({
-          from: relayRequest.relayData.relayWorker,
-          gasPrice: relayRequest.relayData.gasPrice,
-          gasLimit: ethers.utils.hexlify(externalGasLimit)
-        })
+      // const res = await relayHub.contract.methods.relayCall(
+      //   relayRequest,
+      //   signature
+      // )
+      //   .call({
+      //     from: relayRequest.relayData.relayWorker,
+      //     gasPrice: relayRequest.relayData.gasPrice,
+      //     gasLimit: ethers.utils.hexlify(externalGasLimit)
+      //   })
+      const tx = await relayHub.connect(await ethers.getSigner(relayRequest.relayData.relayWorker)).populateTransaction.relayCall(relayRequest, signature, {})
+      const result = await ethers.provider.call(tx)
 
       // res is destinationCallSuccess
       return {
         verifierAccepted: true,
         reverted: false,
         returnValue: '',
-        revertedInDestination: !(res as boolean)
+        revertedInDestination: !(BigNumber.from(result) === BigNumber.from(1))
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
@@ -269,9 +278,18 @@ export default class ContractInteractor {
 
     // First call the verifier
     try {
-      await this.deployVerifierInstance.contract.methods.verifyRelayedCall(request.relayRequest, request.metadata.signature).call({
-        from: request.relayRequest.relayData.relayWorker
-      })
+      const tx = await this.deployVerifierInstance.connect(await ethers.getSigner(request.relayRequest.relayData.relayWorker)).populateTransaction.verifyRelayedCall(
+        request.relayRequest,
+        request.metadata.signature,
+        {
+          gasPrice: request.relayRequest.relayData.gasPrice,
+          gasLimit: externalGasLimit
+        }
+      )
+      await ethers.provider.call(tx)
+      // await this.deployVerifierInstance.contract.methods.verifyRelayedCall(request.relayRequest, request.metadata.signature).call({
+      //   from: request.relayRequest.relayData.relayWorker
+      // })
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
       return {
@@ -283,20 +301,29 @@ export default class ContractInteractor {
 
     // If the verified passed, try relaying the transaction (in local view call)
     try {
-      const res = await relayHub.contract.methods.deployCall(
+      // const res = await relayHub.contract.methods.deployCall(
+      //   request.relayRequest,
+      //   request.metadata.signature
+      // )
+      //   .call({
+      //     from: request.relayRequest.relayData.relayWorker,
+      //     gasPrice: request.relayRequest.relayData.gasPrice,
+      //     gas: externalGasLimit
+      //   })
+      const tx = await relayHub.connect(await ethers.getSigner(request.relayRequest.relayData.relayWorker)).populateTransaction.deployCall(
         request.relayRequest,
-        request.metadata.signature
-      )
-        .call({
-          from: request.relayRequest.relayData.relayWorker,
+        request.metadata.signature,
+        {
           gasPrice: request.relayRequest.relayData.gasPrice,
-          gas: externalGasLimit
-        })
+          gasLimit: externalGasLimit
+        }
+      )
+      const result = await ethers.provider.call(tx)
 
       return {
         verifierAccepted: true,
         reverted: false,
-        returnValue: res.returnValue
+        returnValue: result
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : JSON.stringify(e, replaceErrors)
@@ -328,7 +355,7 @@ export default class ContractInteractor {
     const maxPossibleGas = await this.estimateGas({
       from: relayRequest.relayData.relayWorker,
       to: relayRequest.request.relayHub,
-      data: this.relayHubInstance.contract.methods.relayCall(relayRequest, signature).encodeABI(),
+      data: (await this.relayHubInstance.populateTransaction.relayCall(relayRequest, signature)).data ?? '',
       gasPrice: relayRequest.relayData.gasPrice
     })
 
@@ -342,15 +369,15 @@ export default class ContractInteractor {
     }
 
     const rHub = await this._createRelayHub(request.metadata.relayHubAddress)
-    const method = rHub.contract.methods.relayCall(request.relayRequest, request.metadata.signature)
-
-    const maxPossibleGas = await method.estimateGas({
-      from: request.relayRequest.relayData.relayWorker,
-      gasPrice: request.relayRequest.relayData.gasPrice
-    })
+    // const method = rHub.contract.methods.relayCall(request.relayRequest, request.metadata.signature)
+    const maxPossibleGas = await rHub.connect(await ethers.getSigner(request.relayRequest.relayData.relayWorker)).estimateGas.relayCall(request.relayRequest, request.metadata.signature, { gasPrice: request.relayRequest.relayData.gasPrice })
+    // const maxPossibleGas = await method.estimateGas({
+    //   from: request.relayRequest.relayData.relayWorker,
+    //   gasPrice: request.relayRequest.relayData.gasPrice
+    // })
 
     // TODO RIF Team: Once the exactimator is available on the RSK node, then ESTIMATED_GAS_CORRECTION_FACTOR can be removed (in our tests it is 1.0 anyway, so it's not active)
-    return Math.ceil(maxPossibleGas * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
+    return Math.ceil(maxPossibleGas.toNumber() * constants.ESTIMATED_GAS_CORRECTION_FACTOR)
   }
 
   async estimateDestinationContractCallGas (transactionDetails: EstimateGasParams, addCushion: boolean = true): Promise<number> {
@@ -482,10 +509,6 @@ export default class ContractInteractor {
     }
   }
 
-  getAsyncChainId (): number {
-    return this.provider.network.chainId
-  }
-
   async getCode (address: string): Promise<string> {
     return await this.provider.getCode(address)
   }
@@ -511,6 +534,10 @@ export default class ContractInteractor {
   //   return this.networkType
   // }
 
+  getAsyncChainId (): number {
+    return this.provider.network.chainId
+  }
+
   async isContractDeployed (address: Address): Promise<boolean> {
     const code = await this.provider.getCode(address)
     // Check added for RSKJ: when the contract does not exist in RSKJ it replies to the getCode call with 0x00
@@ -526,17 +553,39 @@ export default class ContractInteractor {
     return await this.relayHubInstance.getStakeInfo(managerAddress)
   }
 
+  async walletFactoryDeployEstimateGasForInternalCall (request: DeployRequest, factory: Address, domainHash: string,
+    suffixData: string, signature: string, testCall: boolean = false): Promise<number> {
+    const pFactory = await this._createFactory(factory)
+
+    const tx = await pFactory.connect(await ethers.getSigner(request.request.relayHub)).populateTransaction.relayedUserSmartWalletCreation(request.request, domainHash,
+      suffixData, signature, {
+        gasPrice: request.relayData.gasPrice
+      })
+
+    if (testCall) {
+      await ethers.provider.call(tx)
+    }
+
+    return (await pFactory.connect(await ethers.getSigner(request.request.relayHub)).estimateGas.relayedUserSmartWalletCreation(request.request, domainHash,
+      suffixData, signature, {
+        gasPrice: request.relayData.gasPrice
+      })).toNumber()
+  }
+
   async walletFactoryEstimateGasOfDeployCall (request: DeployTransactionRequest): Promise<number> {
     if (request.metadata.relayHubAddress === undefined || request.metadata.relayHubAddress === null || request.metadata.relayHubAddress === constants.ZERO_ADDRESS) {
       throw new Error('calculateDeployCallGas: RelayHub must be defined')
     }
     const rHub = await this._createRelayHub(request.metadata.relayHubAddress)
-    const method = rHub.contract.methods.deployCall(request.relayRequest, request.metadata.signature)
+    return (await rHub.connect(await ethers.getSigner(request.relayRequest.relayData.relayWorker)).estimateGas
+      .deployCall(request.relayRequest, request.metadata.signature, {
+        gasPrice: request.relayRequest.relayData.gasPrice
+      })).toNumber()
 
-    return method.estimateGas({
-      from: request.relayRequest.relayData.relayWorker,
-      gasPrice: request.relayRequest.relayData.gasPrice
-    })
+    // return method.estimateGas({
+    //   from: request.relayRequest.relayData.relayWorker,
+    //   gasPrice: request.relayRequest.relayData.gasPrice
+    // })
   }
 
   // TODO: a way to make a relay hub transaction with a specified nonce without exposing the 'method' abstraction
@@ -546,6 +595,19 @@ export default class ContractInteractor {
 
   async getAddRelayWorkersMethod (workers: Address[]): Promise<any> {
     return await this.relayHubInstance.addRelayWorkers(workers)
+  }
+
+  /**
+   * Web3.js as of 1.2.6 (see web3-core-method::_confirmTransaction) does not allow
+   * broadcasting of a transaction without waiting for it to be mined.
+   * This method sends the RPC call directly
+   * @param signedTransaction - the raw signed transaction to broadcast
+   */
+  async broadcastTransaction (signedTransaction: PrefixedHexString): Promise<PrefixedHexString> {
+    if (this.provider == null) {
+      throw new Error('provider is not set')
+    }
+    return await this.provider.send('eth_sendRawTransaction', [signedTransaction])
   }
 
   async getTransactionReceipt (transactionHash: PrefixedHexString,
@@ -560,19 +622,6 @@ export default class ContractInteractor {
       await sleep(backoff)
     }
     throw new Error(`No receipt found for this transaction ${transactionHash}`)
-  }
-
-  /**
-   * Web3.js as of 1.2.6 (see web3-core-method::_confirmTransaction) does not allow
-   * broadcasting of a transaction without waiting for it to be mined.
-   * This method sends the RPC call directly
-   * @param signedTransaction - the raw signed transaction to broadcast
-   */
-  async broadcastTransaction (signedTransaction: PrefixedHexString): Promise<PrefixedHexString> {
-    if (this.provider == null) {
-      throw new Error('provider is not set')
-    }
-    return await this.provider.send('eth_sendRawTransaction', [signedTransaction])
   }
 }
 
