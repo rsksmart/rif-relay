@@ -1,4 +1,4 @@
-import {Address, BoolString} from '../relayclient/types/Aliases'
+import { Address, BoolString } from '../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 

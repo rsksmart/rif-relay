@@ -91,7 +91,6 @@ export default class ContractInteractor {
 
   private relayVerifierInstance!: IRelayVerifierInstance
   private deployVerifierInstance!: IDeployVerifierInstance
-  private penalizerInstance!: IPenalizerInstance
 
   relayHubInstance!: IRelayHubInstance
 
@@ -235,7 +234,7 @@ export default class ContractInteractor {
     return await this.ITokenHandlerContract.at(address)
   }
 
-  async createPenalizer(address: Address): Promise<IPenalizerInstance> {
+  async createPenalizer (address: Address): Promise<IPenalizerInstance> {
     return await this.IPenalizerContract.at(address)
   }
 

@@ -13,7 +13,6 @@ import "./utils/Eip712Library.sol";
 import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
-import "./Penalizer.sol";
 
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;

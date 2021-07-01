@@ -1,4 +1,4 @@
-import {Address, BoolString, IntString} from '../../relayclient/types/Aliases'
+import { Address, BoolString, IntString } from '../../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 export interface ForwardRequest {

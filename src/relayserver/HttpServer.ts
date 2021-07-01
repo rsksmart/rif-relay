@@ -138,8 +138,8 @@ export class HttpServer {
   async penalizerHandler (req: Request, res: Response): Promise<void> {
     try {
       const penalizerAddress = req.query.penalizer as Address
-      const verifierResponse = await this.backend.penalizerHandler(penalizerAddress)
-      res.send(verifierResponse)
+      const penalizerResponse = await this.backend.penalizerHandler(penalizerAddress)
+      res.send(penalizerResponse)
     } catch (e) {
       const message: string = e.message
       res.send({ message })

@@ -160,9 +160,10 @@ export class RelayServer extends EventEmitter {
     return res
   }
 
-  //temp
-  async penalizerHandler(penalizer: Address): Promise<any> {
-    const penalizerInstance = await this.contractInteractor.createPenalizer(penalizer);
+  // temp
+  async penalizerHandler (penalizer: Address): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const penalizerInstance = await this.contractInteractor.createPenalizer(penalizer)
   }
 
   async verifierHandler (): Promise<VerifierResponse> {
