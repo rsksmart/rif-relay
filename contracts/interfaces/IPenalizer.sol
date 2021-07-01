@@ -28,7 +28,7 @@ interface IPenalizer {
     function fulfill(
         address worker,
         bytes32 txSignature
-    ) external;
+    ) external returns (bool);
 
     struct CommitmentReceipt {
         Commitment commitment;

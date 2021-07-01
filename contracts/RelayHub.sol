@@ -13,7 +13,7 @@ import "./utils/Eip712Library.sol";
 import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
-import "./interfaces/IPenalizer.sol";
+import "./Penalizer.sol";
 
 contract RelayHub is IRelayHub {
     using SafeMath for uint256;
@@ -244,11 +244,10 @@ contract RelayHub is IRelayHub {
             );
         }
 
-        IPenalizer penalizerContract = IPenalizer(penalizer);
-        penalizerContract.fulfill(
-            relayRequest.relayData.relayWorker,
-            keccak256(signature)
-        );
+        bool fulfilled;
+        bytes memory fulfillCallReturnValue;
+        (fulfilled, fulfillCallReturnValue) = penalizer.call(abi.encodeWithSignature("fulfill(address,bytes32)", relayRequest.relayData.relayWorker, keccak256(signature)));
+        require(fulfilled == true, "Penalizer not fulfilled");
     }
 
     modifier penalizerOnly() {
