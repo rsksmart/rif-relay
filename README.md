@@ -183,6 +183,44 @@ Where:
 3. Now we can use the command `yarn relay` (on the root of the relay project) to start the relay server.
 If it's the first time you run the relay server, you will see a log saying that it isn't ready and that some values are wrong, that's ok, you just need to register this relay server into the relay hub in order to be usable by the clients.
 
+## Register the Relay Server
+
+### On Regtest
+
+Once the relay server is up, you need to register this server in order for it to be usable, to do so, first configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
+   values as you consider. The script contains the following:
+
+```
+node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 200 --network http://rsk-node:4444/ --hub "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"
+```
+
+Where:
+
+* **--funds**: indicates the amount of RBTC that you will transfer from accounts[0] to the worker manager account.
+* **--stake**: how much RBTC the server will stake. twice the value of funds is an acceptable value.
+* **--hub**: is the relay hub contract address, you can retrieve this from the contract summary.
+* **--network**: is the url of the rsk node API.
+
+After doing that you need to open another terminal and run the `yarn registerRelay` command on the root of the relay project in order to register the relay. 
+
+After running this command you will be seeing several log entries indicating how everything is turning out. After a little while, look for this entry in the relay server execution terminal to make sure that the server is ready:
+
+```
+Relayer state: READY
+```
+
+### On Testnet
+
+1.  In another terminal run `curl http://localhost:8090/getaddr`, which will return a JSON with information of the running jsRelay Server, for example:
+```json
+{"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
+"relayHubAddress":"0x38bebd507aBC3D76B10d61f5C95668e1240D087F", "minGasPrice":"6000000000", "chainId":"31", "networkId":"31","ready":false,"version":"2.0.1"}
+```
+2. Send to relayManagerAddress at least 0.001 tRBTC to set it up
+3. Send to relayWorkerAddress at least 0.001 tRBTC to set it up
+4. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m <secret_mnemonic> --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `<secret_mnemonic>` contains the path to a file with the mnemonic of a funded account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic.
+
+
 ## Allow tokens
 
 Now the final step is to allow some tokens to be used by enveloping on the smart wallets.
@@ -235,43 +273,6 @@ There is no script for this situation, so you will need to call the method `acce
 - `CustomSmartWalletDeployVerifier`
 - `CustomSmartWalletRelayVerifier`
 
-
-## Register the Relay Server
-
-### On Regtest
-
-Once the relay server is up, you need to register this server in order for it to be usable, to do so, first configure the script located on `<PROJECT_ROOT>/scripts/registerRelayServer` and replace the 
-   values as you consider. The script contains the following:
-
-```
-node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 200 --network http://rsk-node:4444/ --hub "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"
-```
-
-Where:
-
-* **--funds**: indicates the amount of RBTC that you will transfer from accounts[0] to the worker manager account.
-* **--stake**: how much RBTC the server will stake. twice the value of funds is an acceptable value.
-* **--hub**: is the relay hub contract address, you can retrieve this from the contract summary.
-* **--network**: is the url of the rsk node API.
-
-After doing that you need to open another terminal and run the `yarn registerRelay` command on the root of the relay project in order to register the relay. 
-
-After running this command you will be seeing several log entries indicating how everything is turning out. After a little while, look for this entry in the relay server execution terminal to make sure that the server is ready:
-
-```
-Relayer state: READY
-```
-
-### On Testnet
-
-1.  In another terminal run `curl http://localhost:8090/getaddr`, which will return a JSON with information of the running jsRelay Server, for example:
-```json
-{"relayWorkerAddress":"0xe722143177fe9c7c58057dc3d98d87f6c414dc95","relayManagerAddress":"0xe0820002dfaa69cbf8add6a738171e8eb0a5ee54",
-"relayHubAddress":"0x38bebd507aBC3D76B10d61f5C95668e1240D087F", "minGasPrice":"6000000000", "chainId":"31", "networkId":"31","ready":false,"version":"2.0.1"}
-```
-2. Send to relayManagerAddress at least 0.001 tRBTC to set it up
-3. Send to relayWorkerAddress at least 0.001 tRBTC to set it up
-4. Once both addresses have been funded, run `node dist/src/cli/commands/enveloping.js relayer-register --network <RSKJ_NODE_URL> --hub <RELAY_HUB_CONTRACT_ADDRESS> -m <secret_mnemonic> --from <ADDRESS>  --funds <FUNDS> --stake <STAKE> --relayUrl <RELAY_URL>` where `<secret_mnemonic>` contains the path to a file with the mnemonic of a funded account to use during the relay server registration, `<ADDRESS>` is the account address associated to that mnemonic.
 
 ## Testnet Contracts V2
 
