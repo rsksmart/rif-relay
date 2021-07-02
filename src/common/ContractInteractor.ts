@@ -106,7 +106,7 @@ export default class ContractInteractor {
   }
 
   isInitialized (): boolean {
-    return this.chainId == null
+    return this.initialized
   }
 
   async _networkId (): Promise<number> {
