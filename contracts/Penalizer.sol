@@ -16,7 +16,14 @@ contract Penalizer is IPenalizer {
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
 
+    address private owner;
+    address private hubAddress;
+
     using ECDSA for bytes32;
+
+    constructor() public {
+        owner = msg.sender;
+    }
 
     function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
         (transaction.nonce,
@@ -31,6 +38,15 @@ contract Penalizer is IPenalizer {
     modifier relayManagerOnly(IRelayHub hub) {
         require(hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
         _;
+    }
+
+    modifier onlyOwner() {
+        require(msg.sender == owner, "Not owner");
+        _;
+    }
+
+    function setupHub(address _hubAddress) public override onlyOwner() {
+        hubAddress = _hubAddress;
     }
 
     function penalizeRepeatedNonce(
@@ -89,15 +105,12 @@ contract Penalizer is IPenalizer {
         hub.penalize(addr1, msg.sender);
     }
 
-    modifier relayHubOnly(IRelayHub hub) {
-        require(msg.sender == address(hub), "Unknown relay hub");
+    modifier relayHubOnly() {
+        require(msg.sender == hubAddress, "Unknown relay hub");
         _;
     }
 
-    function fulfill(
-        bytes memory txSignature,
-        IRelayHub hub
-    ) external override relayHubOnly(hub) {
+    function fulfill(bytes memory txSignature) external override relayHubOnly() {
         bytes32 txId = keccak256(txSignature);
         require(!fulfilledTransactions[txId], "tx already fulfilled");
         fulfilledTransactions[txId] = true;

@@ -25,7 +25,9 @@ interface IPenalizer {
 
     function versionPenalizer() external view returns (string memory);
 
-    function fulfill(bytes memory txSignature, IRelayHub hub) external;
+    function setupHub(address _hubAddress) external;
+
+    function fulfill(bytes memory txSignature) external;
 
     function fulfilled(bytes calldata txSignature) external view returns (bool);
 
