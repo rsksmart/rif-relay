@@ -25,6 +25,11 @@ contract Penalizer is IPenalizer {
         owner = msg.sender;
     }
 
+    // temp
+    function viewOwner() external view returns (address){
+        return owner;
+    }
+
     function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
         (transaction.nonce,
         transaction.gasPrice,
