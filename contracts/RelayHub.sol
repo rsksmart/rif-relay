@@ -183,6 +183,11 @@ contract RelayHub is IRelayHub {
                 )
             }
         }
+
+        if (deployRequest.request.enableQos == true){
+            (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
+            require(success, "Penalizer fulfill call failed");
+        }
     }
 
     function relayCall(
@@ -243,8 +248,10 @@ contract RelayHub is IRelayHub {
             );
         }
 
-        (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
-        require(success, "Penalizer fulfill call failed");
+        if (relayRequest.request.enableQos == true){
+            (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
+            require(success, "Penalizer fulfill call failed");
+        }
     }
 
     modifier penalizerOnly() {

@@ -78,6 +78,7 @@ contract TestUtil {
             req.request.nonce,
             req.request.tokenAmount,
             req.request.tokenGas,
+            req.request.enableQos,
             req.request.data
         );
         suffixData = Eip712Library.hashRelayData(req.relayData);

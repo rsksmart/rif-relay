@@ -32,6 +32,7 @@ export const ForwardRequestType = [
   { name: 'nonce', type: 'uint256' },
   { name: 'tokenAmount', type: 'uint256' },
   { name: 'tokenGas', type: 'uint256' },
+  { name: 'enableQos', type: 'bool' },
   { name: 'data', type: 'bytes' }
 ]
 
