@@ -101,7 +101,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           gas: gasLimit,
           tokenContract: token.address,
           tokenAmount: '1',
-          tokenGas: '50000'
+          tokenGas: '50000',
+          enableQos: 'false'
         },
         relayData: {
           gasPrice,
@@ -284,7 +285,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           gas: gasLimit,
           tokenContract: token.address,
           tokenAmount: '1',
-          tokenGas: '50000'
+          tokenGas: '50000',
+          enableQos: 'false'
         },
         relayData: {
           gasPrice,
@@ -1281,6 +1283,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           tokenContract: token.address,
           tokenAmount: '1',
           tokenGas: '50000',
+          enableQos: 'false',
           recoverer: constants.ZERO_ADDRESS,
           index: '0'
         },
