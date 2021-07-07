@@ -21,7 +21,7 @@ export class Commitment {
   data: PrefixedHexString
   relayHubAddress: Address
   relayWorker: Address
-  enabledQos: BoolString
+  enableQos: BoolString
   signature: PrefixedHexString
 
   constructor (
@@ -31,7 +31,7 @@ export class Commitment {
     data: PrefixedHexString,
     relayHubAddress: Address,
     relayWorker: Address,
-    enabledQos: BoolString | undefined,
+    enableQos: BoolString | undefined,
     signature: PrefixedHexString
   ) {
     this.time = time
@@ -40,7 +40,7 @@ export class Commitment {
     this.data = data
     this.relayHubAddress = relayHubAddress
     this.relayWorker = relayWorker
-    this.enabledQos = enabledQos === 'true' ? 'true' : 'false'
+    this.enableQos = enableQos === 'true' ? 'true' : 'false'
     this.signature = signature
   }
 
@@ -54,7 +54,7 @@ export class Commitment {
       this.data,
       this.relayHubAddress,
       this.relayWorker,
-      this.enabledQos
+      this.enableQos
     ]
   }
 

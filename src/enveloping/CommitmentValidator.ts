@@ -20,7 +20,7 @@ export class CommitmentValidator {
         receipt.commitment.data,
         receipt.commitment.relayHubAddress,
         receipt.commitment.relayWorker,
-        receipt.commitment.enabledQos,
+        receipt.commitment.enableQos,
         receipt.commitment.signature
       )
       try {

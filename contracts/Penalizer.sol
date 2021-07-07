@@ -128,12 +128,12 @@ contract Penalizer is IPenalizer {
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
 
         // check if the commitment has enabled qos
-        require(commitmentReceipt.commitment.enabledQos, "This commitment has not enabled QOS");
+        require(commitmentReceipt.commitment.enableQos, "This commitment has not enabled QOS");
 
         // check the worker address and the signature
         address workerAddress = commitmentReceipt.workerAddress;
         bytes memory workerSignature = commitmentReceipt.workerSignature;
-        bytes32 commitmentHash = keccak256(abi.encodePacked(commitmentReceipt.commitment.time, commitmentReceipt.commitment.from, commitmentReceipt.commitment.to, commitmentReceipt.commitment.data, commitmentReceipt.commitment.relayHubAddress, commitmentReceipt.commitment.relayWorker, commitmentReceipt.commitment.enabledQos));
+        bytes32 commitmentHash = keccak256(abi.encodePacked(commitmentReceipt.commitment.time, commitmentReceipt.commitment.from, commitmentReceipt.commitment.to, commitmentReceipt.commitment.data, commitmentReceipt.commitment.relayHubAddress, commitmentReceipt.commitment.relayWorker, commitmentReceipt.commitment.enableQos));
 
         require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "This commitment is not signed by the specified worker");
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "The worker address in the receipt is not the same as the commitment");

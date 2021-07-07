@@ -44,7 +44,7 @@ interface IPenalizer {
         bytes data;
         address relayHubAddress;
         address relayWorker;
-        bool enabledQos;
+        bool enableQos;
         bytes signature;
     }
 
