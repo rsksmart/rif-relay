@@ -46,7 +46,7 @@ function createRequest (request: Partial<ForwardRequest>, relayData: Partial<Rel
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
       tokenGas: '50000',
-      enableQos: false,
+      enableQos: false
     },
     relayData: {
       gasPrice: '1',
