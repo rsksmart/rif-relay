@@ -134,7 +134,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
     describe('penalization access control (relay hub only)', function () {
       it('revert with unknown relay hub message', async () => {
         await expectRevert(
-          penalizer.fulfill(RANDOM_TX_SIGNATURE, relayHub.address),
+          penalizer.fulfill(RANDOM_TX_SIGNATURE),
           'Unknown relay hub'
         )
       })
