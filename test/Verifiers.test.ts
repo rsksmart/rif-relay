@@ -71,7 +71,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
         tokenGas: '50000',
-        enableQos: 'false',
+        enableQos: false
       },
       relayData: {
         gasPrice,
@@ -223,7 +223,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
         tokenContract: token.address,
         tokenAmount: tokensPaid.toString(),
         tokenGas: '50000',
-        enableQos: 'false',
+        enableQos: false
       },
       relayData: {
         gasPrice,
@@ -246,7 +246,7 @@ contract('RelayVerifier', function ([relayHub, relayWorker, other, verifierOwner
         tokenContract: relayHub, // relayHub is an address not authorized as token contract
         tokenAmount: tokensPaid.toString(),
         tokenGas: '50000',
-        enableQos: 'false',
+        enableQos: false
       },
       relayData: {
         gasPrice,

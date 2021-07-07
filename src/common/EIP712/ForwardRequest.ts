@@ -11,8 +11,8 @@ export interface ForwardRequest {
   nonce: IntString
   tokenAmount: IntString
   tokenGas: IntString
+  enableQos: boolean
   data: PrefixedHexString
-  enableQos: BoolString
 }
 
 export interface DeployRequestStruct {
@@ -25,7 +25,7 @@ export interface DeployRequestStruct {
   nonce: IntString
   tokenAmount: IntString
   tokenGas: IntString
+  enableQos: boolean
   index: IntString
   data: PrefixedHexString
-  enableQos: BoolString
 }

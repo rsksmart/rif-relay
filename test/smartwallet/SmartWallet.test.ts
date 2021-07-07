@@ -122,7 +122,7 @@ options.forEach(element => {
           tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '1',
           tokenGas: '50000',
-          enableQos: 'false',
+          enableQos: false
         },
         relayData: {
           gasPrice: '1',

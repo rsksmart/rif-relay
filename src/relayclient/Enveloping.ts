@@ -76,7 +76,7 @@ export class Enveloping {
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
-        enableQos: 'false',
+        enableQos: false,
         recoverer: recoverer ?? constants.ZERO_ADDRESS,
         index: index ?? '0'
       },
@@ -147,7 +147,7 @@ export class Enveloping {
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
-        enableQos: 'false',
+        enableQos: false
       },
       relayData: {
         gasPrice: gasPriceToSend,

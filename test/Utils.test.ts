@@ -66,7 +66,7 @@ contract('Utils', function (accounts) {
           tokenContract: constants.ZERO_ADDRESS,
           tokenAmount: '0',
           tokenGas: '0',
-          enableQos: 'false'
+          enableQos: false
         },
         relayData: {
           gasPrice,

@@ -92,7 +92,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
           tokenContract: token.address,
           tokenAmount: '1',
           tokenGas: '50000',
-          enableQos: 'false'
+          enableQos: false
         },
         relayData: {
           gasPrice,
