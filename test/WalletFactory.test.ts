@@ -46,6 +46,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '0',
       tokenGas: '60000',
+      enableQos: 'false',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },
@@ -657,6 +658,7 @@ contract('SmartWalletFactory', ([from]) => {
       tokenContract: constants.ZERO_ADDRESS,
       tokenAmount: '1',
       tokenGas: '50000',
+      enableQos: 'false',
       recoverer: constants.ZERO_ADDRESS,
       index: '0'
     },

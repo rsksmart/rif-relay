@@ -28,8 +28,8 @@ interface IForwarder {
         uint256 nonce;
         uint256 tokenAmount;
         uint256 tokenGas;
-        uint256 index; // only used in SmartWallet deploy requests
         bool enableQos;
+        uint256 index; // only used in SmartWallet deploy requests
         bytes data;
     }
 

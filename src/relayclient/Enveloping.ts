@@ -76,6 +76,7 @@ export class Enveloping {
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
+        enableQos: 'false',
         recoverer: recoverer ?? constants.ZERO_ADDRESS,
         index: index ?? '0'
       },
@@ -145,7 +146,8 @@ export class Enveloping {
         nonce: (await this.getSenderNonce(forwarder)).toString(),
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
-        tokenGas: tokenGas
+        tokenGas: tokenGas,
+        enableQos: 'false',
       },
       relayData: {
         gasPrice: gasPriceToSend,

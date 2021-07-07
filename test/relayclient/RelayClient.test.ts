@@ -355,6 +355,7 @@ gasOptions.forEach(gasOption => {
             tokenContract: token.address,
             tokenAmount: '1',
             tokenGas: tokenPaymentEstimate.toString(),
+            enableQos: 'false',
             recoverer: constants.ZERO_ADDRESS,
             index: '0'
           },
