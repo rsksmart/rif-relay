@@ -616,6 +616,7 @@ export class RelayClient {
         gas: gasLimit,
         tokenAmount: transactionDetails.tokenAmount ?? '0x00',
         tokenGas: transactionDetails.tokenGas ?? '0x00',
+        enableQos: 'false',
         tokenContract: transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
       },
       relayData: {
