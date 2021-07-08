@@ -52,4 +52,6 @@ export default interface EnvelopingTransactionDetails {
 
   retries?: number
   initialBackoff?: number
+
+  enableQos?: boolean
 }
