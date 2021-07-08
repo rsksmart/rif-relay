@@ -78,7 +78,7 @@ contract('Enveloping utils', function (accounts) {
     }
 
     const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
-      const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, tokenContract, tokenAmount, tokenGas, '1000000000', index)
+      const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, tokenContract, tokenAmount, tokenGas, false, '1000000000', index)
       const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
       const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
       const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
@@ -92,9 +92,9 @@ contract('Enveloping utils', function (accounts) {
       assert.equal(deployedCode, expectedCode)
     }
 
-    const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
+    const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, enableQos: boolean): Promise<string|undefined> {
       const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
-      const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, tokenContract, tokenAmount, tokenGas)
+      const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, tokenContract, tokenAmount, tokenGas, enableQos)
       const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
       const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
       const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
@@ -178,7 +178,7 @@ contract('Enveloping utils', function (accounts) {
 
       await assertSmartWalletDeployedCorrectly(swAddress)
 
-      const txRelayHash = await relayTransaction(constants.ZERO_ADDRESS, '0', '0')
+      const txRelayHash = await relayTransaction(constants.ZERO_ADDRESS, '0', '0', false)
 
       if (txRelayHash === undefined) {
         assert.fail('Transacion has not been send or it threw an error')
@@ -218,7 +218,7 @@ contract('Enveloping utils', function (accounts) {
       const newBalance = await tokenContract.balanceOf(workerAddress)
       assert.equal(newBalance.toNumber(), previousBalance.add(balanceTransfered).toNumber())
 
-      const txRelayHash = await relayTransaction(tokenContract.address, '10', '50000')
+      const txRelayHash = await relayTransaction(tokenContract.address, '10', '50000', false)
 
       if (txRelayHash === undefined) {
         assert.fail('Transacion has not been send')

@@ -64,7 +64,7 @@ export class Enveloping {
     * @param  recoverer optional: This SmartWallet instance won't have recovery support
     * @return a deploy request structure.
     */
-  async createDeployRequest (from: Address, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
+  async createDeployRequest (from: Address, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, enableQos: boolean, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
     const deployRequest: DeployRequest = {
       request: {
         relayHub: this.config.relayHubAddress,
@@ -76,7 +76,7 @@ export class Enveloping {
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
-        enableQos: false,
+        enableQos: enableQos,
         recoverer: recoverer ?? constants.ZERO_ADDRESS,
         index: index ?? '0'
       },
@@ -126,7 +126,7 @@ export class Enveloping {
     * @param  gasPrice - optional: if not set, the gasPrice is calculated internally
     * @return a relay request structure.
     */
-  async createRelayRequest (from: Address, to: Address, forwarder: Address, data: PrefixedHexString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasLimit?: IntString, gasPrice?: IntString): Promise<RelayRequest> {
+  async createRelayRequest (from: Address, to: Address, forwarder: Address, data: PrefixedHexString, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, enableQos: boolean, gasLimit?: IntString, gasPrice?: IntString): Promise<RelayRequest> {
     let gasToSend = gasLimit
     const gasPriceToSend = gasPrice ?? await web3.eth.getGasPrice()
 
@@ -147,7 +147,7 @@ export class Enveloping {
         tokenContract: tokenContract,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
-        enableQos: false
+        enableQos: enableQos
       },
       relayData: {
         gasPrice: gasPriceToSend,
