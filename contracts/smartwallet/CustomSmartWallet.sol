@@ -220,7 +220,7 @@ contract CustomSmartWallet is IForwarder {
     ) private pure returns (bytes memory) {
         return
             abi.encodePacked(
-                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes enableQos,bool data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"), //requestTypeHash,
                 abi.encode(
                     req.relayHub,
                     req.from,
@@ -231,7 +231,6 @@ contract CustomSmartWallet is IForwarder {
                     req.nonce,
                     req.tokenAmount,
                     req.tokenGas,
-                    req.enableQos,
                     keccak256(req.data)
                 ),
                 suffixData

@@ -32,7 +32,6 @@ export const ForwardRequestType = [
   { name: 'nonce', type: 'uint256' },
   { name: 'tokenAmount', type: 'uint256' },
   { name: 'tokenGas', type: 'uint256' },
-  { name: 'enableQos', type: 'bool' },
   { name: 'data', type: 'bytes' }
 ]
 
@@ -46,7 +45,6 @@ export const DeployRequestDataType = [
   { name: 'nonce', type: 'uint256' },
   { name: 'tokenAmount', type: 'uint256' },
   { name: 'tokenGas', type: 'uint256' },
-  { name: 'enableQos', type: 'bool' },
   { name: 'index', type: 'uint256' },
   { name: 'data', type: 'bytes' }
 ]
@@ -139,8 +137,8 @@ export class TypedDeployRequestData implements EIP712TypedData {
   }
 }
 
-export const ENVELOPING_PARAMS = 'address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes enableQos,bool data'
-export const DEPLOY_PARAMS = 'address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 enableQos,bool index,bytes data'
+export const ENVELOPING_PARAMS = 'address relayHub,address from,address to,address tokenContract,uint256 value,uint256 gas,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,bytes data'
+export const DEPLOY_PARAMS = 'address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data'
 
 export const RequestType = {
   typeName: 'RelayRequest',

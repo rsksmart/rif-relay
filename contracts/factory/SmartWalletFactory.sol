@@ -161,8 +161,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
             req.tokenContract,
             tx.origin,
             req.tokenAmount,
-            req.tokenGas,
-            req.enableQos
+            req.tokenGas
         ));
     }
 
@@ -240,7 +239,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
     ) public pure returns (bytes memory) {
         return
             abi.encodePacked(
-                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 enableQos,bool index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
+                keccak256("RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"),
                 abi.encode(
                     req.relayHub,
                     req.from,
@@ -251,7 +250,6 @@ contract SmartWalletFactory is ISmartWalletFactory {
                     req.nonce,
                     req.tokenAmount,
                     req.tokenGas,
-                    req.enableQos,
                     req.index,
                     keccak256(req.data)    
                 ),
