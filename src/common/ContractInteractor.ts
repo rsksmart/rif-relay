@@ -15,18 +15,14 @@ import {
 } from 'web3-core'
 
 import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
-import relayVerifierAbi from './interfaces/IRelayVerifier.json'
-import deployVerifierAbi from './interfaces/IDeployVerifier.json'
-
-import relayHubAbi from './interfaces/IRelayHub.json'
-import forwarderAbi from './interfaces/IForwarder.json'
-import smartWalletFactoryAbi from './interfaces/IWalletFactory.json'
-import tokenHandlerAbi from './interfaces/ITokenHandler.json'
-
-import { event2topic, sleep } from './Utils'
-import { constants } from './Constants'
-import replaceErrors from './ErrorReplacerJSON'
-import VersionsManager from './VersionsManager'
+import {
+  IRelayVerifier,
+  IDeployVerifier,
+  IRelayHub,
+  IForwarder,
+  IWalletFactory,
+  ITokenHandler
+} from '@rsksmart/rif-relay-contracts'
 import {
   IForwarderInstance,
   IRelayVerifierInstance,
@@ -34,8 +30,11 @@ import {
   IDeployVerifierInstance,
   IWalletFactoryInstance,
   ITokenHandlerInstance
-} from '../../types/truffle-contracts'
-
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
+import { event2topic, sleep } from './Utils'
+import { constants } from './Constants'
+import replaceErrors from './ErrorReplacerJSON'
+import VersionsManager from './VersionsManager'
 import { Address, IntString } from '../relayclient/types/Aliases'
 import { EnvelopingConfig } from '../relayclient/Configurator'
 import EnvelopingTransactionDetails from '../relayclient/types/EnvelopingTransactionDetails'
@@ -110,32 +109,32 @@ export default class ContractInteractor {
     // @ts-ignore
     this.IRelayVerifierContract = TruffleContract({
       contractName: 'IRelayVerifier',
-      abi: relayVerifierAbi
+      abi: IRelayVerifier.abi
     })
     // @ts-ignore
     this.IDeployVerifierContract = TruffleContract({
       contractName: 'IDeployVerifier',
-      abi: deployVerifierAbi
+      abi: IDeployVerifier.abi
     })
     // @ts-ignore
     this.IRelayHubContract = TruffleContract({
       contractName: 'IRelayHub',
-      abi: relayHubAbi
+      abi: IRelayHub.abi
     })
     // @ts-ignore
     this.IForwarderContract = TruffleContract({
       contractName: 'IForwarder',
-      abi: forwarderAbi
+      abi: IForwarder.abi
     })
     // @ts-ignore
     this.IWalletFactoryContract = TruffleContract({
       contractName: 'IWalletFactory',
-      abi: smartWalletFactoryAbi
+      abi: IWalletFactory.abi
     })
     // @ts-ignore
     this.ITokenHandlerContract = TruffleContract({
       contractName: 'ITokenHandler',
-      abi: tokenHandlerAbi
+      abi: ITokenHandler.abi
     })
     this.IRelayHubContract.setProvider(this.provider, undefined)
     this.IRelayVerifierContract.setProvider(this.provider, undefined)

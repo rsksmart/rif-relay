@@ -21,6 +21,7 @@
     ],
     "sourceMap": true,
     "typeRoots": [
+      "./node_modules/@rsksmart/rif-relay-contracts/types",
       "./node_modules/@types",
       "./node_modules/@0x/typescript-typings/types",
       "./types"

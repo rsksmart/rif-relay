@@ -16,7 +16,7 @@ import {
   RelayHubInstance,
   SmartWalletInstance,
   SmartWalletFactoryInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'

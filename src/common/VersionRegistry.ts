@@ -2,8 +2,7 @@
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
 import { Contract } from 'web3-eth-contract'
-
-import versionRegistryAbi from '../common/interfaces/IVersionRegistry.json'
+import { IVersionRegistry } from '@rsksmart/rif-relay-contracts'
 import Web3 from 'web3'
 
 export function string32 (s: string): PrefixedHexString {
@@ -29,7 +28,7 @@ export class VersionRegistry {
 
   constructor (web3provider: any, registryAddress: PrefixedHexString, readonly sendOptions = {}) {
     this.web3 = new Web3(web3provider)
-    this.registryContract = new this.web3.eth.Contract(versionRegistryAbi as any, registryAddress)
+    this.registryContract = new this.web3.eth.Contract(IVersionRegistry.abi as any, registryAddress)
   }
 
   async isValid (): Promise<boolean> {

@@ -6,7 +6,7 @@ import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN } from 'web3-utils'
 
-import { IRelayVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '../../types/truffle-contracts'
+import { IRelayVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../common/ContractInteractor'
 import { Address } from '../relayclient/types/Aliases'

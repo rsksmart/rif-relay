@@ -1,6 +1,6 @@
 import {
   TestRSKAddressValidatorInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { toChecksumAddress } from 'ethereumjs-util'
 
 const TestRSKAddressValidator = artifacts.require('TestRSKAddressValidator')

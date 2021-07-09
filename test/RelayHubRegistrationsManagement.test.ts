@@ -4,7 +4,7 @@ import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfigur
 import {
   PenalizerInstance,
   RelayHubInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { deployHub } from './TestUtils'
 
 const Penalizer = artifacts.require('Penalizer')

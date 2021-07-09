@@ -1,7 +1,7 @@
 import { TestEnvironment, TestEnvironmentInfo } from '../src/relayclient/TestEnvironment'
 import { HttpProvider } from 'web3-core'
 import { expectEvent } from '@openzeppelin/test-helpers'
-import { TestRecipientInstance, SmartWalletFactoryInstance, TestTokenInstance } from '../types/truffle-contracts'
+import { TestRecipientInstance, SmartWalletFactoryInstance, TestTokenInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { toHex } from 'web3-utils'

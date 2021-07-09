@@ -4,7 +4,7 @@ import BN from 'bn.js'
 import { evmMineMany, getTestingEnvironment } from './TestUtils'
 import { isRsk } from '../src/common/Environments'
 
-import { RelayHubInstance, PenalizerInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, PenalizerInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { constants } from '../src/common/Constants'
 
 const RelayHub = artifacts.require('RelayHub')

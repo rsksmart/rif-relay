@@ -2,7 +2,7 @@ import {
   TestRecipientInstance,
   SmartWalletInstance,
   SmartWalletFactoryInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { createSmartWalletFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 

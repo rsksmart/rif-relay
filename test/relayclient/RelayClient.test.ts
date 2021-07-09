@@ -13,8 +13,12 @@ import abiDecoder from 'abi-decoder'
 import {
   RelayHubInstance,
   TestRecipientInstance,
-  SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance, TestDeployVerifierEverythingAcceptedInstance
-} from '../../types/truffle-contracts'
+  SmartWalletInstance,
+  SmartWalletFactoryInstance,
+  TestTokenInstance,
+  TestVerifierEverythingAcceptedInstance,
+  TestDeployVerifierEverythingAcceptedInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 import { DeployRequest } from '../../src/common/EIP712/RelayRequest'
 import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'

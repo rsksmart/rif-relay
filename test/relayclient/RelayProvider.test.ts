@@ -2,8 +2,6 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { HttpProvider, WebsocketProvider } from 'web3-core'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
-import walletFactoryAbi from '../../src/common/interfaces/IWalletFactory.json'
-
 import chaiAsPromised from 'chai-as-promised'
 import Web3 from 'web3'
 import { toBN, toChecksumAddress } from 'web3-utils'
@@ -14,6 +12,9 @@ import abiDecoder from 'abi-decoder'
 import { RelayProvider } from '../../src/relayclient/RelayProvider'
 import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import {
+  IWalletFactory
+} from '@rsksmart/rif-relay-contracts'
+import {
   RelayHubInstance,
   TestVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierConfigurableMisbehaviorInstance,
@@ -22,7 +23,7 @@ import {
   SmartWalletFactoryInstance,
   SmartWalletInstance,
   TestTokenInstance
-} from '../../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { isRsk } from '../../src/common/Environments'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction, RelayServerData } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
@@ -41,7 +42,7 @@ const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployV
 
 const underlyingProvider = web3.currentProvider as HttpProvider
 const revertReasonEnabled = true // Enable when the RSK node supports revert reason codes
-abiDecoder.addABI(walletFactoryAbi)
+abiDecoder.addABI(IWalletFactory.abi)
 
 contract('RelayProvider', function (accounts) {
   let web3: Web3

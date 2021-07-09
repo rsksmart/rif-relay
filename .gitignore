@@ -13,7 +13,6 @@ node_modules
 /.eslintcache
 /src/common/interfaces/
 /ganache.pid
-/types/truffle-contracts/
 /dist/
 cache
 /src/cli/compiled/

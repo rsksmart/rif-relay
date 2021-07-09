@@ -8,8 +8,10 @@ import {
   RelayHubInstance,
   TestVerifierConfigurableMisbehaviorInstance,
   TestRecipientInstance,
-  SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance
-} from '../../types/truffle-contracts'
+  SmartWalletInstance,
+  SmartWalletFactoryInstance,
+  TestTokenInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'

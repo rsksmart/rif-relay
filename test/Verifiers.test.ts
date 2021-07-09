@@ -6,7 +6,7 @@ import {
   SmartWalletInstance,
   TestDeployVerifierInstance,
   TestRelayVerifierInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'

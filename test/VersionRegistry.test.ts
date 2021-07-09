@@ -1,6 +1,6 @@
 import {
   VersionRegistryInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { expectRevert } from '@openzeppelin/test-helpers'
 import { increaseTime, getTestingEnvironment } from './TestUtils'
 import { VersionRegistry, string32 } from '../src/common/VersionRegistry'

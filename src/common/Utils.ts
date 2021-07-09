@@ -7,11 +7,10 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { arrayify } from '@ethersproject/bytes'
 import { Address } from '../relayclient/types/Aliases'
 import { ServerConfigParams } from '../relayserver/ServerConfigParams'
-
+import { IRelayHub } from '@rsksmart/rif-relay-contracts'
 import chalk from 'chalk'
 import { constants } from './Constants'
 import { DeployTransactionRequest, RelayTransactionRequest } from '../relayclient/types/RelayTransactionRequest'
-import relayHubAbi from './interfaces/IRelayHub.json'
 import { DeployRequest, RelayRequest } from './EIP712/RelayRequest'
 import TruffleContract = require('@truffle/contract')
 
@@ -237,7 +236,7 @@ export function transactionParamDataCost (req: RelayTransactionRequest | DeployT
   // @ts-ignore
   const IRelayHubContract = TruffleContract({
     contractName: 'IRelayHub',
-    abi: relayHubAbi
+    abi: IRelayHub.abi
   })
   IRelayHubContract.setProvider(web3.currentProvider, undefined)
 

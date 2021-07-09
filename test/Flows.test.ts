@@ -13,7 +13,7 @@ import {
   SmartWalletInstance,
   SmartWalletFactoryInstance,
   TestDeployVerifierEverythingAcceptedInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { EnvelopingConfig } from '../src/relayclient/Configurator'

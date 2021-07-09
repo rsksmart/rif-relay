@@ -7,10 +7,18 @@ import { toHex, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
 import { Address } from '../../src/relayclient/types/Aliases'
 import {
+  IRelayVerifier,
+  IDeployVerifier,
+  IRelayHub
+} from '@rsksmart/rif-relay-contracts'
+import {
   IForwarderInstance,
   IRelayHubInstance,
-  TestVerifierEverythingAcceptedInstance, TestRecipientInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance
-} from '../../types/truffle-contracts'
+  TestVerifierEverythingAcceptedInstance,
+  TestRecipientInstance,
+  SmartWalletInstance,
+  TestDeployVerifierEverythingAcceptedInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import {
   assertRelayAdded,
   getTemporaryWorkdirs,
@@ -31,22 +39,17 @@ import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { constants } from '../../src/common/Constants'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
-import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
-import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
-import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
-
 import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 import { ether } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
-
 const SmartWallet = artifacts.require('SmartWallet')
 
-abiDecoder.addABI(RelayHubABI)
-abiDecoder.addABI(RelayVerifierABI)
-abiDecoder.addABI(DeployVerifierABI)
+abiDecoder.addABI(IRelayHub.abi)
+abiDecoder.addABI(IRelayVerifier.abi)
+abiDecoder.addABI(IDeployVerifier.abi)
 
 // @ts-ignore
 abiDecoder.addABI(TestRecipient.abi)

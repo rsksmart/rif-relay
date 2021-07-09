@@ -23,7 +23,6 @@ module.exports = {
     project: ['./tsconfig.json', './tsconfig.eslint.json']
   },
   ignorePatterns: [
-    'types/truffle-contracts',
     'dist/',
     'rsknode/'
   ],

@@ -1,16 +1,15 @@
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import chai from 'chai'
-
 import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
 import { RelayRequest, cloneRelayRequest, DeployRequest, cloneDeployRequest } from '../src/common/EIP712/RelayRequest'
 import { Environment } from '../src/common/Environments'
 import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
-import walletFactoryAbi from '../src/common/interfaces/IWalletFactory.json'
-import relayHubAbi from '../src/common/interfaces/IRelayHub.json'
-
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
-
+import {
+  IWalletFactory,
+  IRelayHub
+} from '@rsksmart/rif-relay-contracts'
 import {
   RelayHubInstance,
   PenalizerInstance,
@@ -23,15 +22,13 @@ import {
   TestTokenInstance,
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierEverythingAcceptedInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, evmMineMany } from './TestUtils'
-
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { keccak } from 'ethereumjs-util'
 import { constants } from '../src/common/Constants'
 import { toBN, toChecksumAddress, toHex } from 'web3-utils'
-
 const { assert } = chai.use(chaiAsPromised)
 const SmartWallet = artifacts.require('SmartWallet')
 const Penalizer = artifacts.require('Penalizer')
@@ -43,8 +40,8 @@ const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployV
 
 // @ts-ignore
 abiDecoder.addABI(TestRecipient.abi)
-abiDecoder.addABI(walletFactoryAbi)
-abiDecoder.addABI(relayHubAbi)
+abiDecoder.addABI(IWalletFactory.abi)
+abiDecoder.addABI(IRelayHub.abi)
 
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock]) {
   let chainId: number

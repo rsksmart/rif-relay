@@ -2,11 +2,7 @@
 import abiDecoder from 'abi-decoder'
 import { TransactionReceipt } from 'web3-core'
 import { toBN } from 'web3-utils'
-
-import RelayVerifierABI from '../../src/common/interfaces/IRelayVerifier.json'
-import DeployVerifierABI from '../../src/common/interfaces/IDeployVerifier.json'
-
-import RelayHubABI from '../../src/common/interfaces/IRelayHub.json'
+import { IRelayVerifier, IDeployVerifier, IRelayHub } from '@rsksmart/rif-relay-contracts'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
@@ -14,9 +10,9 @@ const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
 
-abiDecoder.addABI(RelayHubABI)
-abiDecoder.addABI(RelayVerifierABI)
-abiDecoder.addABI(DeployVerifierABI)
+abiDecoder.addABI(IRelayHub.abi)
+abiDecoder.addABI(IRelayVerifier.abi)
+abiDecoder.addABI(IDeployVerifier.abi)
 
 // @ts-ignore
 abiDecoder.addABI(TestRecipient.abi)

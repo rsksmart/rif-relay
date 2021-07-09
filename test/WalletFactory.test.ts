@@ -4,7 +4,7 @@ import {
   CustomSmartWalletFactoryInstance,
   CustomSmartWalletInstance,
   SmartWalletFactoryInstance
-} from '../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
   // @ts-ignore
 import { signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'

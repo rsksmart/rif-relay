@@ -1,20 +1,14 @@
-
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
-
 import Web3 from 'web3'
-
 import ethUtils, { BN } from 'ethereumjs-util'
-
 import { constants } from '../common/Constants'
 import { toChecksumAddress } from 'web3-utils'
-
-import proxyFactoryAbi from '../common/interfaces/ISmartWalletFactory.json'
 import {
   HttpProvider,
   IpcProvider,
   WebsocketProvider
 } from 'web3-core'
-
+import { ISmartWalletFactory } from '@rsksmart/rif-relay-contracts'
 import * as bip39 from 'ethereum-cryptography/bip39'
 import { wordlist as wordlistCzech } from 'ethereum-cryptography/bip39/wordlists/czech'
 import { wordlist as wordlistEnglish } from 'ethereum-cryptography/bip39/wordlists/english'
@@ -127,7 +121,7 @@ export class SmartWalletDiscovery {
 
     let ended: boolean = false
     let currentAccount: number = 0
-    const smartWalletFactory = new this.web3.eth.Contract(proxyFactoryAbi as any, config.factory)
+    const smartWalletFactory = new this.web3.eth.Contract(ISmartWalletFactory.abi as any, config.factory)
     const creationByteCode = await smartWalletFactory.methods.getCreationBytecode().call()
     const bytecodeHash = this.web3.utils.keccak256(creationByteCode)
     const chainId = await this.web3.eth.getChainId()
@@ -207,7 +201,7 @@ export class SmartWalletDiscovery {
    * @param extendedPublicKeys
    */
   public async discoverAccountsFromExtendedPublicKeys (config: DiscoveryConfig, extendedPublicKeys: string[]): Promise<void> {
-    const smartWalletFactory = new this.web3.eth.Contract(proxyFactoryAbi as any, config.factory)
+    const smartWalletFactory = new this.web3.eth.Contract(ISmartWalletFactory.abi as any, config.factory)
     const creationByteCode = await smartWalletFactory.methods.getCreationBytecode().call()
     const bytecodeHash = this.web3.utils.keccak256(creationByteCode)
     const chainId = await this.web3.eth.getChainId()
@@ -283,7 +277,7 @@ export class SmartWalletDiscovery {
   async discoverAccounts (config: DiscoveryConfig, accountReader?: AccountReaderFunction): Promise<void> {
     let ended: boolean = false
     let currentAccount: number = 0
-    const smartWalletFactory = new this.web3.eth.Contract(proxyFactoryAbi as any, config.factory)
+    const smartWalletFactory = new this.web3.eth.Contract(ISmartWalletFactory.abi as any, config.factory)
     const creationByteCode = await smartWalletFactory.methods.getCreationBytecode().call()
     const bytecodeHash = this.web3.utils.keccak256(creationByteCode)
     const chainId = await this.web3.eth.getChainId()

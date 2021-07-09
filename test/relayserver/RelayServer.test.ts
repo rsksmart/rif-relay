@@ -6,15 +6,18 @@ import chai from 'chai'
 import sinon from 'sinon'
 import sinonChai from 'sinon-chai'
 import chaiAsPromised from 'chai-as-promised'
-
 import { EnvelopingConfig } from '../../src/relayclient/Configurator'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
 import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
-import { TestDeployVerifierConfigurableMisbehaviorInstance, TestRecipientInstance, TestTokenInstance, TestVerifierConfigurableMisbehaviorInstance } from '../../types/truffle-contracts'
+import {
+  TestDeployVerifierConfigurableMisbehaviorInstance,
+  TestRecipientInstance,
+  TestTokenInstance,
+  TestVerifierConfigurableMisbehaviorInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { defaultEnvironment, isRsk } from '../../src/common/Environments'
 import { sleep } from '../../src/common/Utils'
-
 import { evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnvironment } from '../TestUtils'
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
@@ -23,9 +26,7 @@ import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
 import { constants } from '../../src/common/Constants'
 import TokenResponse from '../../src/common/TokenResponse'
-
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
-
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestDeployVerifierConfigurableMisbehavior = artifacts.require('TestDeployVerifierConfigurableMisbehavior')

@@ -31,9 +31,9 @@ async function run (): Promise<void> {
     }
 
     web3provider = new Web3.providers.HttpProvider(conf.rskNodeUrl)
-    log.debug('runServer() - web3Provider done')
+    console.log('runServer() - web3Provider done')
     config = await resolveServerConfig(conf, web3provider) as ServerConfigParams
-    log.debug('runServer() - config done')
+    console.log('runServer() - config done')
     if (trustedVerifiers.length > 0) {
       config.trustedVerifiers = trustedVerifiers
     }
@@ -49,7 +49,7 @@ async function run (): Promise<void> {
 
   const managerKeyManager = new KeyManager(1, workdir + '/manager')
   const workersKeyManager = new KeyManager(1, workdir + '/workers')
-  log.debug('runServer() - manager and workers configured')
+  console.log('runServer() - manager and workers configured')
   const txStoreManager = new TxStoreManager({ workdir })
   const contractInteractor = new ContractInteractor(web3provider, configure({
     relayHubAddress: config.relayHubAddress,
@@ -57,7 +57,7 @@ async function run (): Promise<void> {
     relayVerifierAddress: config.relayVerifierAddress
   }))
   await contractInteractor.init()
-  log.debug('runServer() - contract interactor initilized')
+  console.log('runServer() - contract interactor initilized')
 
   const dependencies: ServerDependencies = {
     txStoreManager,

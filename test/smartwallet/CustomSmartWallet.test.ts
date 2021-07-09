@@ -2,7 +2,7 @@ import {
   CustomSmartWalletInstance,
   TestForwarderTargetInstance,
   TestTokenInstance
-} from '../../types/truffle-contracts'
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 // @ts-ignore
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'

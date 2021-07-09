@@ -11,17 +11,19 @@ import { merge } from 'lodash'
 import { isSameAddress, sleep } from '../common/Utils'
 
 // compiled folder populated by "prepublish"
-import RelayHub from './compiled/RelayHub.json'
-import Penalizer from './compiled/Penalizer.json'
-import DeployVerifier from './compiled/DeployVerifier.json'
-import RelayVerifier from './compiled/RelayVerifier.json'
-import CustomSmartWalletDeployVerifier from './compiled/CustomSmartWalletDeployVerifier.json'
+import {
+  RelayHub,
+  Penalizer,
+  DeployVerifier,
+  RelayVerifier,
+  CustomSmartWalletDeployVerifier,
+  SmartWallet,
+  SmartWalletFactory,
+  CustomSmartWallet,
+  CustomSmartWalletFactory,
+  VersionRegistry
+} from '@rsksmart/rif-relay-contracts'
 
-import SmartWallet from './compiled/SmartWallet.json'
-import SmartWalletFactory from './compiled/SmartWalletFactory.json'
-import CustomSmartWallet from './compiled/CustomSmartWallet.json'
-import CustomSmartWalletFactory from './compiled/CustomSmartWalletFactory.json'
-import VersionRegistryAbi from './compiled/VersionRegistry.json'
 import { Address } from '../relayclient/types/Aliases'
 import ContractInteractor from '../common/ContractInteractor'
 import { EnvelopingConfig } from '../relayclient/Configurator'
@@ -275,7 +277,7 @@ export default class CommandsLogic {
         deployOptions.relayHubConfiguration.minimumStake]
     }, deployOptions.relayHubAddress, merge({}, options, { gas: 5e6 }), deployOptions.skipConfirmation)
 
-    const regInstance = await this.getContract(VersionRegistryAbi, {}, deployOptions.registryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
+    const regInstance = await this.getContract(VersionRegistry, {}, deployOptions.registryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     if (deployOptions.registryHubId != null) {
       await regInstance.methods.addVersion(string32(deployOptions.registryHubId), string32('1'), rInstance.options.address).send({ from: deployOptions.from })
       console.log(`== Saved RelayHub address at HubId:"${deployOptions.registryHubId}" to VersionRegistry`)

@@ -3,8 +3,12 @@ import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
 import { ethers } from 'ethers'
 
 import {
-  SmartWalletInstance, SmartWalletFactoryInstance, TestTokenInstance, CustomSmartWalletFactoryInstance, CustomSmartWalletInstance
-} from '../../types/truffle-contracts'
+  SmartWalletInstance,
+  SmartWalletFactoryInstance,
+  TestTokenInstance,
+  CustomSmartWalletFactoryInstance,
+  CustomSmartWalletInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
 import { DiscoveryConfig, SmartWalletDiscovery } from '../../src/relayclient/SmartWalletDiscovery'
 

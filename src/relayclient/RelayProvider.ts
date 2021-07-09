@@ -3,10 +3,7 @@ import abiDecoder from 'abi-decoder'
 import log from 'loglevel'
 import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
 import { HttpProvider } from 'web3-core'
-
-import relayHubAbi from '../common/interfaces/IRelayHub.json'
-import walletFactoryAbi from '../common/interfaces/IWalletFactory.json'
-
+import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts'
 import { _dumpRelayingResult, RelayClient } from './RelayClient'
 import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
 import { configure, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
@@ -17,8 +14,8 @@ import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
 import { toBN, toChecksumAddress, toHex } from 'web3-utils'
 
-abiDecoder.addABI(relayHubAbi)
-abiDecoder.addABI(walletFactoryAbi)
+abiDecoder.addABI(IRelayHub.abi)
+abiDecoder.addABI(IWalletFactory.abi)
 
 export interface BaseTransactionReceipt {
   logs: any[]
