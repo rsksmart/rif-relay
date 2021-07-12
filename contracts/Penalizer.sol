@@ -40,8 +40,8 @@ contract Penalizer is IPenalizer {
         return transaction;
     }
 
-    modifier relayManagerOnly(IRelayHub _hub) {
-        require(_hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
+    modifier relayManagerOnly(IRelayHub relayHub) {
+        require(relayHub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
         _;
     }
 
@@ -50,8 +50,8 @@ contract Penalizer is IPenalizer {
         _;
     }
 
-    function setHub(address _hub) public override onlyOwner() {
-        hub = _hub;
+    function setHub(address relayHub) public override onlyOwner() {
+        hub = relayHub;
     }
 
     function getHub() external override view returns (address){
@@ -63,11 +63,11 @@ contract Penalizer is IPenalizer {
         bytes memory signature1,
         bytes memory unsignedTx2,
         bytes memory signature2,
-        IRelayHub _hub
+        IRelayHub relayHub
     )
     public
     override
-    relayManagerOnly(_hub)
+    relayManagerOnly(relayHub)
     {
         // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
@@ -111,7 +111,7 @@ contract Penalizer is IPenalizer {
         penalizedTransactions[txHash1] = true;
         penalizedTransactions[txHash2] = true;
 
-        _hub.penalize(addr1, msg.sender);
+        relayHub.penalize(addr1, msg.sender);
     }
 
     modifier relayHubOnly() {

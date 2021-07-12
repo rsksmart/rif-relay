@@ -20,12 +20,12 @@ interface IPenalizer {
         bytes calldata signature1,
         bytes calldata unsignedTx2,
         bytes calldata signature2,
-        IRelayHub _hub
+        IRelayHub relayHub
     ) external;
 
     function versionPenalizer() external view returns (string memory);
 
-    function setHub(address _hub) external;
+    function setHub(address relayHub) external;
 
     function getHub() external view returns (address);
 
