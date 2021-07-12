@@ -1327,9 +1327,9 @@
     web3 "^1.2.5"
     web3-utils "^1.2.5"
 
-"@rsksmart/rif-relay-contracts@git://github.com/JONAF2103/rif-relay-contracts.git":
+"@rsksmart/rif-relay-contracts@git://github.com/anarancio/rif-relay-contracts.git":
   version "0.0.1"
-  resolved "git://github.com/JONAF2103/rif-relay-contracts.git#979fdc48d732ccbad9c0297b37b218ab5027f04d"
+  resolved "git://github.com/anarancio/rif-relay-contracts.git#43bc11f6b287fbf7e277a2d8a26018590bf4741d"
   dependencies:
     "@openeth/truffle-typings" "0.0.6"
     "@openzeppelin/contracts" "^3.2.0"
