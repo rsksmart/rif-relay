@@ -50,7 +50,10 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn  
+          command: yarn --version
+                   node --version
+                   npm --version
+                   yarn
   pre-checks:
     description: "Execute lint and tsc"
     steps:
