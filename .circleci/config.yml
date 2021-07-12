@@ -34,7 +34,7 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn --version && node --version && npm --version && yarn
+          command: yarn
       - save_cache: # special step to save the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
           paths:
@@ -81,7 +81,7 @@ jobs: # a collection of steps
   Test_Thread_1: # Test thread
     working_directory: ~/gls # directory where steps will run
     docker: # run the steps with Docker
-      - image: cimg/openjdk:8.0.265-node #node 12.18.3
+      - image: cimg/openjdk:8.0-node
 
     steps: # a collection of executable commands
       - prepare
