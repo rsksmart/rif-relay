@@ -31,7 +31,7 @@
     "lint:js": "eslint -f unix .",
     "lint:sol": "solhint -f unix \"contracts/**/*.sol\" --max-warnings 0",
     "lint:js:fix": "eslint --ext .js,.ts --cache  -f unix --ignore-path .gitignore src test scripts --fix",
-    "postinstall": "./scripts/postinstall",
+    "postinstall": "patch-package",
     "postpack": "./scripts/postpack",
     "prepare": "./scripts/prepublish",
     "test": "yarn run lint && yarn tsc && ./run-tests.sh",
