@@ -34,7 +34,10 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn
+          command: yarn --version
+                   node --version
+                   npm --version
+                   yarn
       - save_cache: # special step to save the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
           paths:
@@ -50,10 +53,7 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn --version
-                   node --version
-                   npm --version
-                   yarn
+          command: yarn
   pre-checks:
     description: "Execute lint and tsc"
     steps:
