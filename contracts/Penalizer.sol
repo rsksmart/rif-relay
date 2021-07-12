@@ -17,7 +17,7 @@ contract Penalizer is IPenalizer {
     mapping(bytes32 => bool) public fulfilledTransactions;
 
     address private owner;
-    address private hubAddress;
+    address private hub;
 
     using ECDSA for bytes32;
 
@@ -26,7 +26,7 @@ contract Penalizer is IPenalizer {
     }
 
     // temp
-    function viewOwner() external view returns (address){
+    function getOwner() external view returns (address){
         return owner;
     }
 
@@ -40,8 +40,8 @@ contract Penalizer is IPenalizer {
         return transaction;
     }
 
-    modifier relayManagerOnly(IRelayHub hub) {
-        require(hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
+    modifier relayManagerOnly(IRelayHub _hub) {
+        require(_hub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
         _;
     }
 
@@ -50,8 +50,12 @@ contract Penalizer is IPenalizer {
         _;
     }
 
-    function setupHub(address _hubAddress) public override onlyOwner() {
-        hubAddress = _hubAddress;
+    function setHub(address _hub) public override onlyOwner() {
+        hub = _hub;
+    }
+
+    function getHub() external override view returns (address){
+        return hub;
     }
 
     function penalizeRepeatedNonce(
@@ -59,11 +63,11 @@ contract Penalizer is IPenalizer {
         bytes memory signature1,
         bytes memory unsignedTx2,
         bytes memory signature2,
-        IRelayHub hub
+        IRelayHub _hub
     )
     public
     override
-    relayManagerOnly(hub)
+    relayManagerOnly(_hub)
     {
         // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
@@ -107,11 +111,11 @@ contract Penalizer is IPenalizer {
         penalizedTransactions[txHash1] = true;
         penalizedTransactions[txHash2] = true;
 
-        hub.penalize(addr1, msg.sender);
+        _hub.penalize(addr1, msg.sender);
     }
 
     modifier relayHubOnly() {
-        require(msg.sender == hubAddress, "Unknown relay hub");
+        require(msg.sender == hub, "Unknown relay hub");
         _;
     }
 
