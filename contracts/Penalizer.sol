@@ -101,13 +101,13 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     modifier relayHubOnly() {
-        require(msg.sender == hub, "Unknown relay hub");
+        require(msg.sender == hub, "Unknown Relay Hub");
         _;
     }
 
     function fulfill(bytes memory txSignature) external override relayHubOnly() {
         bytes32 txId = keccak256(txSignature);
-        require(!fulfilledTransactions[txId], "tx already fulfilled");
+        require(!fulfilledTransactions[txId], "Transaction already fulfilled");
         fulfilledTransactions[txId] = true;
     }
 
@@ -116,6 +116,7 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
+        require(hub != address(0), "Relay Hub not set");
 
         // check if the commitment has enabled qos
         require(commitmentReceipt.commitment.enableQos, "This commitment has not enabled QOS");
