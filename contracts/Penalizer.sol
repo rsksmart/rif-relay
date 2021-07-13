@@ -2,6 +2,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 import "./utils/RLPReader.sol";
@@ -9,26 +10,16 @@ import "./utils/RSKAddrValidator.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
-contract Penalizer is IPenalizer {
+contract Penalizer is IPenalizer, Ownable {
 
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
 
-    address private owner;
     address private hub;
 
     using ECDSA for bytes32;
-
-    constructor() public {
-        owner = msg.sender;
-    }
-
-    // temp
-    function getOwner() external view returns (address){
-        return owner;
-    }
 
     function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
         (transaction.nonce,
@@ -45,12 +36,7 @@ contract Penalizer is IPenalizer {
         _;
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Not owner");
-        _;
-    }
-
-    function setHub(address relayHub) public override onlyOwner() {
+    function setHub(address relayHub) public override onlyOwner{
         hub = relayHub;
     }
 
