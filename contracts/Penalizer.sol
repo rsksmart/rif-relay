@@ -101,7 +101,7 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     modifier relayHubOnly() {
-        require(msg.sender == hub, "Unknown Relay Hub");
+        require(msg.sender == hub, "Unknown relay hub");
         _;
     }
 
