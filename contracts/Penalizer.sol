@@ -145,12 +145,13 @@ contract Penalizer is IPenalizer, Ownable {
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
-        require(fulfilledTransactions[txId] == false, "tx was fulfilled, invalid claim");
+        require(fulfilledTransactions[txId] == false, "tx was fulfilled");
             
         penalizedTransactions[txId] = true;
-        hub.penalize(workerAddress, msg.sender);
+        (bool success, ) = hub.call(abi.encodeWithSignature("fulfill(address, address)", workerAddress, msg.sender));
+        require(success, "Relay Hub penalize call failed");
         
-        // we should return something to show the outcome of the claim call (manager was penalized or not?)
+        // return outcome?
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
