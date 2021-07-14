@@ -116,38 +116,40 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
-        require(hub != address(0), "Relay Hub not set");
+        // relay hub and commitment QoS must be set
+        require(hub != address(0), "relay hub not set");
+        require(commitmentReceipt.commitment.enableQos, "commitment without QoS");
 
-        // check if the commitment has enabled qos
-        require(commitmentReceipt.commitment.enableQos, "This commitment has not enabled QoS");
-
-        // check the worker address and the signature
+        // commitment must be signed by worker
         address workerAddress = commitmentReceipt.workerAddress;
         bytes memory workerSignature = commitmentReceipt.workerSignature;
-        bytes32 commitmentHash = keccak256(abi.encodePacked(commitmentReceipt.commitment.time, commitmentReceipt.commitment.from, commitmentReceipt.commitment.to, commitmentReceipt.commitment.data, commitmentReceipt.commitment.relayHubAddress, commitmentReceipt.commitment.relayWorker, commitmentReceipt.commitment.enableQos));
+        bytes32 commitmentHash = keccak256(
+            abi.encodePacked(
+                commitmentReceipt.commitment.time, 
+                commitmentReceipt.commitment.from, 
+                commitmentReceipt.commitment.to, 
+                commitmentReceipt.commitment.data, 
+                commitmentReceipt.commitment.relayHubAddress, 
+                commitmentReceipt.commitment.relayWorker, 
+                commitmentReceipt.commitment.enableQos
+            )
+        );
+        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
+        
+        // commitment fields must match 
+        require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
+        require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
+        require(msg.sender == commitmentReceipt.commitment.from, "sender does not match");
 
-        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "This commitment is not signed by the specified worker");
-        require(workerAddress == commitmentReceipt.commitment.relayWorker, "The worker address in the receipt is not the same as the commitment");
-        // we should check the address of the hub here to check if the specified hub is the same
-        // but we need the hub instance (probably we need it on the constructor)
-        // require(commitmentReceipt.commitment.relayHubAddress == hub.address)
+        // skip time check for now
+        //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
-        // check if the claimer is who made the relay transaction and not other
-        require(msg.sender == commitmentReceipt.commitment.from, "Only the original sender can claim a commitment");
-
-        // check if the time has past or not
-
-        require(commitmentReceipt.commitment.time <= block.timestamp, "The time you agreed to wait is not due yet, this claim is not valid");
-
-        // check if the transaction have been executed or not
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
-
-        if (fulfilledTransactions[txId]) {
-            // tx was executed
-            // TODO next iteration: check if the transaction was executed in time
-        } else {
-            // tx was not executed so we should probably penalize the manager here
-        }
+        require(fulfilledTransactions[txId] == false, "tx was fulfilled, invalid claim");
+            
+        penalizedTransactions[txId] = true;
+        hub.penalize(workerAddress, msg.sender);
+        
         // we should return something to show the outcome of the claim call (manager was penalized or not?)
     }
 
