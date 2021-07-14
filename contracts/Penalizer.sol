@@ -119,7 +119,7 @@ contract Penalizer is IPenalizer, Ownable {
         require(hub != address(0), "Relay Hub not set");
 
         // check if the commitment has enabled qos
-        require(commitmentReceipt.commitment.enableQos, "This commitment has not enabled QOS");
+        require(commitmentReceipt.commitment.enableQos, "This commitment has not enabled QoS");
 
         // check the worker address and the signature
         address workerAddress = commitmentReceipt.workerAddress;
