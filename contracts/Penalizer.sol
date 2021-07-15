@@ -141,7 +141,7 @@ contract Penalizer is IPenalizer, Ownable {
         require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
         require(msg.sender == commitmentReceipt.commitment.from, "sender does not match");
 
-        // skip time check for now
+        // skip qos check for now
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);

@@ -2,16 +2,16 @@ import { Address } from '../relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 
-export interface CommitmentReceipt {
-  commitment: Commitment
-  workerSignature: PrefixedHexString
-  workerAddress: Address
-}
-
 export interface CommitmentResponse {
   signedTx: PrefixedHexString
   signedReceipt?: CommitmentReceipt
   transactionHash: PrefixedHexString
+}
+
+export interface CommitmentReceipt {
+  commitment: Commitment
+  workerSignature: PrefixedHexString
+  workerAddress: Address
 }
 
 export class Commitment {
