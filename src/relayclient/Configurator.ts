@@ -1,16 +1,17 @@
 import { HttpProvider } from 'web3-core'
-import { LogLevelNumbers } from 'loglevel'
-
-import { constants } from '../common/Constants'
-import { defaultEnvironment } from '../common/Environments'
-
+import {
+  constants,
+  defaultEnvironment,
+  ContractInteractor,
+  Web3Provider,
+  EnvelopingConfig
+} from '@rsksmart/rif-relay-common'
 import AccountManager from './AccountManager'
-import ContractInteractor, { Web3Provider } from '../common/ContractInteractor'
 import HttpClient from './HttpClient'
 import HttpWrapper from './HttpWrapper'
 import { KnownRelaysManager, DefaultRelayScore, EmptyFilter } from './KnownRelaysManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { Address, AsyncScoreCalculator, IntString, PingFilter, RelayFilter } from './types/Aliases'
+import { AsyncScoreCalculator, PingFilter, RelayFilter } from './types/Aliases'
 import { GasPricePingFilter } from './RelayClient'
 
 const GAS_PRICE_PERCENT = 0 //
@@ -90,32 +91,6 @@ export async function resolveConfiguration (provider: Web3Provider, partialConfi
     ...partialConfig,
     ...resolvedConfig
   }
-}
-
-/**
- * @field methodSuffix - allows use of versioned methods, i.e. 'eth_signTypedData_v4'. Should be '_v4' for Metamask
- * @field jsonStringifyRequest - should be 'true' for Metamask, false for ganache
- */
-export interface EnvelopingConfig {
-  preferredRelays: string[]
-  onlyPreferredRelays: boolean
-  relayLookupWindowBlocks: number
-  relayLookupWindowParts: number
-  methodSuffix: string
-  jsonStringifyRequest: boolean
-  relayTimeoutGrace: number
-  sliceSize: number
-  logLevel: LogLevelNumbers
-  gasPriceFactorPercent: number
-  minGasPrice: number
-  maxRelayNonceGap: number
-  relayHubAddress: Address
-  deployVerifierAddress: Address
-  relayVerifierAddress: Address
-  forwarderAddress: Address
-  smartWalletFactoryAddress: Address
-  chainId: number
-  clientId: IntString
 }
 
 export interface EnvelopingDependencies {

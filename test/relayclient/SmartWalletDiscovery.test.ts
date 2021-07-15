@@ -13,7 +13,7 @@ import {
 import { DiscoveryConfig, SmartWalletDiscovery } from '../../src/relayclient/SmartWalletDiscovery'
 
 import { toChecksumAddress } from 'web3-utils'
-import { constants } from '../../src/common/Constants'
+import { constants } from '@rsksmart/rif-relay-common'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { WebsocketProvider } from 'web3-core'
 

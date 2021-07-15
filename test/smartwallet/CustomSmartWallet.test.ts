@@ -8,12 +8,16 @@ import {
 import { EIP712TypedData, signTypedData_v4, TypedDataUtils } from 'eth-sig-util'
 import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { bytes32, containsEvent, getTestingEnvironment } from '../TestUtils'
-import TypedRequestData, { ForwardRequestType, getDomainSeparatorHash } from '../../src/common/EIP712/TypedRequestData'
-import { constants } from '../../src/common/Constants'
-import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
-import RelayData from '../../src/common/EIP712/RelayData'
+import {
+  TypedRequestData,
+  ForwardRequestType,
+  getDomainSeparatorHash,
+  constants,
+  RelayRequest,
+  RelayData,
+  ForwardRequest
+} from '@rsksmart/rif-relay-common'
 import { expectRevert } from '@openzeppelin/test-helpers'
-import { ForwardRequest } from '../../src/common/EIP712/ForwardRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 

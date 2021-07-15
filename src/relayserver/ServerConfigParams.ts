@@ -1,54 +1,18 @@
 import parseArgs from 'minimist'
 import * as fs from 'fs'
-import { VersionRegistry } from '../common/VersionRegistry'
-import ContractInteractor from '../common/ContractInteractor'
+import {
+  VersionRegistry,
+  ContractInteractor,
+  constants,
+  ServerConfigParams
+} from '@rsksmart/rif-relay-common'
 import { configure } from '../relayclient/Configurator'
-import { constants } from '../common/Constants'
-import { Address } from '../relayclient/types/Aliases'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager } from './TxStoreManager'
-import { LogLevelNumbers } from 'loglevel'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
 // TODO: is there a way to merge the typescript definition ServerConfigParams with the runtime checking ConfigParamTypes ?
-export interface ServerConfigParams {
-  url: string
-  port: number
-  versionRegistryAddress: string
-  versionRegistryDelayPeriod?: number
-  relayHubId?: string
-  relayHubAddress: string
-  rskNodeUrl: string
-  workdir: string
-  checkInterval: number
-  readyTimeout: number
-  devMode: boolean
-  customReplenish: boolean
-  registrationBlockRate: number
-  alertedBlockDelay: number
-  minAlertedDelayMS: number
-  maxAlertedDelayMS: number
-  trustedVerifiers: Address[]
-  gasPriceFactor: number
-  logLevel: LogLevelNumbers
-  deployVerifierAddress: Address
-  relayVerifierAddress: Address
-  workerMinBalance: number
-  workerTargetBalance: number
-  managerMinBalance: number
-  managerMinStake: string
-  managerTargetBalance: number
-  minHubWithdrawalBalance: number
-  refreshStateTimeoutBlocks: number
-  pendingTransactionTimeoutBlocks: number
-  successfulRoundsForReady: number
-  confirmationsNeeded: number
-  retryGasPriceFactor: number
-  maxGasPrice: string
-  defaultGasLimit: number
-  estimateGasFactor: number
-}
 
 export interface ServerDependencies {
   // TODO: rename as this name is terrible
@@ -192,6 +156,7 @@ export function parseServerConfig (args: string[], env: any): any {
   if (argv._.length > 0) {
     error(`unexpected param(s) ${argv._.join(',')}`)
   }
+  // @ts-ignore
   delete argv._
   let configFile = {}
   const configFileName = argv.config as string

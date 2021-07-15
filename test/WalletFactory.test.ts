@@ -13,10 +13,14 @@ import { toChecksumAddress, soliditySha3Raw } from 'web3-utils'
 import { ethers } from 'ethers'
 import chai from 'chai'
 import { bytes32, getTestingEnvironment, stripHex } from './TestUtils'
-import { Environment } from '../src/common/Environments'
-import { DeployRequestDataType, getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
-import { constants } from '../src/common/Constants'
-import { DeployRequest } from '../src/common/EIP712/RelayRequest'
+import {
+  Environment,
+  constants,
+  DeployRequest,
+  DeployRequestDataType,
+  getDomainSeparatorHash,
+  TypedDeployRequestData
+} from '@rsksmart/rif-relay-common'
 
 const keccak256 = web3.utils.keccak256
 

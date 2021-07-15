@@ -1,7 +1,9 @@
 import RelayedTransactionValidator from '../../src/relayclient/RelayedTransactionValidator'
-import ContractInteractor from '../../src/common/ContractInteractor'
-import { EnvelopingConfig } from '../../src/relayclient/Configurator'
-import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
+import {
+  ContractInteractor,
+  EnvelopingConfig,
+  RelayTransactionRequest
+} from '@rsksmart/rif-relay-common'
 
 export default class BadRelayedTransactionValidator extends RelayedTransactionValidator {
   private readonly failValidation: boolean

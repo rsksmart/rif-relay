@@ -1,6 +1,6 @@
 import Web3 from 'web3'
 
-import ContractInteractor from '../../common/ContractInteractor'
+import { ContractInteractor } from '@rsksmart/rif-relay-common'
 import { configure } from '../../relayclient/Configurator'
 import HttpClient from '../../relayclient/HttpClient'
 import HttpWrapper from '../../relayclient/HttpWrapper'

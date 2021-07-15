@@ -1,6 +1,8 @@
 import { PrefixedHexString } from 'ethereumjs-tx/dist/types'
 import { toBN, toHex } from 'web3-utils'
-import { defaultEnvironment } from '../common/Environments'
+import {
+  defaultEnvironment
+} from '@rsksmart/rif-relay-common'
 import { RelayServer } from './RelayServer'
 import { ServerAction } from './StoredTransaction'
 import { SendTransactionDetails } from './TransactionManager'

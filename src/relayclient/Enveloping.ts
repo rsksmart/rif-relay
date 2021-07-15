@@ -1,20 +1,24 @@
 import HttpClient from './HttpClient'
-import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
+import {
+  DeployRequest,
+  RelayRequest,
+  DeployTransactionRequest,
+  RelayMetadata,
+  RelayTransactionRequest,
+  constants,
+  EnvelopingConfig,
+  getDomainSeparatorHash,
+  TypedDeployRequestData,
+  TypedRequestData
+} from '@rsksmart/rif-relay-common'
 
-import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
 import HttpWrapper from './HttpWrapper'
-import { constants } from '../common/Constants'
 import { HttpProvider } from 'web3-core'
 import { RelayingAttempt } from './RelayClient'
-
-import { getDependencies, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
+import { getDependencies, EnvelopingDependencies } from './Configurator'
 import { Address, IntString } from './types/Aliases'
-
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
-
-import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
-
-import { DiscoveryConfig, SmartWalletDiscovery, Web3Provider, AccountReaderFunction, DiscoveredAccount } from '../relayclient/SmartWalletDiscovery'
+import { DiscoveryConfig, SmartWalletDiscovery, Web3Provider, AccountReaderFunction, DiscoveredAccount } from './SmartWalletDiscovery'
 import Web3 from 'web3'
 import { toHex } from 'web3-utils'
 

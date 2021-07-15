@@ -1,11 +1,14 @@
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { evmMine, evmMineMany, getTestingEnvironment } from '../TestUtils'
-import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
-import ContractInteractor from '../../src/common/ContractInteractor'
+import { configure } from '../../src/relayclient/Configurator'
 import { HttpProvider } from 'web3-core'
-import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
-import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
+import {
+  ServerConfigParams,
+  ProfilingProvider,
+  EnvelopingConfig,
+  ContractInteractor
+} from '@rsksmart/rif-relay-common'
 
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2

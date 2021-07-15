@@ -1,6 +1,8 @@
 import { RelayClient, RelayingResult } from '../../src/relayclient/RelayClient'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
-import { EnvelopingConfig } from '../../src/relayclient/Configurator'
+import {
+  EnvelopingTransactionDetails,
+  EnvelopingConfig
+} from '@rsksmart/rif-relay-common'
 import { HttpProvider } from 'web3-core'
 
 export default class BadRelayClient extends RelayClient {

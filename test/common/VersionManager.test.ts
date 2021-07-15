@@ -1,5 +1,7 @@
 /* eslint-disable no-new */
-import VersionsManager from '../../src/common/VersionsManager'
+import {
+  VersionsManager
+} from '@rsksmart/rif-relay-common'
 
 describe('VersionManager', function () {
   context('constructor', function () {

@@ -1,12 +1,13 @@
 import log from 'loglevel'
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 import { bufferToHex } from 'ethereumjs-util'
-
-import { isSameAddress } from '../common/Utils'
-
-import ContractInteractor from '../common/ContractInteractor'
-import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
-import { EnvelopingConfig } from './Configurator'
+import {
+  isSameAddress,
+  ContractInteractor,
+  DeployTransactionRequest,
+  RelayTransactionRequest,
+  EnvelopingConfig
+} from '@rsksmart/rif-relay-common'
 
 export default class RelayedTransactionValidator {
   private readonly contractInteractor: ContractInteractor

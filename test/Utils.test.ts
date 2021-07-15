@@ -3,15 +3,19 @@ import { recoverTypedSignature_v4 } from 'eth-sig-util'
 import chaiAsPromised from 'chai-as-promised'
 import chai from 'chai'
 
-import { RelayRequest } from '../src/common/EIP712/RelayRequest'
-import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+import {
+  RelayRequest,
+  TypedRequestData,
+  getDomainSeparatorHash,
+  constants,
+  estimateMaxPossibleRelayCallWithLinearFit,
+  getLocalEip712Signature
+} from '@rsksmart/rif-relay-common'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, SmartWalletFactoryInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { encodeRevertReason, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
-import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { estimateMaxPossibleRelayCallWithLinearFit, getLocalEip712Signature } from '../src/common/Utils'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const { assert } = chai.use(chaiAsPromised)

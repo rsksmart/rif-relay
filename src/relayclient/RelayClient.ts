@@ -1,24 +1,31 @@
 import log from 'loglevel'
 import { HttpProvider, TransactionReceipt } from 'web3-core'
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
-
-import { constants } from '../common/Constants'
-
-import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
-import { DeployTransactionRequest, RelayMetadata, RelayTransactionRequest } from './types/RelayTransactionRequest'
-import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
+import {
+  constants,
+  DeployRequest,
+  RelayRequest,
+  DeployTransactionRequest,
+  RelayMetadata,
+  RelayTransactionRequest,
+  EnvelopingTransactionDetails,
+  ContractInteractor,
+  EstimateGasParams,
+  EnvelopingConfig,
+  decodeRevertReason,
+  calculateDeployTransactionMaxPossibleGas,
+  estimateMaxPossibleRelayCallWithLinearFit,
+  getDomainSeparatorHash
+} from '@rsksmart/rif-relay-common'
 import { Address, PingFilter } from './types/Aliases'
 import HttpClient from './HttpClient'
-import ContractInteractor, { EstimateGasParams } from '../common/ContractInteractor'
 import RelaySelectionManager from './RelaySelectionManager'
 import { KnownRelaysManager } from './KnownRelaysManager'
 import AccountManager from './AccountManager'
 import RelayedTransactionValidator from './RelayedTransactionValidator'
-import { configure, getDependencies, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
+import { configure, getDependencies, EnvelopingDependencies } from './Configurator'
 import { RelayInfo } from './types/RelayInfo'
-import { decodeRevertReason, calculateDeployTransactionMaxPossibleGas, estimateMaxPossibleRelayCallWithLinearFit } from '../common/Utils'
 import { EventEmitter } from 'events'
-
 import {
   RelayEvent,
   InitEvent,
@@ -26,7 +33,6 @@ import {
   DoneRefreshRelaysEvent,
   RefreshRelaysEvent, RelayerResponseEvent, SendToRelayerEvent, SignRequestEvent, ValidateRequestEvent
 } from './RelayEvents'
-import { getDomainSeparatorHash } from '../common/EIP712/TypedRequestData'
 import { toBN, toHex } from 'web3-utils'
 
 export const GasPricePingFilter: PingFilter = (pingResponse, transactionDetails) => {

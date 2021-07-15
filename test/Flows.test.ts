@@ -16,7 +16,9 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
-import { EnvelopingConfig } from '../src/relayclient/Configurator'
+import {
+  EnvelopingConfig
+} from '@rsksmart/rif-relay-common'
 import { toBuffer } from 'ethereumjs-util'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 

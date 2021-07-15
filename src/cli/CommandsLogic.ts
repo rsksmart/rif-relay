@@ -8,8 +8,6 @@ import { HttpProvider, TransactionReceipt } from 'web3-core'
 import { fromWei, toBN } from 'web3-utils'
 import { merge } from 'lodash'
 
-import { isSameAddress, sleep } from '../common/Utils'
-
 // compiled folder populated by "prepublish"
 import {
   RelayHub,
@@ -25,13 +23,9 @@ import {
 } from '@rsksmart/rif-relay-contracts'
 
 import { Address } from '../relayclient/types/Aliases'
-import ContractInteractor from '../common/ContractInteractor'
-import { EnvelopingConfig } from '../relayclient/Configurator'
+import { ContractInteractor, EnvelopingConfig, isSameAddress, sleep, RelayHubConfiguration, string32, constants } from '@rsksmart/rif-relay-common'
 import HttpClient from '../relayclient/HttpClient'
 import HttpWrapper from '../relayclient/HttpWrapper'
-import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
-import { string32 } from '../common/VersionRegistry'
-import { constants } from '../common/Constants'
 import { ether } from '@openzeppelin/test-helpers'
 
 interface RegisterOptions {

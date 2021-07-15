@@ -1,9 +1,19 @@
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import chai from 'chai'
-import { decodeRevertReason, getLocalEip712Signature, removeHexPrefix } from '../src/common/Utils'
-import { RelayRequest, cloneRelayRequest, DeployRequest, cloneDeployRequest } from '../src/common/EIP712/RelayRequest'
-import { Environment } from '../src/common/Environments'
-import TypedRequestData, { getDomainSeparatorHash, TypedDeployRequestData } from '../src/common/EIP712/TypedRequestData'
+import {
+  Environment,
+  decodeRevertReason,
+  getLocalEip712Signature,
+  removeHexPrefix,
+  RelayRequest,
+  cloneRelayRequest,
+  DeployRequest,
+  cloneDeployRequest,
+  TypedRequestData,
+  getDomainSeparatorHash,
+  TypedDeployRequestData,
+  constants
+} from '@rsksmart/rif-relay-common'
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
 import {
@@ -27,7 +37,6 @@ import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createS
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { keccak } from 'ethereumjs-util'
-import { constants } from '../src/common/Constants'
 import { toBN, toChecksumAddress, toHex } from 'web3-utils'
 const { assert } = chai.use(chaiAsPromised)
 const SmartWallet = artifacts.require('SmartWallet')

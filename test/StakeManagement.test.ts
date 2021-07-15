@@ -2,10 +2,11 @@ import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-he
 import { expect } from 'chai'
 import BN from 'bn.js'
 import { evmMineMany, getTestingEnvironment } from './TestUtils'
-import { isRsk } from '../src/common/Environments'
-
+import {
+  isRsk,
+  constants
+} from '@rsksmart/rif-relay-common'
 import { RelayHubInstance, PenalizerInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
-import { constants } from '../src/common/Constants'
 
 const RelayHub = artifacts.require('RelayHub')
 const Penalizer = artifacts.require('Penalizer')

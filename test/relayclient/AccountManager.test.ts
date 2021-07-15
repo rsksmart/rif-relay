@@ -1,16 +1,18 @@
 import AccountManager, { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { defaultEnvironment } from '../../src/common/Environments'
+import {
+  defaultEnvironment,
+  RelayRequest,
+  isSameAddress,
+  TypedRequestData,
+  constants
+} from '@rsksmart/rif-relay-common'
 import { HttpProvider } from 'web3-core'
-import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import sinon from 'sinon'
 import sigUtil from 'eth-sig-util'
-import { isSameAddress } from '../../src/common/Utils'
 import chai from 'chai'
 import sinonChai from 'sinon-chai'
 import { configure } from '../../src/relayclient/Configurator'
-import TypedRequestData from '../../src/common/EIP712/TypedRequestData'
 import chaiAsPromised from 'chai-as-promised'
-import { constants } from '../../src/common/Constants'
 import { getGaslessAccount } from '../TestUtils'
 
 const { expect, assert } = chai.use(chaiAsPromised)

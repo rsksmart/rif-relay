@@ -1,9 +1,11 @@
 import { PrefixedHexString } from 'ethereumjs-tx'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
-import PingResponse from '../../src/common/PingResponse'
-import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
-import { EnvelopingConfig } from '../../src/relayclient/Configurator'
+import {
+  PingResponse,
+  EnvelopingConfig,
+  RelayTransactionRequest
+} from '@rsksmart/rif-relay-common'
 
 export default class BadHttpClient extends HttpClient {
   static readonly message = 'This is not the relay you are looking for'

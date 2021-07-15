@@ -17,9 +17,13 @@ import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util'
 import { ether, expectRevert } from '@openzeppelin/test-helpers'
 import { toBN } from 'web3-utils'
 import { getTestingEnvironment, createCustomSmartWalletFactory, createCustomSmartWallet, bytes32, createSmartWalletFactory, createSmartWallet } from '../TestUtils'
-import TypedRequestData, { getDomainSeparatorHash, ForwardRequestType } from '../../src/common/EIP712/TypedRequestData'
-import { constants } from '../../src/common/Constants'
-import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
+import {
+  TypedRequestData,
+  getDomainSeparatorHash,
+  ForwardRequestType,
+  constants,
+  RelayRequest
+} from '@rsksmart/rif-relay-common'
 
 require('source-map-support').install({ errorFormatterForce: true })
 

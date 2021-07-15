@@ -5,12 +5,10 @@ import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
 import chaiAsPromised from 'chai-as-promised'
 import Web3 from 'web3'
 import { toBN, toChecksumAddress } from 'web3-utils'
-
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
-
 import { RelayProvider } from '../../src/relayclient/RelayProvider'
-import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
+import { configure } from '../../src/relayclient/Configurator'
 import {
   IWalletFactory
 } from '@rsksmart/rif-relay-contracts'
@@ -24,13 +22,15 @@ import {
   SmartWalletInstance,
   TestTokenInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
-import { isRsk } from '../../src/common/Environments'
+import {
+  EnvelopingConfig,
+  isRsk,
+  EnvelopingTransactionDetails
+} from '@rsksmart/rif-relay-common'
 import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction, RelayServerData } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
-
 // @ts-ignore
 import { constants } from '../../src/common/Constants'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)

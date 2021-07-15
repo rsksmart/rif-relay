@@ -8,10 +8,12 @@ import { PingFilter } from '../../src/relayclient/types/Aliases'
 import { RelayInfoUrl, RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { PartialRelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { register, stake } from './KnownRelaysManager.test'
-import PingResponse from '../../src/common/PingResponse'
+import {
+  PingResponse,
+  constants,
+  EnvelopingTransactionDetails
+} from '@rsksmart/rif-relay-common'
 import { deployHub, getTestingEnvironment } from '../TestUtils'
-import { constants } from '../../src/common/Constants'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 

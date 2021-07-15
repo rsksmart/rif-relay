@@ -3,8 +3,12 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { expectRevert } from '@openzeppelin/test-helpers'
 import { increaseTime, getTestingEnvironment } from './TestUtils'
-import { VersionRegistry, string32 } from '../src/common/VersionRegistry'
-import { isRsk, Environment } from '../src/common/Environments'
+import {
+  VersionRegistry,
+  string32,
+  isRsk,
+  Environment
+} from '@rsksmart/rif-relay-common'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 

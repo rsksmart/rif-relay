@@ -1,18 +1,16 @@
 import log from 'loglevel'
-
-import { addresses2topics } from '../common/Utils'
-
-import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
-import RelayFailureInfo from './types/RelayFailureInfo'
-import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases'
-import { EnvelopingConfig } from './Configurator'
-import { isInfoFromEvent, RelayInfoUrl, RelayRegisteredEventInfo } from './types/RelayRegisteredEventInfo'
-
-import ContractInteractor, {
+import {
+  addresses2topics,
+  EnvelopingTransactionDetails,
+  EnvelopingConfig,
   RelayServerRegistered,
   StakePenalized,
-  StakeUnlocked
-} from '../common/ContractInteractor'
+  StakeUnlocked,
+  ContractInteractor
+} from '@rsksmart/rif-relay-common'
+import RelayFailureInfo from './types/RelayFailureInfo'
+import { Address, AsyncScoreCalculator, RelayFilter } from './types/Aliases'
+import { isInfoFromEvent, RelayInfoUrl, RelayRegisteredEventInfo } from './types/RelayRegisteredEventInfo'
 import { EventData } from 'web3-eth-contract'
 
 export const EmptyFilter: RelayFilter = (): boolean => {

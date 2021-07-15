@@ -11,11 +11,14 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers'
 import { ethers } from 'ethers'
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util'
-import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import {
+  DeployRequest,
+  RelayRequest,
+  constants,
+  getDomainSeparatorHash
+} from '@rsksmart/rif-relay-common'
 import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, bytes32 } from './TestUtils'
-import { constants } from '../src/common/Constants'
 import { Address } from '../src/relayclient/types/Aliases'
-import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')

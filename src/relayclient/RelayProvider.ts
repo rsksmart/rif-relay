@@ -5,12 +5,15 @@ import { JsonRpcPayload, JsonRpcResponse } from 'web3-core-helpers'
 import { HttpProvider } from 'web3-core'
 import { IRelayHub, IWalletFactory } from '@rsksmart/rif-relay-contracts'
 import { _dumpRelayingResult, RelayClient } from './RelayClient'
-import EnvelopingTransactionDetails from './types/EnvelopingTransactionDetails'
-import { configure, EnvelopingConfig, EnvelopingDependencies } from './Configurator'
+import {
+  EnvelopingTransactionDetails,
+  EnvelopingConfig,
+  constants
+} from '@rsksmart/rif-relay-common'
+import { configure, EnvelopingDependencies } from './Configurator'
 import { Transaction } from 'ethereumjs-tx'
 import { AccountKeypair } from './AccountManager'
 import { RelayEvent } from './RelayEvents'
-import { constants } from '../common/Constants'
 import { Address } from './types/Aliases'
 import { toBN, toChecksumAddress, toHex } from 'web3-utils'
 

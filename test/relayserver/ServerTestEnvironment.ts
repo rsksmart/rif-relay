@@ -24,22 +24,25 @@ import {
   getTemporaryWorkdirs,
   ServerWorkdirs
 } from './ServerTestUtils'
-import ContractInteractor from '../../src/common/ContractInteractor'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
-import PingResponse from '../../src/common/PingResponse'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { RelayClient } from '../../src/relayclient/RelayClient'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { RelayServer } from '../../src/relayserver/RelayServer'
-import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
-import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
-import { constants } from '../../src/common/Constants'
+import { configure } from '../../src/relayclient/Configurator'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
-import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
-import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
+import {
+  RelayHubConfiguration,
+  RelayTransactionRequest,
+  EnvelopingConfig,
+  constants,
+  ServerConfigParams,
+  ContractInteractor,
+  EnvelopingTransactionDetails,
+  PingResponse
+} from '@rsksmart/rif-relay-common'
 import { ether } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('TestRecipient')

@@ -3,27 +3,24 @@ import { EventData, PastEventOptions } from 'web3-eth-contract'
 import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN, toHex } from 'web3-utils'
-
 import { Address } from '../relayclient/types/Aliases'
-import { AmountRequired } from '../common/AmountRequired'
 import {
+  AmountRequired,
   address2topic,
   getLatestEventData,
   isRegistrationValid,
   isSecondEventLater,
-  boolString
-} from '../common/Utils'
-import { defaultEnvironment } from '../common/Environments'
-import ContractInteractor, {
+  boolString,
+  defaultEnvironment,
   RelayServerRegistered,
   RelayWorkersAdded,
   StakeAdded,
   StakeUnlocked,
-  StakeWithdrawn
-} from '../common/ContractInteractor'
-
+  StakeWithdrawn,
+  ServerConfigParams,
+  ContractInteractor
+} from '@rsksmart/rif-relay-common'
 import { SendTransactionDetails, TransactionManager } from './TransactionManager'
-import { ServerConfigParams } from './ServerConfigParams'
 import { TxStoreManager } from './TxStoreManager'
 import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'

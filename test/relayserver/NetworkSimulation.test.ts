@@ -1,11 +1,14 @@
 import { ServerTestEnvironment } from './ServerTestEnvironment'
-import { NetworkSimulatingProvider } from '../../src/common/dev/NetworkSimulatingProvider'
+import {
+  NetworkSimulatingProvider,
+  EnvelopingConfig,
+  ContractInteractor,
+  EnvelopingTransactionDetails
+} from '@rsksmart/rif-relay-common'
 import { HttpProvider } from 'web3-core'
-import { configure, EnvelopingConfig } from '../../src/relayclient/Configurator'
-import ContractInteractor from '../../src/common/ContractInteractor'
+import { configure } from '../../src/relayclient/Configurator'
 import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
 contract('Network Simulation for Relay Server', function (accounts) {
   let env: ServerTestEnvironment

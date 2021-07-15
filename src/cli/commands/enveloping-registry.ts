@@ -7,7 +7,7 @@ import {
   getRegistryAddress,
   envelopingCommander
 } from '../utils'
-import { VersionInfo, VersionRegistry } from '../../common/VersionRegistry'
+import { VersionInfo, VersionRegistry } from '@rsksmart/rif-relay-common'
 
 function error (s: string): never {
   console.error(s)

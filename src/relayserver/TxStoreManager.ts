@@ -2,10 +2,10 @@ import AsyncNedb from 'nedb-async'
 import log from 'loglevel'
 import ow from 'ow'
 import { PrefixedHexString } from 'ethereumjs-tx'
-
 import { Address } from '../relayclient/types/Aliases'
-import { isSameAddress } from '../common/Utils'
-
+import {
+  isSameAddress
+} from '@rsksmart/rif-relay-common'
 import { ServerAction, StoredTransaction } from './StoredTransaction'
 
 export const TXSTORE_FILENAME = 'txstore.db'

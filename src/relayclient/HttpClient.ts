@@ -1,10 +1,12 @@
 import log from 'loglevel'
 import { PrefixedHexString } from 'ethereumjs-tx'
-
-import PingResponse from '../common/PingResponse'
+import {
+  PingResponse,
+  DeployTransactionRequest,
+  RelayTransactionRequest,
+  EnvelopingConfig
+} from '@rsksmart/rif-relay-common'
 import HttpWrapper from './HttpWrapper'
-import { DeployTransactionRequest, RelayTransactionRequest } from './types/RelayTransactionRequest'
-import { EnvelopingConfig } from './Configurator'
 
 export default class HttpClient {
   private readonly httpWrapper: HttpWrapper

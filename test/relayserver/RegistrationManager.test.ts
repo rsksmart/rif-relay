@@ -1,23 +1,23 @@
 import Web3 from 'web3'
 import { HttpProvider } from 'web3-core'
 import { toBN } from 'web3-utils'
-
-import ContractInteractor from '../../src/common/ContractInteractor'
+import {
+  ContractInteractor,
+  ServerConfigParams,
+  constants,
+  RelayHubConfiguration
+} from '@rsksmart/rif-relay-common'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import { ServerConfigParams, ServerDependencies } from '../../src/relayserver/ServerConfigParams'
+import { ServerDependencies } from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure } from '../../src/relayclient/Configurator'
-import { constants } from '../../src/common/Constants'
-
 import { evmMine, evmMineMany, revert, snapshot } from '../TestUtils'
-
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { assertRelayAdded, getTemporaryWorkdirs, getTotalTxCosts, ServerWorkdirs } from './ServerTestUtils'
 import { ether } from '@openzeppelin/test-helpers'
-import { RelayHubConfiguration } from '../../src/relayclient/types/RelayHubConfiguration'
 
 const { oneEther } = constants
 

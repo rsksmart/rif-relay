@@ -9,7 +9,7 @@ import {
   saveDeployment,
   showDeployment
 } from '../utils'
-import { getEnvironment } from '../../common/Environments'
+import { getEnvironment } from '@rsksmart/rif-relay-common'
 
 envelopingCommander(['n', 'f', 'm', 'g'])
   .option('-w, --workdir <directory>', 'relative work directory (defaults to build/enveloping/)', 'build/enveloping')

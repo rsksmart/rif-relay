@@ -5,33 +5,36 @@ import { EventData } from 'web3-eth-contract'
 import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN } from 'web3-utils'
-
 import { IRelayVerifierInstance, IRelayHubInstance, IDeployVerifierInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
-
-import ContractInteractor, { TransactionRejectedByRecipient, TransactionRelayed } from '../common/ContractInteractor'
-import { Address } from '../relayclient/types/Aliases'
-import { DeployTransactionRequest, DeployTransactionRequestShape, RelayTransactionRequest, RelayTransactionRequestShape } from '../relayclient/types/RelayTransactionRequest'
-
-import PingResponse from '../common/PingResponse'
-import VersionsManager from '../common/VersionsManager'
-import { AmountRequired } from '../common/AmountRequired'
 import {
+  ContractInteractor,
+  TransactionRejectedByRecipient,
+  TransactionRelayed,
+  PingResponse,
+  VersionsManager,
+  AmountRequired,
   address2topic,
   getLatestEventData,
   randomInRange,
-  sleep
-} from '../common/Utils'
-
+  sleep,
+  ServerConfigParams,
+  constants,
+  DeployRequest,
+  RelayRequest,
+  TokenResponse,
+  VerifierResponse,
+  DeployTransactionRequest,
+  DeployTransactionRequestShape,
+  RelayTransactionRequest,
+  RelayTransactionRequestShape
+} from '@rsksmart/rif-relay-common'
+import { Address } from '../relayclient/types/Aliases'
 import { replenishStrategy } from './ReplenishFunction'
 import { RegistrationManager } from './RegistrationManager'
 import { SendTransactionDetails, SignedTransactionDetails, TransactionManager } from './TransactionManager'
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
-import { configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
-import { constants } from '../common/Constants'
-import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
-import TokenResponse from '../common/TokenResponse'
-import VerifierResponse from '../common/VerifierResponse'
+import { configureServer, ServerDependencies } from './ServerConfigParams'
 import { toChecksumAddress } from 'ethereumjs-util'
 
 import Timeout = NodeJS.Timeout

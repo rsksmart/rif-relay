@@ -4,13 +4,14 @@ import chalk from 'chalk'
 import log from 'loglevel'
 import { Mutex } from 'async-mutex'
 import { PrefixedHexString, Transaction, TransactionOptions } from 'ethereumjs-tx'
-
 import { Address, IntString } from '../relayclient/types/Aliases'
-import ContractInteractor from '../common/ContractInteractor'
-
+import {
+  ContractInteractor,
+  ServerConfigParams
+} from '@rsksmart/rif-relay-common'
 import { TxStoreManager } from './TxStoreManager'
 import { KeyManager } from './KeyManager'
-import { ServerConfigParams, ServerDependencies } from './ServerConfigParams'
+import { ServerDependencies } from './ServerConfigParams'
 import {
   createStoredTransaction,
   ServerAction,

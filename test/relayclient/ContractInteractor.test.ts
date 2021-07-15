@@ -1,13 +1,15 @@
 import { RelayClient } from '../../src/relayclient/RelayClient'
 import { HttpProvider } from 'web3-core'
-import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
-import ContractInteractor from '../../src/common/ContractInteractor'
+import {
+  ProfilingProvider,
+  ContractInteractor,
+  constants,
+  isRsk,
+  Environment
+} from '@rsksmart/rif-relay-common'
 import { configure } from '../../src/relayclient/Configurator'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import Transaction from 'ethereumjs-tx/dist/transaction'
-import { constants } from '../../src/common/Constants'
-
-import { isRsk, Environment } from '../../src/common/Environments'
 import { getTestingEnvironment } from '../TestUtils'
 
 contract('ContractInteractor', function () {

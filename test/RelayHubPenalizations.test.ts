@@ -2,27 +2,27 @@
 // This rule seems to be flickering and buggy - does not understand async arrow functions correctly
 import { balance, ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import BN from 'bn.js'
-
 import { Transaction, TransactionOptions } from 'ethereumjs-tx'
 import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
-
-import { cloneRelayRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
-import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
-import { isRsk, Environment } from '../src/common/Environments'
 import {
   PenalizerInstance,
   RelayHubInstance,
   SmartWalletInstance,
   SmartWalletFactoryInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
-
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
-import { constants } from '../src/common/Constants'
+import {
+  constants,
+  getRawTxOptions,
+  cloneRelayRequest,
+  RelayRequest,
+  getDomainSeparatorHash,
+  isRsk,
+  Environment
+} from '@rsksmart/rif-relay-common'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { getRawTxOptions } from '../src/common/ContractInteractor'
-
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')

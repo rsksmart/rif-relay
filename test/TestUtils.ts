@@ -2,31 +2,37 @@
 import childProcess, { ChildProcessWithoutNullStreams } from 'child_process'
 import fs from 'fs'
 import path from 'path'
-
 import { ether } from '@openzeppelin/test-helpers'
-
 import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configure } from '../src/relayclient/Configurator'
-import { defaultEnvironment, Environment, environments } from '../src/common/Environments'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { getLocalEip712Signature, sleep } from '../src/common/Utils'
-import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
-import TypedRequestData, { RequestType, getDomainSeparatorHash, TypedDeployRequestData, DeployRequestDataType, DEPLOY_PARAMS } from '../src/common/EIP712/TypedRequestData'
 import { soliditySha3Raw } from 'web3-utils'
-
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util'
 import { BN, bufferToHex, toBuffer, privateToAddress } from 'ethereumjs-util'
-import { constants } from '../src/common/Constants'
-
 import { AccountKeypair } from '../src/relayclient/AccountManager'
-
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet'
 import { Address } from '../src/relayclient/types/Aliases'
-import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import {
+  DeployRequest,
+  RelayRequest,
+  constants,
+  defaultEnvironment,
+  Environment,
+  environments,
+  getLocalEip712Signature,
+  sleep,
+  RelayHubConfiguration,
+  TypedRequestData,
+  RequestType,
+  getDomainSeparatorHash,
+  TypedDeployRequestData,
+  DeployRequestDataType,
+  DEPLOY_PARAMS
+} from '@rsksmart/rif-relay-common'
 
 require('source-map-support').install({ errorFormatterForce: true })
 

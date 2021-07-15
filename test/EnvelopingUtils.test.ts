@@ -1,20 +1,23 @@
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { BN, toBuffer } from 'ethereumjs-util'
-import { configure, EnvelopingConfig } from '../Configurator'
-import { isSameAddress } from '../src/common/Utils'
+import { configure } from '../src/relayclient/Configurator'
 import { Enveloping, SignatureProvider } from '../src/relayclient/Enveloping'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { createSmartWalletFactory, deployHub, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
-import { constants } from '../src/common/Constants'
+import {
+  EnvelopingConfig,
+  constants,
+  isSameAddress,
+  TypedRequestData,
+  DeployRequest,
+  RelayRequest
+} from '@rsksmart/rif-relay-common'
 import { randomHex, toChecksumAddress } from 'web3-utils'
-import TypedRequestData from '../src/common/EIP712/TypedRequestData'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 import sigUtil from 'eth-sig-util'
 import Web3 from 'web3'
-
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'

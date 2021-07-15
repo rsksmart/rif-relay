@@ -1,7 +1,9 @@
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
 import Web3 from 'web3'
 import ethUtils, { BN } from 'ethereumjs-util'
-import { constants } from '../common/Constants'
+import {
+  constants
+} from '@rsksmart/rif-relay-common'
 import { toChecksumAddress } from 'web3-utils'
 import {
   HttpProvider,
@@ -121,7 +123,7 @@ export class SmartWalletDiscovery {
 
     let ended: boolean = false
     let currentAccount: number = 0
-    const smartWalletFactory = new this.web3.eth.Contract(ISmartWalletFactory.abi as any, config.factory)
+    const smartWalletFactory = new this.web3.eth.Contract(ISmartWalletFactory.abi, config.factory)
     const creationByteCode = await smartWalletFactory.methods.getCreationBytecode().call()
     const bytecodeHash = this.web3.utils.keccak256(creationByteCode)
     const chainId = await this.web3.eth.getChainId()

@@ -1,16 +1,21 @@
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet'
-import { DeployRequest, RelayRequest } from '../common/EIP712/RelayRequest'
+import {
+  DeployRequest,
+  RelayRequest,
+  getEip712Signature,
+  isSameAddress,
+  EnvelopingConfig,
+  TypedDeployRequestData,
+  TypedRequestData
+} from '@rsksmart/rif-relay-common'
 import sigUtil from 'eth-sig-util'
-import { getEip712Signature, isSameAddress } from '../common/Utils'
 import { Address } from './types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { EnvelopingConfig } from './Configurator'
 import { HttpProvider } from 'web3-core'
 import Web3 from 'web3'
-import TypedRequestData, { TypedDeployRequestData } from '../common/EIP712/TypedRequestData'
-
 require('source-map-support').install({ errorFormatterForce: true })
+
 export interface AccountKeypair {
   privateKey: Buffer
   address: Address

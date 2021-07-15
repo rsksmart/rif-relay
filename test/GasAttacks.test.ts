@@ -1,9 +1,13 @@
 import { ether } from '@openzeppelin/test-helpers'
 import chai from 'chai'
-import { getLocalEip712Signature } from '../src/common/Utils'
-import { RelayRequest, cloneRelayRequest } from '../src/common/EIP712/RelayRequest'
-import { Environment } from '../src/common/Environments'
-import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+import {
+  getLocalEip712Signature,
+  RelayRequest,
+  cloneRelayRequest,
+  Environment,
+  TypedRequestData,
+  getDomainSeparatorHash
+} from '@rsksmart/rif-relay-common'
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
 import {

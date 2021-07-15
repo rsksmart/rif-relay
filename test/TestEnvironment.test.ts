@@ -3,7 +3,9 @@ import { HttpProvider } from 'web3-core'
 import { expectEvent } from '@openzeppelin/test-helpers'
 import { TestRecipientInstance, SmartWalletFactoryInstance, TestTokenInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { getTestingEnvironment, getGaslessAccount } from './TestUtils'
-import { constants } from '../src/common/Constants'
+import {
+  constants
+} from '@rsksmart/rif-relay-common'
 import { toHex } from 'web3-utils'
 
 const TestRecipient = artifacts.require('TestRecipient')

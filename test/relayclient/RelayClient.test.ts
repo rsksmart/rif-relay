@@ -20,31 +20,34 @@ import {
   TestDeployVerifierEverythingAcceptedInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
-import { DeployRequest } from '../../src/common/EIP712/RelayRequest'
+import {
+  DeployRequest,
+  EnvelopingConfig,
+  replaceErrors,
+  EnvelopingTransactionDetails,
+  PingResponse,
+  Web3Provider,
+  RelayTransactionRequest,
+  constants,
+  getDomainSeparatorHash,
+  TypedDeployRequestData
+} from '@rsksmart/rif-relay-common'
 import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { configure, getDependencies, EnvelopingConfig } from '../../src/relayclient/Configurator'
-import replaceErrors from '../../src/common/ErrorReplacerJSON'
-import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
-
+import { configure, getDependencies } from '../../src/relayclient/Configurator'
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
 import { stripHex, deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
 import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
-import PingResponse from '../../src/common/PingResponse'
 import { RelayEvent } from '../../src/relayclient/RelayEvents'
-import { Web3Provider } from '../../src/common/ContractInteractor'
 import bodyParser from 'body-parser'
 import { Server } from 'http'
 import HttpClient from '../../src/relayclient/HttpClient'
 import HttpWrapper from '../../src/relayclient/HttpWrapper'
-import { RelayTransactionRequest } from '../../src/relayclient/types/RelayTransactionRequest'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { toBN, toHex } from 'web3-utils'
-import { constants } from '../../src/common/Constants'
-import { getDomainSeparatorHash, TypedDeployRequestData } from '../../src/common/EIP712/TypedRequestData'
 import { ether } from '@openzeppelin/test-helpers'
 
 const TestRecipient = artifacts.require('TestRecipient')

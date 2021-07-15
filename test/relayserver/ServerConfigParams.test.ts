@@ -10,7 +10,7 @@ import { expectRevert } from '@openzeppelin/test-helpers'
 import {
   VersionRegistryInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
-import { string32 } from '../../src/common/VersionRegistry'
+import { string32 } from '@rsksmart/rif-relay-common'
 
 require('source-map-support').install({ errorFormatterForce: true })
 const VersionRegistryContract = artifacts.require('VersionRegistry')

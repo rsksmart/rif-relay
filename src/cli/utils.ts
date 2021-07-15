@@ -4,7 +4,7 @@ import fs from 'fs'
 import { Address } from '../relayclient/types/Aliases'
 import path from 'path'
 import { DeploymentResult } from './CommandsLogic'
-import { RelayHubConfiguration } from '../relayclient/types/RelayHubConfiguration'
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-common'
 
 export const networks = new Map<string, string>([
   ['localhost', 'http://127.0.0.1:4444'],
