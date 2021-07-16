@@ -35,6 +35,8 @@
     "test": "yarn run lint && yarn tsc && ./run-tests.sh",
     "test-bail": "yarn run lint && yarn tsc && npx truffle test --network development --bail",
     "tsc": "tsc --noEmit",
+    "postpack": "./scripts/postpack",
+    "prepare": "./scripts/prepare",
     "build": "./scripts/build",
     "relay": "./scripts/startRelayServer",
     "registerRelay": "./scripts/registerRelayServer",
