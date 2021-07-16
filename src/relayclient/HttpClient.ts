@@ -41,6 +41,8 @@ export default class HttpClient {
     if (signedReceipt == null) {
       throw new Error('body.signedReceipt field missing.')
     }
+    log.info('commitment response 1')
+    log.info({ signedTx, signedReceipt, transactionHash })
     return { signedTx, signedReceipt, transactionHash }
   }
 }
