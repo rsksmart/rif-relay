@@ -6,7 +6,7 @@ export interface CommitmentResponse {
   signedTx: PrefixedHexString
   signedReceipt?: CommitmentReceipt
   transactionHash: PrefixedHexString
-} 
+}
 
 export interface CommitmentReceipt {
   commitment: Commitment
