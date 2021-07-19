@@ -34,14 +34,14 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn
+          command: yarn install --ignore-scripts
       - save_cache: # special step to save the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
           paths:
             - ./node_modules
       - run:
           name: Generate
-          command: yarn generate
+          command: yarn prepare
   prepare_wo_rskj:
     description: "Prepare enveloping and rskj apps"
     steps:
@@ -50,7 +50,7 @@ commands:
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
           name: yarn-install
-          command: yarn
+          command: yarn install --ignore-scripts
   pre-checks:
     description: "Execute lint and tsc"
     steps:
