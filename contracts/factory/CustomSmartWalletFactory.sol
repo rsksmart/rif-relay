@@ -188,7 +188,6 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
                 tx.origin,
                 req.tokenAmount,
                 req.tokenGas,
-                req.enableQos,
                 req.data
             )
         );

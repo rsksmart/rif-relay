@@ -161,8 +161,7 @@ contract SmartWalletFactory is ISmartWalletFactory {
             req.tokenContract,
             tx.origin,
             req.tokenAmount,
-            req.tokenGas,
-            req.enableQos
+            req.tokenGas
         ));
     }
 
