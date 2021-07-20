@@ -134,18 +134,19 @@ contract Penalizer is IPenalizer, Ownable {
                 commitmentReceipt.commitment.enableQos
             )
         );
-        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
+        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "worker signature mismatch");
         
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
         require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
-        require(msg.sender == commitmentReceipt.commitment.from, "sender does not match");
+        require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
 
         // skip qos check for now
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
-        require(fulfilledTransactions[txId] == false, "tx was fulfilled");
+        require(fulfilledTransactions[txId] == false, "can't penalize fulfilled tx");
+        require(penalizedTransactions[txId] == false, "tx already penalized");
             
         penalizedTransactions[txId] = true;
         (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address, address)", workerAddress, msg.sender));
