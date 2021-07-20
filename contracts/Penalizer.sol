@@ -148,8 +148,9 @@ contract Penalizer is IPenalizer, Ownable {
         //require(fulfilledTransactions[txId] == false, "tx was fulfilled");
             
         penalizedTransactions[txId] = true;
-        (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address, address)", workerAddress, msg.sender));
-        require(success, "Relay Hub penalize call failed");
+        
+        IRelayHub relayHub = IRelayHub(hub);
+        relayHub.penalize(commitmentReceipt.workerAddress, msg.sender);
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
