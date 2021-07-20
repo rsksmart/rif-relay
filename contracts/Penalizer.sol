@@ -145,7 +145,7 @@ contract Penalizer is IPenalizer, Ownable {
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
-        require(fulfilledTransactions[txId] == false, "tx was fulfilled");
+        //require(fulfilledTransactions[txId] == false, "tx was fulfilled");
             
         penalizedTransactions[txId] = true;
         (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address, address)", workerAddress, msg.sender));
