@@ -139,13 +139,14 @@ contract Penalizer is IPenalizer, Ownable {
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
         require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
-        require(msg.sender == commitmentReceipt.commitment.from, "sender does not match");
+        require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
 
         // skip qos check for now
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
         //require(fulfilledTransactions[txId] == false, "tx was fulfilled");
+        require(penalizedTransactions[txId] == false, "tx already penalized");
             
         penalizedTransactions[txId] = true;
         
