@@ -33,3 +33,4 @@ rsknode/src/
 .vscode/
 dockers/
 tsconfig.
+yarn.lock

@@ -6,6 +6,7 @@
     "target": "es2017",
     "module": "commonjs",
     "strict": true,
+    "strictNullChecks": false,
     "moduleResolution": "node",
     "noImplicitThis": true,
     "alwaysStrict": true,
