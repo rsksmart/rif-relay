@@ -58,7 +58,7 @@ export class Commitment {
     ]
   }
 
-  encodeForSign (relayHubAddress: Address): PrefixedHexString {
-    return ethers.utils.defaultAbiCoder.encode([Commitment.TypeEncoding, 'address'], [this.orderForEnc(), relayHubAddress])
+  encodeForSign (): PrefixedHexString {
+    return ethers.utils.defaultAbiCoder.encode([Commitment.TypeEncoding], [this.orderForEnc()])
   }
 }
