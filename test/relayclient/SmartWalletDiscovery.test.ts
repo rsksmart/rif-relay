@@ -10,11 +10,10 @@ import {
   CustomSmartWalletInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 
-import { DiscoveryConfig, SmartWalletDiscovery } from '../../src/relayclient/SmartWalletDiscovery'
+import { DiscoveryConfig, SmartWalletDiscovery } from '@rsksmart/rif-relay-client'
 
 import { toChecksumAddress } from 'web3-utils'
 import { constants } from '@rsksmart/rif-relay-common'
-import { Address } from '../../src/relayclient/types/Aliases'
 import { WebsocketProvider } from 'web3-core'
 
 const CustomSmartWallet = artifacts.require('CustomSmartWallet')
@@ -49,12 +48,12 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
         swd = new SmartWalletDiscovery(socketProvider)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
 
         const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_0`)
         const firstAccountRoot = rootKey.derivePath("m/44'/37310'/0'/0")
@@ -108,11 +107,11 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery 1`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -166,11 +165,11 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery 2`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_2`)
@@ -225,11 +224,11 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery 3`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
 
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
@@ -309,11 +308,11 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery 4`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -391,13 +390,13 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery From External Keys`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       before(async function () {
         await init(params.isCustom)
         swd = new SmartWalletDiscovery(socketProvider)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
 
         const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_0`)
 
@@ -456,12 +455,12 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery From External Keys 1`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -519,11 +518,11 @@ contract('SmartWalletDiscovery', function (accounts) {
     describe(`${params.title} - #smartWalletDiscovery From External Keys 2`, function () {
       let swd: SmartWalletDiscovery
       const usedPublicKeys: string[] = []
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Ext_2`)
@@ -580,11 +579,11 @@ contract('SmartWalletDiscovery', function (accounts) {
     describe(`${params.title} - #smartWalletDiscovery From External Keys 3`, function () {
       let swd: SmartWalletDiscovery
       const usedPublicKeys: string[] = []
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
 
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
@@ -665,12 +664,12 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery From External Keys 4`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -749,7 +748,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery from Template method `, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
@@ -758,7 +757,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider)
 
         const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_0`)
@@ -814,7 +813,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery from Template method 1`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
@@ -823,7 +822,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -881,7 +880,7 @@ contract('SmartWalletDiscovery', function (accounts) {
     describe(`${params.title} - #smartWalletDiscovery from Template method 2`, function () {
       let swd: SmartWalletDiscovery
       const usedPublicKeys: string[] = []
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
         return usedPublicKeys[accountIdx]
@@ -889,7 +888,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_2`)
@@ -946,7 +945,7 @@ contract('SmartWalletDiscovery', function (accounts) {
     describe(`${params.title} - #smartWalletDiscovery from Template method 3`, function () {
       let swd: SmartWalletDiscovery
       const usedPublicKeys: string[] = []
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
 
       async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
         return usedPublicKeys[accountIdx]
@@ -954,7 +953,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
         // new rootkey
         const rootKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, `${params.title}_Template_3`)
@@ -1034,7 +1033,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     describe(`${params.title} - #smartWalletDiscovery from Template method 4`, function () {
       let swd: SmartWalletDiscovery
-      let discoverableAccounts: Set<Address>
+      let discoverableAccounts: Set<string>
       const usedPublicKeys: string[] = []
 
       async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
@@ -1043,7 +1042,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
       before(async function () {
         await init(params.isCustom)
-        discoverableAccounts = new Set<Address>()
+        discoverableAccounts = new Set<string>()
         swd = new SmartWalletDiscovery(socketProvider, [token.address])
 
         // new rootkey
@@ -1121,7 +1120,7 @@ contract('SmartWalletDiscovery', function (accounts) {
     })
   }
 
-  function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+  function calculateSmartWalletAddress (factory: string, ownerEOA: string, recoverer: string, walletIndex: number, bytecodeHash: string): string {
     const salt: string = web3.utils.soliditySha3(
       { t: 'address', v: ownerEOA },
       { t: 'address', v: recoverer },
@@ -1161,7 +1160,7 @@ contract('SmartWalletDiscovery', function (accounts) {
     assert.isFalse(socketProvider.connected, 'Socket connection did not end')
   }
 
-  function calculateCustomSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, customLogic: Address, walletIndex: number, bytecodeHash: string, logicInitParamsHash?: string): Address {
+  function calculateCustomSmartWalletAddress (factory: string, ownerEOA: string, recoverer: string, customLogic: string, walletIndex: number, bytecodeHash: string, logicInitParamsHash?: string): string {
     const salt: string = web3.utils.soliditySha3(
       { t: 'address', v: ownerEOA },
       { t: 'address', v: recoverer },

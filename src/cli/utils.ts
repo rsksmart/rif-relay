@@ -1,7 +1,6 @@
 // TODO: allow reading network URLs from 'truffle-config.js'
 import commander, { CommanderStatic } from 'commander'
 import fs from 'fs'
-import { Address } from '../relayclient/types/Aliases'
 import path from 'path'
 import { DeploymentResult } from './CommandsLogic'
 import { RelayHubConfiguration } from '@rsksmart/rif-relay-common'
@@ -81,7 +80,7 @@ function getAddressFromFile (path: string, defaultAddress?: string): string | un
   return defaultAddress
 }
 
-function saveContractToFile (address: Address, workdir: string, filename: string): void {
+function saveContractToFile (address: string, workdir: string, filename: string): void {
   fs.mkdirSync(workdir, { recursive: true })
   fs.writeFileSync(path.join(workdir, filename), `{ "address": "${address}" }`)
 }
@@ -120,7 +119,7 @@ export function showDeployment (deploymentResult: DeploymentResult, title: strin
 
 export function loadDeployment (workdir: string): DeploymentResult {
   function getAddress (name: string): string {
-    return getAddressFromFile(path.join(workdir, name + '.json')) as string
+    return getAddressFromFile(path.join(workdir, name + '.json'))
   }
 
   return {

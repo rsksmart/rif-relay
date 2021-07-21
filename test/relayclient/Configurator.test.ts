@@ -3,7 +3,7 @@
 import { TestEnvironment } from '../../src/relayclient/TestEnvironment'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
-import { resolveConfiguration } from '../../src/relayclient/Configurator'
+import { resolveConfiguration } from '@rsksmart/rif-relay-client'
 import { HttpProvider } from 'web3-core'
 
 const { assert, expect } = chai.use(chaiAsPromised)

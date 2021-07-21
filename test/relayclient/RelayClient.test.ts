@@ -32,21 +32,24 @@ import {
   getDomainSeparatorHash,
   TypedDeployRequestData
 } from '@rsksmart/rif-relay-common'
-import { _dumpRelayingResult, RelayClient } from '../../src/relayclient/RelayClient'
-import { Address } from '../../src/relayclient/types/Aliases'
+import {
+  _dumpRelayingResult,
+  RelayClient,
+  configure,
+  getDependencies,
+  RelayInfo,
+  RelayEvent,
+  HttpClient,
+  HttpWrapper,
+  AccountKeypair
+} from '@rsksmart/rif-relay-client'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { configure, getDependencies } from '../../src/relayclient/Configurator'
 import BadHttpClient from '../dummies/BadHttpClient'
 import BadContractInteractor from '../dummies/BadContractInteractor'
 import BadRelayedTransactionValidator from '../dummies/BadRelayedTransactionValidator'
 import { stripHex, deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, snapshot, revert } from '../TestUtils'
-import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
-import { RelayEvent } from '../../src/relayclient/RelayEvents'
 import bodyParser from 'body-parser'
 import { Server } from 'http'
-import HttpClient from '../../src/relayclient/HttpClient'
-import HttpWrapper from '../../src/relayclient/HttpWrapper'
-import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { toBN, toHex } from 'web3-utils'
 import { ether } from '@openzeppelin/test-helpers'
 
@@ -106,8 +109,8 @@ gasOptions.forEach(gasOption => {
     let relayClient: RelayClient
     let config: Partial<EnvelopingConfig>
     let options: EnvelopingTransactionDetails
-    let to: Address
-    let from: Address
+    let to: string
+    let from: string
     let data: PrefixedHexString
     let relayEvents: RelayEvent[] = []
     let factory: SmartWalletFactoryInstance
@@ -115,7 +118,7 @@ gasOptions.forEach(gasOption => {
     let smartWallet: SmartWalletInstance
     let token: TestTokenInstance
     let gaslessAccount: AccountKeypair
-    let relayWorker: Address
+    let relayWorker: string
 
     async function registerRelayer (relayHub: RelayHubInstance): Promise<void> {
       const relayWorker = '0x'.padEnd(42, '2')
@@ -279,11 +282,11 @@ gasOptions.forEach(gasOption => {
         const { transaction, pingErrors, relayingErrors } = await relayClient.relayTransaction(optionsForceGas)
         assert.equal(pingErrors.size, 0, 'Ping Errors list is not empty')
         assert.equal(relayingErrors.size, 0, 'Relaying Errors list is not empy')
-        assert.equal(parseInt(transaction!.gasPrice.toString('hex'), 16), parseInt(forceGasPrice))
+        assert.equal(parseInt(transaction.gasPrice.toString('hex'), 16), parseInt(forceGasPrice))
       })
 
       it('should return errors encountered in ping', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), true, false, false)
+        const badHttpClient: any = new BadHttpClient(configure(config), true, false, false)
         const relayClient =
           new RelayClient(underlyingProvider, config, { httpClient: badHttpClient })
         const { transaction, relayingErrors, pingErrors } = await relayClient.relayTransaction(options)
@@ -294,7 +297,7 @@ gasOptions.forEach(gasOption => {
       })
 
       it('should return errors encountered in relaying', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), false, true, false)
+        const badHttpClient: any = new BadHttpClient(configure(config), false, true, false)
         const relayClient =
           new RelayClient(underlyingProvider, config, { httpClient: badHttpClient })
 
@@ -863,11 +866,11 @@ gasOptions.forEach(gasOption => {
         relayClient.accountManager.addAccount(gaslessAccount)
         const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
         assert.isUndefined(transaction)
-        assert.equal(error!.message, `local view call reverted: ${BadContractInteractor.message}`)
+        assert.equal(error.message, `local view call reverted: ${BadContractInteractor.message}`)
       })
 
       it('should report relays that timeout to the Known Relays Manager', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), false, false, true)
+        const badHttpClient: any = new BadHttpClient(configure(config), false, false, true)
         const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
         const relayClient =
           new RelayClient(underlyingProvider, config, dependencyTree)
@@ -888,7 +891,7 @@ gasOptions.forEach(gasOption => {
       })
 
       it('should not report relays if error is not timeout', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), false, true, false)
+        const badHttpClient: any = new BadHttpClient(configure(config), false, true, false)
         const dependencyTree = getDependencies(configure(config), underlyingProvider, { httpClient: badHttpClient })
         dependencyTree.httpClient = badHttpClient
         const relayClient =
@@ -905,9 +908,9 @@ gasOptions.forEach(gasOption => {
       })
 
       it('should return error if transaction returned by a relay does not pass validation', async function () {
-        const badHttpClient = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123')
+        const badHttpClient: any = new BadHttpClient(configure(config), false, false, false, pingResponse, '0x123')
         let dependencyTree = getDependencies(configure(config), underlyingProvider)
-        const badTransactionValidator = new BadRelayedTransactionValidator(true, dependencyTree.contractInteractor, configure(config))
+        const badTransactionValidator: any = new BadRelayedTransactionValidator(true, dependencyTree.contractInteractor, configure(config))
         dependencyTree = getDependencies(configure(config), underlyingProvider, {
           httpClient: badHttpClient,
           transactionValidator: badTransactionValidator
@@ -924,7 +927,7 @@ gasOptions.forEach(gasOption => {
         sinon.spy(dependencyTree.knownRelaysManager)
         const { transaction, error } = await relayClient._attemptRelay(relayInfo, optionsWithGas)
         assert.isUndefined(transaction)
-        assert.equal(error!.message, 'Returned transaction did not pass validation')
+        assert.equal(error.message, 'Returned transaction did not pass validation')
         expect(dependencyTree.knownRelaysManager.saveRelayFailure).to.have.been.calledWith(sinon.match.any, relayManager, relayUrl)
       })
     })
@@ -956,7 +959,7 @@ gasOptions.forEach(gasOption => {
       it('should succeed to relay, but report ping error', async () => {
         const relayingResult = await relayClient.relayTransaction(options)
         assert.isNotNull(relayingResult.transaction)
-        assert.match(relayingResult.pingErrors.get(cheapRelayerUrl)?.message as string, /ECONNREFUSED/,
+        assert.match(relayingResult.pingErrors.get(cheapRelayerUrl)?.message, /ECONNREFUSED/,
           `relayResult: ${_dumpRelayingResult(relayingResult)}`)
       })
 

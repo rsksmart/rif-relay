@@ -15,7 +15,7 @@ import { expectEvent } from '@openzeppelin/test-helpers'
 import { SmartWalletInstance, TestRecipientInstance, TestUtilInstance, SmartWalletFactoryInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { encodeRevertReason, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair } from '@rsksmart/rif-relay-client'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const { assert } = chai.use(chaiAsPromised)

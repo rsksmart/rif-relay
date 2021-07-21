@@ -1,7 +1,12 @@
 import { ether } from '@openzeppelin/test-helpers'
 import { HttpProvider } from 'web3-core'
-import { KnownRelaysManager, DefaultRelayScore } from '../../src/relayclient/KnownRelaysManager'
-import { configure } from '../../src/relayclient/Configurator'
+import {
+  KnownRelaysManager,
+  DefaultRelayScore,
+  configure,
+  RelayRegisteredEventInfo,
+  AccountKeypair
+} from '@rsksmart/rif-relay-client'
 import {
   RelayHubInstance,
   TestVerifierConfigurableMisbehaviorInstance,
@@ -13,7 +18,6 @@ import {
 import { deployHub, evmMineMany, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction } from '../TestUtils'
 import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
-import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import {
   Environment,
   constants,
@@ -21,7 +25,6 @@ import {
   ContractInteractor,
   EnvelopingConfig
 } from '@rsksmart/rif-relay-common'
-import { AccountKeypair } from '../../src/relayclient/AccountManager'
 
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
 const TestRecipient = artifacts.require('TestRecipient')

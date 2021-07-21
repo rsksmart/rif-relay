@@ -1,4 +1,8 @@
-import AccountManager, { AccountKeypair } from '../../src/relayclient/AccountManager'
+import {
+  AccountManager,
+  AccountKeypair,
+  configure
+} from '@rsksmart/rif-relay-client'
 import {
   defaultEnvironment,
   RelayRequest,
@@ -11,7 +15,6 @@ import sinon from 'sinon'
 import sigUtil from 'eth-sig-util'
 import chai from 'chai'
 import sinonChai from 'sinon-chai'
-import { configure } from '../../src/relayclient/Configurator'
 import chaiAsPromised from 'chai-as-promised'
 import { getGaslessAccount } from '../TestUtils'
 

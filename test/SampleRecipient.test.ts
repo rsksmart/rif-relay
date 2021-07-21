@@ -4,7 +4,7 @@ import {
   SmartWalletFactoryInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { createSmartWalletFactory, createSmartWallet, getTestingEnvironment, getGaslessAccount } from './TestUtils'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair } from '@rsksmart/rif-relay-client'
 
 const TestRecipient = artifacts.require('TestRecipient')
 const SmartWallet = artifacts.require('SmartWallet')

@@ -6,7 +6,7 @@ import {
   constants,
   ServerConfigParams
 } from '@rsksmart/rif-relay-common'
-import { configure } from '../relayclient/Configurator'
+import { configure } from '@rsksmart/rif-relay-client'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager } from './TxStoreManager'
 

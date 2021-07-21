@@ -1,6 +1,6 @@
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { evmMine, evmMineMany, getTestingEnvironment } from '../TestUtils'
-import { configure } from '../../src/relayclient/Configurator'
+import { configure } from '@rsksmart/rif-relay-client'
 import { HttpProvider } from 'web3-core'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 import {

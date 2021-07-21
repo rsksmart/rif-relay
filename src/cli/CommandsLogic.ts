@@ -22,14 +22,12 @@ import {
   VersionRegistry
 } from '@rsksmart/rif-relay-contracts'
 
-import { Address } from '../relayclient/types/Aliases'
 import { ContractInteractor, EnvelopingConfig, isSameAddress, sleep, RelayHubConfiguration, string32, constants } from '@rsksmart/rif-relay-common'
-import HttpClient from '../relayclient/HttpClient'
-import HttpWrapper from '../relayclient/HttpWrapper'
+import { HttpClient, HttpWrapper } from '@rsksmart/rif-relay-client'
 import { ether } from '@openzeppelin/test-helpers'
 
 interface RegisterOptions {
-  from: Address
+  from: string
   gasPrice: string | BN
   stake: string | BN
   funds: string | BN
@@ -38,7 +36,7 @@ interface RegisterOptions {
 }
 
 interface DeployOptions {
-  from: Address
+  from: string
   gasPrice: string
   deployVerifierAddress?: string
   relayVerifierAddress?: string
@@ -58,17 +56,17 @@ interface DeployOptions {
 }
 
 export interface DeploymentResult {
-  relayHubAddress: Address
-  penalizerAddress: Address
-  smartWalletTemplateAddress: Address
-  smartWalletFactoryAddress: Address
-  versionRegistryAddress: Address
-  relayVerifierAddress: Address
-  deployVerifierAddress: Address
-  customSmartWalletTemplateAddress: Address
-  customSmartWalletFactoryAddress: Address
-  customSmartWalletDeployVerifierAddress: Address
-  customSmartWalletRelayVerifierAddress: Address
+  relayHubAddress: string
+  penalizerAddress: string
+  smartWalletTemplateAddress: string
+  smartWalletFactoryAddress: string
+  versionRegistryAddress: string
+  relayVerifierAddress: string
+  deployVerifierAddress: string
+  customSmartWalletTemplateAddress: string
+  customSmartWalletFactoryAddress: string
+  customSmartWalletDeployVerifierAddress: string
+  customSmartWalletRelayVerifierAddress: string
 }
 
 interface RegistrationResult {
@@ -323,7 +321,7 @@ export default class CommandsLogic {
     }
   }
 
-  private async getContract (json: any, constructorArgs: any, address: Address | undefined, options: Required<SendOptions>, skipConfirmation: boolean = false): Promise<Contract> {
+  private async getContract (json: any, constructorArgs: any, address: string | undefined, options: Required<SendOptions>, skipConfirmation: boolean = false): Promise<Contract> {
     const contractName: string = json.contractName
     let contract
     if (address == null) {

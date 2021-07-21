@@ -1,10 +1,6 @@
 import Web3 from 'web3'
-
 import { ContractInteractor } from '@rsksmart/rif-relay-common'
-import { configure } from '../../relayclient/Configurator'
-import HttpClient from '../../relayclient/HttpClient'
-import HttpWrapper from '../../relayclient/HttpWrapper'
-
+import { configure, HttpClient, HttpWrapper } from '@rsksmart/rif-relay-client'
 import { getNetworkUrl, getRelayHubAddress, envelopingCommander } from '../utils'
 import StatusLogic from '../StatusLogic'
 

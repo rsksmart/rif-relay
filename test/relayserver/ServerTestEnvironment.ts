@@ -5,7 +5,6 @@ import crypto from 'crypto'
 import { HttpProvider } from 'web3-core'
 import { toHex, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
-import { Address } from '../../src/relayclient/types/Aliases'
 import {
   IRelayVerifier,
   IDeployVerifier,
@@ -26,12 +25,9 @@ import {
 } from './ServerTestUtils'
 import { KeyManager } from '../../src/relayserver/KeyManager'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { RelayClient } from '../../src/relayclient/RelayClient'
-import { RelayInfo } from '../../src/relayclient/types/RelayInfo'
-import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
-import { configure } from '../../src/relayclient/Configurator'
+import { configure, RelayClient, RelayInfo, RelayRegisteredEventInfo } from '@rsksmart/rif-relay-client'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import {
   RelayHubConfiguration,
@@ -77,8 +73,8 @@ export class ServerTestEnvironment {
 
   recipient!: TestRecipientInstance
 
-  relayOwner!: Address
-  gasLess!: Address
+  relayOwner!: string
+  gasLess!: string
 
   encodedFunction!: PrefixedHexString
 
@@ -96,7 +92,7 @@ export class ServerTestEnvironment {
   web3: Web3
   relayServer!: RelayServer
 
-  constructor (provider: HttpProvider, accounts: Address[]) {
+  constructor (provider: HttpProvider, accounts: string[]) {
     this.provider = provider
     this.web3 = new Web3(this.provider)
     this.relayOwner = accounts[4]

@@ -4,7 +4,6 @@ import chalk from 'chalk'
 import log from 'loglevel'
 import { Mutex } from 'async-mutex'
 import { PrefixedHexString, Transaction, TransactionOptions } from 'ethereumjs-tx'
-import { Address, IntString } from '../relayclient/types/Aliases'
 import {
   ContractInteractor,
   ServerConfigParams
@@ -25,13 +24,13 @@ export interface SignedTransactionDetails {
 }
 
 export interface SendTransactionDetails {
-  signer: Address
+  signer: string
   serverAction: ServerAction
   method?: any
-  destination: Address
-  value?: IntString
+  destination: string
+  value?: string
   gasLimit: number
-  gasPrice?: IntString
+  gasPrice?: string
   creationBlockNumber: number
 }
 
@@ -40,7 +39,7 @@ export class TransactionManager {
   managerKeyManager: KeyManager
   workersKeyManager: KeyManager
   contractInteractor: ContractInteractor
-  nonces: Record<Address, number> = {}
+  nonces: Record<string, number> = {}
   txStoreManager: TxStoreManager
   config: ServerConfigParams
 
@@ -77,7 +76,7 @@ created at   | block #${creationBlockNumber}
 `)
   }
 
-  printSendTransactionLog (transaction: Transaction, from: Address): void {
+  printSendTransactionLog (transaction: Transaction, from: string): void {
     const valueString = transaction.value.length === 0 ? '0' : parseInt('0x' + transaction.value.toString('hex')).toString()
     const nonceString = transaction.nonce.length === 0 ? '0' : parseInt('0x' + transaction.nonce.toString('hex'))
     const gasPriceString = parseInt('0x' + transaction.gasPrice.toString('hex'))
@@ -96,7 +95,7 @@ data         | 0x${transaction.data.toString('hex')}
 `)
   }
 
-  async attemptEstimateGas (methodName: string, method: any, from: Address): Promise<number> {
+  async attemptEstimateGas (methodName: string, method: any, from: string): Promise<number> {
     try {
       const estimateGas = await method.estimateGas({ from })
       return Math.round(parseInt(estimateGas) * this.config.estimateGasFactor)
@@ -209,7 +208,7 @@ data         | 0x${transaction.data.toString('hex')}
     return { newGasPrice, isMaxGasPriceReached }
   }
 
-  async pollNonce (signer: Address): Promise<number> {
+  async pollNonce (signer: string): Promise<number> {
     const nonce = await this.contractInteractor.getTransactionCount(signer, 'pending')
     if (nonce > this.nonces[signer]) {
       log.warn('NONCE FIX for signer=', signer, ': nonce=', nonce, this.nonces[signer])

@@ -7,8 +7,6 @@ import Web3 from 'web3'
 import { toBN, toChecksumAddress } from 'web3-utils'
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
-import { RelayProvider } from '../../src/relayclient/RelayProvider'
-import { configure } from '../../src/relayclient/Configurator'
 import {
   IWalletFactory
 } from '@rsksmart/rif-relay-contracts'
@@ -31,7 +29,7 @@ import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWal
 import BadRelayClient from '../dummies/BadRelayClient'
 // @ts-ignore
 import { constants } from '../../src/common/Constants'
-import { AccountKeypair } from '../../src/relayclient/AccountManager'
+import { AccountKeypair, RelayProvider, configure } from '@rsksmart/rif-relay-client'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
 
@@ -652,7 +650,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should call callback with error if relayTransaction throws', async function () {
-      const badRelayClient = new BadRelayClient(true, false, underlyingProvider, config)
+      const badRelayClient: any = new BadRelayClient(true, false, underlyingProvider, config)
       const relayProvider = new RelayProvider(underlyingProvider, config, {}, badRelayClient)
       const promisified = new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null): void => {
         reject(error)
@@ -661,7 +659,7 @@ contract('RelayProvider', function (accounts) {
     })
 
     it('should call callback with error containing relaying results dump if relayTransaction does not return a transaction object', async function () {
-      const badRelayClient = new BadRelayClient(false, true, underlyingProvider, config)
+      const badRelayClient: any = new BadRelayClient(false, true, underlyingProvider, config)
       const relayProvider = new RelayProvider(underlyingProvider, config, {}, badRelayClient)
       const promisified = new Promise((resolve, reject) => relayProvider._ethSendTransaction(jsonRpcPayload, (error: Error | null): void => {
         reject(error)

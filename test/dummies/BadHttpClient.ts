@@ -1,6 +1,8 @@
 import { PrefixedHexString } from 'ethereumjs-tx'
-import HttpClient from '../../src/relayclient/HttpClient'
-import HttpWrapper from '../../src/relayclient/HttpWrapper'
+import {
+  HttpClient,
+  HttpWrapper
+} from '@rsksmart/rif-relay-client'
 import {
   PingResponse,
   EnvelopingConfig,

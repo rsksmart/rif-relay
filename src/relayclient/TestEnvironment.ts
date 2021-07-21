@@ -2,13 +2,14 @@ import net from 'net'
 import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic, { DeploymentResult } from '../cli/CommandsLogic'
 import { KeyManager } from '../relayserver/KeyManager'
-import { configure } from './Configurator'
+import {
+  configure,
+  RelayProvider
+} from '@rsksmart/rif-relay-client'
 import { getNetworkUrl, supportedNetworks } from '../cli/utils'
 import { TxStoreManager } from '../relayserver/TxStoreManager'
 import { RelayServer } from '../relayserver/RelayServer'
 import { HttpServer } from '../relayserver/HttpServer'
-import { Address } from './types/Aliases'
-import { RelayProvider } from './RelayProvider'
 import Web3 from 'web3'
 import {
   ContractInteractor,
@@ -126,7 +127,7 @@ class TestEnvironmentClass {
   async _runServer (
     host: string,
     deploymentResult: DeploymentResult,
-    from: Address,
+    from: string,
     relayUrl: string,
     port: number,
     workerTargetBalance: number,

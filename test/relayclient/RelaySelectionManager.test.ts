@@ -1,12 +1,17 @@
 import chaiAsPromised from 'chai-as-promised'
 import sinon, { SinonStub } from 'sinon'
 import { HttpProvider } from 'web3-core'
-import { GasPricePingFilter } from '../../src/relayclient/RelayClient'
-import RelaySelectionManager from '../../src/relayclient/RelaySelectionManager'
-import { configure, getDependencies, EnvelopingDependencies } from '../../src/relayclient/Configurator'
-import { PingFilter } from '../../src/relayclient/types/Aliases'
-import { RelayInfoUrl, RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
-import { PartialRelayInfo } from '../../src/relayclient/types/RelayInfo'
+import {
+  GasPricePingFilter,
+  RelaySelectionManager,
+  configure,
+  getDependencies,
+  EnvelopingDependencies,
+  RelayInfoUrl,
+  RelayRegisteredEventInfo,
+  PartialRelayInfo,
+  PingFilter
+} from '@rsksmart/rif-relay-client'
 import { register, stake } from './KnownRelaysManager.test'
 import {
   PingResponse,
@@ -87,7 +92,7 @@ contract('RelaySelectionManager', async function (accounts) {
           errors
         }))
       const nextRelay = await relaySelectionManager.selectNextRelay()
-      assert.equal(nextRelay!, winner)
+      assert.equal(nextRelay, winner)
     })
 
     describe('with preferred relay URL', function () {
@@ -142,8 +147,8 @@ contract('RelaySelectionManager', async function (accounts) {
         }))
         stubGetRelaysSorted.returns(Promise.resolve([[urlInfo]]))
         const nextRelay = await relaySelectionManager.selectNextRelay()
-        assert.equal(nextRelay!.relayInfo.relayUrl, preferredRelayUrl)
-        assert.equal(nextRelay!.relayInfo.relayManager, relayManager)
+        assert.equal(nextRelay.relayInfo.relayUrl, preferredRelayUrl)
+        assert.equal(nextRelay.relayInfo.relayManager, relayManager)
       })
     })
 

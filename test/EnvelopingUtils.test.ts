@@ -1,9 +1,5 @@
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { BN, toBuffer } from 'ethereumjs-util'
-import { configure } from '../src/relayclient/Configurator'
-import { Enveloping, SignatureProvider } from '../src/relayclient/Enveloping'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { Address, IntString } from '../src/relayclient/types/Aliases'
 import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { createSmartWalletFactory, deployHub, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
 import {
@@ -21,7 +17,14 @@ import Web3 from 'web3'
 // @ts-ignore
 import abiDecoder from 'abi-decoder'
 import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
-import { DiscoveryConfig, SmartWalletDiscovery } from '../src/relayclient/SmartWalletDiscovery'
+import {
+  DiscoveryConfig,
+  SmartWalletDiscovery,
+  configure,
+  Enveloping,
+  SignatureProvider,
+  AccountKeypair
+} from '@rsksmart/rif-relay-client'
 import { WebsocketProvider } from 'web3-core'
 
 contract('Enveloping utils', function (accounts) {
@@ -49,12 +52,12 @@ contract('Enveloping utils', function (accounts) {
     let sWalletTemplate: SmartWalletInstance
     let testRecipient: TestRecipientInstance
     let chainId: number
-    let workerAddress: Address
+    let workerAddress: string
     let config: EnvelopingConfig
     let fundedAccount: AccountKeypair
     let gaslessAccount: AccountKeypair
     let relayproc: ChildProcessWithoutNullStreams
-    let swAddress: Address
+    let swAddress: string
     let index: string
 
     const signatureProvider: SignatureProvider = {
@@ -73,7 +76,7 @@ contract('Enveloping utils', function (accounts) {
       }
     }
 
-    const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
+    const deploySmartWallet = async function deploySmartWallet (tokenContract: string, tokenAmount: string, tokenGas: string): Promise<string|undefined> {
       const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, tokenContract, tokenAmount, tokenGas, '1000000000', index)
       const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
       const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
@@ -81,14 +84,14 @@ contract('Enveloping utils', function (accounts) {
       return sentDeployTransaction.transaction?.hash(true).toString('hex')
     }
 
-    const assertSmartWalletDeployedCorrectly = async function assertSmartWalletDeployedCorrectly (swAddress: Address): Promise<void> {
+    const assertSmartWalletDeployedCorrectly = async function assertSmartWalletDeployedCorrectly (swAddress: string): Promise<void> {
       const deployedCode = await web3.eth.getCode(swAddress)
       let expectedCode = await factory.getCreationBytecode()
       expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
       assert.equal(deployedCode, expectedCode)
     }
 
-    const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
+    const relayTransaction = async function relayTransaction (tokenContract: string, tokenAmount: string, tokenGas: string): Promise<string|undefined> {
       const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
       const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, tokenContract, tokenAmount, tokenGas)
       const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
@@ -240,7 +243,7 @@ contract('Enveloping utils', function (accounts) {
     let byteCodeHash: string
     const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
     let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
+    const discoverableAccounts = new Set<string>()
     const usedPublicKeys: string[] = []
     let token: TestTokenInstance
     let factory: SmartWalletFactoryInstance
@@ -287,7 +290,7 @@ contract('Enveloping utils', function (accounts) {
       assert.isFalse(socketProvider.connected, 'Socket connection did not end')
     })
 
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+    function calculateSmartWalletAddress (factory: string, ownerEOA: string, recoverer: string, walletIndex: number, bytecodeHash: string): string {
       const salt: string = web3.utils.soliditySha3(
         { t: 'address', v: ownerEOA },
         { t: 'address', v: recoverer },
@@ -345,7 +348,7 @@ contract('Enveloping utils', function (accounts) {
     let byteCodeHash: string
     const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
     let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
+    const discoverableAccounts = new Set<string>()
     const usedPublicKeys: string[] = []
     let token: TestTokenInstance
     let factory: SmartWalletFactoryInstance
@@ -392,7 +395,7 @@ contract('Enveloping utils', function (accounts) {
       assert.isFalse(socketProvider.connected, 'Socket connection did not end')
     })
 
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+    function calculateSmartWalletAddress (factory: string, ownerEOA: string, recoverer: string, walletIndex: number, bytecodeHash: string): string {
       const salt: string = web3.utils.soliditySha3(
         { t: 'address', v: ownerEOA },
         { t: 'address', v: recoverer },
@@ -447,7 +450,7 @@ contract('Enveloping utils', function (accounts) {
     let byteCodeHash: string
     const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
     let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
+    const discoverableAccounts = new Set<string>()
     const usedPublicKeys: string[] = []
     let token: TestTokenInstance
     let factory: SmartWalletFactoryInstance
@@ -498,7 +501,7 @@ contract('Enveloping utils', function (accounts) {
       assert.isFalse(socketProvider.connected, 'Socket connection did not end')
     })
 
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
+    function calculateSmartWalletAddress (factory: string, ownerEOA: string, recoverer: string, walletIndex: number, bytecodeHash: string): string {
       const salt: string = web3.utils.soliditySha3(
         { t: 'address', v: ownerEOA },
         { t: 'address', v: recoverer },

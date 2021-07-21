@@ -1,5 +1,5 @@
 import CommandsLogic from '../CommandsLogic'
-import { configure } from '../../relayclient/Configurator'
+import { configure } from '@rsksmart/rif-relay-client'
 import DateFormatter from 'date-format'
 import {
   getMnemonic,

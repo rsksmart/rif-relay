@@ -2,7 +2,6 @@ import AsyncNedb from 'nedb-async'
 import log from 'loglevel'
 import ow from 'ow'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { Address } from '../relayclient/types/Aliases'
 import {
   isSameAddress
 } from '@rsksmart/rif-relay-common'
@@ -107,7 +106,7 @@ export class TxStoreManager {
     })
   }
 
-  async isActionPending (serverAction: ServerAction, destination: Address | undefined = undefined): Promise<boolean> {
+  async isActionPending (serverAction: ServerAction, destination: string | undefined = undefined): Promise<boolean> {
     const allTransactions = await this.getAll()
     return allTransactions.find(it => it.minedBlockNumber == null && it.serverAction === serverAction && (destination == null || isSameAddress(it.to, destination))) != null
   }

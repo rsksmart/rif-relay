@@ -1,4 +1,7 @@
-import { RelayClient } from '../../src/relayclient/RelayClient'
+import {
+  RelayClient,
+  configure
+} from '@rsksmart/rif-relay-client'
 import { HttpProvider } from 'web3-core'
 import {
   ProfilingProvider,
@@ -7,7 +10,6 @@ import {
   isRsk,
   Environment
 } from '@rsksmart/rif-relay-common'
-import { configure } from '../../src/relayclient/Configurator'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import Transaction from 'ethereumjs-tx/dist/transaction'
 import { getTestingEnvironment } from '../TestUtils'

@@ -3,14 +3,12 @@ import {
   RelayServerRegistered,
   PingResponse
 } from '@rsksmart/rif-relay-common'
-import HttpClient from '../relayclient/HttpClient'
-import { RelayRegisteredEventInfo } from '../relayclient/types/RelayRegisteredEventInfo'
-import { Address } from '../relayclient/types/Aliases'
+import { HttpClient, RelayRegisteredEventInfo } from '@rsksmart/rif-relay-client'
 
 interface StatusConfig {
   blockHistoryCount: number
   getAddressTimeout: number
-  relayHubAddress: Address
+  relayHubAddress: string
 }
 
 interface PingAttempt {
@@ -22,7 +20,7 @@ interface Statistics {
   totalStakesByRelays: string
   relayRegisteredEvents: RelayRegisteredEventInfo[]
   relayPings: Map<string, PingAttempt>
-  balances: Map<Address, string>
+  balances: Map<string, string>
 }
 
 export default class StatusLogic {

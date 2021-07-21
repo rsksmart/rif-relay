@@ -1,6 +1,5 @@
 import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 import * as ethUtils from 'ethereumjs-util'
-import { Address } from '../relayclient/types/Aliases'
 
 export enum ServerAction {
   REGISTER_SERVER,
@@ -12,7 +11,7 @@ export enum ServerAction {
 }
 
 export interface StoredTransactionMetadata {
-  readonly from: Address
+  readonly from: string
   readonly attempts: number
   readonly serverAction: ServerAction
   readonly creationBlockNumber: number
@@ -21,7 +20,7 @@ export interface StoredTransactionMetadata {
 }
 
 export interface StoredTransactionSerialized {
-  readonly to: Address
+  readonly to: string
   readonly gas: number
   readonly gasPrice: number
   readonly data: PrefixedHexString
@@ -32,7 +31,7 @@ export interface StoredTransactionSerialized {
 export interface NonceSigner {
   nonceSigner?: {
     nonce: number
-    signer: Address
+    signer: string
   }
 }
 

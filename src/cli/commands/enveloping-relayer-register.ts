@@ -1,6 +1,6 @@
 import { ether } from '@openzeppelin/test-helpers'
 import CommandsLogic from '../CommandsLogic'
-import { configure } from '../../relayclient/Configurator'
+import { configure } from '@rsksmart/rif-relay-client'
 import { getNetworkUrl, getRelayHubAddress, envelopingCommander, getMnemonic } from '../utils'
 
 const commander = envelopingCommander(['n', 'f', 'h', 'm', 'g'])

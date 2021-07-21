@@ -1,4 +1,4 @@
-import { RelayClient, RelayingResult } from '../../src/relayclient/RelayClient'
+import { RelayClient, RelayingResult } from '@rsksmart/rif-relay-client'
 import {
   EnvelopingTransactionDetails,
   EnvelopingConfig

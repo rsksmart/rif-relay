@@ -1,4 +1,6 @@
-import HttpWrapper from '../src/relayclient/HttpWrapper'
+import {
+  HttpWrapper
+} from '@rsksmart/rif-relay-client'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 

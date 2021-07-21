@@ -26,7 +26,7 @@ import {
 import { deployHub, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair } from '@rsksmart/rif-relay-client'
 import { toBN } from 'web3-utils'
 
 const { assert } = chai.use(chaiAsPromised)

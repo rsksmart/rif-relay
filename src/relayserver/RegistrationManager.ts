@@ -3,7 +3,6 @@ import { EventData, PastEventOptions } from 'web3-eth-contract'
 import { EventEmitter } from 'events'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { toBN, toHex } from 'web3-utils'
-import { Address } from '../relayclient/types/Aliases'
 import {
   AmountRequired,
   address2topic,
@@ -37,15 +36,15 @@ export class RegistrationManager {
   _isStakeLocked = false
 
   isInitialized = false
-  hubAddress: Address
+  hubAddress: string
 
-  managerAddress: Address
-  workerAddress: Address
+  managerAddress: string
+  workerAddress: string
 
   eventEmitter: EventEmitter
 
   contractInteractor: ContractInteractor
-  ownerAddress?: Address
+  ownerAddress?: string
   transactionManager: TransactionManager
   config: ServerConfigParams
   txStoreManager: TxStoreManager
@@ -74,8 +73,8 @@ export class RegistrationManager {
     eventEmitter: EventEmitter,
     config: ServerConfigParams,
     // exposed from key manager?
-    managerAddress: Address,
-    workerAddress: Address
+    managerAddress: string,
+    workerAddress: string
   ) {
     const listener = (): void => {
       this.printNotRegisteredMessage()
@@ -320,7 +319,7 @@ export class RegistrationManager {
       const details: SendTransactionDetails = {
         signer: this.managerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
-        destination: this.ownerAddress as string,
+        destination: this.ownerAddress,
         gasLimit,
         gasPrice,
         value: toHex(managerBalance.sub(txCost)),
@@ -346,7 +345,7 @@ export class RegistrationManager {
       const details = {
         signer: this.workerAddress,
         serverAction: ServerAction.VALUE_TRANSFER,
-        destination: this.ownerAddress as string,
+        destination: this.ownerAddress,
         gasLimit,
         gasPrice,
         value: toHex(workerBalance.sub(txCost)),

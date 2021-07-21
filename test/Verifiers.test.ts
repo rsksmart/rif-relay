@@ -18,7 +18,6 @@ import {
   getDomainSeparatorHash
 } from '@rsksmart/rif-relay-common'
 import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, bytes32 } from './TestUtils'
-import { Address } from '../src/relayclient/types/Aliases'
 
 const DeployVerifier = artifacts.require('DeployVerifier')
 const RelayVerifier = artifacts.require('RelayVerifier')
@@ -41,7 +40,7 @@ contract('DeployVerifier', function ([relayHub, other1, relayWorker, verifierOwn
   let factory: SmartWalletFactoryInstance
 
   let testVerifiers: TestDeployVerifierInstance
-  let expectedAddress: Address
+  let expectedAddress: string
 
   const ownerPrivateKey = toBuffer(bytes32(1))
   let ownerAddress: string

@@ -9,7 +9,7 @@ import {
   ContractInteractor,
   ServerConfigParams
 } from '@rsksmart/rif-relay-common'
-import { configure } from '../relayclient/Configurator'
+import { configure } from '@rsksmart/rif-relay-client'
 import { parseServerConfig, resolveServerConfig, ServerDependencies } from './ServerConfigParams'
 import log from 'loglevel'
 

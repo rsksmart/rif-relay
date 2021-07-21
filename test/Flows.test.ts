@@ -4,8 +4,6 @@
 // succeed in gasless)
 // the entire 'contract' test is doubled. all tests titles are prefixed by either "Direct:" or "Relay:"
 
-import { RelayProvider } from '../src/relayclient/RelayProvider'
-import { Address } from '../src/relayclient/types/Aliases'
 import {
   RelayHubInstance,
   TestVerifierEverythingAcceptedInstance,
@@ -20,7 +18,7 @@ import {
   EnvelopingConfig
 } from '@rsksmart/rif-relay-common'
 import { toBuffer } from 'ethereumjs-util'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair, RelayProvider, Address } from '@rsksmart/rif-relay-client'
 
 const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
@@ -156,7 +154,7 @@ options.forEach(params => {
       } else {
         // In RSK if the account doesn't have funds the error message received is 'the sender account doesn't exist'
         // eslint-disable-next-line @typescript-eslint/no-base-to-string,@typescript-eslint/restrict-template-expressions
-        assert.ok(ex!.toString().indexOf('insufficient funds') > 0, `Expected Error with 'insufficient funds'. got: ${ex?.toString()}`)
+        assert.ok(ex.toString().indexOf('insufficient funds') > 0, `Expected Error with 'insufficient funds'. got: ${ex?.toString()}`)
       }
     })
 

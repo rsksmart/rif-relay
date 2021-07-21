@@ -22,7 +22,7 @@ import {
   isRsk,
   Environment
 } from '@rsksmart/rif-relay-common'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair } from '@rsksmart/rif-relay-client'
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')

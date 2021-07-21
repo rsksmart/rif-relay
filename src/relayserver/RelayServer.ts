@@ -28,7 +28,6 @@ import {
   RelayTransactionRequest,
   RelayTransactionRequestShape
 } from '@rsksmart/rif-relay-common'
-import { Address } from '../relayclient/types/Aliases'
 import { replenishStrategy } from './ReplenishFunction'
 import { RegistrationManager } from './RegistrationManager'
 import { SendTransactionDetails, SignedTransactionDetails, TransactionManager } from './TransactionManager'
@@ -116,8 +115,8 @@ export class RelayServer extends EventEmitter {
     }
   }
 
-  async tokenHandler (verifier?: Address): Promise<TokenResponse> {
-    let verifiersToQuery: Address[]
+  async tokenHandler (verifier?: string): Promise<TokenResponse> {
+    let verifiersToQuery: string[]
 
     // if a verifier was supplied, check that it is trusted
     if (verifier !== undefined) {
@@ -127,7 +126,7 @@ export class RelayServer extends EventEmitter {
       verifiersToQuery = [verifier]
     } else {
       // if no verifier was supplied, query all tursted verifiers
-      verifiersToQuery = Array.from(this.trustedVerifiers) as Address[]
+      verifiersToQuery = Array.from(this.trustedVerifiers) as string[]
     }
 
     const res: TokenResponse = {}
@@ -142,7 +141,7 @@ export class RelayServer extends EventEmitter {
 
   async verifierHandler (): Promise<VerifierResponse> {
     return {
-      trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]
+      trustedVerifiers: Array.from(this.trustedVerifiers) as string[]
     }
   }
 
@@ -348,22 +347,25 @@ export class RelayServer extends EventEmitter {
       }, this.config.readyTimeout)
     }
 
-    return this.contractInteractor.getBlock('latest')
-      .then(
-        block => {
-          if (block.number > this.lastScannedBlock) {
-            return this._workerSemaphore.bind(this)(block.number)
-          }
+    return new Promise<void>((resolve, reject) => {
+      this.contractInteractor.getBlock('latest')
+        .then(
+          block => {
+            if (block.number > this.lastScannedBlock) {
+              resolve(this._workerSemaphore.bind(this)(block.number))
+            }
+          })
+        .catch((e) => {
+          this.emit('error', e)
+          const error = e as Error
+          log.error(`error in worker: ${error.message} ${error.stack}`)
+          this.lastSuccessfulRounds = 0
+          reject(error)
         })
-      .catch((e) => {
-        this.emit('error', e)
-        const error = e as Error
-        log.error(`error in worker: ${error.message} ${error.stack}`)
-        this.lastSuccessfulRounds = 0
-      })
-      .finally(() => {
-        clearTimeout(workerTimeout)
-      })
+        .finally(() => {
+          clearTimeout(workerTimeout)
+        })
+    })
   }
 
   start (): void {

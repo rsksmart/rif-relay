@@ -35,7 +35,7 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts'
 import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, evmMineMany } from './TestUtils'
 import chaiAsPromised from 'chai-as-promised'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { AccountKeypair } from '@rsksmart/rif-relay-client'
 import { keccak } from 'ethereumjs-util'
 import { toBN, toChecksumAddress, toHex } from 'web3-utils'
 const { assert } = chai.use(chaiAsPromised)

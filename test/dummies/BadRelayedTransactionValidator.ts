@@ -1,4 +1,4 @@
-import RelayedTransactionValidator from '../../src/relayclient/RelayedTransactionValidator'
+import { RelayedTransactionValidator } from '@rsksmart/rif-relay-client'
 import {
   ContractInteractor,
   EnvelopingConfig,
