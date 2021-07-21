@@ -150,7 +150,7 @@ contract Penalizer is IPenalizer, Ownable {
             
         penalizedTransactions[txId] = true;
 
-        (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address,address payable)", workerAddress, msg.sender));
+        (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address,address)", workerAddress, workerAddress));
         require(success, "Relay Hub penalize call failed");
     }
 
