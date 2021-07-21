@@ -134,7 +134,7 @@ contract Penalizer is IPenalizer, Ownable {
                 commitmentReceipt.commitment.enableQos
             )
         );
-        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
+        //require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
         
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
