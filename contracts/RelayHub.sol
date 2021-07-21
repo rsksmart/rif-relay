@@ -265,6 +265,7 @@ contract RelayHub is IRelayHub {
     function penalize(address relayWorker, address payable beneficiary)
         external
         override
+        penalizerOnly
     {
         //Relay worker might be enabled or disabled
         address relayManager =
