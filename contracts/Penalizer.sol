@@ -155,20 +155,15 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
-        require(signature.length == 65);
-
         bytes32 r;
         bytes32 s;
         uint8 v;
-
         assembly {
-            // first 32 bytes, after the length prefix
-            r := mload(add(signature, 32))
-            // second 32 bytes
-            s := mload(add(signature, 64))
-            // final byte (first byte of the next 32 bytes)
-            v := byte(0, mload(add(signature, 96)))
+        r := mload(add(signature, 32))
+        s := mload(add(signature, 64))
+        v := and(mload(add(signature, 65)), 255)
         }
+        if (v < 27) v += 27;
 
         return (v, r, s);
     }
