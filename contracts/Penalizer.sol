@@ -125,15 +125,19 @@ contract Penalizer is IPenalizer, Ownable {
         bytes memory workerSignature = commitmentReceipt.workerSignature;
         bytes32 commitmentHash = keccak256(
             abi.encodePacked(
-                commitmentReceipt.commitment.time, 
-                commitmentReceipt.commitment.from, 
-                commitmentReceipt.commitment.to, 
-                commitmentReceipt.commitment.data, 
-                commitmentReceipt.commitment.relayHubAddress, 
-                commitmentReceipt.commitment.relayWorker, 
-                commitmentReceipt.commitment.enableQos
+                keccak256("commit(uint,address,address,bytes,address,address,bool)"),
+                abi.encode(
+                    commitmentReceipt.commitment.time, 
+                    commitmentReceipt.commitment.from, 
+                    commitmentReceipt.commitment.to, 
+                    commitmentReceipt.commitment.data, 
+                    commitmentReceipt.commitment.relayHubAddress, 
+                    commitmentReceipt.commitment.relayWorker, 
+                    commitmentReceipt.commitment.enableQos  
+                )
             )
         );
+        
         require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
         
         // commitment fields must match 
