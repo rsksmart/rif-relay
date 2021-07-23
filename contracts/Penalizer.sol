@@ -172,7 +172,7 @@ contract Penalizer is IPenalizer, Ownable {
         address workerAddress = commitmentReceipt.workerAddress;
         bytes memory workerSignature = commitmentReceipt.workerSignature;
         bytes32 commitmentHash = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 commitmentReceipt.commitment.time, 
                 commitmentReceipt.commitment.from, 
                 commitmentReceipt.commitment.to, 
