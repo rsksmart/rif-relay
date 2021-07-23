@@ -194,7 +194,7 @@ contract Penalizer is IPenalizer, Ownable {
         //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
-        //require(fulfilledTransactions[txId] == false, "tx was fulfilled");
+        require(fulfilledTransactions[txId] == false, "tx was fulfilled");
         require(penalizedTransactions[txId] == false, "tx already penalized");
             
         penalizedTransactions[txId] = true;
