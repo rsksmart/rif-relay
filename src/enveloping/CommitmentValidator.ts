@@ -25,6 +25,8 @@ export class CommitmentValidator {
       )
       try {
         const hash = ethers.utils.keccak256(commitment.encodeForSign())
+        console.log("VALIDATE HASH:")
+        console.log(hash)
         const recoveredAddress = ethers.utils.verifyMessage(ethers.utils.arrayify(hash), receipt.workerSignature)
         if (recoveredAddress.toLowerCase() === receipt.workerAddress.toLowerCase()) {
           return true
