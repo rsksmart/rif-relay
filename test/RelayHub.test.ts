@@ -968,6 +968,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
               }
               console.log('---------------------------------------')
 
+              // TODO: we should check this
+              // @ts-ignore
               previousGas = BigInt(gasUsed)
               previousStep = step
             }
@@ -1058,7 +1060,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
                 console.log((previousGas.valueOf() - gasUsed.valueOf()).toString())
               }
               console.log('---------------------------------------')
-
+              // TODO: we should check this
+              // @ts-ignore
               previousGas = BigInt(gasUsed)
               previousStep = step
             }

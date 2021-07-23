@@ -16,13 +16,13 @@ import {
   StakeAdded,
   StakeUnlocked,
   StakeWithdrawn,
-  ServerConfigParams,
   ContractInteractor
 } from '@rsksmart/rif-relay-common'
 import { SendTransactionDetails, TransactionManager } from './TransactionManager'
 import { TxStoreManager } from './TxStoreManager'
 import { ServerAction } from './StoredTransaction'
 import chalk from 'chalk'
+import { ServerConfigParams } from './ServerConfigParams';
 
 export interface RelayServerRegistryInfo {
   url: string

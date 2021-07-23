@@ -17,7 +17,6 @@ import {
   getLatestEventData,
   randomInRange,
   sleep,
-  ServerConfigParams,
   constants,
   DeployRequest,
   RelayRequest,
@@ -33,7 +32,7 @@ import { RegistrationManager } from './RegistrationManager'
 import { SendTransactionDetails, SignedTransactionDetails, TransactionManager } from './TransactionManager'
 import { ServerAction } from './StoredTransaction'
 import { TxStoreManager } from './TxStoreManager'
-import { configureServer, ServerDependencies } from './ServerConfigParams'
+import {configureServer, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import { toChecksumAddress } from 'ethereumjs-util'
 
 import Timeout = NodeJS.Timeout

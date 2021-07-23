@@ -2,7 +2,7 @@
 
 echo "Building jsrelay server"
 
-cd jsrelay && npx webpack && cd ../
+npx webpack
 
 echo "Starting jsrelay server"
 

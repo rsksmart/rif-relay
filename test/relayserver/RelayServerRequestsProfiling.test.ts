@@ -4,11 +4,11 @@ import { configure } from '@rsksmart/rif-relay-client'
 import { HttpProvider } from 'web3-core'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 import {
-  ServerConfigParams,
   ProfilingProvider,
   EnvelopingConfig,
   ContractInteractor
 } from '@rsksmart/rif-relay-common'
+import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
 
 contract('RelayServerRequestsProfiling', function (accounts) {
   const refreshStateTimeoutBlocks = 2

@@ -14,9 +14,10 @@ import Web3 from 'web3'
 import {
   ContractInteractor,
   Environment,
-  defaultEnvironment,
-  ServerConfigParams
+  defaultEnvironment
 } from '@rsksmart/rif-relay-common'
+
+import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult

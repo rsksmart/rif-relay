@@ -1,5 +1,6 @@
 const path = require('path')
 const { IgnorePlugin } = require('webpack')
+const nodeExternals = require('webpack-node-externals')
 
 module.exports = {
   plugins: [
@@ -8,7 +9,7 @@ module.exports = {
     new IgnorePlugin(/^scrypt$/)
   ],
   target: 'node',
-  entry: '../dist/src/relayserver/runServer.js',
+  entry: './dist/src/relayserver/runServer.js',
   mode: 'development',
   module: {
     rules: [
@@ -22,5 +23,6 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'relayserver.js'
-  }
+  },
+  externals: [nodeExternals()]
 }

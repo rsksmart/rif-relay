@@ -8,7 +8,6 @@ import sinonChai from 'sinon-chai'
 import chaiAsPromised from 'chai-as-promised'
 import {
   EnvelopingConfig,
-  ServerConfigParams,
   defaultEnvironment,
   isRsk,
   sleep,
@@ -29,6 +28,7 @@ import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
+import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
