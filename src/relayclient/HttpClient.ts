@@ -43,6 +43,8 @@ export default class HttpClient {
     }
     log.info('commitment response 1')
     log.info({ signedTx, signedReceipt, transactionHash })
+    log.info('commitment 1')
+    log.info(signedReceipt.commitment)
     return { signedTx, signedReceipt, transactionHash }
   }
 }

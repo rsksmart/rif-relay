@@ -396,6 +396,8 @@ export class RelayServer extends EventEmitter {
     await this.replenishServer(workerIndex, currentBlock)
     log.info('commitment response 2')
     log.info({ signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash })
+    log.info('commitment 2')
+    log.info(commitmentReceipt.commitment)
     return { signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash }
   }
 

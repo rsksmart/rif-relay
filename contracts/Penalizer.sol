@@ -115,6 +115,30 @@ contract Penalizer is IPenalizer, Ownable {
         return fulfilledTransactions[keccak256(txSignature)];
     }
 
+    function encode(Commitment calldata commitment) external pure returns(bytes memory){
+        return abi.encode(
+                commitment.time, 
+                commitment.from, 
+                commitment.to, 
+                commitment.data, 
+                commitment.relayHubAddress, 
+                commitment.relayWorker, 
+                commitment.enableQos
+            );
+    }
+
+    function encodePacked(Commitment calldata commitment) external pure returns(bytes memory){
+        return abi.encodePacked(
+                commitment.time, 
+                commitment.from, 
+                commitment.to, 
+                commitment.data, 
+                commitment.relayHubAddress, 
+                commitment.relayWorker, 
+                commitment.enableQos
+            );
+    }
+
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
         // relay hub and commitment QoS must be set
         require(hub != address(0), "relay hub not set");
@@ -125,16 +149,13 @@ contract Penalizer is IPenalizer, Ownable {
         bytes memory workerSignature = commitmentReceipt.workerSignature;
         bytes32 commitmentHash = keccak256(
             abi.encodePacked(
-                keccak256("commit(uint,address,address,bytes,address,address,bool)"),
-                abi.encode(
-                    commitmentReceipt.commitment.time, 
-                    commitmentReceipt.commitment.from, 
-                    commitmentReceipt.commitment.to, 
-                    commitmentReceipt.commitment.data, 
-                    commitmentReceipt.commitment.relayHubAddress, 
-                    commitmentReceipt.commitment.relayWorker, 
-                    commitmentReceipt.commitment.enableQos  
-                )
+                commitmentReceipt.commitment.time, 
+                commitmentReceipt.commitment.from, 
+                commitmentReceipt.commitment.to, 
+                commitmentReceipt.commitment.data, 
+                commitmentReceipt.commitment.relayHubAddress, 
+                commitmentReceipt.commitment.relayWorker, 
+                commitmentReceipt.commitment.enableQos
             )
         );
         
