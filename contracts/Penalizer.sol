@@ -139,6 +139,30 @@ contract Penalizer is IPenalizer, Ownable {
             );
     }
 
+    function encodeAndHash(Commitment calldata commitment) external pure returns(bytes32){
+        return keccak256(abi.encode(
+                commitment.time, 
+                commitment.from, 
+                commitment.to, 
+                commitment.data, 
+                commitment.relayHubAddress, 
+                commitment.relayWorker, 
+                commitment.enableQos
+            ));
+    }
+
+    function encodePackedAndHash(Commitment calldata commitment) external pure returns(bytes32){
+        return keccak256(abi.encodePacked(
+                commitment.time, 
+                commitment.from, 
+                commitment.to, 
+                commitment.data, 
+                commitment.relayHubAddress, 
+                commitment.relayWorker, 
+                commitment.enableQos
+            ));
+    }
+
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
         // relay hub and commitment QoS must be set
         require(hub != address(0), "relay hub not set");
