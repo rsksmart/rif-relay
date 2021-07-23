@@ -6,12 +6,15 @@ import {
   constants,
   RelayHubConfiguration
 } from '@rsksmart/rif-relay-common'
-import { KeyManager } from '../../src/relayserver/KeyManager'
-import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
-import { RelayServer } from '../../src/relayserver/RelayServer'
-import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import {ServerConfigParams, ServerDependencies} from '../../src/relayserver/ServerConfigParams'
-import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
+import {
+  KeyManager,
+  TxStoreManager,
+  RegistrationManager,
+  RelayServer,
+  ServerAction,
+  ServerConfigParams,
+  ServerDependencies
+} from '@rsksmart/rif-relay-server'
 import { configure } from '@rsksmart/rif-relay-client'
 import { evmMine, evmMineMany, revert, snapshot } from '../TestUtils'
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
@@ -210,14 +213,14 @@ contract('RegistrationManager', function (accounts) {
         managerBalanceBefore: BN,
         workerBalanceBefore: BN): Promise<void> {
         const gasPrice = await env.web3.eth.getGasPrice()
-        const ownerBalanceBefore = toBN(await env.web3.eth.getBalance(newServer.registrationManager.ownerAddress!))
+        const ownerBalanceBefore = toBN(await env.web3.eth.getBalance(newServer.registrationManager.ownerAddress))
         assert.equal(newServer.registrationManager.stakeRequired.currentValue.toString(), oneEther.toString())
         // TODO: assert on withdrawal block?
         // assert.equal(newServer.config.withdrawBlock?.toString(), '0')
         const latestBlock = await env.web3.eth.getBlock('latest')
         const receipts = await newServer._worker(latestBlock.number)
         const totalTxCosts = await getTotalTxCosts(receipts, gasPrice)
-        const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(newServer.registrationManager.ownerAddress!))
+        const ownerBalanceAfter = toBN(await env.web3.eth.getBalance(newServer.registrationManager.ownerAddress))
         assert.equal(
           ownerBalanceAfter.sub(
             ownerBalanceBefore).toString(),
@@ -337,7 +340,10 @@ contract('RegistrationManager', function (accounts) {
 
     before(async () => {
       // @ts-ignore
-      if (!relayServer.initialized) await relayServer.init()
+      // eslint-disable-next-line @typescript-eslint/strict-boolean-expressions
+      if (!relayServer.initialized) {
+        await relayServer.init()
+      }
 
       rm = relayServer.registrationManager;
 

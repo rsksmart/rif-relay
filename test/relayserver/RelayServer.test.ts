@@ -15,8 +15,13 @@ import {
   constants,
   TokenResponse
 } from '@rsksmart/rif-relay-common'
-import { RelayServer } from '../../src/relayserver/RelayServer'
-import { SendTransactionDetails, SignedTransactionDetails } from '../../src/relayserver/TransactionManager'
+import {
+  RelayServer,
+  SendTransactionDetails,
+  SignedTransactionDetails,
+  ServerAction,
+  ServerConfigParams
+} from '@rsksmart/rif-relay-server'
 import {
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestRecipientInstance,
@@ -27,8 +32,6 @@ import { evmMineMany, INCORRECT_ECDSA_SIGNATURE, revert, snapshot, getTestingEnv
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')

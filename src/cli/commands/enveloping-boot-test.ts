@@ -1,6 +1,6 @@
 import commander from 'commander'
 import { envelopingCommander, saveDeployment, showDeployment } from '../utils'
-import { TestEnvironment } from '../../relayclient/TestEnvironment'
+import { TestEnvironment } from '../../TestEnvironment'
 
 envelopingCommander(['n'])
   .option('-w, --workdir <directory>', 'relative work directory (defaults to build/enveloping/)', 'build/enveloping')

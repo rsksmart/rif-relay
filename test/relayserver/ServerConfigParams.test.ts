@@ -4,7 +4,7 @@ import {
   filterType,
   parseServerConfig,
   resolveServerConfig
-} from '../../src/relayserver/ServerConfigParams'
+} from '@rsksmart/rif-relay-server'
 import * as fs from 'fs'
 import { expectRevert } from '@openzeppelin/test-helpers'
 import {

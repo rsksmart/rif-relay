@@ -49,6 +49,7 @@
     "@rsksmart/rif-relay-client": "https://github.com/infuy/rif-relay-client",
     "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common",
     "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
+    "@rsksmart/rif-relay-server": "https://github.com/infuy/rif-relay-server",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
     "@trufflesuite/web3-provider-engine": "^15.0.13-1",

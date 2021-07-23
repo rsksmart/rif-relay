@@ -1,23 +1,18 @@
 import net from 'net'
 import { ether } from '@openzeppelin/test-helpers'
-import CommandsLogic, { DeploymentResult } from '../cli/CommandsLogic'
-import { KeyManager } from '../relayserver/KeyManager'
+import CommandsLogic, { DeploymentResult } from './cli/CommandsLogic'
+import { KeyManager, TxStoreManager, RelayServer, HttpServer, ServerConfigParams } from '@rsksmart/rif-relay-server'
 import {
   configure,
   RelayProvider
 } from '@rsksmart/rif-relay-client'
-import { getNetworkUrl, supportedNetworks } from '../cli/utils'
-import { TxStoreManager } from '../relayserver/TxStoreManager'
-import { RelayServer } from '../relayserver/RelayServer'
-import { HttpServer } from '../relayserver/HttpServer'
+import { getNetworkUrl, supportedNetworks } from './cli/utils'
 import Web3 from 'web3'
 import {
   ContractInteractor,
   Environment,
   defaultEnvironment
 } from '@rsksmart/rif-relay-common'
-
-import { ServerConfigParams } from '../relayserver/ServerConfigParams'
 
 export interface TestEnvironmentInfo {
   deploymentResult: DeploymentResult

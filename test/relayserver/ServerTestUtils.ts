@@ -3,7 +3,7 @@ import abiDecoder from 'abi-decoder'
 import { TransactionReceipt } from 'web3-core'
 import { toBN } from 'web3-utils'
 import { IRelayVerifier, IDeployVerifier, IRelayHub } from '@rsksmart/rif-relay-contracts'
-import { RelayServer } from '../../src/relayserver/RelayServer'
+import { RelayServer } from '@rsksmart/rif-relay-server'
 import { PrefixedHexString } from 'ethereumjs-tx'
 
 const TestRecipient = artifacts.require('TestRecipient')
@@ -47,7 +47,7 @@ export async function assertRelayAdded (transactionHashes: PrefixedHexString[], 
       const decodedLogs = abiDecoder.decodeLogs(r.logs).map(server.registrationManager._parseEvent)
       return decodedLogs[0].name === 'RelayWorkersAdded'
     })
-    const workersAddedLogs = abiDecoder.decodeLogs(workersAddedReceipt!.logs).map(server.registrationManager._parseEvent)
+    const workersAddedLogs = abiDecoder.decodeLogs(workersAddedReceipt.logs).map(server.registrationManager._parseEvent)
     assert.equal(workersAddedLogs.length, 1)
     assert.equal(workersAddedLogs[0].name, 'RelayWorkersAdded')
   }

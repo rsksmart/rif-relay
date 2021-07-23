@@ -1,7 +1,7 @@
 /* global */
 
 import fs from 'fs'
-import { KeyManager, KEYSTORE_FILENAME } from '../src/relayserver/KeyManager'
+import { KeyManager, KEYSTORE_FILENAME } from '@rsksmart/rif-relay-server'
 
 // NOTICE: this dir is removed in 'after', do not use this in any other test
 const workdir = '/tmp/enveloping/test/key_manager'

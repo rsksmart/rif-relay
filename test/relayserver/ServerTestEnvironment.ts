@@ -23,10 +23,8 @@ import {
   getTemporaryWorkdirs,
   ServerWorkdirs
 } from './ServerTestUtils'
-import { KeyManager } from '../../src/relayserver/KeyManager'
+import { KeyManager, RelayServer, TxStoreManager, ServerConfigParams } from '@rsksmart/rif-relay-server'
 import { PrefixedHexString } from 'ethereumjs-tx'
-import { RelayServer } from '../../src/relayserver/RelayServer'
-import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure, RelayClient, RelayInfo, RelayRegisteredEventInfo } from '@rsksmart/rif-relay-client'
 import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from '../TestUtils'
 import {
@@ -39,8 +37,6 @@ import {
   PingResponse
 } from '@rsksmart/rif-relay-common'
 import { ether } from '@openzeppelin/test-helpers'
-import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
-
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')

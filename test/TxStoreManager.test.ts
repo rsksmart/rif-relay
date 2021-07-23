@@ -1,7 +1,6 @@
 import fs from 'fs'
 
-import { ServerAction, StoredTransaction } from '../src/relayserver/StoredTransaction'
-import { TXSTORE_FILENAME, TxStoreManager } from '../src/relayserver/TxStoreManager'
+import { ServerAction, StoredTransaction, TXSTORE_FILENAME, TxStoreManager } from '@rsksmart/rif-relay-server'
 
 // NOTICE: this dir is removed in 'after', do not use this in any other test
 const workdir = '/tmp/enveloping/test/txstore_manager'

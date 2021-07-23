@@ -2,7 +2,7 @@ import { PrefixedHexString, Transaction } from 'ethereumjs-tx'
 import * as ethUtils from 'ethereumjs-util'
 
 import { evmMineMany, getTestingEnvironment } from '../TestUtils'
-import { RelayServer } from '../../src/relayserver/RelayServer'
+import { RelayServer } from '@rsksmart/rif-relay-server'
 import { HttpProvider } from 'web3-core'
 import { ServerTestEnvironment } from './ServerTestEnvironment'
 
