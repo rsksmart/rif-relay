@@ -510,6 +510,8 @@ options.forEach(element => {
             // Since the tknPayment is paying the recipient, the called contract (recipient) must have the balance of those tokensPaid
             // Ideally it should pay the relayWorker or verifier
             const tknBalance = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
+            // TODO: we should check this
+            // @ts-ignore
             assert.isTrue(BigInt(tokensPaid) === BigInt(tknBalance.sub(tokenBalanceBefore)))
 
             // The value=1 RBTC of value transfered should now be in the balance of the called contract (recipient)
@@ -519,6 +521,8 @@ options.forEach(element => {
 
             // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
             // is called
+            // TODO: we should check this
+            // @ts-ignore
             assert.equal(await web3.eth.getBalance(senderAddress), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value.toString())).toString())
           })
         })
@@ -627,6 +631,8 @@ options.forEach(element => {
 
             // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
             // is called
+            // TODO: we should check this
+            // @ts-ignore
             assert.equal(await web3.eth.getBalance(otherAccount), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value) - BigInt(gasUsedToCall)).toString())
           })
         })

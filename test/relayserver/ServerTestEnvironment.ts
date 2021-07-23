@@ -38,12 +38,12 @@ import {
   RelayTransactionRequest,
   EnvelopingConfig,
   constants,
-  ServerConfigParams,
   ContractInteractor,
   EnvelopingTransactionDetails,
   PingResponse
 } from '@rsksmart/rif-relay-common'
 import { ether } from '@openzeppelin/test-helpers'
+import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
 
 const TestRecipient = artifacts.require('TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')

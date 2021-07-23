@@ -3,7 +3,6 @@ import { HttpProvider } from 'web3-core'
 import { toBN } from 'web3-utils'
 import {
   ContractInteractor,
-  ServerConfigParams,
   constants,
   RelayHubConfiguration
 } from '@rsksmart/rif-relay-common'
@@ -11,7 +10,7 @@ import { KeyManager } from '../../src/relayserver/KeyManager'
 import { RegistrationManager } from '../../src/relayserver/RegistrationManager'
 import { RelayServer } from '../../src/relayserver/RelayServer'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import { ServerDependencies } from '../../src/relayserver/ServerConfigParams'
+import {ServerConfigParams, ServerDependencies} from '../../src/relayserver/ServerConfigParams'
 import { TxStoreManager } from '../../src/relayserver/TxStoreManager'
 import { configure } from '../../src/relayclient/Configurator'
 import { evmMine, evmMineMany, revert, snapshot } from '../TestUtils'

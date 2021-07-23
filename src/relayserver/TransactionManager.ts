@@ -6,12 +6,11 @@ import { Mutex } from 'async-mutex'
 import { PrefixedHexString, Transaction, TransactionOptions } from 'ethereumjs-tx'
 import { Address, IntString } from '../relayclient/types/Aliases'
 import {
-  ContractInteractor,
-  ServerConfigParams
+  ContractInteractor
 } from '@rsksmart/rif-relay-common'
 import { TxStoreManager } from './TxStoreManager'
 import { KeyManager } from './KeyManager'
-import { ServerDependencies } from './ServerConfigParams'
+import { ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import {
   createStoredTransaction,
   ServerAction,

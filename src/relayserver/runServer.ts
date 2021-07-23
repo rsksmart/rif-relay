@@ -6,11 +6,10 @@ import { RelayServer } from './RelayServer'
 import { KeyManager } from './KeyManager'
 import { TxStoreManager, TXSTORE_FILENAME } from './TxStoreManager'
 import {
-  ContractInteractor,
-  ServerConfigParams
+  ContractInteractor
 } from '@rsksmart/rif-relay-common'
 import { configure } from '../relayclient/Configurator'
-import { parseServerConfig, resolveServerConfig, ServerDependencies } from './ServerConfigParams'
+import { parseServerConfig, resolveServerConfig, ServerConfigParams, ServerDependencies } from './ServerConfigParams'
 import log from 'loglevel'
 
 function error (err: string): never {
