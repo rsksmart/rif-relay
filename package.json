@@ -46,8 +46,8 @@
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
     "@openzeppelin/contracts": "^3.2.0",
-    "@rsksmart/rif-relay-client": "https://github.com/JONAF2103/rif-relay-client",
-    "@rsksmart/rif-relay-common": "https://github.com/JONAF2103/rif-relay-common",
+    "@rsksmart/rif-relay-client": "https://github.com/infuy/rif-relay-client",
+    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common",
     "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
