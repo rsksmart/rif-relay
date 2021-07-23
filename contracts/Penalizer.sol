@@ -203,14 +203,28 @@ contract Penalizer is IPenalizer, Ownable {
         require(success, "Relay Hub penalize call failed");
     }
 
+    function splitSig(bytes memory signature) external pure returns (uint8, bytes32, bytes32) {
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := and(mload(add(signature, 65)), 255)
+        }
+        if (v < 27) v += 27;
+
+        return (v, r, s);
+    }
+
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
         bytes32 r;
         bytes32 s;
         uint8 v;
         assembly {
-        r := mload(add(signature, 32))
-        s := mload(add(signature, 64))
-        v := and(mload(add(signature, 65)), 255)
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := and(mload(add(signature, 65)), 255)
         }
         if (v < 27) v += 27;
 

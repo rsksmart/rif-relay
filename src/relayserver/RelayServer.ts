@@ -382,6 +382,8 @@ export class RelayServer extends EventEmitter {
     )
     const digest = ethers.utils.keccak256(commitment.encodeForSign())
     const signature = await this.envelopingArbiter.signCommitment(this.transactionManager, commitment.relayWorker, ethers.utils.arrayify(digest))
+    console.log("SIGNATURE")
+    console.log(signature)
     const commitmentReceipt = {
       commitment: commitment,
       workerSignature: signature,
