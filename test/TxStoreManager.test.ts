@@ -13,6 +13,8 @@ function cleanFolder (): void {
   if (fs.existsSync(workdir)) {
     fs.rmdirSync(workdir)
   }
+  fs.mkdirSync(workdir, {recursive: true})
+  fs.writeFileSync(txStoreFilePath, '')
 }
 
 contract('TxStoreManager', function (accounts) {

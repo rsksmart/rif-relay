@@ -1,12 +1,12 @@
 import net from 'net'
 import { ether } from '@openzeppelin/test-helpers'
-import CommandsLogic, { DeploymentResult } from './cli/CommandsLogic'
+import TestSetup, { DeploymentResult } from './TestSetup'
 import { KeyManager, TxStoreManager, RelayServer, HttpServer, ServerConfigParams } from '@rsksmart/rif-relay-server'
 import {
   configure,
   RelayProvider
 } from '@rsksmart/rif-relay-client'
-import { getNetworkUrl, supportedNetworks } from './cli/utils'
+import { getNetworkUrl, supportedNetworks } from './Utils'
 import Web3 from 'web3'
 import {
   ContractInteractor,
@@ -38,7 +38,7 @@ class TestEnvironmentClass {
       // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
       throw new Error(`start: expected network (${supportedNetworks().join('|')}) or url`)
     }
-    const commandsLogic = new CommandsLogic(_host, configure({ chainId: environment.chainId }))
+    const commandsLogic = new TestSetup(_host, configure({ chainId: environment.chainId }))
     const from = await commandsLogic.findWealthyAccount()
     const deploymentResult = await commandsLogic.deployContracts({
       from,

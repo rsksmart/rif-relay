@@ -2,7 +2,7 @@
 import commander, { CommanderStatic } from 'commander'
 import fs from 'fs'
 import path from 'path'
-import { DeploymentResult } from './CommandsLogic'
+import { DeploymentResult } from './TestSetup'
 import { RelayHubConfiguration } from '@rsksmart/rif-relay-common'
 
 export const networks = new Map<string, string>([

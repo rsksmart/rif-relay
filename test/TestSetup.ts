@@ -75,7 +75,7 @@ interface RegistrationResult {
   error?: string
 }
 
-export default class CommandsLogic {
+export default class TestSetup {
   private readonly contractInteractor: ContractInteractor
   private readonly httpClient: HttpClient
   private readonly config: EnvelopingConfig

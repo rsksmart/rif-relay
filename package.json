@@ -26,22 +26,13 @@
   },
   "prepublish": "npm run prepare",
   "scripts": {
-    "lint": "yarn run lint:js && yarn run lint:sol",
-    "lint:fix": "yarn run lint:js:fix",
-    "lint:js": "eslint -f unix .",
-    "lint:sol": "solhint -f unix \"contracts/**/*.sol\" --max-warnings 0",
-    "lint:js:fix": "eslint --ext .js,.ts --cache  -f unix --ignore-path .gitignore src test scripts --fix",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "postinstall": "patch-package",
-    "test": "yarn run lint && yarn tsc && ./run-tests.sh",
-    "test-bail": "yarn run lint && yarn tsc && npx truffle test --network development --bail",
-    "tsc": "tsc --noEmit",
-    "postpack": "./scripts/postpack",
+    "test": "scripts/test",
+    "testOnly": "scripts/testOnly",
     "prepare": "./scripts/prepare",
-    "build": "./scripts/build",
-    "relay": "./scripts/startRelayServer",
-    "registerRelay": "./scripts/registerRelayServer",
-    "execute-test": "./scripts/execute-test",
-    "execute-all-tests": "./scripts/execute-all-tests"
+    "build": "./scripts/build"
   },
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
@@ -140,10 +131,5 @@
     "webpack-cli": "^4.7.2",
     "webpack-node-externals": "^3.0.0"
   },
-  "files": [
-    "contracts/",
-    "dist/"
-  ],
-  "main": "dist/index.js",
   "types": "dist/index.d.ts"
 }

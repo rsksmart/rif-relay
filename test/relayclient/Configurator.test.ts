@@ -1,6 +1,6 @@
 // test possible client errors
 
-import { TestEnvironment } from '../../src/TestEnvironment'
+import { TestEnvironment } from '../TestEnvironment'
 import chai from 'chai'
 import chaiAsPromised from 'chai-as-promised'
 import { resolveConfiguration } from '@rsksmart/rif-relay-client'

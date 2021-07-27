@@ -5,6 +5,7 @@ import crypto from 'crypto'
 import { HttpProvider } from 'web3-core'
 import { toHex, keccak256 } from 'web3-utils'
 import * as ethUtils from 'ethereumjs-util'
+import * as fs from 'fs'
 import {
   IRelayVerifier,
   IDeployVerifier,
@@ -172,7 +173,10 @@ export class ServerTestEnvironment {
   newServerInstanceNoFunding (config: Partial<ServerConfigParams> = {}, serverWorkdirs?: ServerWorkdirs): void {
     const managerKeyManager = this._createKeyManager(serverWorkdirs?.managerWorkdir)
     const workersKeyManager = this._createKeyManager(serverWorkdirs?.workersWorkdir)
-    const txStoreManager = new TxStoreManager({ workdir: serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir })
+    const workdir = serverWorkdirs?.workdir ?? getTemporaryWorkdirs().workdir
+    fs.mkdirSync(workdir, { recursive: true })
+    fs.writeFileSync(workdir + '/txstore.db', '')
+    const txStoreManager = new TxStoreManager({ workdir })
     const serverDependencies = {
       contractInteractor: this.contractInteractor,
       txStoreManager,

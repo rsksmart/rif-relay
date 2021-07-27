@@ -12,11 +12,6 @@ if (fs.existsSync(secretMnemonicFile)) {
 
 module.exports = {
   networks: {
-    coverage: { // coverage/trace provider. note that it currently can't run extrnal-process relay.
-      provider: require('./coverage-prov.js'),
-      verbose: process.env.VERBOSE,
-      network_id: '*'
-    },
     development: {
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
@@ -25,7 +20,7 @@ module.exports = {
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     },
-    testing: {
+    regtest: {
       verbose: process.env.VERBOSE,
       host: '127.0.0.1',
       port: 4444,
@@ -33,23 +28,7 @@ module.exports = {
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     },
-    rskdocker: {
-      verbose: process.env.VERBOSE,
-      host: 'enveloping-rskj',
-      port: 4444,
-      network_id: 33,
-      gas: 6300000,
-      gasPrice: 60000000 // 0.06 gwei
-    },
-    rsk: {
-      verbose: process.env.VERBOSE,
-      host: '127.0.0.1',
-      port: 4444,
-      network_id: 33,
-      gas: 6300000,
-      gasPrice: 60000000 // 0.06 gwei
-    },
-    rsktestnet: {
+    testnet: {
       provider: function () {
         return new HDWalletProvider(mnemonic, 'https://public-node.testnet.rsk.co')
       },
@@ -57,7 +36,7 @@ module.exports = {
       gas: 6300000,
       gasPrice: 60000000 // 0.06 gwei
     },
-    rskmainnet: {
+    mainnet: {
       provider: function () {
         return new HDWalletProvider(secretMnemonic, 'https://public-node.rsk.co')
       },

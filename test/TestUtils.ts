@@ -115,9 +115,9 @@ export async function startRelay (
     args.push('--minHubWithdrawalBalance', options.minHubWithdrawalBalance)
   }
 
-  const runServerPath = path.resolve(__dirname, '../src/relayserver/runServer.ts')
-  const proc: ChildProcessWithoutNullStreams = childProcess.spawn('./node_modules/.bin/ts-node',
-    [runServerPath, ...args])
+  const runServerPath = path.resolve(__dirname, '../node_modules/@rsksmart/rif-relay-server/dist/commands/Start.js')
+  const proc: ChildProcessWithoutNullStreams = childProcess.spawn('node',
+    [`--experimental-modules`, runServerPath, ...args])
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   let relaylog = function (_: string): void {}

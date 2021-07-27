@@ -1,22 +1,22 @@
 #!/bin/bash
 
-TEST_LOG=tests.log
-
-exec 3>&1 4>&2
-trap 'exec 2>&4 1>&3' 0 1 2 3
-exec 1>${TEST_LOG} 2>&1
+# uncomment this if you want to generate logs on a file instead of print out to console
+#TEST_LOG=tests.log
+#exec 3>&1 4>&2
+#trap 'exec 2>&4 1>&3' 0 1 2 3
+#exec 1>${TEST_LOG} 2>&1
 
 trap ctrl_c INT
 
 function ctrl_c() {
-  docker-compose -f rsknode/docker-compose.yml down
+  docker-compose -f docker/docker-compose.yml down
   exit 1
 }
 
-NETWORK=$(docker network ls --filter name=enveloping-tests-net -q)
+NETWORK=$(docker network ls --filter name=rif-relay-testing -q)
 if [ -z "${NETWORK}" ]; then
-        echo "Creating network enveloping-tests-net"
-        docker network create enveloping-tests-net
+        echo "Creating network rif-relay-testing"
+        docker network create rif-relay-testing
 fi
 
 function run_batch() {
@@ -24,13 +24,39 @@ function run_batch() {
   unset TESTS[0]
   BATCH_NAME=$1
   echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
-  docker-compose -f rsknode/docker-compose.yml build
-  docker-compose -f rsknode/docker-compose.yml up -d
+  docker-compose -f docker/docker-compose.yml build
+  docker-compose -f docker/docker-compose.yml up -d
+  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
+
+  _i=0
+  while [ $_i -lt 30 ]; do
+    curl -Ss -H "Content-type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+        http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
+    sleep 1
+    _i=$((_i + 1))
+  done
+  if [ $_i -eq 30 ]; then
+    echo "No response from rskj after 30 seconds; aborting..." >&2
+    exit 1
+  fi
+  sleep 5
+
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
-  npx truffle test --network testing "${TESTS[@]}"
+  TEST_FAIL=0
+  npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   echo "#################################################################################### END BATCH TESTS ####################################################################################"
-  docker-compose -f rsknode/docker-compose.yml down
+  rm -rf contracts
+  rm -rf migrations
+  rm -rf contract-addresses.json
+
+  docker-compose -f docker/docker-compose.yml down
   echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
+
+  if [ "${TEST_FAIL}" == "1" ]; then
+    exit 1
+  fi
 }
 
 # Test_Group_1
