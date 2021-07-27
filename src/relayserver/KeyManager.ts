@@ -98,7 +98,8 @@ export class KeyManager {
       throw new Error(`Can't sign: signer=${signer} is not managed`)
     }
     const signerWallet = new ethers.Wallet(privateKey)
-    console.log("***** SIGN MESSAGE *****")
+    console.log("*** SIGN MESSAGE ***")
+    console.log("message, typeofmessage")
     console.log(message)
     console.log(typeof(message))
     const sig = await signerWallet.signMessage(message)
