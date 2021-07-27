@@ -44,9 +44,9 @@ export class Commitment {
     this.signature = signature
   }
 
-  public static TypeEncoding = 'commit(uint,address,address,bytes,address,address,bool)'
+  public static encodedFieldTypes = ['uint256', 'address', 'address', 'bytes', 'address', 'address', 'bool']
 
-  orderForEnc (): any[] {
+  encodedFields (): any[] {
     return [
       this.time,
       this.from,
@@ -59,6 +59,6 @@ export class Commitment {
   }
 
   encodeForSign (): PrefixedHexString {
-    return ethers.utils.defaultAbiCoder.encode([Commitment.TypeEncoding], [this.orderForEnc()])
+    return ethers.utils.defaultAbiCoder.encode(Commitment.encodedFieldTypes, this.encodedFields())
   }
 }

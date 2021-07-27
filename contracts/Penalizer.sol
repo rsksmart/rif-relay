@@ -124,7 +124,7 @@ contract Penalizer is IPenalizer, Ownable {
         address workerAddress = commitmentReceipt.workerAddress;
         bytes memory workerSignature = commitmentReceipt.workerSignature;
         bytes32 commitmentHash = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 commitmentReceipt.commitment.time, 
                 commitmentReceipt.commitment.from, 
                 commitmentReceipt.commitment.to, 
@@ -154,20 +154,15 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function splitSignature(bytes memory signature) internal pure returns (uint8, bytes32, bytes32) {
-        require(signature.length == 65);
-
         bytes32 r;
         bytes32 s;
         uint8 v;
-
         assembly {
-            // first 32 bytes, after the length prefix
             r := mload(add(signature, 32))
-            // second 32 bytes
             s := mload(add(signature, 64))
-            // final byte (first byte of the next 32 bytes)
-            v := byte(0, mload(add(signature, 96)))
+            v := and(mload(add(signature, 65)), 255)
         }
+        if (v < 27) v += 27;
 
         return (v, r, s);
     }
@@ -179,6 +174,9 @@ contract Penalizer is IPenalizer, Ownable {
 
         (v, r, s) = splitSignature(signature);
 
-        return ecrecover(message, v, r, s);
+        bytes memory prefix = "\x19Ethereum Signed Message:\n32";
+        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, message));
+
+        return ecrecover(prefixedHash, v, r, s);
     }
 }
