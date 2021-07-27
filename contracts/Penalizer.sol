@@ -183,7 +183,7 @@ contract Penalizer is IPenalizer, Ownable {
             )
         );
         
-        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment not signed by worker");
+        require(recoverSigner(commitmentHash, workerSignature) == workerAddress, "commitment signature mismatch");
         
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
