@@ -239,7 +239,7 @@ contract Penalizer is IPenalizer, Ownable {
         (v, r, s) = splitSignature(signature);
 
         bytes memory prefix = "\x19Ethereum Signed Message:\n32";
-        bytes32 prefixedHash = keccak256(abi.encode(prefix, message));
+        bytes32 prefixedHash = keccak256(abi.encodePacked(prefix, message));
         return ecrecover(prefixedHash, v, r, s);
     }
 }
