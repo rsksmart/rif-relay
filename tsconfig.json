@@ -29,19 +29,9 @@
       "date-format",
       "chai-bn"
     ],
-    "lib": [
-      "es2018",
-      "dom",
-      "esnext"
-    ],
+    "lib": ["es2018", "dom", "esnext"],
     "sourceMap": true
   },
-  "include": [
-    "**/*.ts"
-  ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }
-

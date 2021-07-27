@@ -17,8 +17,7 @@ docker build \
 
 # Running
 
-To run, use the recently generated tag (`-t` parameter for `docker
-build`):
+To run, use the recently generated tag (`-t` parameter for `docker build`):
 
 ```
 docker run -p 127.0.0.1:4444:4444 --name enveloping-rskj rskj:2.1.0-PAPYRUS --regtest
