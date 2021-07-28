@@ -25,9 +25,8 @@ describe('HttpWrapper', () => {
             method: 'net_version',
             id: 123
         });
-        // @ts-ignore
-        await expect(res).to.be.eventually.rejectedWith({
-            error: 'connect ECONNREFUSED 127.0.0.1:44321'
-        });
+        await expect(res).to.be.eventually.rejectedWith(
+            new Error('connect ECONNREFUSED 127.0.0.1:44321')
+        );
     });
 });

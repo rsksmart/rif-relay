@@ -4,9 +4,9 @@ import {
     TestTokenInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 
-// @ts-ignore
 import {
     EIP712TypedData,
+    // @ts-ignore
     signTypedData_v4,
     TypedDataUtils
 } from 'eth-sig-util';

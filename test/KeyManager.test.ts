@@ -18,7 +18,7 @@ function cleanFolder(): void {
 
 contract('KeyManager', function () {
     describe('in-memory', () => {
-        let mkm: KeyManager;
+        let mkm: any;
 
         before(() => {
             mkm = new KeyManager(10, undefined, Buffer.from('seed1234'));
@@ -44,7 +44,7 @@ contract('KeyManager', function () {
         });
     });
     describe('file-based KeyManager', () => {
-        let fkmA: KeyManager;
+        let fkmA: any;
 
         before('create key manager', function () {
             cleanFolder();
@@ -65,7 +65,7 @@ contract('KeyManager', function () {
         it('should get the same key when reloading', () => {
             const addrA = fkmA.getAddress(0);
             const addrA10 = fkmA.getAddress(10);
-            const fkmB = new KeyManager(20, workdir);
+            const fkmB = new KeyManager(20, workdir) as any;
             const addrB = fkmB.getAddress(0);
             assert.equal(addrA, addrB);
             // @ts-ignore

@@ -29,6 +29,7 @@ import {
     RelayProvider,
     Address
 } from '@rsksmart/rif-relay-client';
+import { HttpProvider } from 'web3-core';
 
 const TestRecipient = artifacts.require('tests/TestRecipient');
 const TestVerifierEverythingAccepted = artifacts.require(
@@ -137,9 +138,8 @@ options.forEach((params) => {
                     forwarderAddress: smartWalletInstance.address
                 };
 
-                // @ts-ignore
                 const relayProvider = new RelayProvider(
-                    web3.currentProvider,
+                    web3.currentProvider as HttpProvider,
                     relayClientConfig
                 );
                 relayProvider.addAccount(gaslessAccount);

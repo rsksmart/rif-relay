@@ -142,12 +142,11 @@ contract(
             });
 
             it("should allow querying relayManager's stake", async function () {
-                // @ts-ignore (typechain does not declare names or iterator for return types)
                 const {
                     stake: actualStake,
                     unstakeDelay: actualUnstakeDelay,
                     owner: actualOwner
-                } = await relayHub.stakes(relayManager);
+                } = (await relayHub.stakes(relayManager)) as any;
                 expect(actualOwner).to.equal(owner);
                 expect(actualStake).to.be.bignumber.equal(initialStake);
                 expect(actualUnstakeDelay).to.be.bignumber.equal(
@@ -397,7 +396,7 @@ contract(
                         stake: actualStake,
                         unstakeDelay: actualUnstakeDelay,
                         owner: actualOwner
-                    } = await relayHub.stakes(relayManager);
+                    } = (await relayHub.stakes(relayManager)) as any;
                     expect(actualOwner).to.equal(constants.ZERO_ADDRESS);
                     expect(actualStake).to.be.bignumber.equal(new BN(0));
                     expect(actualUnstakeDelay).to.be.bignumber.equal(new BN(0));

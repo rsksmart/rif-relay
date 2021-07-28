@@ -11,9 +11,9 @@ import {
     NonCompliantTestTokenInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 
-// @ts-ignore
 import {
     EIP712TypedData,
+    // @ts-ignore
     signTypedData_v4,
     TypedDataUtils
 } from 'eth-sig-util';
@@ -1021,9 +1021,9 @@ options.forEach((element) => {
                                 worker
                             );
                             // TODO: we should check this
-                            // @ts-ignore
                             assert.isTrue(
                                 BigInt(tokensPaid) ===
+                                    // @ts-ignore
                                     BigInt(tknBalance.sub(tokenBalanceBefore))
                             );
 
@@ -1041,11 +1041,11 @@ options.forEach((element) => {
                             // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
                             // is called
                             // TODO: we should check this
-                            // @ts-ignore
                             assert.equal(
                                 await web3.eth.getBalance(senderAddress),
                                 (
                                     BigInt(ownerOriginalBalance) +
+                                    // @ts-ignore
                                     BigInt(extraFunds) -
                                     BigInt(value.toString())
                                 ).toString()
@@ -1302,12 +1302,13 @@ options.forEach((element) => {
                             // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
                             // is called
                             // TODO: we should check this
-                            // @ts-ignore
                             assert.equal(
                                 await web3.eth.getBalance(otherAccount),
                                 (
                                     BigInt(ownerOriginalBalance) +
+                                    // @ts-ignore
                                     BigInt(extraFunds) -
+                                    // @ts-ignore
                                     BigInt(value) -
                                     BigInt(gasUsedToCall)
                                 ).toString()

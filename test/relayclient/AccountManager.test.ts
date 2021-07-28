@@ -54,17 +54,14 @@ contract('AccountManager', function () {
                         data: signedData
                     });
                 }
-            );
-            // @ts-ignore
+            ) as any;
             sinon.spy(accountManager);
 
             accountManager.addAccount(keypair);
-            // @ts-ignore
             assert.equal(
                 accountManager.accounts[0].privateKey.toString(),
                 keypair.privateKey.toString()
             );
-            // @ts-ignore
             assert.equal(accountManager.accounts[0].address, keypair.address);
         });
 
@@ -116,11 +113,9 @@ contract('AccountManager', function () {
                         data: signedData
                     });
                 }
-            );
-            // @ts-ignore
+            ) as any;
             sinon.spy(accountManager);
             const keypair = accountManager.newAccount();
-            // @ts-ignore
             assert.equal(
                 accountManager.accounts[0].privateKey.toString(),
                 keypair.privateKey.toString()

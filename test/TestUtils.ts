@@ -645,9 +645,8 @@ export function containsEvent(
     eventName: string
 ): boolean {
     const eventsAbiByTopic = getEventsAbiByTopic(abi);
-    // @ts-ignore
     return rawLogs.some(
-        (log) =>
+        (log: any) =>
             eventsAbiByTopic.has(log.topics[0]) &&
             eventsAbiByTopic.get(log.topics[0]).name === eventName
     );

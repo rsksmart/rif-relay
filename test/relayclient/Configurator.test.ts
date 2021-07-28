@@ -23,9 +23,8 @@ contract('client-configuration', () => {
             });
 
             it('should throw if the first arg not provider', async () => {
-                // @ts-ignore
                 await expect(
-                    resolveConfiguration({})
+                    resolveConfiguration({} as any, {})
                 ).to.eventually.rejectedWith(
                     /First param is not a web3 provider/
                 );

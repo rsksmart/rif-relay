@@ -360,7 +360,7 @@ contract('KnownRelaysManager 2', function (accounts) {
         };
 
         describe('#_refreshFailures()', function () {
-            let knownRelaysManager: KnownRelaysManager;
+            let knownRelaysManager: any;
             let lastErrorTime: number;
 
             before(async function () {

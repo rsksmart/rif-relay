@@ -772,7 +772,7 @@ contract('RelayProvider', function (accounts) {
                 testRecipient2.contract.once(
                     'SampleRecipientEmitted',
                     { fromBlock: block },
-                    (err, ev) => {
+                    (err: any, ev: any) => {
                         if (err !== null) {
                             reject(err);
                         } else {
