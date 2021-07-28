@@ -28,7 +28,7 @@ import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment'
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils'
 import { PrefixedHexString } from 'ethereumjs-tx'
 import { ServerAction } from '../../src/relayserver/StoredTransaction'
-import {ServerConfigParams} from "../../src/relayserver/ServerConfigParams";
+import { ServerConfigParams } from '../../src/relayserver/ServerConfigParams'
 const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai)
 const TestToken = artifacts.require('TestToken')
 const TestVerifierConfigurableMisbehavior = artifacts.require('TestVerifierConfigurableMisbehavior')
