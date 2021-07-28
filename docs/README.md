@@ -1,8 +1,8 @@
-# RIF Enveloping - V2
+# RIF Enveloping V2
 
 A secure transaction relay system to enable users to pay fees using ERC-20 tokens.
 
-[![CircleCI](https://circleci.com/gh/rsksmart/enveloping/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/enveloping/tree/master)
+[![CircleCI](https://circleci.com/gh/rsksmart/rif-relay/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/rif-relay/tree/master)
 
 ## Description
 
@@ -27,12 +27,12 @@ It is important to recall that - as a security measure - the version 1 contracts
 
 The following technical content is available:
 
-- Architecture [docs/enveloping_architecture](docs/enveloping_architecture.md)
-- Installing requirements [docs/basic_requirements](docs/basic_requirements.md)
-- Launching RIF Enveloping [docs/launching_enveloping](docs/launching_enveloping.md)
-- Development guide [docs/development_guide](docs/development_guide.md)
-- Integration guide [docs/integration_guide](docs/integration_guide.md)
-- Gas costs [docs/overhead_tx_costs](docs/overhead_tx_costs.md)
+- Architecture [docs/enveloping_architecture](enveloping_architecture.md)
+- Installing requirements [docs/basic_requirements](basic_requirements.md)
+- Launching RIF Enveloping [docs/launching_enveloping](launching_enveloping.md)
+- Development guide [docs/development_guide](development_guide.md)
+- Integration guide [docs/integration_guide](integration_guide.md)
+- Gas costs [docs/overhead_tx_costs](overhead_tx_costs.md)
 
 ## Testnet Contracts - V2
 
