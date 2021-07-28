@@ -28,7 +28,7 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "postinstall": "patch-package",
+    "postinstall": "scripts/postinstall",
     "test": "scripts/test",
     "testOnly": "scripts/testOnly",
     "prepare": "./scripts/prepare",
