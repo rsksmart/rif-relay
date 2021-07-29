@@ -43,6 +43,7 @@ commands:
                   name: Preparing Rif Relay
                   command: npm run prepare
     pre-checks:
+        working_directory: ~/gls # directory where steps will run
         description: 'Execute lint and tsc'
         steps:
             - run:
