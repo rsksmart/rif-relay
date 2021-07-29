@@ -21,7 +21,7 @@ Rif Relay is built in modules, the entire system is made up by 4 modules.
 3. [Rif Relay Client](https://github.com/infuy/rif-relay-client) contains a library to interact with the relay server.
 4. [Rif Relay Server](https://github.com/infuy/rif-relay-server) has all the relay server code, you can use it as a library or run the server directly from there.
 
-Each module has instructions for develop and usage.
+Each module has instructions for development and usage.
 
 ## Testing
 
