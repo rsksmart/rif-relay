@@ -212,11 +212,16 @@ jobs: # a collection of steps
                         echo "Waiting for RskJ..."
                         sleep 1
                       done
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
                       npx truffle test --network regtest test/relayclient/RelayClient.test.ts
                       npx truffle test --network regtest test/relayserver/NetworkSimulation.test.ts
                       npx truffle test --network regtest test/relayserver/RegistrationManager.test.ts
                       npx truffle test --network regtest test/relayserver/RelayServer.test.ts
                       npx truffle test --network regtest test/relayserver/RelayServer.webpack.test.ts
+                      rm -rf contracts
+                      rm -rf migrations
+                      rm -rf contract-addresses.json
             - store_artifacts:
                   path: ~/gls/logs
 
