@@ -218,7 +218,6 @@ jobs: # a collection of steps
                       npx truffle test --network regtest test/relayserver/NetworkSimulation.test.ts
                       npx truffle test --network regtest test/relayserver/RegistrationManager.test.ts
                       npx truffle test --network regtest test/relayserver/RelayServer.test.ts
-                      npx truffle test --network regtest test/relayserver/RelayServer.webpack.test.ts
                       rm -rf contracts
                       rm -rf migrations
                       rm -rf contract-addresses.json
