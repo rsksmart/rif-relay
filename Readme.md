@@ -14,14 +14,14 @@ It is important to recall that - as a security measure - the version 1 contracts
 
 ## Modules
 
-Rif Relay is built in modules, we have 4 modules that build all the system.
+Rif Relay is built in modules, the entire system is made up by 4 modules.
 
 1. [Rif Relay Contracts](https://github.com/anarancio/rif-relay-contracts) contains all the contracts used by the Rif Relay System.
 2. [Rif Relay Common](https://github.com/infuy/rif-relay-common) it's a library that contains all the common code used by other modules.
 3. [Rif Relay Client](https://github.com/infuy/rif-relay-client) contains a library to interact with the relay server.
 4. [Rif Relay Server](https://github.com/infuy/rif-relay-server) has all the relay server code, you can use it as a library or run the server directly from there.
 
-Each module has instructions for develop and usage.
+Each module has instructions for development and usage.
 
 ## Testing
 
