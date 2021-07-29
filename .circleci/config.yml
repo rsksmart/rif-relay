@@ -31,19 +31,27 @@ commands:
                       ./gradlew clean build -x test
 
             - restore_cache: # special step to restore the dependency cache
-                  key: dependency-cachev5-{{ checksum "package.json" }}-yarn2
+                  key: dependency-cachev5-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
                   command: npm install --ignore-scripts
             - save_cache: # special step to save the dependency cache
-                  key: dependency-cachev5-{{ checksum "package.json" }}-yarn2
+                  key: dependency-cachev5-{{ checksum "package.json" }}-npm
                   paths:
                       - ./node_modules
             - run:
                   name: Preparing Rif Relay
                   command: npm run prepare
+    prepare_container:
+        description: 'Preparing Rif Relay Container'
+        steps:
+            - checkout # special step to check out source code to working directory
+            - restore_cache: # special step to restore the dependency cache
+                  key: dependency-cachev5-{{ checksum "package.json" }}-npm
+            - run:
+                  name: Installing Rif Relay
+                  command: npm install --ignore-scripts
     pre-checks:
-        working_directory: ~/gls # directory where steps will run
         description: 'Execute lint and tsc'
         steps:
             - run:
@@ -64,7 +72,7 @@ commands:
             - run:
                   name: 'Execute << parameters.test >>'
                   command: |
-                      java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &               
+                      java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
                       until nc -z 127.0.0.1 4444
                       do
                        echo "Waiting for RskJ..."
@@ -79,6 +87,7 @@ jobs: # a collection of steps
             - image: cimg/openjdk:8.0-node
 
         steps: # a collection of executable commands
+            - prepare_container
             - pre-checks
 #    Test_Thread_1: # Test thread
 #        working_directory: ~/gls # directory where steps will run
