@@ -107,16 +107,16 @@ jobs: # a collection of steps
                       done
                       cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
                       cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-                      npx truffle test --network rsk test/Verifiers.test.ts
-                      npx truffle test --network rsk test/RelayHubPenalizations.test.ts
-                      npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
-                      npx truffle test --network rsk test/TxStoreManager.test.ts
-                      npx truffle test --network rsk test/Utils.test.ts
-                      npx truffle test --network rsk test/common/VersionManager.test.ts
-                      npx truffle test --network rsk test/regressions/PayableWithEmit.test.ts
-                      npx truffle test --network rsk test/relayclient/AccountManager.test.ts
-                      npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
-                      npx truffle test --network rsk test/relayclient/Configurator.test.ts
+                      npx truffle test --network regtest test/Verifiers.test.ts
+                      npx truffle test --network regtest test/RelayHubPenalizations.test.ts
+                      npx truffle test --network regtest test/RelayHubRegistrationsManagement.test.ts
+                      npx truffle test --network regtest test/TxStoreManager.test.ts
+                      npx truffle test --network regtest test/Utils.test.ts
+                      npx truffle test --network regtest test/common/VersionManager.test.ts
+                      npx truffle test --network regtest test/regressions/PayableWithEmit.test.ts
+                      npx truffle test --network regtest test/relayclient/AccountManager.test.ts
+                      npx truffle test --network regtest test/relayclient/ContractInteractor.test.ts
+                      npx truffle test --network regtest test/relayclient/Configurator.test.ts
                       rm -rf contracts
                       rm -rf migrations
                       rm -rf contract-addresses.json
