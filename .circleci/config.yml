@@ -34,7 +34,7 @@ commands:
                   key: dependency-cachev5-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
-                  command: npm install --ignore-scripts
+                  command: npm install
             - save_cache: # special step to save the dependency cache
                   key: dependency-cachev5-{{ checksum "package.json" }}-npm
                   paths:
@@ -50,7 +50,7 @@ commands:
                   key: dependency-cachev5-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
-                  command: npm install --ignore-scripts
+                  command: npm install
     pre-checks:
         description: 'Execute lint and tsc'
         steps:
