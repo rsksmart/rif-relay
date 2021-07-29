@@ -78,8 +78,12 @@ commands:
                        echo "Waiting for RskJ..."
                        sleep 1
                       done
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
                       npx truffle test --network regtest << parameters.test >>
-
+                      rm -rf contracts
+                      rm -rf migrations
+                      rm -rf contract-addresses.json
 jobs: # a collection of steps
     Lint_Tsc: # Lint and other pre-checks thread
         working_directory: ~/gls # directory where steps will run
@@ -180,11 +184,16 @@ jobs: # a collection of steps
                         echo "Waiting for RskJ..."
                         sleep 1
                       done
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
                       npx truffle test --network regtest test/Flows.test.ts
                       npx truffle test --network regtest test/TestEnvironment.test.ts
                       npx truffle test --network regtest test/HttpWrapper.test.ts
                       npx truffle test --network regtest test/KeyManager.test.ts
                       npx truffle test --network regtest test/WalletFactory.test.ts
+                      rm -rf contracts
+                      rm -rf migrations
+                      rm -rf contract-addresses.json
             - store_artifacts:
                   path: ~/gls/logs
 
