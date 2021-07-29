@@ -78,7 +78,6 @@ jobs: # a collection of steps
             - image: cimg/openjdk:8.0-node
 
         steps: # a collection of executable commands
-            - prepare_wo_rskj
             - pre-checks
 #    Test_Thread_1: # Test thread
 #        working_directory: ~/gls # directory where steps will run
