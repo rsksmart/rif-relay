@@ -89,34 +89,39 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare_container
             - pre-checks
-#    Test_Thread_1: # Test thread
-#        working_directory: ~/gls # directory where steps will run
-#        docker: # run the steps with Docker
-#            - image: cimg/openjdk:8.0-node
-#
-#        steps: # a collection of executable commands
-#            - prepare
-#            - run:
-#                  name: Tests without DB reset Set B
-#                  command: |
-#                      java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-#                      until nc -z 127.0.0.1 4444
-#                      do
-#                        echo "Waiting for RskJ..."
-#                        sleep 1
-#                      done
-#                      npx truffle test --network rsk test/Verifiers.test.ts
-#                      npx truffle test --network rsk test/RelayHubPenalizations.test.ts
-#                      npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
-#                      npx truffle test --network rsk test/TxStoreManager.test.ts
-#                      npx truffle test --network rsk test/Utils.test.ts
-#                      npx truffle test --network rsk test/common/VersionManager.test.ts
-#                      npx truffle test --network rsk test/regressions/PayableWithEmit.test.ts
-#                      npx truffle test --network rsk test/relayclient/AccountManager.test.ts
-#                      npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
-#                      npx truffle test --network rsk test/relayclient/Configurator.test.ts
-#            - store_artifacts:
-#                  path: ~/gls/logs
+    Test_Thread_1: # Test thread
+        working_directory: ~/gls # directory where steps will run
+        docker: # run the steps with Docker
+            - image: cimg/openjdk:8.0-node
+
+        steps: # a collection of executable commands
+            - prepare
+            - run:
+                  name: Tests without DB reset Set B
+                  command: |
+                      java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
+                      until nc -z 127.0.0.1 4444
+                      do
+                        echo "Waiting for RskJ..."
+                        sleep 1
+                      done
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
+                      npx truffle test --network rsk test/Verifiers.test.ts
+                      npx truffle test --network rsk test/RelayHubPenalizations.test.ts
+                      npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
+                      npx truffle test --network rsk test/TxStoreManager.test.ts
+                      npx truffle test --network rsk test/Utils.test.ts
+                      npx truffle test --network rsk test/common/VersionManager.test.ts
+                      npx truffle test --network rsk test/regressions/PayableWithEmit.test.ts
+                      npx truffle test --network rsk test/relayclient/AccountManager.test.ts
+                      npx truffle test --network rsk test/relayclient/ContractInteractor.test.ts
+                      npx truffle test --network rsk test/relayclient/Configurator.test.ts
+                      rm -rf contracts
+                      rm -rf migrations
+                      rm -rf contract-addresses.json
+            - store_artifacts:
+                  path: ~/gls/logs
 #  Test_Thread_2: # Test thread
 #    working_directory: ~/gls # directory where steps will run
 #    docker: # run the steps with Docker
@@ -229,7 +234,7 @@ workflows:
     commit:
         jobs:
             - Lint_Tsc
-#          - Test_Thread_1
+            - Test_Thread_1
 #          - Test_Thread_2
 #          - Test_Thread_3
 #          - Test_Thread_4
