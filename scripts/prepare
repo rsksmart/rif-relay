@@ -1,13 +1,3 @@
 #!/bin/bash -e
 
-rm -rf ./dist/
-
-#these files are created for packing only (removed by "postpack")
-for c in RelayProvider RelayClient RelayEvents Configurator TestEnvironment; do
-  echo gen ./$c.ts:
-  (echo "// generated during pack";echo "export * from './src/relayclient/$c'") > $c.ts
-done
-
-tsc
-
-cp -r types dist/
+npm run build
