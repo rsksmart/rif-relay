@@ -265,6 +265,21 @@ const sentRelayTransaction = await enveloping.sendTransaction(
 sentRelayTransaction.transaction?.hash(true).toString('hex'); //This is used to get the transaction hash
 ```
 
+## Custom worker replenish function in the Relay Server
+
+Each relayed transaction is signed by a Relay Worker account. The worker accounts are controlled by the Relay Manager. When a relay worker signs and relays a transaction, the cost for that transaction is paid using the funds in that worker's account. If the transaction is not subsidized, then the worker is compensated with tokens.
+
+Worker accounts must always have some minimum balance to pay gas for the transaction. These balances can be managed by implementing a replenishment strategy. The Relay Manager can use the strategy to top off a relay worker's account when the balance gets too low.
+
+We provide a default implementation for a replenishment strategy. Enveloping solution integrators can implement their own replenish strategy.
+
+To implement and use your own replenish strategy:
+
+1. In the folder `src/relayserver`, open `ReplenishFunction.ts` with a text editor.
+2. On the function `replenishStrategy` write your new replenish strategy.
+3. Re build the project `yarn && yarn prepare`
+4. Add the command `--customReplenish` when running a Relay Server or change the config json file to set `customReplenish` on true.
+
 ## MetaCoin
 
 As a complete example (works on Regtest), we developed Metacoin for minting and sending tokens without requiring RBTC for gas.
