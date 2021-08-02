@@ -52,13 +52,13 @@ commands:
                   name: Installing Rif Relay
                   command: npm install
     pre-checks:
-        description: 'Execute lint and tsc'
+        description: 'Execute build and code style checks'
         steps:
             - run:
-                  name: TSC
+                  name: Build
                   command: npm run build
             - run:
-                  name: Lint
+                  name: Linter
                   command: npm run lint
             - run:
                   name: Prettier
@@ -85,7 +85,7 @@ commands:
                       rm -rf migrations
                       rm -rf contract-addresses.json
 jobs: # a collection of steps
-    Lint_Tsc: # Lint and other pre-checks thread
+    CodeStyle Checks: # Lint and other pre-checks thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -93,7 +93,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare_container
             - pre-checks
-    Test_Thread_1: # Test thread
+    Test Thread 1: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -126,7 +126,7 @@ jobs: # a collection of steps
             - store_artifacts:
                   path: ~/gls/logs
 
-    Test_Thread_2: # Test thread
+    Test Thread 2: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -149,7 +149,7 @@ jobs: # a collection of steps
             - store_artifacts:
                   path: ~/gls/logs
 
-    Test_Thread_3: # Test thread
+    Test Thread 3: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -169,7 +169,7 @@ jobs: # a collection of steps
             - store_artifacts:
                   path: ~/gls/logs
 
-    Test_Thread_4: # Test thread
+    Test Thread 4: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -197,7 +197,7 @@ jobs: # a collection of steps
             - store_artifacts:
                   path: ~/gls/logs
 
-    Test_Thread_5: # Test thread
+    Test Thread 5: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -224,7 +224,7 @@ jobs: # a collection of steps
             - store_artifacts:
                   path: ~/gls/logs
 
-    Test_Thread_6: # Test thread
+    Test Thread 6: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
@@ -246,10 +246,10 @@ jobs: # a collection of steps
 workflows:
     commit:
         jobs:
-            - Lint_Tsc
-            - Test_Thread_1
-            - Test_Thread_2
-            - Test_Thread_3
-            - Test_Thread_4
-            - Test_Thread_5
-            - Test_Thread_6
+            - CodeStyle Checks
+            - Test Thread 1
+            - Test Thread 2
+            - Test Thread 3
+            - Test Thread 4
+            - Test Thread 5
+            - Test Thread 6
