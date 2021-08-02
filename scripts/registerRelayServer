@@ -1,5 +1,0 @@
-#!/bin/bash
-
-echo "Registering relay server"
-
-node dist/src/cli/commands/enveloping.js relayer-register --funds 100 --stake 200 --network http://rsk-node:4444/ --hub "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701"

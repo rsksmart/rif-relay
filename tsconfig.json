@@ -7,20 +7,15 @@
     "module": "commonjs",
     "strict": true,
     "strictNullChecks": false,
+    "strictPropertyInitialization": false,
     "moduleResolution": "node",
-    "noImplicitThis": true,
     "alwaysStrict": true,
     "declaration": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
     "outDir": "dist",
-    "lib": [
-      "dom",
-      "es2015",
-      "esnext.asynciterable"
-    ],
-    "sourceMap": true,
     "typeRoots": [
       "./node_modules/@rsksmart/rif-relay-contracts/types",
       "./node_modules/@types",
@@ -31,20 +26,12 @@
       "node",
       "truffle-contracts",
       "openzeppelin__test-helpers",
-      "ganache-core",
       "date-format",
       "chai-bn"
-    ]
+    ],
+    "lib": ["es2018", "dom", "esnext"],
+    "sourceMap": true
   },
-  "include": [
-    "**/*.ts",
-    "src/**/*"
- ],
-  "exclude": [
-    "dist",
-    "jsrelay/dist",
-    "node_modules",
-    "example",
-    "build"
-  ]
+  "include": ["**/*.ts"],
+  "exclude": ["dist", "node_modules"]
 }

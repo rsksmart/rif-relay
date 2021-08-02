@@ -27,10 +27,13 @@ artifacts
 /jsrelay/data/
 /jsrelay/dist/relayserver.js
 /json-input.json
-rsknode/db/
-rsknode/logs/
-rsknode/src/
+docker/db/
+docker/logs/
+docker/src/
 .vscode/
 dockers/
 tsconfig.
 yarn.lock
+contracts
+migrations
+contract-addresses.json

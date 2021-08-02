@@ -1,0 +1,40 @@
+#!/bin/bash
+
+if [ $# -eq 0 ]; then
+        echo "You need to specify at least one test"
+        exit 1
+fi
+NETWORK=$(docker network ls --filter name=rif-relay-testing -q)
+if [ -z "${NETWORK}" ]; then
+        echo "Creating network enveloping-tests-net"
+        docker network create rif-relay-testing
+fi
+
+docker-compose -f docker/docker-compose.yml build
+
+docker-compose -f docker/docker-compose.yml up -d
+
+cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
+
+_i=0
+while [ $_i -lt 30 ]; do
+  curl -Ss -H "Content-type: application/json" \
+      -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+      http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
+  sleep 1
+  _i=$((_i + 1))
+done
+if [ $_i -eq 30 ]; then
+  echo "No response from rskj after 30 seconds; aborting..." >&2
+  exit 1
+fi
+sleep 5
+
+npx truffle test --network regtest "$@" || echo "Test fail!"
+
+rm -rf contracts
+rm -rf migrations
+rm -rf contract-addresses.json
+
+docker-compose -f docker/docker-compose.yml down
