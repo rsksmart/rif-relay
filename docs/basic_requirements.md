@@ -6,7 +6,7 @@ If you don't use docker you need to have a running RSK node version [PAPYRUS-2.2
 
 ## Yarn
 
-We use `yarn` version `v1.22.0` for package management. 
+We use `yarn` version `v1.22.0` for package management.
 
 Installation instructions at Yarn's [site](https://yarnpkg.com/getting-started/install). Check the install by running `yarn version`.
 
@@ -28,7 +28,7 @@ We run all truffle commands with the prefix `npx`. This is to execute node packa
 
 Checking the install by running `npx truffle version`
 
-The configuration file is `truffle.js`.Please see Truffle's documentation  for details about this file and how to use it .
+The configuration file is `truffle.js`.Please see Truffle's documentation for details about this file and how to use it .
 
 ## Docker
 
@@ -37,10 +37,11 @@ We recommend following the official [documentation](https://docs.docker.com/get-
 You need to install `docker` and `docker-compose`
 
 ### Running on macOS
-To run the project using Docker on a Mac, please follow these steps or the scripts and web apps will not work. 
 
-- Patch `readlink`
-The startup scripts assume that GNU's `readlink` command is available. But MacOS ships with BSD's `readlink`, which is incompatible with GNU's version. So we must patch `readlink`. This can be done using [Homebrew](https://brew.sh/) as follows:
+To run the project using Docker on a Mac, please follow these steps or the scripts and web apps will not work.
+
+-   Patch `readlink`
+    The startup scripts assume that GNU's `readlink` command is available. But MacOS ships with BSD's `readlink`, which is incompatible with GNU's version. So we must patch `readlink`. This can be done using [Homebrew](https://brew.sh/) as follows:
 
 ```
 brew install coreutils
