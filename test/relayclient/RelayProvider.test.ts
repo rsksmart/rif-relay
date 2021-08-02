@@ -21,7 +21,8 @@ import {
 import {
     EnvelopingConfig,
     isRsk,
-    EnvelopingTransactionDetails
+    EnvelopingTransactionDetails,
+    constants
 } from '@rsksmart/rif-relay-common';
 import {
     deployHub,
@@ -35,8 +36,6 @@ import {
     RelayServerData
 } from '../TestUtils';
 import BadRelayClient from '../dummies/BadRelayClient';
-// @ts-ignore
-import { constants } from '../../src/common/Constants';
 import {
     AccountKeypair,
     RelayProvider,

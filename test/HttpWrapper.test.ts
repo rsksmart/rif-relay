@@ -26,7 +26,7 @@ describe('HttpWrapper', () => {
             id: 123
         });
         await expect(res).to.be.eventually.rejectedWith(
-            new Error('connect ECONNREFUSED 127.0.0.1:44321')
+            'connect ECONNREFUSED 127.0.0.1:44321'
         );
     });
 });
