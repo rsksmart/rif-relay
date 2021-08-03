@@ -61,9 +61,11 @@ function run_batch() {
 
 # Test_Group_1
 run_batch Test_Group_1 \
+    test/Verifiers.test.ts \
     test/RelayHubPenalizations.test.ts \
     test/RelayHubRegistrationsManagement.test.ts \
     test/TxStoreManager.test.ts \
+    test/Utils.test.ts \
     test/common/VersionManager.test.ts \
     test/regressions/PayableWithEmit.test.ts \
     test/relayclient/AccountManager.test.ts \
@@ -82,6 +84,7 @@ run_batch StakeManagement test/StakeManagement.test.ts
 run_batch RSKAddressValidator test/RSKAddressValidator.test.ts
 run_batch EnvelopingUtils test/EnvelopingUtils.test.ts
 run_batch SmartWalletDiscovery test/relayclient/SmartWalletDiscovery.test.ts
+run_batch CustomSmartWallet test/smartwallet/CustomSmartWallet.test.ts
 
 # Test_Group_3
 run_batch Test_Group_3 \
@@ -89,7 +92,6 @@ run_batch Test_Group_3 \
     test/TestEnvironment.test.ts \
     test/HttpWrapper.test.ts \
     test/KeyManager.test.ts \
-    test/PaymasterCommitment.test.ts \
     test/WalletFactory.test.ts
 
 # Test_Group_4
@@ -97,8 +99,7 @@ run_batch Test_Group_4 \
     test/relayclient/RelayClient.test.ts \
     test/relayserver/NetworkSimulation.test.ts \
     test/relayserver/RegistrationManager.test.ts \
-    test/relayserver/RelayServer.test.ts \
-    test/relayserver/RelayServer.webpack.test.ts
+    test/relayserver/RelayServer.test.ts
 
 # Test_Group_5
 run_batch RelayHub test/RelayHub.test.ts
