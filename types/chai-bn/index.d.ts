@@ -1,5 +1,5 @@
-declare module Chai {
-  interface Assertion {
-    bignumber: any
-  }
+declare namespace Chai {
+    interface Assertion {
+        bignumber: any;
+    }
 }

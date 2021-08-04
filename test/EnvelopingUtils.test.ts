@@ -1,543 +1,893 @@
-import { ChildProcessWithoutNullStreams } from 'child_process'
-import { BN, toBuffer } from 'ethereumjs-util'
-import { configure, EnvelopingConfig } from '../Configurator'
-import { isSameAddress } from '../src/common/Utils'
-import { Enveloping, SignatureProvider } from '../src/relayclient/Enveloping'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
-import { Address, IntString } from '../src/relayclient/types/Aliases'
-import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, TestDeployVerifierEverythingAcceptedInstance, TestRecipientInstance, TestTokenInstance, TestVerifierEverythingAcceptedInstance } from '../types/truffle-contracts'
-import { createSmartWalletFactory, deployHub, getTestingEnvironment, startRelay, stopRelay } from './TestUtils'
-import { constants } from '../src/common/Constants'
-import { randomHex, toChecksumAddress } from 'web3-utils'
-import TypedRequestData from '../src/common/EIP712/TypedRequestData'
-import { PrefixedHexString } from 'ethereumjs-tx'
-import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
-import sigUtil from 'eth-sig-util'
-import Web3 from 'web3'
-
+import { ChildProcessWithoutNullStreams } from 'child_process';
+import { BN, toBuffer } from 'ethereumjs-util';
+import {
+    SmartWalletFactoryInstance,
+    RelayHubInstance,
+    SmartWalletInstance,
+    TestDeployVerifierEverythingAcceptedInstance,
+    TestRecipientInstance,
+    TestTokenInstance,
+    TestVerifierEverythingAcceptedInstance
+} from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
+import {
+    createSmartWalletFactory,
+    deployHub,
+    getTestingEnvironment,
+    startRelay,
+    stopRelay
+} from './TestUtils';
+import {
+    EnvelopingConfig,
+    constants,
+    isSameAddress,
+    TypedRequestData,
+    DeployRequest,
+    RelayRequest
+} from '@rsksmart/rif-relay-common';
+import { randomHex, toChecksumAddress } from 'web3-utils';
+import { PrefixedHexString } from 'ethereumjs-tx';
+import sigUtil from 'eth-sig-util';
+import Web3 from 'web3';
 // @ts-ignore
-import abiDecoder from 'abi-decoder'
-import { hdkey as EthereumHDKey } from 'ethereumjs-wallet'
-import { DiscoveryConfig, SmartWalletDiscovery } from '../src/relayclient/SmartWalletDiscovery'
-import { WebsocketProvider } from 'web3-core'
+import abiDecoder from 'abi-decoder';
+import { hdkey as EthereumHDKey } from 'ethereumjs-wallet';
+import {
+    DiscoveryConfig,
+    SmartWalletDiscovery,
+    configure,
+    Enveloping,
+    SignatureProvider,
+    AccountKeypair
+} from '@rsksmart/rif-relay-client';
+import { WebsocketProvider } from 'web3-core';
 
 contract('Enveloping utils', function (accounts) {
-  describe('Relay-related functionalities', function () {
-    const TestRecipient = artifacts.require('tests/TestRecipient')
-    const TestToken = artifacts.require('TestToken')
-    const SmartWallet = artifacts.require('SmartWallet')
-    const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
-    const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeployVerifierEverythingAccepted')
-    const SmartWalletFactory = artifacts.require('SmartWalletFactory')
+    describe('Relay-related functionalities', function () {
+        const TestRecipient = artifacts.require('tests/TestRecipient');
+        const TestToken = artifacts.require('TestToken');
+        const SmartWallet = artifacts.require('SmartWallet');
+        const TestVerifierEverythingAccepted = artifacts.require(
+            'tests/TestVerifierEverythingAccepted'
+        );
+        const TestDeployVerifierEverythingAccepted = artifacts.require(
+            'tests/TestDeployVerifierEverythingAccepted'
+        );
+        const SmartWalletFactory = artifacts.require('SmartWalletFactory');
 
-    const localhost = 'http://localhost:8090'
-    const message = 'hello world'
+        const localhost = 'http://localhost:8090';
+        const message = 'hello world';
 
-    // @ts-ignore
-    abiDecoder.addABI(TestRecipient.abi)
-    // @ts-ignore
-    abiDecoder.addABI(SmartWalletFactory.abi)
-    let enveloping: Enveloping
-    let tokenContract: TestTokenInstance
-    let relayHub: RelayHubInstance
-    let verifier: TestVerifierEverythingAcceptedInstance
-    let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
-    let factory: SmartWalletFactoryInstance
-    let sWalletTemplate: SmartWalletInstance
-    let testRecipient: TestRecipientInstance
-    let chainId: number
-    let workerAddress: Address
-    let config: EnvelopingConfig
-    let fundedAccount: AccountKeypair
-    let gaslessAccount: AccountKeypair
-    let relayproc: ChildProcessWithoutNullStreams
-    let swAddress: Address
-    let index: string
-
-    const signatureProvider: SignatureProvider = {
-      sign: (dataToSign: TypedRequestData) => {
-        const privKey = toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595')
         // @ts-ignore
-        return sigUtil.signTypedData_v4(privKey, { data: dataToSign })
-      },
-      verifySign: (signature: PrefixedHexString, dataToSign: TypedRequestData, request: RelayRequest|DeployRequest) => {
+        abiDecoder.addABI(TestRecipient.abi);
         // @ts-ignore
-        const rec = sigUtil.recoverTypedSignature_v4({
-          data: dataToSign,
-          sig: signature
-        })
-        return isSameAddress(request.request.from, rec)
-      }
-    }
+        abiDecoder.addABI(SmartWalletFactory.abi);
+        let enveloping: Enveloping;
+        let tokenContract: TestTokenInstance;
+        let relayHub: RelayHubInstance;
+        let verifier: TestVerifierEverythingAcceptedInstance;
+        let deployVerifier: TestDeployVerifierEverythingAcceptedInstance;
+        let factory: SmartWalletFactoryInstance;
+        let sWalletTemplate: SmartWalletInstance;
+        let testRecipient: TestRecipientInstance;
+        let chainId: number;
+        let workerAddress: string;
+        let config: EnvelopingConfig;
+        let fundedAccount: AccountKeypair;
+        let gaslessAccount: AccountKeypair;
+        let relayproc: ChildProcessWithoutNullStreams;
+        let swAddress: string;
+        let index: string;
 
-    const deploySmartWallet = async function deploySmartWallet (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
-      const deployRequest = await enveloping.createDeployRequest(gaslessAccount.address, tokenContract, tokenAmount, tokenGas, '1000000000', index)
-      const deploySignature = enveloping.signDeployRequest(signatureProvider, deployRequest)
-      const httpDeployRequest = await enveloping.generateDeployTransactionRequest(deploySignature, deployRequest)
-      const sentDeployTransaction = await enveloping.sendTransaction(localhost, httpDeployRequest)
-      return sentDeployTransaction.transaction?.hash(true).toString('hex')
-    }
+        const signatureProvider: SignatureProvider = {
+            sign: (dataToSign: TypedRequestData) => {
+                const privKey = toBuffer(
+                    '0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'
+                );
+                // @ts-ignore
+                return sigUtil.signTypedData_v4(privKey, { data: dataToSign });
+            },
+            verifySign: (
+                signature: PrefixedHexString,
+                dataToSign: TypedRequestData,
+                request: RelayRequest | DeployRequest
+            ) => {
+                // @ts-ignore
+                const rec = sigUtil.recoverTypedSignature_v4({
+                    data: dataToSign,
+                    sig: signature
+                });
+                return isSameAddress(request.request.from, rec);
+            }
+        };
 
-    const assertSmartWalletDeployedCorrectly = async function assertSmartWalletDeployedCorrectly (swAddress: Address): Promise<void> {
-      const deployedCode = await web3.eth.getCode(swAddress)
-      let expectedCode = await factory.getCreationBytecode()
-      expectedCode = '0x' + expectedCode.slice(20, expectedCode.length)
-      assert.equal(deployedCode, expectedCode)
-    }
+        const deploySmartWallet = async function deploySmartWallet(
+            tokenContract: string,
+            tokenAmount: string,
+            tokenGas: string
+        ): Promise<string | undefined> {
+            const deployRequest = await enveloping.createDeployRequest(
+                gaslessAccount.address,
+                tokenContract,
+                tokenAmount,
+                tokenGas,
+                '1000000000',
+                index
+            );
+            const deploySignature = enveloping.signDeployRequest(
+                signatureProvider,
+                deployRequest
+            );
+            const httpDeployRequest =
+                await enveloping.generateDeployTransactionRequest(
+                    deploySignature,
+                    deployRequest
+                );
+            const sentDeployTransaction = await enveloping.sendTransaction(
+                localhost,
+                httpDeployRequest
+            );
+            return sentDeployTransaction.transaction
+                ?.hash(true)
+                .toString('hex');
+        };
 
-    const relayTransaction = async function relayTransaction (tokenContract: Address, tokenAmount: IntString, tokenGas: IntString): Promise<string|undefined> {
-      const encodedFunction = testRecipient.contract.methods.emitMessage(message).encodeABI()
-      const relayRequest = await enveloping.createRelayRequest(gaslessAccount.address, testRecipient.address, swAddress, encodedFunction, tokenContract, tokenAmount, tokenGas)
-      const relaySignature = enveloping.signRelayRequest(signatureProvider, relayRequest)
-      const httpRelayRequest = await enveloping.generateRelayTransactionRequest(relaySignature, relayRequest)
-      const sentRelayTransaction = await enveloping.sendTransaction(localhost, httpRelayRequest)
-      return sentRelayTransaction.transaction?.hash(true).toString('hex')
-    }
+        const assertSmartWalletDeployedCorrectly =
+            async function assertSmartWalletDeployedCorrectly(
+                swAddress: string
+            ): Promise<void> {
+                const deployedCode = await web3.eth.getCode(swAddress);
+                let expectedCode = await factory.getCreationBytecode();
+                expectedCode =
+                    '0x' + expectedCode.slice(20, expectedCode.length);
+                assert.equal(deployedCode, expectedCode);
+            };
 
-    before(async () => {
-      gaslessAccount = {
-        privateKey: toBuffer('0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'),
-        address: '0x09a1eda29f664ac8f68106f6567276df0c65d859'
-      }
-      fundedAccount = {
-        privateKey: toBuffer('0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'),
-        address: '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
-      }
-      testRecipient = await TestRecipient.new()
-      sWalletTemplate = await SmartWallet.new()
-      verifier = await TestVerifierEverythingAccepted.new()
-      deployVerifier = await TestDeployVerifierEverythingAccepted.new()
-      factory = await createSmartWalletFactory(sWalletTemplate)
-      chainId = (await getTestingEnvironment()).chainId
-      tokenContract = await TestToken.new()
-      relayHub = await deployHub()
-    })
+        const relayTransaction = async function relayTransaction(
+            tokenContract: string,
+            tokenAmount: string,
+            tokenGas: string
+        ): Promise<string | undefined> {
+            const encodedFunction = testRecipient.contract.methods
+                .emitMessage(message)
+                .encodeABI();
+            const relayRequest = await enveloping.createRelayRequest(
+                gaslessAccount.address,
+                testRecipient.address,
+                swAddress,
+                encodedFunction,
+                tokenContract,
+                tokenAmount,
+                tokenGas
+            );
+            const relaySignature = enveloping.signRelayRequest(
+                signatureProvider,
+                relayRequest
+            );
+            const httpRelayRequest =
+                await enveloping.generateRelayTransactionRequest(
+                    relaySignature,
+                    relayRequest
+                );
+            const sentRelayTransaction = await enveloping.sendTransaction(
+                localhost,
+                httpRelayRequest
+            );
+            return sentRelayTransaction.transaction?.hash(true).toString('hex');
+        };
 
-    beforeEach(async () => {
-      index = randomHex(32)
-      swAddress = await factory.getSmartWalletAddress(gaslessAccount.address, constants.ZERO_ADDRESS, index)
+        before(async () => {
+            gaslessAccount = {
+                privateKey: toBuffer(
+                    '0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595'
+                ),
+                address: '0x09a1eda29f664ac8f68106f6567276df0c65d859'
+            };
+            fundedAccount = {
+                privateKey: toBuffer(
+                    '0xc85ef7d79691fe79573b1a7064c19c1a9819ebdbd1faaab1a8ec92344438aaf4'
+                ),
+                address: '0xcd2a3d9f938e13cd947ec05abc7fe734df8dd826'
+            };
+            testRecipient = await TestRecipient.new();
+            sWalletTemplate = await SmartWallet.new();
+            verifier = await TestVerifierEverythingAccepted.new();
+            deployVerifier = await TestDeployVerifierEverythingAccepted.new();
+            factory = await createSmartWalletFactory(sWalletTemplate);
+            chainId = (await getTestingEnvironment()).chainId;
+            tokenContract = await TestToken.new();
+            relayHub = await deployHub();
+        });
 
-      const partialConfig: Partial<EnvelopingConfig> =
-      {
-        relayHubAddress: relayHub.address,
-        smartWalletFactoryAddress: factory.address,
-        chainId: chainId,
-        relayVerifierAddress: verifier.address,
-        deployVerifierAddress: deployVerifier.address,
-        preferredRelays: ['http://localhost:8090']
-      }
+        beforeEach(async () => {
+            index = randomHex(32);
+            swAddress = await factory.getSmartWalletAddress(
+                gaslessAccount.address,
+                constants.ZERO_ADDRESS,
+                index
+            );
 
-      config = configure(partialConfig)
-      const serverData = await startRelay(relayHub, {
-        stake: 1e18,
-        delay: 3600 * 24 * 7,
-        url: 'asd',
-        relayOwner: fundedAccount.address,
-        gasPriceFactor: 1,
-        // @ts-ignore
-        rskNodeUrl: web3.currentProvider.host,
-        relayVerifierAddress: verifier.address,
-        deployVerifierAddress: deployVerifier.address
-      })
-      relayproc = serverData.proc
-      workerAddress = serverData.worker
-      enveloping = new Enveloping(config, web3, workerAddress)
-      await enveloping._init()
-    })
+            const partialConfig: Partial<EnvelopingConfig> = {
+                relayHubAddress: relayHub.address,
+                smartWalletFactoryAddress: factory.address,
+                chainId: chainId,
+                relayVerifierAddress: verifier.address,
+                deployVerifierAddress: deployVerifier.address,
+                preferredRelays: ['http://localhost:8090']
+            };
 
-    afterEach(async function () {
-      await stopRelay(relayproc)
-    })
+            config = configure(partialConfig);
+            const serverData = await startRelay(relayHub, {
+                stake: 1e18,
+                delay: 3600 * 24 * 7,
+                url: 'asd',
+                relayOwner: fundedAccount.address,
+                gasPriceFactor: 1,
+                // @ts-ignore
+                rskNodeUrl: web3.currentProvider.host,
+                relayVerifierAddress: verifier.address,
+                deployVerifierAddress: deployVerifier.address
+            });
+            relayproc = serverData.proc;
+            workerAddress = serverData.worker;
+            enveloping = new Enveloping(config, web3, workerAddress);
+            await enveloping._init();
+        });
 
-    it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
-      const expectedInitialCode = await web3.eth.getCode(swAddress)
-      assert.equal('0x', expectedInitialCode)
+        afterEach(async function () {
+            await stopRelay(relayproc);
+        });
 
-      const txDeployHash = await deploySmartWallet(constants.ZERO_ADDRESS, '0', '0')
+        it('Should deploy a smart wallet correctly and relay a tx using enveloping utils without tokens', async () => {
+            const expectedInitialCode = await web3.eth.getCode(swAddress);
+            assert.equal('0x', expectedInitialCode);
 
-      if (txDeployHash === undefined) {
-        assert.fail('Transacion has not been send or it threw an error')
-      }
+            const txDeployHash = await deploySmartWallet(
+                constants.ZERO_ADDRESS,
+                '0',
+                '0'
+            );
 
-      let txReceipt = await web3.eth.getTransactionReceipt(txDeployHash)
-      let logs = abiDecoder.decodeLogs(txReceipt.logs)
+            if (txDeployHash === undefined) {
+                assert.fail(
+                    'Transacion has not been send or it threw an error'
+                );
+            }
 
-      const deployedEvent = logs.find((e: any) => e != null && e.name === 'Deployed')
-      assert.equal(swAddress.toLowerCase(), deployedEvent.events[0].value.toLowerCase())
+            let txReceipt = await web3.eth.getTransactionReceipt(txDeployHash);
+            let logs = abiDecoder.decodeLogs(txReceipt.logs);
 
-      await assertSmartWalletDeployedCorrectly(swAddress)
+            const deployedEvent = logs.find(
+                (e: any) => e != null && e.name === 'Deployed'
+            );
+            assert.equal(
+                swAddress.toLowerCase(),
+                deployedEvent.events[0].value.toLowerCase()
+            );
 
-      const txRelayHash = await relayTransaction(constants.ZERO_ADDRESS, '0', '0')
+            await assertSmartWalletDeployedCorrectly(swAddress);
 
-      if (txRelayHash === undefined) {
-        assert.fail('Transacion has not been send or it threw an error')
-      }
+            const txRelayHash = await relayTransaction(
+                constants.ZERO_ADDRESS,
+                '0',
+                '0'
+            );
 
-      txReceipt = await web3.eth.getTransactionReceipt(txRelayHash)
-      logs = abiDecoder.decodeLogs(txReceipt.logs)
+            if (txRelayHash === undefined) {
+                assert.fail(
+                    'Transacion has not been send or it threw an error'
+                );
+            }
 
-      const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+            txReceipt = await web3.eth.getTransactionReceipt(txRelayHash);
+            logs = abiDecoder.decodeLogs(txReceipt.logs);
 
-      assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-      assert.equal(swAddress.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
-      assert.equal(workerAddress.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
-    })
+            const sampleRecipientEmittedEvent = logs.find(
+                (e: any) => e != null && e.name === 'SampleRecipientEmitted'
+            );
 
-    it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
-      const expectedInitialCode = await web3.eth.getCode(swAddress)
-      const balanceTransfered = new BN(10)
-      assert.equal('0x', expectedInitialCode)
-      await tokenContract.mint('100', swAddress)
-      const previousBalance = await tokenContract.balanceOf(workerAddress)
+            assert.equal(message, sampleRecipientEmittedEvent.events[0].value);
+            assert.equal(
+                swAddress.toLowerCase(),
+                sampleRecipientEmittedEvent.events[1].value.toLowerCase()
+            );
+            assert.equal(
+                workerAddress.toLowerCase(),
+                sampleRecipientEmittedEvent.events[2].value.toLowerCase()
+            );
+        });
 
-      const txDeployHash = await deploySmartWallet(tokenContract.address, '10', '50000')
+        it('Should deploy a smart wallet correctly and relay a tx using enveloping utils paying with tokens', async () => {
+            const expectedInitialCode = await web3.eth.getCode(swAddress);
+            const balanceTransfered = new BN(10);
+            assert.equal('0x', expectedInitialCode);
+            await tokenContract.mint('100', swAddress);
+            const previousBalance = await tokenContract.balanceOf(
+                workerAddress
+            );
 
-      if (txDeployHash === undefined) {
-        assert.fail('Transacion has not been send or it threw an error')
-      }
+            const txDeployHash = await deploySmartWallet(
+                tokenContract.address,
+                '10',
+                '50000'
+            );
 
-      let txReceipt = await web3.eth.getTransactionReceipt(txDeployHash)
-      let logs = abiDecoder.decodeLogs(txReceipt.logs)
+            if (txDeployHash === undefined) {
+                assert.fail(
+                    'Transacion has not been send or it threw an error'
+                );
+            }
 
-      const deployedEvent = logs.find((e: any) => e != null && e.name === 'Deployed')
-      assert.equal(swAddress.toLowerCase(), deployedEvent.events[0].value.toLowerCase())
+            let txReceipt = await web3.eth.getTransactionReceipt(txDeployHash);
+            let logs = abiDecoder.decodeLogs(txReceipt.logs);
 
-      await assertSmartWalletDeployedCorrectly(swAddress)
+            const deployedEvent = logs.find(
+                (e: any) => e != null && e.name === 'Deployed'
+            );
+            assert.equal(
+                swAddress.toLowerCase(),
+                deployedEvent.events[0].value.toLowerCase()
+            );
 
-      const newBalance = await tokenContract.balanceOf(workerAddress)
-      assert.equal(newBalance.toNumber(), previousBalance.add(balanceTransfered).toNumber())
+            await assertSmartWalletDeployedCorrectly(swAddress);
 
-      const txRelayHash = await relayTransaction(tokenContract.address, '10', '50000')
+            const newBalance = await tokenContract.balanceOf(workerAddress);
+            assert.equal(
+                newBalance.toNumber(),
+                previousBalance.add(balanceTransfered).toNumber()
+            );
 
-      if (txRelayHash === undefined) {
-        assert.fail('Transacion has not been send')
-      }
+            const txRelayHash = await relayTransaction(
+                tokenContract.address,
+                '10',
+                '50000'
+            );
 
-      const finalBalance = await tokenContract.balanceOf(workerAddress)
+            if (txRelayHash === undefined) {
+                assert.fail('Transacion has not been send');
+            }
 
-      txReceipt = await web3.eth.getTransactionReceipt(txRelayHash)
-      logs = abiDecoder.decodeLogs(txReceipt.logs)
+            const finalBalance = await tokenContract.balanceOf(workerAddress);
 
-      const sampleRecipientEmittedEvent = logs.find((e: any) => e != null && e.name === 'SampleRecipientEmitted')
+            txReceipt = await web3.eth.getTransactionReceipt(txRelayHash);
+            logs = abiDecoder.decodeLogs(txReceipt.logs);
 
-      assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-      assert.equal(swAddress.toLowerCase(), sampleRecipientEmittedEvent.events[1].value.toLowerCase())
-      assert.equal(workerAddress.toLowerCase(), sampleRecipientEmittedEvent.events[2].value.toLowerCase())
+            const sampleRecipientEmittedEvent = logs.find(
+                (e: any) => e != null && e.name === 'SampleRecipientEmitted'
+            );
 
-      assert.equal(finalBalance.toNumber(), newBalance.add(balanceTransfered).toNumber())
-    })
-  })
+            assert.equal(message, sampleRecipientEmittedEvent.events[0].value);
+            assert.equal(
+                swAddress.toLowerCase(),
+                sampleRecipientEmittedEvent.events[1].value.toLowerCase()
+            );
+            assert.equal(
+                workerAddress.toLowerCase(),
+                sampleRecipientEmittedEvent.events[2].value.toLowerCase()
+            );
 
-  describe('discoverAccountsFromExtendedPublicKeys', function () {
-    const currentPassword = '0'
-    const TestToken = artifacts.require('TestToken')
-    const SmartWallet = artifacts.require('SmartWallet')
-    const SmartWalletFactory = artifacts.require('SmartWalletFactory')
-    let socketProvider: WebsocketProvider
-    let byteCodeHash: string
-    const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
-    let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
-    const usedPublicKeys: string[] = []
-    let token: TestTokenInstance
-    let factory: SmartWalletFactoryInstance
-    let chainId: number
+            assert.equal(
+                finalBalance.toNumber(),
+                newBalance.add(balanceTransfered).toNumber()
+            );
+        });
+    });
 
-    before(async function () {
-      chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+    describe('discoverAccountsFromExtendedPublicKeys', function () {
+        const currentPassword = '0';
+        const TestToken = artifacts.require('TestToken');
+        const SmartWallet = artifacts.require('SmartWallet');
+        const SmartWalletFactory = artifacts.require('SmartWalletFactory');
+        let socketProvider: WebsocketProvider;
+        let byteCodeHash: string;
+        const mnemonic =
+            'figure arrow make ginger educate drip thing theory champion faint vendor push';
+        let currentWeb3: Web3;
+        const discoverableAccounts = new Set<string>();
+        const usedPublicKeys: string[] = [];
+        let token: TestTokenInstance;
+        let factory: SmartWalletFactoryInstance;
+        let chainId: number;
 
-      currentWeb3 = new Web3(socketProvider)
+        before(async function () {
+            chainId = (await getTestingEnvironment()).chainId;
+            socketProvider = new Web3.providers.WebsocketProvider(
+                'ws://127.0.0.1:4445/websocket'
+            );
 
-      TestToken.setProvider(socketProvider, undefined)
-      SmartWallet.setProvider(socketProvider, undefined)
-      SmartWalletFactory.setProvider(socketProvider, undefined)
+            currentWeb3 = new Web3(socketProvider);
 
-      const sWalletTemplate = await SmartWallet.new()
-      factory = await SmartWalletFactory.new(sWalletTemplate.address)
-      byteCodeHash = currentWeb3.utils.keccak256(await factory.getCreationBytecode())
-      token = await TestToken.new()
+            TestToken.setProvider(socketProvider, undefined);
+            SmartWallet.setProvider(socketProvider, undefined);
+            SmartWalletFactory.setProvider(socketProvider, undefined);
 
-      const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, currentPassword)
+            const sWalletTemplate = await SmartWallet.new();
+            factory = await SmartWalletFactory.new(sWalletTemplate.address);
+            byteCodeHash = currentWeb3.utils.keccak256(
+                await factory.getCreationBytecode()
+            );
+            token = await TestToken.new();
 
-      for (let accIdx = 0; accIdx < 2; accIdx++) {
-        const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
+            const rootKey: EthereumHDKey =
+                SmartWalletDiscovery.getRootExtKeyFromMnemonic(
+                    mnemonic,
+                    currentPassword
+                );
 
-        for (let i = 0; i < 20; i++) {
-          const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
-          await currentWeb3.eth.sendTransaction({ from: accounts[0], to: account, value: 1 })
-          discoverableAccounts.add(account)
+            for (let accIdx = 0; accIdx < 2; accIdx++) {
+                const firstAccountRoot = rootKey.derivePath(
+                    `m/44'/37310'/${accIdx}'/0`
+                );
+                usedPublicKeys.push(
+                    firstAccountRoot.publicExtendedKey().toString()
+                );
 
-          for (let j = 0; j < 20; j++) {
-            const swAddress = calculateSmartWalletAddress(factory.address, account, constants.ZERO_ADDRESS, j, byteCodeHash)
-            await currentWeb3.eth.sendTransaction({ from: accounts[0], to: swAddress, value: 1 })
-            discoverableAccounts.add(swAddress)
-          }
+                for (let i = 0; i < 20; i++) {
+                    const account = firstAccountRoot
+                        .deriveChild(i)
+                        .getWallet()
+                        .getAddressString();
+                    await currentWeb3.eth.sendTransaction({
+                        from: accounts[0],
+                        to: account,
+                        value: 1
+                    });
+                    discoverableAccounts.add(account);
+
+                    for (let j = 0; j < 20; j++) {
+                        const swAddress = calculateSmartWalletAddress(
+                            factory.address,
+                            account,
+                            constants.ZERO_ADDRESS,
+                            j,
+                            byteCodeHash
+                        );
+                        await currentWeb3.eth.sendTransaction({
+                            from: accounts[0],
+                            to: swAddress,
+                            value: 1
+                        });
+                        discoverableAccounts.add(swAddress);
+                    }
+                }
+            }
+        });
+
+        after(function () {
+            const socketProvider =
+                currentWeb3.currentProvider as WebsocketProvider;
+            socketProvider.disconnect(0, '');
+            assert.isFalse(
+                socketProvider.connected,
+                'Socket connection did not end'
+            );
+        });
+
+        function calculateSmartWalletAddress(
+            factory: string,
+            ownerEOA: string,
+            recoverer: string,
+            walletIndex: number,
+            bytecodeHash: string
+        ): string {
+            const salt: string =
+                web3.utils.soliditySha3(
+                    { t: 'address', v: ownerEOA },
+                    { t: 'address', v: recoverer },
+                    { t: 'uint256', v: walletIndex }
+                ) ?? '';
+
+            const _data: string =
+                web3.utils.soliditySha3(
+                    { t: 'bytes1', v: '0xff' },
+                    { t: 'address', v: factory },
+                    { t: 'bytes32', v: salt },
+                    { t: 'bytes32', v: bytecodeHash }
+                ) ?? '';
+
+            return toChecksumAddress(
+                '0x' + _data.slice(26, _data.length),
+                chainId
+            );
         }
-      }
-    })
 
-    after(function () {
-      const socketProvider = currentWeb3.currentProvider as WebsocketProvider
-      socketProvider.disconnect(0, '')
-      assert.isFalse(socketProvider.connected, 'Socket connection did not end')
-    })
+        it('Should discover Accounts using External Public Keys', async () => {
+            const config: DiscoveryConfig = new DiscoveryConfig({
+                factory: factory.address,
+                recoverer: constants.ZERO_ADDRESS,
+                isCustomWallet: false,
+                isTestNet: true
+            });
 
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
-      const salt: string = web3.utils.soliditySha3(
-        { t: 'address', v: ownerEOA },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: walletIndex }
-      ) ?? ''
+            const discoveredAccounts =
+                await Enveloping.discoverAccountsFromExtendedPublicKeys(
+                    config,
+                    socketProvider,
+                    usedPublicKeys,
+                    [token.address]
+                );
+            assert.equal(
+                discoveredAccounts.length,
+                40,
+                'Incorrect number of EOA Accounts discovered'
+            );
 
-      const _data: string = web3.utils.soliditySha3(
-        { t: 'bytes1', v: '0xff' },
-        { t: 'address', v: factory },
-        { t: 'bytes32', v: salt },
-        { t: 'bytes32', v: bytecodeHash }
-      ) ?? ''
+            for (let i = 0; i < discoveredAccounts.length; i++) {
+                const discoveredAccount = discoveredAccounts[i];
+                assert.equal(
+                    discoveredAccount.swAccounts.length,
+                    20,
+                    `incorrect sw accounts discovered for address ${discoveredAccount.eoaAccount}`
+                );
 
-      return toChecksumAddress('0x' + _data.slice(26, _data.length), chainId)
-    }
+                const account = discoveredAccount.eoaAccount;
+                assert.isTrue(
+                    discoverableAccounts.has(account),
+                    'Discovered Account not part of Discoverable Set'
+                );
+                discoverableAccounts.delete(account);
 
-    it('Should discover Accounts using External Public Keys', async () => {
-      const config: DiscoveryConfig = new DiscoveryConfig({
-        factory: factory.address,
-        recoverer: constants.ZERO_ADDRESS,
-        isCustomWallet: false,
-        isTestNet: true
-      }
+                for (let j = 0; j < 20; j++) {
+                    const swAccount = discoveredAccount.swAccounts[j];
+                    assert.isTrue(
+                        discoverableAccounts.has(swAccount),
+                        'Discovered SWAccount not part of Discoverable Set'
+                    );
+                    discoverableAccounts.delete(swAccount);
+                }
+            }
 
-      )
+            assert.isTrue(
+                discoverableAccounts.size === 0,
+                'Some Discoverable Accounts were not found'
+            );
+        });
+    });
 
-      const discoveredAccounts = await Enveloping.discoverAccountsFromExtendedPublicKeys(config, socketProvider, usedPublicKeys, [token.address])
-      assert.equal(discoveredAccounts.length, 40, 'Incorrect number of EOA Accounts discovered')
+    describe('discoverAccountsUsingMnemonic', function () {
+        const currentPassword = '1';
+        const TestToken = artifacts.require('TestToken');
+        const SmartWallet = artifacts.require('SmartWallet');
+        const SmartWalletFactory = artifacts.require('SmartWalletFactory');
+        let socketProvider: WebsocketProvider;
+        let byteCodeHash: string;
+        const mnemonic =
+            'figure arrow make ginger educate drip thing theory champion faint vendor push';
+        let currentWeb3: Web3;
+        const discoverableAccounts = new Set<string>();
+        const usedPublicKeys: string[] = [];
+        let token: TestTokenInstance;
+        let factory: SmartWalletFactoryInstance;
+        let chainId: number;
 
-      for (let i = 0; i < discoveredAccounts.length; i++) {
-        const discoveredAccount = discoveredAccounts[i]
-        assert.equal(discoveredAccount.swAccounts.length, 20, `incorrect sw accounts discovered for address ${discoveredAccount.eoaAccount}`)
+        before(async function () {
+            chainId = (await getTestingEnvironment()).chainId;
+            socketProvider = new Web3.providers.WebsocketProvider(
+                'ws://127.0.0.1:4445/websocket'
+            );
 
-        const account = discoveredAccount.eoaAccount
-        assert.isTrue(discoverableAccounts.has(account), 'Discovered Account not part of Discoverable Set')
-        discoverableAccounts.delete(account)
+            currentWeb3 = new Web3(socketProvider);
 
-        for (let j = 0; j < 20; j++) {
-          const swAccount = discoveredAccount.swAccounts[j]
-          assert.isTrue(discoverableAccounts.has(swAccount), 'Discovered SWAccount not part of Discoverable Set')
-          discoverableAccounts.delete(swAccount)
+            TestToken.setProvider(socketProvider, undefined);
+            SmartWallet.setProvider(socketProvider, undefined);
+            SmartWalletFactory.setProvider(socketProvider, undefined);
+
+            const sWalletTemplate = await SmartWallet.new();
+            factory = await SmartWalletFactory.new(sWalletTemplate.address);
+            byteCodeHash = currentWeb3.utils.keccak256(
+                await factory.getCreationBytecode()
+            );
+            token = await TestToken.new();
+
+            const rootKey: EthereumHDKey =
+                SmartWalletDiscovery.getRootExtKeyFromMnemonic(
+                    mnemonic,
+                    currentPassword
+                );
+
+            for (let accIdx = 0; accIdx < 2; accIdx++) {
+                const firstAccountRoot = rootKey.derivePath(
+                    `m/44'/37310'/${accIdx}'/0`
+                );
+                usedPublicKeys.push(
+                    firstAccountRoot.publicExtendedKey().toString()
+                );
+
+                for (let i = 0; i < 20; i++) {
+                    const account = firstAccountRoot
+                        .deriveChild(i)
+                        .getWallet()
+                        .getAddressString();
+                    await currentWeb3.eth.sendTransaction({
+                        from: accounts[0],
+                        to: account,
+                        value: 1
+                    });
+                    discoverableAccounts.add(account);
+
+                    for (let j = 0; j < 20; j++) {
+                        const swAddress = calculateSmartWalletAddress(
+                            factory.address,
+                            account,
+                            constants.ZERO_ADDRESS,
+                            j,
+                            byteCodeHash
+                        );
+                        await currentWeb3.eth.sendTransaction({
+                            from: accounts[0],
+                            to: swAddress,
+                            value: 1
+                        });
+                        discoverableAccounts.add(swAddress);
+                    }
+                }
+            }
+        });
+
+        after(function () {
+            const socketProvider =
+                currentWeb3.currentProvider as WebsocketProvider;
+            socketProvider.disconnect(0, '');
+            assert.isFalse(
+                socketProvider.connected,
+                'Socket connection did not end'
+            );
+        });
+
+        function calculateSmartWalletAddress(
+            factory: string,
+            ownerEOA: string,
+            recoverer: string,
+            walletIndex: number,
+            bytecodeHash: string
+        ): string {
+            const salt: string =
+                web3.utils.soliditySha3(
+                    { t: 'address', v: ownerEOA },
+                    { t: 'address', v: recoverer },
+                    { t: 'uint256', v: walletIndex }
+                ) ?? '';
+
+            const _data: string =
+                web3.utils.soliditySha3(
+                    { t: 'bytes1', v: '0xff' },
+                    { t: 'address', v: factory },
+                    { t: 'bytes32', v: salt },
+                    { t: 'bytes32', v: bytecodeHash }
+                ) ?? '';
+
+            return toChecksumAddress(
+                '0x' + _data.slice(26, _data.length),
+                chainId
+            );
         }
-      }
 
-      assert.isTrue(discoverableAccounts.size === 0, 'Some Discoverable Accounts were not found')
-    })
-  })
+        it('Should discover Accounts using Mnemonic', async () => {
+            const config: DiscoveryConfig = new DiscoveryConfig({
+                factory: factory.address,
+                recoverer: constants.ZERO_ADDRESS,
+                isCustomWallet: false,
+                isTestNet: true
+            });
 
-  describe('discoverAccountsUsingMnemonic', function () {
-    const currentPassword = '1'
-    const TestToken = artifacts.require('TestToken')
-    const SmartWallet = artifacts.require('SmartWallet')
-    const SmartWalletFactory = artifacts.require('SmartWalletFactory')
-    let socketProvider: WebsocketProvider
-    let byteCodeHash: string
-    const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
-    let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
-    const usedPublicKeys: string[] = []
-    let token: TestTokenInstance
-    let factory: SmartWalletFactoryInstance
-    let chainId: number
+            const discoveredAccounts =
+                await Enveloping.discoverAccountsUsingMnemonic(
+                    config,
+                    socketProvider,
+                    mnemonic,
+                    currentPassword,
+                    [token.address]
+                );
 
-    before(async function () {
-      chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+            assert.equal(
+                discoveredAccounts.length,
+                40,
+                'Incorrect number of EOA Accounts discovered'
+            );
 
-      currentWeb3 = new Web3(socketProvider)
+            for (let i = 0; i < discoveredAccounts.length; i++) {
+                assert.equal(
+                    discoveredAccounts[i].swAccounts.length,
+                    20,
+                    `incorrect sw accounts discovered for address ${discoveredAccounts[i].eoaAccount}`
+                );
+                const account = discoveredAccounts[i].eoaAccount;
+                assert.isTrue(
+                    discoverableAccounts.has(account),
+                    'Discovered Account not part of Discoverable Set'
+                );
+                discoverableAccounts.delete(account);
 
-      TestToken.setProvider(socketProvider, undefined)
-      SmartWallet.setProvider(socketProvider, undefined)
-      SmartWalletFactory.setProvider(socketProvider, undefined)
+                for (let j = 0; j < 20; j++) {
+                    const swAccount = discoveredAccounts[i].swAccounts[j];
+                    assert.isTrue(
+                        discoverableAccounts.has(swAccount),
+                        'Discovered SWAccount not part of Discoverable Set'
+                    );
+                    discoverableAccounts.delete(swAccount);
+                }
+            }
 
-      const sWalletTemplate = await SmartWallet.new()
-      factory = await SmartWalletFactory.new(sWalletTemplate.address)
-      byteCodeHash = currentWeb3.utils.keccak256(await factory.getCreationBytecode())
-      token = await TestToken.new()
+            assert.isTrue(
+                discoverableAccounts.size === 0,
+                'Some Discoverable Accounts were not found'
+            );
+        });
+    });
 
-      const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, currentPassword)
+    describe('discoverAccounts - using template method', function () {
+        const currentPassword = '2';
+        const TestToken = artifacts.require('TestToken');
+        const SmartWallet = artifacts.require('SmartWallet');
+        const SmartWalletFactory = artifacts.require('SmartWalletFactory');
+        let socketProvider: WebsocketProvider;
+        let byteCodeHash: string;
+        const mnemonic =
+            'figure arrow make ginger educate drip thing theory champion faint vendor push';
+        let currentWeb3: Web3;
+        const discoverableAccounts = new Set<string>();
+        const usedPublicKeys: string[] = [];
+        let token: TestTokenInstance;
+        let factory: SmartWalletFactoryInstance;
+        let chainId: number;
 
-      for (let accIdx = 0; accIdx < 2; accIdx++) {
-        const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
-
-        for (let i = 0; i < 20; i++) {
-          const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
-          await currentWeb3.eth.sendTransaction({ from: accounts[0], to: account, value: 1 })
-          discoverableAccounts.add(account)
-
-          for (let j = 0; j < 20; j++) {
-            const swAddress = calculateSmartWalletAddress(factory.address, account, constants.ZERO_ADDRESS, j, byteCodeHash)
-            await currentWeb3.eth.sendTransaction({ from: accounts[0], to: swAddress, value: 1 })
-            discoverableAccounts.add(swAddress)
-          }
+        async function getUsedPubKey(
+            accountIdx: number
+        ): Promise<string | undefined> {
+            return accountIdx < usedPublicKeys.length
+                ? usedPublicKeys[accountIdx]
+                : undefined;
         }
-      }
-    })
 
-    after(function () {
-      const socketProvider = currentWeb3.currentProvider as WebsocketProvider
-      socketProvider.disconnect(0, '')
-      assert.isFalse(socketProvider.connected, 'Socket connection did not end')
-    })
+        before(async function () {
+            chainId = (await getTestingEnvironment()).chainId;
+            socketProvider = new Web3.providers.WebsocketProvider(
+                'ws://127.0.0.1:4445/websocket'
+            );
 
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
-      const salt: string = web3.utils.soliditySha3(
-        { t: 'address', v: ownerEOA },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: walletIndex }
-      ) ?? ''
+            currentWeb3 = new Web3(socketProvider);
 
-      const _data: string = web3.utils.soliditySha3(
-        { t: 'bytes1', v: '0xff' },
-        { t: 'address', v: factory },
-        { t: 'bytes32', v: salt },
-        { t: 'bytes32', v: bytecodeHash }
-      ) ?? ''
+            TestToken.setProvider(socketProvider, undefined);
+            SmartWallet.setProvider(socketProvider, undefined);
+            SmartWalletFactory.setProvider(socketProvider, undefined);
 
-      return toChecksumAddress('0x' + _data.slice(26, _data.length), chainId)
-    }
+            const sWalletTemplate = await SmartWallet.new();
+            factory = await SmartWalletFactory.new(sWalletTemplate.address);
+            byteCodeHash = currentWeb3.utils.keccak256(
+                await factory.getCreationBytecode()
+            );
+            token = await TestToken.new();
 
-    it('Should discover Accounts using Mnemonic', async () => {
-      const config: DiscoveryConfig = new DiscoveryConfig({
-        factory: factory.address,
-        recoverer: constants.ZERO_ADDRESS,
-        isCustomWallet: false,
-        isTestNet: true
-      })
+            const rootKey: EthereumHDKey =
+                SmartWalletDiscovery.getRootExtKeyFromMnemonic(
+                    mnemonic,
+                    currentPassword
+                );
 
-      const discoveredAccounts = await Enveloping.discoverAccountsUsingMnemonic(config, socketProvider, mnemonic, currentPassword, [token.address])
+            for (let accIdx = 0; accIdx < 2; accIdx++) {
+                const firstAccountRoot = rootKey.derivePath(
+                    `m/44'/37310'/${accIdx}'/0`
+                );
+                usedPublicKeys.push(
+                    firstAccountRoot.publicExtendedKey().toString()
+                );
 
-      assert.equal(discoveredAccounts.length, 40, 'Incorrect number of EOA Accounts discovered')
+                for (let i = 0; i < 20; i++) {
+                    const account = firstAccountRoot
+                        .deriveChild(i)
+                        .getWallet()
+                        .getAddressString();
+                    await currentWeb3.eth.sendTransaction({
+                        from: accounts[0],
+                        to: account,
+                        value: 1
+                    });
+                    discoverableAccounts.add(account);
 
-      for (let i = 0; i < discoveredAccounts.length; i++) {
-        assert.equal(discoveredAccounts[i].swAccounts.length, 20, `incorrect sw accounts discovered for address ${discoveredAccounts[i].eoaAccount}`)
-        const account = discoveredAccounts[i].eoaAccount
-        assert.isTrue(discoverableAccounts.has(account), 'Discovered Account not part of Discoverable Set')
-        discoverableAccounts.delete(account)
+                    for (let j = 0; j < 20; j++) {
+                        const swAddress = calculateSmartWalletAddress(
+                            factory.address,
+                            account,
+                            constants.ZERO_ADDRESS,
+                            j,
+                            byteCodeHash
+                        );
+                        await currentWeb3.eth.sendTransaction({
+                            from: accounts[0],
+                            to: swAddress,
+                            value: 1
+                        });
+                        discoverableAccounts.add(swAddress);
+                    }
+                }
+            }
+        });
 
-        for (let j = 0; j < 20; j++) {
-          const swAccount = discoveredAccounts[i].swAccounts[j]
-          assert.isTrue(discoverableAccounts.has(swAccount), 'Discovered SWAccount not part of Discoverable Set')
-          discoverableAccounts.delete(swAccount)
+        after(function () {
+            const socketProvider =
+                currentWeb3.currentProvider as WebsocketProvider;
+            socketProvider.disconnect(0, '');
+            assert.isFalse(
+                socketProvider.connected,
+                'Socket connection did not end'
+            );
+        });
+
+        function calculateSmartWalletAddress(
+            factory: string,
+            ownerEOA: string,
+            recoverer: string,
+            walletIndex: number,
+            bytecodeHash: string
+        ): string {
+            const salt: string =
+                web3.utils.soliditySha3(
+                    { t: 'address', v: ownerEOA },
+                    { t: 'address', v: recoverer },
+                    { t: 'uint256', v: walletIndex }
+                ) ?? '';
+
+            const _data: string =
+                web3.utils.soliditySha3(
+                    { t: 'bytes1', v: '0xff' },
+                    { t: 'address', v: factory },
+                    { t: 'bytes32', v: salt },
+                    { t: 'bytes32', v: bytecodeHash }
+                ) ?? '';
+
+            return toChecksumAddress(
+                '0x' + _data.slice(26, _data.length),
+                chainId
+            );
         }
-      }
 
-      assert.isTrue(discoverableAccounts.size === 0, 'Some Discoverable Accounts were not found')
-    })
-  })
+        it('Should discover Accounts using template method', async () => {
+            const config: DiscoveryConfig = new DiscoveryConfig({
+                factory: factory.address,
+                recoverer: constants.ZERO_ADDRESS,
+                isCustomWallet: false,
+                isTestNet: true
+            });
 
-  describe('discoverAccounts - using template method', function () {
-    const currentPassword = '2'
-    const TestToken = artifacts.require('TestToken')
-    const SmartWallet = artifacts.require('SmartWallet')
-    const SmartWalletFactory = artifacts.require('SmartWalletFactory')
-    let socketProvider: WebsocketProvider
-    let byteCodeHash: string
-    const mnemonic = 'figure arrow make ginger educate drip thing theory champion faint vendor push'
-    let currentWeb3: Web3
-    const discoverableAccounts = new Set<Address>()
-    const usedPublicKeys: string[] = []
-    let token: TestTokenInstance
-    let factory: SmartWalletFactoryInstance
-    let chainId: number
+            const discoveredAccounts = await Enveloping.discoverAccounts(
+                config,
+                socketProvider,
+                getUsedPubKey,
+                [token.address]
+            );
 
-    async function getUsedPubKey (accountIdx: number): Promise<string | undefined> {
-      return accountIdx < usedPublicKeys.length ? usedPublicKeys[accountIdx] : undefined
-    }
+            assert.equal(
+                discoveredAccounts.length,
+                40,
+                'Incorrect number of EOA Accounts discovered'
+            );
 
-    before(async function () {
-      chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+            for (let i = 0; i < discoveredAccounts.length; i++) {
+                assert.equal(
+                    discoveredAccounts[i].swAccounts.length,
+                    20,
+                    `incorrect sw accounts discovered for address ${discoveredAccounts[i].eoaAccount}`
+                );
+                const account = discoveredAccounts[i].eoaAccount;
+                assert.isTrue(
+                    discoverableAccounts.has(account),
+                    'Discovered Account not part of Discoverable Set'
+                );
+                discoverableAccounts.delete(account);
 
-      currentWeb3 = new Web3(socketProvider)
+                for (let j = 0; j < 20; j++) {
+                    const swAccount = discoveredAccounts[i].swAccounts[j];
+                    assert.isTrue(
+                        discoverableAccounts.has(swAccount),
+                        'Discovered SWAccount not part of Discoverable Set'
+                    );
+                    discoverableAccounts.delete(swAccount);
+                }
+            }
 
-      TestToken.setProvider(socketProvider, undefined)
-      SmartWallet.setProvider(socketProvider, undefined)
-      SmartWalletFactory.setProvider(socketProvider, undefined)
-
-      const sWalletTemplate = await SmartWallet.new()
-      factory = await SmartWalletFactory.new(sWalletTemplate.address)
-      byteCodeHash = currentWeb3.utils.keccak256(await factory.getCreationBytecode())
-      token = await TestToken.new()
-
-      const rootKey: EthereumHDKey = SmartWalletDiscovery.getRootExtKeyFromMnemonic(mnemonic, currentPassword)
-
-      for (let accIdx = 0; accIdx < 2; accIdx++) {
-        const firstAccountRoot = rootKey.derivePath(`m/44'/37310'/${accIdx}'/0`)
-        usedPublicKeys.push(firstAccountRoot.publicExtendedKey().toString())
-
-        for (let i = 0; i < 20; i++) {
-          const account = firstAccountRoot.deriveChild(i).getWallet().getAddressString()
-          await currentWeb3.eth.sendTransaction({ from: accounts[0], to: account, value: 1 })
-          discoverableAccounts.add(account)
-
-          for (let j = 0; j < 20; j++) {
-            const swAddress = calculateSmartWalletAddress(factory.address, account, constants.ZERO_ADDRESS, j, byteCodeHash)
-            await currentWeb3.eth.sendTransaction({ from: accounts[0], to: swAddress, value: 1 })
-            discoverableAccounts.add(swAddress)
-          }
-        }
-      }
-    })
-
-    after(function () {
-      const socketProvider = currentWeb3.currentProvider as WebsocketProvider
-      socketProvider.disconnect(0, '')
-      assert.isFalse(socketProvider.connected, 'Socket connection did not end')
-    })
-
-    function calculateSmartWalletAddress (factory: Address, ownerEOA: Address, recoverer: Address, walletIndex: number, bytecodeHash: string): Address {
-      const salt: string = web3.utils.soliditySha3(
-        { t: 'address', v: ownerEOA },
-        { t: 'address', v: recoverer },
-        { t: 'uint256', v: walletIndex }
-      ) ?? ''
-
-      const _data: string = web3.utils.soliditySha3(
-        { t: 'bytes1', v: '0xff' },
-        { t: 'address', v: factory },
-        { t: 'bytes32', v: salt },
-        { t: 'bytes32', v: bytecodeHash }
-      ) ?? ''
-
-      return toChecksumAddress('0x' + _data.slice(26, _data.length), chainId)
-    }
-
-    it('Should discover Accounts using template method', async () => {
-      const config: DiscoveryConfig = new DiscoveryConfig({
-        factory: factory.address,
-        recoverer: constants.ZERO_ADDRESS,
-        isCustomWallet: false,
-        isTestNet: true
-      })
-
-      const discoveredAccounts = await Enveloping.discoverAccounts(config, socketProvider, getUsedPubKey, [token.address])
-
-      assert.equal(discoveredAccounts.length, 40, 'Incorrect number of EOA Accounts discovered')
-
-      for (let i = 0; i < discoveredAccounts.length; i++) {
-        assert.equal(discoveredAccounts[i].swAccounts.length, 20, `incorrect sw accounts discovered for address ${discoveredAccounts[i].eoaAccount}`)
-        const account = discoveredAccounts[i].eoaAccount
-        assert.isTrue(discoverableAccounts.has(account), 'Discovered Account not part of Discoverable Set')
-        discoverableAccounts.delete(account)
-
-        for (let j = 0; j < 20; j++) {
-          const swAccount = discoveredAccounts[i].swAccounts[j]
-          assert.isTrue(discoverableAccounts.has(swAccount), 'Discovered SWAccount not part of Discoverable Set')
-          discoverableAccounts.delete(swAccount)
-        }
-      }
-
-      assert.isTrue(discoverableAccounts.size === 0, 'Some Discoverable Accounts were not found')
-    })
-  })
-})
+            assert.isTrue(
+                discoverableAccounts.size === 0,
+                'Some Discoverable Accounts were not found'
+            );
+        });
+    });
+});
