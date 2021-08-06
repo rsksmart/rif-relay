@@ -6,7 +6,6 @@ import { RelayServer } from './RelayServer'
 import { Server } from 'http'
 import log from 'loglevel'
 import { Address } from '../relayclient/types/Aliases'
-import { PrefixedHexString } from 'ethereumjs-tx'
 
 export class HttpServer {
   app: Express
