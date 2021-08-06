@@ -160,14 +160,6 @@ export class RelayServer extends EventEmitter {
     return res
   }
 
-  // temp
-  async penalizerHandler (penalizer: Address, signature: PrefixedHexString): Promise<any> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const penalizerInstance = await this.contractInteractor.createPenalizer(penalizer)
-    const transactionFulfilled = await penalizerInstance.fulfilled(signature)
-    return { transactionFulfilled: transactionFulfilled }
-  }
-
   async verifierHandler (): Promise<VerifierResponse> {
     return {
       trustedVerifiers: Array.from(this.trustedVerifiers) as Address[]
