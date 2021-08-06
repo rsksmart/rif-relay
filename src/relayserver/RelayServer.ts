@@ -386,8 +386,6 @@ export class RelayServer extends EventEmitter {
     const { signedTx, transactionHash } = await this.transactionManager.sendTransaction(details)
     // after sending a transaction is a good time to check the worker's balance, and replenish it.
     await this.replenishServer(workerIndex, currentBlock)
-    log.info('commitment response 2')
-    log.info({ signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash })
     return { signedTx: signedTx, signedReceipt: commitmentReceipt, transactionHash: transactionHash }
   }
 
