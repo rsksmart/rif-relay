@@ -133,7 +133,7 @@ export class HttpServer {
       log.error(`verified handler rejected: ${message}`)
     }
   }
-  
+
   async feeEstimatorHandler (req: any, res: any): Promise<void> {
     const feesTable = await this.backend.envelopingArbiter.getFeesTable()
     res.send(feesTable)
