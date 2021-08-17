@@ -11,7 +11,7 @@ import {
 
 contract('RelayServerRequestsProfiling', function (accounts) {
     const refreshStateTimeoutBlocks = 2;
-    const callsPerStateRefresh = 8;
+    const callsPerStateRefresh = 11;
     const callsPerBlock = 0;
     const callsPerTransaction = 17;
 

@@ -2,28 +2,26 @@ import chaiAsPromised from 'chai-as-promised';
 import sinon, { SinonStub } from 'sinon';
 import { HttpProvider } from 'web3-core';
 import {
-    GasPricePingFilter,
-    RelaySelectionManager,
     configure,
-    getDependencies,
     EnvelopingDependencies,
-    RelayInfoUrl,
-    RelayRegisteredEventInfo,
+    GasPricePingFilter,
+    getDependencies,
     PartialRelayInfo,
-    PingFilter
+    PingFilter,
+    RelaySelectionManager
 } from '@rsksmart/rif-relay-client';
 import { register, stake } from './KnownRelaysManager.test';
 import {
-    PingResponse,
     constants,
-    EnvelopingTransactionDetails
+    EnvelopingTransactionDetails,
+    PingResponse,
+    RelayData
 } from '@rsksmart/rif-relay-common';
 import { deployHub, getTestingEnvironment } from '../TestUtils';
 
 import * as chai from 'chai';
 
 const { expect, assert } = chai.use(chaiAsPromised);
-
 // eslint-disable-next-line @typescript-eslint/no-misused-promises
 contract('RelaySelectionManager', async function (accounts) {
     const sliceSize = 3;
@@ -35,14 +33,25 @@ contract('RelaySelectionManager', async function (accounts) {
         dependencyTree.knownRelaysManager,
         'getRelaysSortedForTransaction'
     );
+    const stubGetActiveRelays = sinon.stub(
+        dependencyTree.contractInteractor,
+        'getActiveRelays'
+    );
+    const stubGetRelayData = sinon.stub(
+        dependencyTree.contractInteractor,
+        'getRelayData'
+    );
     const errors = new Map<string, Error>();
     const config = configure({
         sliceSize,
         chainId: (await getTestingEnvironment()).chainId
     });
-    const eventInfo = {
-        relayManager: '',
-        relayUrl: ''
+    const relayData = {
+        manager: '',
+        url: '',
+        penalized: false,
+        registered: false,
+        stakeAdded: true
     };
     const pingResponse = {
         relayWorkerAddress: '',
@@ -54,7 +63,7 @@ contract('RelaySelectionManager', async function (accounts) {
     };
     const winner = {
         pingResponse,
-        relayInfo: eventInfo
+        relayData: relayData
     };
     const transactionDetails: EnvelopingTransactionDetails = {
         from: '',
@@ -75,7 +84,9 @@ contract('RelaySelectionManager', async function (accounts) {
         let stubGetNextSlice: SinonStub;
 
         before(async function () {
-            stubGetRelaysSorted.returns(Promise.resolve([[eventInfo]]));
+            stubGetActiveRelays.returns(Promise.resolve([relayData]));
+            stubGetRelayData.returns(Promise.resolve([relayData]));
+            stubGetRelaysSorted.returns(Promise.resolve([[relayData]]));
             relaySelectionManager = await new RelaySelectionManager(
                 transactionDetails,
                 dependencyTree.knownRelaysManager,
@@ -104,7 +115,7 @@ contract('RelaySelectionManager', async function (accounts) {
         });
 
         it('should return the first relay to ping', async function () {
-            stubGetNextSlice.returns([eventInfo]);
+            stubGetNextSlice.returns([relayData]);
             stubRaceToSuccess
                 .onFirstCall()
                 .returns(Promise.resolve({ errors }))
@@ -116,7 +127,7 @@ contract('RelaySelectionManager', async function (accounts) {
                     })
                 );
             const nextRelay = await relaySelectionManager.selectNextRelay();
-            assert.equal(nextRelay, winner);
+            assert.deepStrictEqual(nextRelay, winner);
         });
 
         describe('with preferred relay URL', function () {
@@ -168,7 +179,9 @@ contract('RelaySelectionManager', async function (accounts) {
             });
 
             it('should fill in the details if the relay was known only by URL', async function () {
-                const urlInfo: RelayInfoUrl = { relayUrl: preferredRelayUrl };
+                const relayData: RelayData = Object.assign({} as any, {
+                    url: preferredRelayUrl
+                });
                 const pingResponse: PingResponse = {
                     relayWorkerAddress: relayManager,
                     relayManagerAddress: relayManager,
@@ -179,27 +192,27 @@ contract('RelaySelectionManager', async function (accounts) {
                 };
                 const winner: PartialRelayInfo = {
                     pingResponse,
-                    relayInfo: urlInfo
+                    relayData: relayData
                 };
 
-                stubGetNextSlice.returns([urlInfo]);
+                stubGetNextSlice.returns([relayData]);
                 stubRaceToSuccess.returns(
                     Promise.resolve({
                         winner,
                         errors
                     })
                 );
-                stubGetRelaysSorted.returns(Promise.resolve([[urlInfo]]));
+                stubGetRelaysSorted.returns(Promise.resolve([[relayData]]));
                 const nextRelay = await relaySelectionManager.selectNextRelay();
-                assert.equal(nextRelay.relayInfo.relayUrl, preferredRelayUrl);
-                assert.equal(nextRelay.relayInfo.relayManager, relayManager);
+                assert.equal(nextRelay.relayData.url, preferredRelayUrl);
+                assert.equal(nextRelay.relayData.manager, relayManager);
             });
         });
 
         it('should return null if no relay could ping', async function () {
             stubGetNextSlice
                 .onFirstCall()
-                .returns([eventInfo])
+                .returns([relayData])
                 .onSecondCall()
                 .returns([]);
             stubRaceToSuccess.returns(Promise.resolve({ errors }));
@@ -213,11 +226,11 @@ contract('RelaySelectionManager', async function (accounts) {
             stubGetRelaysSorted.returns(
                 Promise.resolve([
                     [
-                        winner.relayInfo,
-                        winner.relayInfo,
-                        winner.relayInfo,
-                        winner.relayInfo,
-                        winner.relayInfo
+                        winner.relayData,
+                        winner.relayData,
+                        winner.relayData,
+                        winner.relayData,
+                        winner.relayData
                     ]
                 ])
             );
@@ -238,7 +251,7 @@ contract('RelaySelectionManager', async function (accounts) {
         });
 
         it("should return all remaining relays if less then 'relaySliceSize' remains on current priority level", async function () {
-            const relaysLeft = [[winner.relayInfo, winner.relayInfo]];
+            const relaysLeft = [[winner.relayData, winner.relayData]];
             stubGetRelaysSorted.returns(Promise.resolve(relaysLeft));
             const rsm = await new RelaySelectionManager(
                 transactionDetails,
@@ -257,13 +270,13 @@ contract('RelaySelectionManager', async function (accounts) {
         it('should start returning relays from lower priority level if higher level is empty', async function () {
             // Create stub array of distinct relay URLs (URL is used as mapping key)
             const relayInfoGenerator = (
-                e: RelayRegisteredEventInfo,
+                e: RelayData,
                 i: number,
-                a: RelayRegisteredEventInfo[]
-            ): RelayRegisteredEventInfo => {
+                a: RelayData[]
+            ): RelayData => {
                 return {
                     ...e,
-                    relayUrl: `relay ${i} of ${a.length}`
+                    url: `relay ${i} of ${a.length}`
                 };
             };
 
@@ -287,19 +300,13 @@ contract('RelaySelectionManager', async function (accounts) {
             assert.equal(returned1.length, 2);
             // Pretend all relays failed to ping
             let errors = new Map(
-                returned1.map((info) => [
-                    info.relayUrl,
-                    new Error('fake error')
-                ])
+                returned1.map((info) => [info.url, new Error('fake error')])
             );
             rsm._handleRaceResults({ errors });
             const returned2 = await rsm._getNextSlice();
             assert.equal(returned2.length, 3);
             errors = new Map(
-                returned2.map((info) => [
-                    info.relayUrl,
-                    new Error('fake error')
-                ])
+                returned2.map((info) => [info.url, new Error('fake error')])
             );
             rsm._handleRaceResults({ errors });
             const returned3 = await rsm._getNextSlice();
@@ -331,7 +338,7 @@ contract('RelaySelectionManager', async function (accounts) {
                 emptyFilter,
                 config
             );
-            const promise = rsm._getRelayAddressPing(eventInfo);
+            const promise = rsm._getRelayAddressPing(relayData);
             await expect(promise).to.be.eventually.rejectedWith(
                 'Relay not ready'
             );
@@ -351,7 +358,7 @@ contract('RelaySelectionManager', async function (accounts) {
                 filter,
                 config
             );
-            const promise = rsm._getRelayAddressPing(eventInfo);
+            const promise = rsm._getRelayAddressPing(relayData);
             await expect(promise).to.be.eventually.rejectedWith(message);
         });
 
@@ -364,7 +371,7 @@ contract('RelaySelectionManager', async function (accounts) {
                 emptyFilter,
                 config
             );
-            const relayInfo = await rsm._getRelayAddressPing(eventInfo);
+            const relayInfo = await rsm._getRelayAddressPing(relayData);
             assert.deepEqual(relayInfo, winner);
         });
     });
@@ -375,26 +382,22 @@ contract('RelaySelectionManager', async function (accounts) {
         it('only first to resolve and all that rejected by that time', async function () {
             const slowRelay = {
                 pingResponse,
-                relayInfo: Object.assign({}, eventInfo, {
-                    relayUrl: 'slowRelay'
-                })
+                relayData: Object.assign({}, relayData, { url: 'slowRelay' })
             };
             const fastRelay = {
                 pingResponse,
-                relayInfo: Object.assign({}, eventInfo, {
-                    relayUrl: 'fastRelay'
-                })
+                relayData: Object.assign({}, relayData, { url: 'fastRelay' })
             };
             const fastFailRelay = {
                 pingResponse,
-                relayInfo: Object.assign({}, eventInfo, {
-                    relayUrl: 'fastFailRelay'
+                relayData: Object.assign({}, relayData, {
+                    url: 'fastFailRelay'
                 })
             };
             const slowFailRelay = {
                 pingResponse,
-                relayInfo: Object.assign({}, eventInfo, {
-                    relayUrl: 'slowFailRelay'
+                relayData: Object.assign({}, relayData, {
+                    url: 'slowFailRelay'
                 })
             };
             const slowPromise = new Promise<PingResponse>((resolve) => {
@@ -424,21 +427,21 @@ contract('RelaySelectionManager', async function (accounts) {
             const fastFailedMessage = 'Fast Failed Promise';
             const slowFailedMessage = 'Slow Failed Promise';
             const relays = [
-                slowRelay.relayInfo,
-                fastRelay.relayInfo,
-                slowFailRelay.relayInfo,
-                fastFailRelay.relayInfo
+                slowRelay.relayData,
+                fastRelay.relayData,
+                slowFailRelay.relayData,
+                fastFailRelay.relayData
             ];
             stubPingResponse.callsFake(
                 async (relayUrl: string): Promise<PingResponse> => {
                     switch (relayUrl) {
-                        case slowRelay.relayInfo.relayUrl:
+                        case slowRelay.relayData.url:
                             return await slowPromise;
-                        case fastRelay.relayInfo.relayUrl:
+                        case fastRelay.relayData.url:
                             return await fastPromise;
-                        case slowFailRelay.relayInfo.relayUrl:
+                        case slowFailRelay.relayData.url:
                             return await slowFailPromise;
-                        case fastFailRelay.relayInfo.relayUrl:
+                        case fastFailRelay.relayData.url:
                             return await fastFailPromise;
                     }
                     throw new Error('Non test relay pinged');
@@ -452,7 +455,7 @@ contract('RelaySelectionManager', async function (accounts) {
                 config
             );
             const raceResults = await rsm._raceToSuccess(relays);
-            assert.equal(raceResults.winner?.relayInfo.relayUrl, 'fastRelay');
+            assert.equal(raceResults.winner?.relayData.url, 'fastRelay');
             assert.equal(raceResults.errors.size, 1);
             assert.equal(
                 raceResults.errors.get('fastFailRelay')?.message,
@@ -467,23 +470,21 @@ contract('RelaySelectionManager', async function (accounts) {
         const otherRelayUrl = 'otherRelayUrl';
         const winner = {
             pingResponse,
-            relayInfo: Object.assign({}, eventInfo, {
-                relayUrl: winnerRelayUrl
-            })
+            relayData: Object.assign({}, relayData, { url: winnerRelayUrl })
         };
         const message = 'some failure message';
-        const failureRelayEventInfo = Object.assign({}, eventInfo, {
-            relayUrl: failureRelayUrl
+        const failureRelayEventInfo = Object.assign({}, relayData, {
+            url: failureRelayUrl
         });
-        const otherRelayEventInfo = Object.assign({}, eventInfo, {
-            relayUrl: otherRelayUrl
+        const otherRelayEventInfo = Object.assign({}, relayData, {
+            url: otherRelayUrl
         });
         it('should remove all relays featured in race results', async function () {
             sinon.stub(dependencyTree.knownRelaysManager, 'refresh');
             stubGetRelaysSorted.returns(
                 Promise.resolve([
                     [
-                        winner.relayInfo,
+                        winner.relayData,
                         failureRelayEventInfo,
                         otherRelayEventInfo
                     ]
@@ -508,14 +509,14 @@ contract('RelaySelectionManager', async function (accounts) {
             let remainingRelays = rsm.remainingRelays;
             assert.equal(remainingRelays?.length, 1);
             assert.equal(remainingRelays[0].length, 3);
-            assert.equal(remainingRelays[0][0].relayUrl, winnerRelayUrl);
-            assert.equal(remainingRelays[0][1].relayUrl, failureRelayUrl);
-            assert.equal(remainingRelays[0][2].relayUrl, otherRelayUrl);
+            assert.equal(remainingRelays[0][0].url, winnerRelayUrl);
+            assert.equal(remainingRelays[0][1].url, failureRelayUrl);
+            assert.equal(remainingRelays[0][2].url, otherRelayUrl);
             rsm._handleRaceResults(raceResults);
             // @ts-ignore
             remainingRelays = rsm.remainingRelays;
             assert.equal(remainingRelays?.length, 1);
-            assert.equal(remainingRelays[0][0].relayUrl, otherRelayUrl);
+            assert.equal(remainingRelays[0][0].url, otherRelayUrl);
         });
     });
 });

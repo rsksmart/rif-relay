@@ -84,7 +84,6 @@ chai.use(sinonChai);
 const localhostOne = 'http://localhost:8090';
 const cheapRelayerUrl = 'http://localhost:54321';
 const underlyingProvider = web3.currentProvider as HttpProvider;
-
 class MockHttpClient extends HttpClient {
     constructor(
         readonly mockPort: number,
@@ -374,9 +373,7 @@ gasOptions.forEach((gasOption) => {
                 const relayClient = new RelayClient(
                     underlyingProvider,
                     config,
-                    {
-                        httpClient: badHttpClient
-                    }
+                    { httpClient: badHttpClient }
                 );
                 const { transaction, relayingErrors, pingErrors } =
                     await relayClient.relayTransaction(options);
@@ -399,9 +396,7 @@ gasOptions.forEach((gasOption) => {
                 const relayClient = new RelayClient(
                     underlyingProvider,
                     config,
-                    {
-                        httpClient: badHttpClient
-                    }
+                    { httpClient: badHttpClient }
                 );
 
                 // register gasless account in RelayClient to avoid signing with RSKJ
@@ -1218,9 +1213,12 @@ gasOptions.forEach((gasOption) => {
                     version: ''
                 };
                 relayInfo = {
-                    relayInfo: {
-                        relayManager,
-                        relayUrl
+                    relayData: {
+                        manager: relayManager,
+                        url: relayUrl,
+                        penalized: false,
+                        registered: false,
+                        stakeAdded: false
                     },
                     pingResponse
                 };
@@ -1254,9 +1252,7 @@ gasOptions.forEach((gasOption) => {
                 const relayClient = new RelayClient(
                     underlyingProvider,
                     config,
-                    {
-                        contractInteractor: badContractInteractor
-                    }
+                    { contractInteractor: badContractInteractor }
                 );
                 await relayClient._init();
 
@@ -1427,9 +1423,7 @@ gasOptions.forEach((gasOption) => {
                 const relayClient = new RelayClient(
                     underlyingProvider,
                     config,
-                    {
-                        contractInteractor: badContractInteractor
-                    }
+                    { contractInteractor: badContractInteractor }
                 );
                 const { hasReceipt, wrongNonce, broadcastError } =
                     await relayClient._broadcastRawTx(transaction);

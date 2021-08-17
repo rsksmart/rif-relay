@@ -1,39 +1,39 @@
 import { ether } from '@openzeppelin/test-helpers';
 import { HttpProvider } from 'web3-core';
 import {
-    KnownRelaysManager,
-    DefaultRelayScore,
+    AccountKeypair,
     configure,
-    RelayRegisteredEventInfo,
-    AccountKeypair
+    DefaultRelayScore,
+    KnownRelaysManager
 } from '@rsksmart/rif-relay-client';
 import {
     RelayHubInstance,
-    TestVerifierConfigurableMisbehaviorInstance,
-    TestRecipientInstance,
-    SmartWalletInstance,
     SmartWalletFactoryInstance,
-    TestTokenInstance
+    SmartWalletInstance,
+    TestRecipientInstance,
+    TestTokenInstance,
+    TestVerifierConfigurableMisbehaviorInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
+    createSmartWallet,
+    createSmartWalletFactory,
     deployHub,
     evmMineMany,
-    startRelay,
-    stopRelay,
-    getTestingEnvironment,
-    createSmartWalletFactory,
-    createSmartWallet,
     getGaslessAccount,
-    prepareTransaction
+    getTestingEnvironment,
+    prepareTransaction,
+    startRelay,
+    stopRelay
 } from '../TestUtils';
 import sinon from 'sinon';
 import { ChildProcessWithoutNullStreams } from 'child_process';
 import {
-    Environment,
     constants,
-    EnvelopingTransactionDetails,
     ContractInteractor,
-    EnvelopingConfig
+    EnvelopingConfig,
+    EnvelopingTransactionDetails,
+    Environment,
+    RelayData
 } from '@rsksmart/rif-relay-common';
 
 const TestVerifierConfigurableMisbehavior = artifacts.require(
@@ -327,18 +327,17 @@ contract('KnownRelaysManager 2', function (accounts) {
             const preferredRelays = knownRelaysManager.preferredRelayers;
             const activeRelays = knownRelaysManager.allRelayers;
             assert.equal(preferredRelays.length, 1);
-            assert.equal(preferredRelays[0].relayUrl, 'http://localhost:8090');
-            assert.equal(activeRelays.length, 3);
-            assert.equal(activeRelays[0].relayUrl, 'http://localhost:8090');
-            assert.equal(activeRelays[1].relayUrl, 'stakeAndAuthorization1');
-            assert.equal(activeRelays[2].relayUrl, 'stakeAndAuthorization2');
+            assert.equal(preferredRelays[0].url, 'http://localhost:8090');
+            assert.equal(activeRelays.length, 4);
+            assert.equal(activeRelays[0].url, 'http://localhost:8090');
+            assert.equal(activeRelays[1].url, 'stakeAndAuthorization1');
+            assert.equal(activeRelays[2].url, 'stakeAndAuthorization2');
+            assert.equal(activeRelays[3].url, 'stakeUnlocked');
         });
 
         it("should use 'relayFilter' to remove unsuitable relays", async function () {
-            const relayFilter = (
-                registeredEventInfo: RelayRegisteredEventInfo
-            ): boolean => {
-                return registeredEventInfo.relayUrl.includes('2');
+            const relayFilter = (registeredEventInfo: RelayData): boolean => {
+                return registeredEventInfo.url.includes('2');
             };
             const knownRelaysManagerWithFilter = new KnownRelaysManager(
                 contractInteractor,
@@ -348,19 +347,19 @@ contract('KnownRelaysManager 2', function (accounts) {
             await knownRelaysManagerWithFilter.refresh();
             const relays = knownRelaysManagerWithFilter.allRelayers;
             assert.equal(relays.length, 1);
-            assert.equal(relays[0].relayUrl, 'stakeAndAuthorization2');
+            assert.equal(relays[0].url, 'stakeAndAuthorization2');
         });
     });
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     describe('#getRelaysSortedForTransaction()', function () {
-        const relayInfo = {
-            relayManager: accounts[0],
-            relayUrl: 'url'
-        };
+        const relayData: RelayData = Object.assign({} as any, {
+            manager: accounts[0],
+            url: 'url'
+        });
 
         describe('#_refreshFailures()', function () {
-            let knownRelaysManager: any;
+            let knownRelaysManager: KnownRelaysManager;
             let lastErrorTime: number;
 
             before(async function () {
@@ -385,13 +384,13 @@ contract('KnownRelaysManager 2', function (accounts) {
                     assert.equal(failures.length, 1);
                 });
                 knownRelaysManager._refreshFailures();
-                // @ts-ignore
                 assert.equal(
+                    // @ts-ignore
                     knownRelaysManager.relayFailures.get('url1').length,
                     0
                 );
-                // @ts-ignore
                 assert.equal(
+                    // @ts-ignore
                     knownRelaysManager.relayFailures.get('url2').length,
                     0
                 );
@@ -535,17 +534,17 @@ contract('KnownRelaysManager 2', function (accounts) {
             };
             it('should subtract penalty from a relay for each known failure', async function () {
                 const relayScoreNoFailures = await DefaultRelayScore(
-                    relayInfo,
+                    relayData,
                     transactionDetails,
                     []
                 );
                 const relayScoreOneFailure = await DefaultRelayScore(
-                    relayInfo,
+                    relayData,
                     transactionDetails,
                     [failure]
                 );
                 const relayScoreTenFailures = await DefaultRelayScore(
-                    relayInfo,
+                    relayData,
                     transactionDetails,
                     Array(10).fill(failure)
                 );
@@ -559,9 +558,9 @@ contract('KnownRelaysManager 2', function (accounts) {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     describe('getRelaysSortedForTransaction', function () {
         const biasedRelayScore = async function (
-            relay: RelayRegisteredEventInfo
+            relay: RelayData
         ): Promise<number> {
-            if (relay.relayUrl === 'alex') {
+            if (relay.url === 'alex') {
                 return await Promise.resolve(1000);
             } else {
                 return await Promise.resolve(100);
@@ -577,18 +576,27 @@ contract('KnownRelaysManager 2', function (accounts) {
                 undefined,
                 biasedRelayScore
             );
-            const activeRelays: RelayRegisteredEventInfo[] = [
+            const activeRelays: RelayData[] = [
                 {
-                    relayManager: accounts[0],
-                    relayUrl: 'alex'
+                    manager: accounts[0],
+                    url: 'alex',
+                    penalized: false,
+                    stakeAdded: true,
+                    registered: true
                 },
                 {
-                    relayManager: accounts[0],
-                    relayUrl: 'joe'
+                    manager: accounts[0],
+                    url: 'joe',
+                    penalized: false,
+                    stakeAdded: true,
+                    registered: true
                 },
                 {
-                    relayManager: accounts[1],
-                    relayUrl: 'joe'
+                    manager: accounts[1],
+                    url: 'joe',
+                    penalized: false,
+                    stakeAdded: true,
+                    registered: true
                 }
             ];
             sinon.stub(knownRelaysManager, 'allRelayers').value(activeRelays);
@@ -596,13 +604,13 @@ contract('KnownRelaysManager 2', function (accounts) {
 
         it('should use provided score calculation method to sort the known relays', async function () {
             const sortedRelays =
-                (await knownRelaysManager.getRelaysSortedForTransaction(
+                await knownRelaysManager.getRelaysSortedForTransaction(
                     transactionDetails
-                )) as RelayRegisteredEventInfo[][];
-            assert.equal(sortedRelays[1][0].relayUrl, 'alex');
+                );
+            assert.equal(sortedRelays[1][0].url, 'alex');
             // checking the relayers are sorted AND they cannot overshadow each other's url
-            assert.equal(sortedRelays[1][1].relayUrl, 'joe');
-            assert.equal(sortedRelays[1][2].relayUrl, 'joe');
+            assert.equal(sortedRelays[1][1].url, 'joe');
+            assert.equal(sortedRelays[1][2].url, 'joe');
         });
     });
 });

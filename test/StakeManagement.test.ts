@@ -216,9 +216,7 @@ contract(
                     relayHub.stakeForAddress(
                         relayManager,
                         initialUnstakeDelay.subn(1),
-                        {
-                            from: owner
-                        }
+                        { from: owner }
                     ),
                     'unstakeDelay cannot be decreased'
                 );
@@ -229,9 +227,7 @@ contract(
                     relayHub.stakeForAddress(
                         relayManager,
                         initialUnstakeDelay,
-                        {
-                            from: nonOwner
-                        }
+                        { from: nonOwner }
                     ),
                     'not owner'
                 );
@@ -280,6 +276,17 @@ contract(
                         from: owner
                     }
                 );
+
+                await relayHub.addRelayWorkers(
+                    ['0x7701f65207DcabA47EbD7826315A47Ec1C6B243d'],
+                    {
+                        from: relayManager
+                    }
+                );
+
+                await relayHub.registerRelayServer('somerelayurl', {
+                    from: relayManager
+                });
             });
 
             it('should report relayManager stake as valid for the authorized hub', async function () {
@@ -299,9 +306,7 @@ contract(
             it('should allow owner to schedule stake unlock', async function () {
                 const { logs, receipt } = await relayHub.unlockStake(
                     relayManager,
-                    {
-                        from: owner
-                    }
+                    { from: owner }
                 );
                 const withdrawBlock = initialUnstakeDelay.addn(
                     receipt.blockNumber
@@ -332,6 +337,18 @@ contract(
                         from: owner
                     }
                 );
+
+                await relayHub.addRelayWorkers(
+                    ['0x7701f65207DcabA47EbD7826315A47Ec1C6B243d'],
+                    {
+                        from: relayManager
+                    }
+                );
+
+                await relayHub.registerRelayServer('somerelayurl', {
+                    from: relayManager
+                });
+
                 await relayHub.unlockStake(relayManager, { from: owner });
             });
 
@@ -391,7 +408,6 @@ contract(
                 });
 
                 it('should have no memory of removed relayManager', async function () {
-                    // @ts-ignore (typechain does not declare names or iterator for return types)
                     const {
                         stake: actualStake,
                         unstakeDelay: actualUnstakeDelay,
