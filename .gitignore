@@ -37,3 +37,6 @@ yarn.lock
 contracts
 migrations
 contract-addresses.json
+
+
+package-lock.json
