@@ -60,7 +60,10 @@ module.exports = {
             onlyCalledMethods: true,
             showTimeSpent: true,
             excludeContracts: []
-        }
+        },
+        // value in ms 1_800_000 (= 1000 * 60 * 30 = 30 minutes), since that the default value 300_000 (= 5 mins) isn't enough
+        before_timeout: 1800000, // for before and before_all methods
+        timeout: 1800000 // for the tests
     },
     compilers: {
         solc: {
