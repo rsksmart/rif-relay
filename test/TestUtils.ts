@@ -81,7 +81,7 @@ export async function startRelay(
     args.push('--checkInterval', 10);
     args.push('--logLevel', 5);
     args.push('--relayHubAddress', relayHub.address);
-    const configFile = new ServerConfig().loadConfigPath();
+    const configFile = ServerConfig.loadConfigPath();
     args.push('--config', configFile);
     if (options.rskNodeUrl) {
         args.push('--rskNodeUrl', options.rskNodeUrl);
