@@ -56,7 +56,6 @@ function run_batch() {
 function run_batch_on_ci() {
   rskj_hard_fork=${RSKJ_HARD_FORK:?"RSKj hardfork is required"}
   rskj_version=${RSKJ_VERSION:?"RSKj version is required"}
-  # java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
   java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 $rskj_hard_fork -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-all.jar co.rsk.Start --regtest --reset nohup &
   rskj_pid=$!
 
