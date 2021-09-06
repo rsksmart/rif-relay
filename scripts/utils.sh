@@ -34,7 +34,6 @@ function run_batch() {
 
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
-  echo "${TESTS[@]}"
   TEST_FAIL=0
   npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   
@@ -63,7 +62,6 @@ function run_batch_on_ci() {
 
   wait_rsk_node
 
-  echo "@=${@}"
   run_batch $@
 
   kill -TERM $rskj_pid
@@ -74,7 +72,7 @@ function run_test_suite_on_ci() {
   TESTS=("$@")
   unset TESTS[0]
   TEST_TYPE=$1
-  unset TESTS[2]
+  unset TESTS[1]
   TEST_NAME=$2
   
   TEST_FAIL=0
@@ -85,13 +83,6 @@ function run_test_suite_on_ci() {
   then
     for test_case in "${TESTS[@]}"
     do
-      # it continues executing the tests even if one test fails
-      # echo "var=${var}"
-      # npx truffle test --network regtest "$var" || TEST_FAIL=1
-      # if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
-      #   break
-      # fi
-      echo "TESTS_VALUES: ${TEST_NAME} -  ${test_case}"
       run_batch_on_ci "${TEST_NAME} ${test_case}" || TEST_FAIL=1
       if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
         break
@@ -124,6 +115,8 @@ function run_test_suite_against_docker() {
   TESTS=("$@")
   unset TESTS[0]
   TEST_TYPE=$1
+  unset TESTS[1]
+  TEST_NAME=$1
 
   if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
   then
@@ -132,10 +125,9 @@ function run_test_suite_against_docker() {
   then
     for test_case in "${TESTS[@]}"
     do
-      echo "TESTS_VALUES: ${TEST_NAME} -  ${test_case}"
       run_batch_against_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
       if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
-        break
+        exit 1
       fi
     done
   else
