@@ -53,7 +53,7 @@ contract Penalizer is IPenalizer, Ownable {
         bytes memory signature2,
         IRelayHub relayHub
     )
-    public
+    external
     override
     relayManagerOnly(relayHub)
     {
