@@ -103,7 +103,6 @@ run_batch \
     test/TestEnvironment.test.ts \
     test/HttpWrapper.test.ts \
     test/KeyManager.test.ts \
-    test/PaymasterCommitment.test.ts \
     test/WalletFactory.test.ts
 
 # Test_Group_4
