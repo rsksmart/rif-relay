@@ -135,7 +135,7 @@ function run_test_suite_against_docker() {
   fi
 }
 
-# Test suite format: "<sequential|bach> <test_name> test_file_1 test_file_2 ... test_file_n"
+# Test suite format: "<sequential|batch> <test_name> test_file_1 test_file_2 ... test_file_n"
 TEST_SUITE_1="${TEST_SUITE_BATCH} \
   Test_Group_1 \
   test/Verifiers.test.ts \
@@ -183,5 +183,4 @@ TEST_SUITE_5="${TEST_SUITE_SEQUENTIAL} \
   RelayHub|VersionRegistry|RelayProvider|RelaySelectionManager \
   test/RelayHub.test.ts
   test/VersionRegistry.test.ts
-  test/relayclient/RelayProvider.test.ts
-  test/relayclient/RelaySelectionManager.test.ts"
+  test/relayclient/RelayProvider.test.ts"
