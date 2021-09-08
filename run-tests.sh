@@ -118,3 +118,6 @@ run_batch test/RelayHub.test.ts
 run_batch test/VersionRegistry.test.ts
 run_batch test/relayclient/RelayProvider.test.ts
 run_batch test/relayclient/RelaySelectionManager.test.ts
+
+# Test_Group_6
+run_batch test/enveloping/EnvelopingArbiter.test.ts
