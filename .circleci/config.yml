@@ -79,7 +79,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set B
+                  name: Tests Thread 1
                   command: |
                       RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
                       RSKJ_VERSION="<<pipeline.parameters.version>>"
@@ -94,6 +94,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
+                  name: Tests Thread 2
                   command: |
                       RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
                       RSKJ_VERSION="<<pipeline.parameters.version>>"
@@ -108,6 +109,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
+                  name: Tests Thread 3
                   command: |
                       RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
                       RSKJ_VERSION="<<pipeline.parameters.version>>"
@@ -122,7 +124,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set A
+                  name: Tests Thread 4
                   command: |
                       RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
                       RSKJ_VERSION="<<pipeline.parameters.version>>"
@@ -137,7 +139,7 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set C
+                  name: Tests Thread 5
                   command: |
                       RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
                       RSKJ_VERSION="<<pipeline.parameters.version>>"
