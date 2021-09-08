@@ -34,19 +34,19 @@ interface IPenalizer {
     function fulfilled(bytes calldata txSignature) external view returns (bool);
 
     struct CommitmentReceipt {
+        address workerAddress;
         Commitment commitment;
         bytes workerSignature;
-        address workerAddress;
     }
 
     struct Commitment {
         uint256 time;
         address from;
         address to;
-        bytes data;
         address relayHubAddress;
         address relayWorker;
         bool enableQos;
+        bytes data;
         bytes signature;
     }
 
