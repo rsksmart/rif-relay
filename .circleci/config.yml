@@ -33,7 +33,7 @@ commands:
       - restore_cache: # special step to restore the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
-          name: yarn-install
+          name: yarn-install --pure-lockfile
           command: yarn
       - save_cache: # special step to save the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
@@ -49,7 +49,7 @@ commands:
       - restore_cache: # special step to restore the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
       - run:
-          name: yarn-install
+          name: yarn-install --pure-lockfile
           command: yarn  
   pre-checks:
     description: "Execute lint and tsc"
