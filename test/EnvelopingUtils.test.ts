@@ -9,6 +9,7 @@ import { SmartWalletFactoryInstance, RelayHubInstance, SmartWalletInstance, Test
 import {
   createSmartWalletFactory,
   deployHub,
+  getHostnameFromProvider,
   getTestingEnvironment,
   hasCode,
   startRelay,
@@ -256,7 +257,8 @@ contract('Enveloping utils', function (accounts) {
 
     before(async function () {
       chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+
+      socketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
 
       currentWeb3 = new Web3(socketProvider)
 
@@ -361,7 +363,7 @@ contract('Enveloping utils', function (accounts) {
 
     before(async function () {
       chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+      socketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
 
       currentWeb3 = new Web3(socketProvider)
 
@@ -467,7 +469,7 @@ contract('Enveloping utils', function (accounts) {
 
     before(async function () {
       chainId = (await getTestingEnvironment()).chainId
-      socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+      socketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
 
       currentWeb3 = new Web3(socketProvider)
 

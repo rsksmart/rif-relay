@@ -24,7 +24,7 @@ import {
   TestTokenInstance
 } from '../../types/truffle-contracts'
 import { isRsk } from '../../src/common/Environments'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction, RelayServerData } from '../TestUtils'
+import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, prepareTransaction, RelayServerData, getHostnameFromProvider } from '../TestUtils'
 import BadRelayClient from '../dummies/BadRelayClient'
 
 // @ts-ignore
@@ -114,7 +114,7 @@ contract('RelayProvider', function (accounts) {
       let websocketProvider: WebsocketProvider
 
       if (isRsk(await getTestingEnvironment())) {
-        websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
+        websocketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
       } else {
         websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       }
@@ -837,7 +837,7 @@ contract('RelayProvider', function (accounts) {
       let websocketProvider: WebsocketProvider
 
       if (isRsk(await getTestingEnvironment())) {
-        websocketProvider = new Web3.providers.WebsocketProvider('ws://localhost:4445/websocket')
+        websocketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
       } else {
         websocketProvider = new Web3.providers.WebsocketProvider(underlyingProvider.host)
       }

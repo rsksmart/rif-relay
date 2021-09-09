@@ -3,6 +3,7 @@ run_batch()
 {
 	cid=$(docker run --init --network "$TEST_NETWORK" \
 	    --expose 4444 -p 127.0.0.1:4444:4444 \
+		--expose 4445 -p 127.0.0.1:4445:4445 \
 	    --rm -itd --name enveloping-rskj rsknode --regtest)
 
 	_i=0
