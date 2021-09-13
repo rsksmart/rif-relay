@@ -8,27 +8,20 @@ import { privateToAddress, stripZeros, toBuffer } from 'ethereumjs-util'
 import { encode } from 'rlp'
 import { expect } from 'chai'
 
-import { cloneRelayRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
-import { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
+import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import { isRsk, Environment } from '../src/common/Environments'
 import {
   PenalizerInstance,
-  RelayHubInstance,
-  SmartWalletInstance,
-  SmartWalletFactoryInstance
+  RelayHubInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, relayCallArgs, createRelayRequest } from './TestUtils'
-import { constants } from '../src/common/Constants'
-import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { deployHub, getTestingEnvironment, relayCallArgs, createRelayRequest } from './TestUtils'
 import { getRawTxOptions } from '../src/common/ContractInteractor'
 
 import TransactionResponse = Truffle.TransactionResponse
 
 const RelayHub = artifacts.require('RelayHub')
 const Penalizer = artifacts.require('Penalizer')
-const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
-const SmartWallet = artifacts.require('SmartWallet')
 
 const RANDOM_TX_SIGNATURE = '0x74be69218f14e914f53573644b4b0efe304f5e5d7e215642a9b6f34de09486f9601f0f34320acbd448bd051831df36b43d54be30b01e61930875ab2b6d4ada391b'
 
@@ -328,10 +321,6 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         signature
       }
     }
-
-    
-
-
   })
 
   // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
