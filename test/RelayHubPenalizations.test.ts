@@ -18,7 +18,7 @@ import {
   SmartWalletFactoryInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
+import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, relayCallArgs, createRelayRequest } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getRawTxOptions } from '../src/common/ContractInteractor'
@@ -37,38 +37,6 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
   let penalizer: PenalizerInstance
   let env: Environment
   let transactionOptions: TransactionOptions
-
-  const relayRequest: RelayRequest =
-  {
-    request: {
-      relayHub: constants.ZERO_ADDRESS,
-      to: '0x1820b744B33945482C17Dc37218C01D858EBc714',
-      data: '0x1234',
-      from: constants.ZERO_ADDRESS,
-      nonce: '0',
-      value: '0',
-      gas: '1000000',
-      tokenContract: constants.ZERO_ADDRESS,
-      tokenAmount: '0',
-      tokenGas: '0',
-      enableQos: false
-    },
-    relayData: {
-      gasPrice: '50',
-      relayWorker,
-      domainSeparator: '',
-      callForwarder: constants.ZERO_ADDRESS,
-      callVerifier: constants.ZERO_ADDRESS
-    }
-  }
-
-  // RSK requires a different relay's private key, original was '6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c'
-  const relayCallArgs = {
-    gasPrice: 50,
-    gasLimit: 1000000,
-    nonce: 0,
-    privateKey: '88fcad7d65de4bf854b88191df9bf38648545e7e5ea367dff6e025b06a28244d' // RSK relay's private key
-  }
 
   describe('penalizations', function () {
     const stake = ether('1')
@@ -154,7 +122,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('penalizes transactions with same nonce and different data', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
 
@@ -172,7 +140,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('penalizes transactions with same nonce and different gas limit', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { gasLimit: 100 }), chainId, env)
@@ -187,7 +155,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('penalizes transactions with same nonce and different value', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { value: 100 }), chainId, env)
@@ -202,7 +170,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('does not penalize transactions with same nonce and data, value, gasLimit, destination', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { gasPrice: 70 }), chainId, env) // only gasPrice may be different
@@ -216,7 +184,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('does not penalize transactions with different nonces', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { nonce: 1 }), chainId, env)
@@ -231,7 +199,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
           const privateKey: string = '0123456789012345678901234567890123456789012345678901234567890123'
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { privateKey: privateKey }), chainId, env)
@@ -245,7 +213,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         it('does not penalize with the same pair of transactions twice', async function () {
           const env: Environment = await getTestingEnvironment()
           const chainId: number = env.chainId
-          const relayRequest: RelayRequest = await createRelayRequest()
+          const relayRequest: RelayRequest = await createRelayRequest(defaultAccount, relayWorker, env, relayHub)
 
           const txDataSigA = getDataAndSignature(relayRequest, relayCallArgs, chainId, env)
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { value: 100 }), chainId, env)
@@ -361,29 +329,9 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
       }
     }
 
-    async function createRelayRequest (): Promise<RelayRequest> {
-      const smartWallet = await getSmartWalletAddress()
-      const verifier = await TestVerifierEverythingAccepted.new()
+    
 
-      const r: RelayRequest = cloneRelayRequest(relayRequest)
-      r.request.from = smartWallet.address
-      r.request.relayHub = relayHub.address
-      r.relayData.callForwarder = smartWallet.address
-      r.relayData.callVerifier = verifier.address
-      r.relayData.domainSeparator = getDomainSeparatorHash(smartWallet.address, env.chainId)
 
-      return r
-    }
-
-    async function getSmartWalletAddress (): Promise<SmartWalletInstance> {
-      const gaslessAccount: AccountKeypair = await getGaslessAccount()
-
-      const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-      const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(smartWalletTemplate)
-      const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
-
-      return smartWallet
-    }
   })
 
   // Receives a function that will penalize the relay and tests that call for a penalization, including checking the
