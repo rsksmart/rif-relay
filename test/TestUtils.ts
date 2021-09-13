@@ -26,13 +26,11 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet'
 import { Address } from '../src/relayclient/types/Aliases'
-import { cloneRelayRequest, DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
-const SmartWallet = artifacts.require('SmartWallet')
 const RelayHub = artifacts.require('RelayHub')
-const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 
 const localhostOne = 'http://localhost:8090'
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`
@@ -530,60 +528,3 @@ export function hasCode (code: string): boolean {
  * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
  */
 export const INCORRECT_ECDSA_SIGNATURE = '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c'
-
-const relayRequest: RelayRequest =
-{
-  request: {
-    relayHub: constants.ZERO_ADDRESS,
-    to: '0x1820b744B33945482C17Dc37218C01D858EBc714',
-    data: '0x1234',
-    from: constants.ZERO_ADDRESS,
-    nonce: '0',
-    value: '0',
-    gas: '1000000',
-    tokenContract: constants.ZERO_ADDRESS,
-    tokenAmount: '0',
-    tokenGas: '0',
-    enableQos: false
-  },
-  relayData: {
-    gasPrice: '50',
-    relayWorker: constants.ZERO_ADDRESS,
-    domainSeparator: '',
-    callForwarder: constants.ZERO_ADDRESS,
-    callVerifier: constants.ZERO_ADDRESS
-  }
-}
-
-// RSK requires a different relay's private key, original was '6370fd033278c143179d81c5526140625662b8daa446c22ee2d73db3707e620c'
-export const relayCallArgs = {
-  gasPrice: 50,
-  gasLimit: 1000000,
-  nonce: 0,
-  privateKey: '88fcad7d65de4bf854b88191df9bf38648545e7e5ea367dff6e025b06a28244d' // RSK relay's private key
-}
-
-export async function createRelayRequest (defaultAccount: Address, relayWorker: Address, env: Environment, relayHub: RelayHubInstance): Promise<RelayRequest> {
-  const smartWallet = await getSmartWalletAddress(defaultAccount, env)
-  const verifier = await TestVerifierEverythingAccepted.new()
-
-  const r: RelayRequest = cloneRelayRequest(relayRequest)
-  r.request.from = smartWallet.address
-  r.request.relayHub = relayHub.address
-  r.relayData.callForwarder = smartWallet.address
-  r.relayData.callVerifier = verifier.address
-  r.relayData.relayWorker = relayWorker
-  r.relayData.domainSeparator = getDomainSeparatorHash(smartWallet.address, env.chainId)
-
-  return r
-}
-
-async function getSmartWalletAddress (defaultAccount: Address, env: Environment): Promise<SmartWalletInstance> {
-  const gaslessAccount: AccountKeypair = await getGaslessAccount()
-
-  const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-  const factory: SmartWalletFactoryInstance = await createSmartWalletFactory(smartWalletTemplate)
-  const smartWallet: SmartWalletInstance = await createSmartWallet(defaultAccount, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
-
-  return smartWallet
-}
