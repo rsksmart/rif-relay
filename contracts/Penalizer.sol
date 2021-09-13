@@ -142,9 +142,19 @@ contract Penalizer is IPenalizer, Ownable {
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
         require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
         require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
-
-        // skip qos check for now
-        //require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
+        
+        /* Althout it could be a security flaws, in this case we don't need a strict
+         * time check. We are aware that the miner could tamper the block.timestamp 
+         * but right now the implementation of ethereum protocol would invalidate
+         * blocks with more than 15 seconds in future. 
+         * We can accept a variability of +/- 15 seconds, without being impacted by that.
+         * References:
+         * - https://consensys.github.io/smart-contract-best-practices/recommendations/#timestamp-dependence
+         * - https://swcregistry.io/docs/SWC-116
+         * - https://cryptomarketpool.com/block-timestamp-manipulation-attack/
+         */
+        /* solhint-disable-next-line not-rely-on-time */
+        require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
         require(fulfilledTransactions[txId] == false, "can't penalize fulfilled tx");
