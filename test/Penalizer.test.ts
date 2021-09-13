@@ -26,7 +26,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
   before(async function () {
     penalizer = await Penalizer.new()
     relayHub = await deployHub(penalizer.address)
-    await penalizer.setHub(relayHub.address)
+
     env = await getTestingEnvironment()
     const networkId = await web3.eth.net.getId()
     const chain = await web3.eth.net.getNetworkType()
@@ -53,6 +53,19 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
     await relayHub.stakeForAddress(reporterRelayManager, 1000, {
       value: ether('1'),
       from: relayOwner
+    })
+  })
+
+  describe('should be able to have its hub set', function () {
+    it('successfully from its owner address', async function () {
+      await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
+    })
+
+    it('unsuccessfully from another address', async function () {
+      await expectRevert(
+        penalizer.setHub(relayHub.address, { from: other }),
+        'caller is not the owner'
+      )
     })
   })
 
