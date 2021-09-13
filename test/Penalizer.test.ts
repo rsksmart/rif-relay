@@ -17,71 +17,65 @@ import { getRawTxOptions } from '../src/common/ContractInteractor'
 const RelayHub = artifacts.require('RelayHub')
 const Penalizer = artifacts.require('Penalizer')
 
-contract('RelayHub Penalizations', function ([relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) { // eslint-disable-line no-unused-vars
+contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) {
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
   let env: Environment
   let transactionOptions: TransactionOptions
 
-  describe('penalizations', function () {
-    before(async function () {
-      for (const addr of [relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker]) {
-        console.log(addr)
-      }
+  before(async function () {
+    penalizer = await Penalizer.new()
+    relayHub = await deployHub(penalizer.address)
+    await penalizer.setHub(relayHub.address)
+    env = await getTestingEnvironment()
+    const networkId = await web3.eth.net.getId()
+    const chain = await web3.eth.net.getNetworkType()
+    transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
 
-      penalizer = await Penalizer.new()
-      relayHub = await deployHub(penalizer.address)
-      await penalizer.setHub(relayHub.address)
-      env = await getTestingEnvironment()
-      const networkId = await web3.eth.net.getId()
-      const chain = await web3.eth.net.getNetworkType()
-      transactionOptions = getRawTxOptions(env.chainId, networkId, chain)
-
-      await relayHub.stakeForAddress(relayManager, 1000, {
-        from: relayOwner,
-        value: ether('1'),
-        gasPrice: '1'
-      })
-
-      await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
-      // @ts-ignore
-      Object.keys(RelayHub.events).forEach(function (topic) {
-        // @ts-ignore
-        RelayHub.network.events[topic] = RelayHub.events[topic]
-      })
-      // @ts-ignore
-      Object.keys(RelayHub.events).forEach(function (topic) {
-        // @ts-ignore
-        Penalizer.network.events[topic] = RelayHub.events[topic]
-      })
-
-      await relayHub.stakeForAddress(reporterRelayManager, 1000, {
-        value: ether('1'),
-        from: relayOwner
-      })
+    await relayHub.stakeForAddress(relayManager, 1000, {
+      from: relayOwner,
+      value: ether('1'),
+      gasPrice: '1'
     })
 
-    describe('penalization access control (relay manager only)', function () {
-      before(async function () {
-        const env: Environment = await getTestingEnvironment()
-        const receipt: any = await web3.eth.sendTransaction({ from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1' })
-        const transactionHash = receipt.transactionHash;
+    await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
+    // @ts-ignore
+    Object.keys(RelayHub.events).forEach(function (topic) {
+      // @ts-ignore
+      RelayHub.network.events[topic] = RelayHub.events[topic]
+    })
+    // @ts-ignore
+    Object.keys(RelayHub.events).forEach(function (topic) {
+      // @ts-ignore
+      Penalizer.network.events[topic] = RelayHub.events[topic]
+    })
 
-        ({
-          data: penalizableTxData,
-          signature: penalizableTxSignature
-        } = await getDataAndSignatureFromHash(transactionHash, env))
-      })
+    await relayHub.stakeForAddress(reporterRelayManager, 1000, {
+      value: ether('1'),
+      from: relayOwner
+    })
+  })
 
-      let penalizableTxData: string
-      let penalizableTxSignature: string
+  describe('penalization access control (relay manager only)', function () {
+    before(async function () {
+      const env: Environment = await getTestingEnvironment()
+      const receipt: any = await web3.eth.sendTransaction({ from: thirdRelayWorker, to: other, value: ether('0.5'), gasPrice: '1' })
+      const transactionHash = receipt.transactionHash;
 
-      it('penalizeRepeatedNonce', async function () {
-        await expectRevert(
-          penalizer.penalizeRepeatedNonce(penalizableTxData, penalizableTxSignature, penalizableTxData, penalizableTxSignature, relayHub.address, { from: other }),
-          'Unknown relay manager'
-        )
-      })
+      ({
+        data: penalizableTxData,
+        signature: penalizableTxSignature
+      } = await getDataAndSignatureFromHash(transactionHash, env))
+    })
+
+    let penalizableTxData: string
+    let penalizableTxSignature: string
+
+    it('penalizeRepeatedNonce', async function () {
+      await expectRevert(
+        penalizer.penalizeRepeatedNonce(penalizableTxData, penalizableTxSignature, penalizableTxData, penalizableTxSignature, relayHub.address, { from: other }),
+        'Unknown relay manager'
+      )
     })
   })
 
