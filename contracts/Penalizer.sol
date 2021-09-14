@@ -143,7 +143,7 @@ contract Penalizer is IPenalizer, Ownable {
         require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
         require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
         
-        /* Althout it could be a security flaws, in this case we don't need a strict
+        /* Although it could be a security flaw, in this case we don't need a strict
          * time check. We are aware that the miner could tamper the block.timestamp 
          * but right now the implementation of ethereum protocol would invalidate
          * blocks with more than 15 seconds in future. 
