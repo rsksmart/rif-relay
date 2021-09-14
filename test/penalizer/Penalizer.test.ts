@@ -111,7 +111,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
   describe('should be able to reject claims', function () {
     it('due to hub not being set', async function () {
       const hublessPenalizer = await Penalizer.new()
-      const receipt = relayHelper.createCommitmentReceipt()
+      const receipt = await relayHelper.createCommitmentReceipt(false)
       await expectRevert(
         hublessPenalizer.claim(receipt),
         'relay hub not set'
@@ -119,16 +119,15 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('due to receiving a commitment with qos disabled', async function () {
-      const receipt = relayHelper.createCommitmentReceipt()
+      const receipt = await relayHelper.createCommitmentReceipt(false)
       await expectRevert(
         penalizer.claim(receipt),
         'commitment without QoS'
       )
     })
 
-    it.skip('wip', async function () {
-      const receipt = relayHelper.createCommitmentReceipt()
-      receipt.commitment.enableQos = true
+    it('wip', async function () {
+      const receipt = await relayHelper.createCommitmentReceipt(true)
       await penalizer.claim(receipt)
     })
   })

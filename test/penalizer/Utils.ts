@@ -1,10 +1,14 @@
 import { ether } from '@openzeppelin/test-helpers'
+import { ethers } from 'ethers'
+import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../../src/common/EIP712/TypedRequestData'
+import { Commitment } from '../../src/enveloping/Commitment'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { RelayHubInstance, TestVerifierEverythingAcceptedInstance, TestTokenInstance, IForwarderInstance } from '../../types/truffle-contracts'
 import { getLocalEip712Signature } from '../../Utils'
+import { getGaslessAccount } from '../TestUtils'
 
 const gasPrice = '1'
 
@@ -81,30 +85,38 @@ export class RelayHelper {
       this.forwarder.address,
       relayRequest
     )
-    const signature = getLocalEip712Signature(
+    return getLocalEip712Signature(
       dataToSign,
       account.privateKey
     )
-
-    return signature
   }
 
   // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  createCommitmentReceipt () {
+  async createCommitmentReceipt (enableQos: boolean) {
+    const worker = await getGaslessAccount()
+
     // temporarily hard-coded
+    const c = {
+      time: 1626784918999,
+      from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
+      to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
+      data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
+      relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
+      relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
+      enableQos: enableQos,
+      signature: '0xcba668ad3ba3a5389bebc3b8211bdbb0e8223f8f2145eb687235d6dc0aead3255618f039becb02dc78bc51575c14a47c547718d52753f4983fb0ba9b5c260c4f1b'
+    }
+
+    const commitment = new Commitment(c.time, c.from, c.to, c.data, c.relayHubAddress, c.relayWorker, c.enableQos, c.signature)
+    const digest = ethers.utils.arrayify(ethers.utils.keccak256(commitment.encodeForSign()))
+
+    const signerWallet = new ethers.Wallet(worker.privateKey)
+    const sig = await signerWallet.signMessage(digest)
+
     return {
-      workerAddress: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
-      commitment: {
-        time: 1626784918999,
-        from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
-        to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
-        data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
-        relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
-        relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
-        enableQos: false,
-        signature: '0xcba668ad3ba3a5389bebc3b8211bdbb0e8223f8f2145eb687235d6dc0aead3255618f039becb02dc78bc51575c14a47c547718d52753f4983fb0ba9b5c260c4f1b'
-      },
-      workerSignature: '0x5cd81b693e0aef3c75085b7e80e89f2bc5220926e369b70dc6f5901d116281d523f958e4578d5ec6fb1c3234cbd6d870ed48f41c94dda84d1203c9d0b6c07e741b'
+      workerAddress: toChecksumAddress(worker.address),
+      commitment: c,
+      workerSignature: sig
     }
   }
 }
