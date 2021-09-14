@@ -81,7 +81,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
 
   describe('should fulfill transactions', function () {
     it('unsuccessfully if qos is disabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target)
+      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target, '0xdeadbeef01')
       const signature = relayHelper.getRelayRequestSignature(relayRequest, gaslessAccount)
 
       await relayHub.relayCall(relayRequest, signature, {
@@ -94,7 +94,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('successfully if qos is enabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target)
+      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target, '0xdeadbeef02')
       relayRequest.request.enableQos = true
       const signature = relayHelper.getRelayRequestSignature(relayRequest, gaslessAccount)
 
@@ -118,12 +118,18 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
       )
     })
 
-    it('due to commitment without qos', async function () {
+    it('due to receiving a commitment with qos disabled', async function () {
       const receipt = relayHelper.createCommitmentReceipt()
       await expectRevert(
         penalizer.claim(receipt),
         'commitment without QoS'
       )
+    })
+
+    it.skip('wip', async function () {
+      const receipt = relayHelper.createCommitmentReceipt()
+      receipt.commitment.enableQos = true
+      await penalizer.claim(receipt)
     })
   })
 })

@@ -50,12 +50,12 @@ export class RelayHelper {
     await this.relayHub.addRelayWorkers([this.relayWorker], { from: this.relayManager, gasPrice: gasPrice })
   }
 
-  async createRelayRequest (from: Address, to: Address): Promise<RelayRequest> {
-    const rr: RelayRequest = {
+  async createRelayRequest (from: Address, to: Address, relayData: string): Promise<RelayRequest> {
+    return {
       request: {
         relayHub: this.relayHub.address,
         to: to,
-        data: '',
+        data: relayData,
         from: from,
         nonce: (await this.forwarder.nonce()).toString(),
         value: '0',
@@ -73,11 +73,6 @@ export class RelayHelper {
         domainSeparator: getDomainSeparatorHash(this.forwarder.address, this.chainId)
       }
     }
-
-    rr.request.data = '0xdeadbeef'
-    rr.relayData.relayWorker = this.relayWorker
-
-    return rr
   }
 
   getRelayRequestSignature (relayRequest: RelayRequest, account: AccountKeypair): string {
