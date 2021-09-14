@@ -39,6 +39,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
   let forwarder: string
   let verifier: string
   let token: TestTokenInstance
+  const gasPrice = '1'
 
   before(async function () {
     penalizer = await Penalizer.new()
@@ -56,6 +57,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
     factory = await createSmartWalletFactory(smartWalletTemplate)
     forwarderInstance = await createSmartWallet(relayOwner, gaslessAccount.address, factory, gaslessAccount.privateKey, env.chainId)
     forwarder = forwarderInstance.address
+    await token.mint('1000', forwarder)
 
     await relayHub.stakeForAddress(relayManager, 1000, {
       from: relayOwner,
@@ -95,15 +97,36 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
   })
 
   describe('should fulfill transactions', function () {
-    it('successfully ', async function () {
+    it('unsuccessfully if qos is disabled', async function () {
       const relayRequest = await createRelayRequest(gaslessAccount)
-      const sig = getRelayRequestSignature
-      console.log(relayRequest, sig)
+      const signature = getRelayRequestSignature(relayRequest, gaslessAccount)
+
+      await relayHub.relayCall(relayRequest, signature, {
+        from: relayWorker,
+        gas: 4e6,
+        gasPrice: gasPrice
+      })
+
+      assert.isFalse(await penalizer.fulfilled(signature))
+    })
+
+    it('successfully if qos is enabled', async function () {
+      const relayRequest = await createRelayRequest(gaslessAccount)
+      relayRequest.request.enableQos = true
+      const signature = getRelayRequestSignature(relayRequest, gaslessAccount)
+
+      await relayHub.relayCall(relayRequest, signature, {
+        from: relayWorker,
+        gas: 4e6,
+        gasPrice: gasPrice
+      })
+
+      assert.isTrue(await penalizer.fulfilled(signature))
     })
   })
 
   async function createRelayRequest (account: AccountKeypair): Promise<RelayRequest> {
-    const relayRequest: RelayRequest = {
+    const rr: RelayRequest = {
       request: {
         relayHub: relayHub.address,
         to: target,
@@ -118,7 +141,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
         enableQos: false
       },
       relayData: {
-        gasPrice: '1',
+        gasPrice: gasPrice,
         relayWorker,
         callForwarder: forwarder,
         callVerifier: verifier,
@@ -126,10 +149,10 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
       }
     }
 
-    relayRequest.request.data = '0xdeadbeef'
-    relayRequest.relayData.relayWorker = relayWorker
+    rr.request.data = '0xdeadbeef'
+    rr.relayData.relayWorker = relayWorker
 
-    return relayRequest
+    return rr
   }
 
   function getRelayRequestSignature (relayRequest: RelayRequest, account: AccountKeypair): string {
