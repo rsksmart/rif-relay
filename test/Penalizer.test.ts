@@ -25,7 +25,7 @@ const TestRecipient = artifacts.require('TestRecipient')
 const testToken = artifacts.require('TestToken')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 
-contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, sender, other, relayManager, otherRelayManager, thirdRelayWorker, reporterRelayManager]) {
+contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) {
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
   let recipientContract: TestRecipientInstance
