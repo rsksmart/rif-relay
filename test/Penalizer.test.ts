@@ -19,7 +19,6 @@ import { getLocalEip712Signature } from '../Utils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
 
-const RelayHub = artifacts.require('RelayHub')
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -67,21 +66,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
     })
 
     await relayHub.addRelayWorkers([relayWorker], { from: relayManager, gasPrice: '1' })
-    // @ts-ignore
-    Object.keys(RelayHub.events).forEach(function (topic) {
-      // @ts-ignore
-      RelayHub.network.events[topic] = RelayHub.events[topic]
-    })
-    // @ts-ignore
-    Object.keys(RelayHub.events).forEach(function (topic) {
-      // @ts-ignore
-      Penalizer.network.events[topic] = RelayHub.events[topic]
-    })
-
-    await relayHub.stakeForAddress(reporterRelayManager, 1000, {
-      value: ether('1'),
-      from: relayOwner
-    })
   })
 
   describe('should be able to have its hub set', function () {
