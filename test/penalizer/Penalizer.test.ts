@@ -117,5 +117,13 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
         'relay hub not set'
       )
     })
+
+    it('due to commitment without qos', async function () {
+      const receipt = relayHelper.createCommitmentReceipt()
+      await expectRevert(
+        penalizer.claim(receipt),
+        'commitment without QoS'
+      )
+    })
   })
 })
