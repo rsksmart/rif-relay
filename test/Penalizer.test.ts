@@ -85,6 +85,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
         'caller is not the owner'
       )
 
+      // hub should remain set with its previous value
       assert.equal(await penalizer.getHub(), relayHub.address)
     })
   })
@@ -115,6 +116,17 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
       })
 
       assert.isTrue(await penalizer.fulfilled(signature))
+    })
+  })
+
+  describe('should be able to reject claims', function () {
+    it('due to hub not being set', async function () {
+      const hublessPenalizer = await Penalizer.new()
+      const receipt = createCommitmentReceipt()
+      await expectRevert(
+        hublessPenalizer.claim(receipt),
+        'relay hub not set'
+      )
     })
   })
 
@@ -160,5 +172,24 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     )
 
     return signature
+  }
+
+  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+  function createCommitmentReceipt () {
+    // temporarily hard-coded
+    return {
+      workerAddress: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
+      commitment: {
+        time: 1626784918999,
+        from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
+        to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
+        data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
+        relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
+        relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
+        enableQos: false,
+        signature: '0xcba668ad3ba3a5389bebc3b8211bdbb0e8223f8f2145eb687235d6dc0aead3255618f039becb02dc78bc51575c14a47c547718d52753f4983fb0ba9b5c260c4f1b'
+      },
+      workerSignature: '0x5cd81b693e0aef3c75085b7e80e89f2bc5220926e369b70dc6f5901d116281d523f958e4578d5ec6fb1c3234cbd6d870ed48f41c94dda84d1203c9d0b6c07e741b'
+    }
   }
 })
