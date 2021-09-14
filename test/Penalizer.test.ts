@@ -17,6 +17,7 @@ import { RelayRequest } from '../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../src/common/EIP712/TypedRequestData'
 import { getLocalEip712Signature } from '../Utils'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
+import { zeroAddress } from 'ethereumjs-util'
 
 const RelayHub = artifacts.require('RelayHub')
 const Penalizer = artifacts.require('Penalizer')
@@ -84,15 +85,23 @@ contract('Penalizer', function ([relayOwner, relayWorker, otherRelayWorker, send
   })
 
   describe('should be able to have its hub set', function () {
+    it('starting out with an unset address', async function () {
+      assert.equal(await penalizer.getHub(), zeroAddress())
+    })
+
     it('successfully from its owner address', async function () {
       await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
+
+      assert.equal(await penalizer.getHub(), relayHub.address)
     })
 
     it('unsuccessfully from another address', async function () {
       await expectRevert(
-        penalizer.setHub(relayHub.address, { from: other }),
+        penalizer.setHub(other, { from: other }),
         'caller is not the owner'
       )
+
+      assert.equal(await penalizer.getHub(), relayHub.address)
     })
   })
 
