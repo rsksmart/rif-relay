@@ -81,33 +81,33 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   describe('should fulfill transactions', function () {
     it('unsuccessfully if qos is disabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef01', enableQos: false })
-      const signature = relayHelper.getRelayRequestSignature(relayRequest, sender)
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef01', enableQos: false })
+      const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      await relayHub.relayCall(relayRequest, signature, {
+      await relayHub.relayCall(rr, sig, {
         from: relayWorker,
         gas: txGas,
         gasPrice: gasPrice
       })
 
-      assert.isFalse(await penalizer.fulfilled(signature))
+      assert.isFalse(await penalizer.fulfilled(sig))
     })
 
     it('successfully if qos is enabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef02', enableQos: true })
-      const signature = relayHelper.getRelayRequestSignature(relayRequest, sender)
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef02', enableQos: true })
+      const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      await relayHub.relayCall(relayRequest, signature, {
+      await relayHub.relayCall(rr, sig, {
         from: relayWorker,
         gas: txGas,
         gasPrice: gasPrice
       })
 
-      assert.isTrue(await penalizer.fulfilled(signature))
+      assert.isTrue(await penalizer.fulfilled(sig))
     })
   })
 
-  describe('should be able to reject claims', function () {
+  describe('should reject claims', function () {
     it('due to hub not being set', async function () {
       const hublessPenalizer = await Penalizer.new()
 
@@ -192,28 +192,48 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
   })
 
-  describe('should be able to accept claims', function () {
-    it('for unfulfilled, unpenalized transactions', async function () {
-      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeefff', enableQos: true })
+  describe('should receive claims', function () {
+    before(async function () {
+      // sender will need to be funded to complete successful claim call
+      await fundAccount(fundedAccount, sender.address, '10')
+    })
+
+    // from this point onwards txs must be put together manually because sender account is locked
+    it('and reject them if tx is fulfilled', async function () {
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef09', enableQos: true })
+      const sig = relayHelper.getRelayRequestSignature(rr, sender)
+
+      await relayHub.relayCall(rr, sig, {
+        from: relayWorker,
+        gas: txGas,
+        gasPrice: gasPrice
+      })
+
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
 
-      // sender will need to be funded to complete successful claim call
-      await fundAccount(fundedAccount, sender.address, '10')
-
-      // tx must be put together manually because sender account is locked
-      const rawTx = createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), txGas.toString(), gasPrice)
+      const rawTx = await createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), '6300000', gasPrice)
 
       try {
-        // option 1:
-        // const receipt = await web3.eth.sendSignedTransaction(rawTx)
+        const receipt = await web3.eth.sendSignedTransaction(rawTx)
+        console.log(receipt)
 
-        // option 2:
-        // const provider = new ProfilingProvider(web3.currentProvider as HttpProvider)
-        // const contractInteractor = new ContractInteractor(provider, configure({}))
-        // const receipt = await contractInteractor.broadcastTransaction(rawTx)
+        fail("expected claim to fail, but it didn't")
+      } catch (err) {
+        assert.equal(err, "can't penalize fulfilled tx")
+      }
+    })
 
-        // both result in: transaction wasn't mined
+    it.skip('and accept them if tx is unfulfilled and unpenalized', async function () {
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef10', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
+      await relayHelper.signReceipt(receipt)
+
+      const rawTx = await createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), '6300000', gasPrice)
+
+      try {
+        const receipt = await web3.eth.sendSignedTransaction(rawTx)
+        console.log(receipt)
       } catch (err) {
         fail(err)
       }

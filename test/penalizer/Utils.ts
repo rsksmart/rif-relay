@@ -146,13 +146,16 @@ export class RelayHelper {
   }
 }
 
-export function createRawTx (from: AccountKeypair, to: Address, data: string, gas: string, gasPrice: string): string {
+export async function createRawTx (from: AccountKeypair, to: Address, data: string, gas: string, gasPrice: string): Promise<string> {
+  const txCount = await web3.eth.getTransactionCount(from.address)
+
   const txObject = {
     from: from.address,
     to: to,
     data: data,
     gas: web3.utils.toHex(gas),
-    gasPrice: web3.utils.toHex(gasPrice)
+    gasPrice: web3.utils.toHex(gasPrice),
+    nonce: web3.utils.toHex(txCount)
   }
 
   const tx = new Transaction(txObject)
