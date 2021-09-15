@@ -11,10 +11,7 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
 import { createRawTx, fundAccount, RelayHelper } from './Utils'
 import { fail } from 'assert'
-// import ContractInteractor from '../../src/common/ContractInteractor'
-// import { configure } from '../../src/relayclient/Configurator'
-// import { HttpProvider } from 'web3-core'
-// import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
+import { Environment } from '../../src/common/Environments'
 
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -23,6 +20,8 @@ const testToken = artifacts.require('TestToken')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 
 contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAccount, fundedAccount]) {
+  let env: Environment
+
   // contracts
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
@@ -36,7 +35,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   const txGas = 4e6
 
   before(async function () {
-    const env = await getTestingEnvironment()
+    env = await getTestingEnvironment()
 
     // set up contracts
     penalizer = await Penalizer.new()
@@ -194,11 +193,12 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   describe('should receive claims', function () {
     before(async function () {
-      // sender will need to be funded to complete successful claim call
-      await fundAccount(fundedAccount, sender.address, '10')
+      // sender will need to be funded to complete claim calls
+      await fundAccount(fundedAccount, sender.address, '100')
     })
 
-    // from this point onwards txs must be put together manually because sender account is locked
+    // from this point onwards txs must be put together manually since the sender account is locked
+
     it('and reject them if tx is fulfilled', async function () {
       const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef09', enableQos: true })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
@@ -212,7 +212,14 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
 
-      const rawTx = await createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), '6300000', gasPrice)
+      const rawTx = await createRawTx(
+        sender,
+        recipient.address,
+        penalizer.contract.methods.claim(receipt).encodeABI(),
+        '6300000',
+        gasPrice,
+        env
+      )
 
       try {
         const receipt = await web3.eth.sendSignedTransaction(rawTx)
@@ -224,12 +231,19 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       }
     })
 
-    it.skip('and accept them if tx is unfulfilled and unpenalized', async function () {
+    it('and accept them if tx is unfulfilled and unpenalized', async function () {
       const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef10', enableQos: true })
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
 
-      const rawTx = await createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), '6300000', gasPrice)
+      const rawTx = await createRawTx(
+        sender,
+        recipient.address,
+        penalizer.contract.methods.claim(receipt).encodeABI(),
+        '6300000',
+        gasPrice,
+        env
+      )
 
       try {
         const receipt = await web3.eth.sendSignedTransaction(rawTx)

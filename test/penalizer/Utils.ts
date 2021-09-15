@@ -4,6 +4,7 @@ import { ethers } from 'ethers'
 import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 import TypedRequestData, { getDomainSeparatorHash } from '../../src/common/EIP712/TypedRequestData'
+import { Environment } from '../../src/common/Environments'
 import { Commitment } from '../../src/enveloping/Commitment'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { Address } from '../../src/relayclient/types/Aliases'
@@ -146,7 +147,7 @@ export class RelayHelper {
   }
 }
 
-export async function createRawTx (from: AccountKeypair, to: Address, data: string, gas: string, gasPrice: string): Promise<string> {
+export async function createRawTx (from: AccountKeypair, to: Address, data: string, gas: string, gasPrice: string, env: Environment): Promise<string> {
   const txCount = await web3.eth.getTransactionCount(from.address)
 
   const txObject = {
@@ -158,11 +159,10 @@ export async function createRawTx (from: AccountKeypair, to: Address, data: stri
     nonce: web3.utils.toHex(txCount)
   }
 
-  const tx = new Transaction(txObject)
+  const tx = new Transaction(txObject, { chainId: env.chainId })
   tx.sign(from.privateKey)
-  const serializedTx = tx.serialize()
 
-  return '0x' + serializedTx.toString('hex')
+  return '0x' + tx.serialize().toString('hex')
 }
 
 export async function fundAccount (fundedAccount: Address, destination: Address, ethAmount: string): Promise<void> {
