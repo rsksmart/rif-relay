@@ -9,9 +9,12 @@ import {
 import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
-import { createRawTx, RelayHelper } from './Utils'
+import { createRawTx, fundAccount, RelayHelper } from './Utils'
 import { fail } from 'assert'
-import { Transaction } from 'ethereumjs-tx'
+// import ContractInteractor from '../../src/common/ContractInteractor'
+// import { configure } from '../../src/relayclient/Configurator'
+// import { HttpProvider } from 'web3-core'
+// import { ProfilingProvider } from '../../src/common/dev/ProfilingProvider'
 
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -19,7 +22,7 @@ const TestRecipient = artifacts.require('TestRecipient')
 const testToken = artifacts.require('TestToken')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 
-contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAccount]) {
+contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAccount, fundedAccount]) {
   // contracts
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
@@ -163,6 +166,20 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       )
     })
 
+    it('due to relay hub mismatch', async function () {
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef07', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
+
+      receipt.commitment.relayHubAddress = otherAccount
+
+      await relayHelper.signReceipt(receipt)
+
+      await expectRevert(
+        penalizer.claim(receipt),
+        'relay hub does not match'
+      )
+    })
+
     it('due to claim not being made by commitment receiver', async function () {
       const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeef08', enableQos: true })
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
@@ -181,11 +198,22 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
 
+      // sender will need to be funded to complete successful claim call
+      await fundAccount(fundedAccount, sender.address, '10')
+
+      // tx must be put together manually because sender account is locked
       const rawTx = createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), txGas.toString(), gasPrice)
 
       try {
-        const receipt = await web3.eth.sendSignedTransaction(rawTx)
-        console.log(receipt)
+        // option 1:
+        // const receipt = await web3.eth.sendSignedTransaction(rawTx)
+
+        // option 2:
+        // const provider = new ProfilingProvider(web3.currentProvider as HttpProvider)
+        // const contractInteractor = new ContractInteractor(provider, configure({}))
+        // const receipt = await contractInteractor.broadcastTransaction(rawTx)
+
+        // both result in: transaction wasn't mined
       } catch (err) {
         fail(err)
       }

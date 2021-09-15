@@ -9,6 +9,7 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { RelayHubInstance, TestVerifierEverythingAcceptedInstance, TestTokenInstance, IForwarderInstance } from '../../types/truffle-contracts'
 import { getLocalEip712Signature } from '../../Utils'
+
 const gasPrice = '1'
 
 interface RelayRequestParams{
@@ -159,4 +160,13 @@ export function createRawTx (from: AccountKeypair, to: Address, data: string, ga
   const serializedTx = tx.serialize()
 
   return '0x' + serializedTx.toString('hex')
+}
+
+export async function fundAccount (fundedAccount: Address, destination: Address, ethAmount: string): Promise<void> {
+  await web3.eth.sendTransaction({
+    from: fundedAccount,
+    to: destination,
+    value: web3.utils.toWei(ethAmount, 'ether'),
+    gasPrice: gasPrice
+  })
 }
