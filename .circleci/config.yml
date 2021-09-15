@@ -96,6 +96,7 @@ jobs: # a collection of steps
                     done
                     npx truffle test --network rsk test/Verifiers.test.ts
                     npx truffle test --network rsk test/RelayHubPenalizations.test.ts
+                    npx truffle test --network rsk test/penalizer/Penalizer.test.ts
                     npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
                     npx truffle test --network rsk test/TxStoreManager.test.ts
                     npx truffle test --network rsk test/Utils.test.ts
