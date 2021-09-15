@@ -22,6 +22,7 @@ interface RelayRequestParams{
 
 interface CommitmentParams{
   relayRequest: RelayRequest
+  signature: string
 }
 
 interface CommitmentReceipt {
@@ -131,7 +132,7 @@ export class RelayHelper {
         relayHubAddress: this.relayHub.address,
         relayWorker: relayData.relayWorker,
         enableQos: request.enableQos,
-        signature: '0x00'
+        signature: params.signature
       },
       workerSignature: '0x00'
     }
