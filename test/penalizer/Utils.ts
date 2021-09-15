@@ -12,8 +12,15 @@ import { getGaslessAccount } from '../TestUtils'
 
 const gasPrice = '1'
 
+interface RelayRequestParams{
+  from: Address
+  to: Address
+  relayData: string
+  enableQos?: boolean
+}
+
 interface CommitmentParams{
-  enableQos: boolean
+  relayRequest: RelayRequest
 }
 
 interface CommitmentReceipt {
@@ -73,20 +80,20 @@ export class RelayHelper {
     await this.relayHub.addRelayWorkers([this.relayWorker], { from: this.relayManager, gasPrice: gasPrice })
   }
 
-  async createRelayRequest (from: Address, to: Address, relayData: string): Promise<RelayRequest> {
+  async createRelayRequest (params: RelayRequestParams): Promise<RelayRequest> {
     return {
       request: {
         relayHub: this.relayHub.address,
-        to: to,
-        data: relayData,
-        from: from,
+        to: params.to,
+        data: params.relayData,
+        from: params.from,
         nonce: (await this.forwarder.nonce()).toString(),
         value: '0',
         gas: '3000000',
         tokenContract: this.token.address,
         tokenAmount: '1',
         tokenGas: '50000',
-        enableQos: false
+        enableQos: params.enableQos ?? false
       },
       relayData: {
         gasPrice: gasPrice,
@@ -111,17 +118,19 @@ export class RelayHelper {
   }
 
   createReceipt (params: CommitmentParams): CommitmentReceipt {
+    const request = params.relayRequest.request
+    const relayData = params.relayRequest.relayData
     // temporarily hard-coded
     return {
-      workerAddress: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
+      workerAddress: relayData.relayWorker,
       commitment: {
         time: 1626784918999,
-        from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
-        to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
-        data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
-        relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
-        relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
-        enableQos: params.enableQos,
+        from: request.from,
+        to: request.to,
+        data: request.data,
+        relayHubAddress: this.relayHub.address,
+        relayWorker: relayData.relayWorker,
+        enableQos: request.enableQos,
         signature: '0x00'
       },
       workerSignature: '0x00'

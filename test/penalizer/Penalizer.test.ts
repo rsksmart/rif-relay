@@ -81,7 +81,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
 
   describe('should fulfill transactions', function () {
     it('unsuccessfully if qos is disabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target, '0xdeadbeef01')
+      const relayRequest = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef01', enableQos: false })
       const signature = relayHelper.getRelayRequestSignature(relayRequest, gaslessAccount)
 
       await relayHub.relayCall(relayRequest, signature, {
@@ -94,8 +94,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('successfully if qos is enabled', async function () {
-      const relayRequest = await relayHelper.createRelayRequest(gaslessAccount.address, target, '0xdeadbeef02')
-      relayRequest.request.enableQos = true
+      const relayRequest = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef02', enableQos: true })
       const signature = relayHelper.getRelayRequestSignature(relayRequest, gaslessAccount)
 
       await relayHub.relayCall(relayRequest, signature, {
@@ -111,7 +110,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
   describe('should be able to reject claims', function () {
     it('due to hub not being set', async function () {
       const hublessPenalizer = await Penalizer.new()
-      const receipt = relayHelper.createReceipt({ enableQos: false })
+      const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef03' })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await expectRevert(
         hublessPenalizer.claim(receipt),
         'relay hub not set'
@@ -119,7 +119,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('due to receiving a commitment with qos disabled', async function () {
-      const receipt = relayHelper.createReceipt({ enableQos: false })
+      const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef04', enableQos: false })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await expectRevert(
         penalizer.claim(receipt),
         'commitment without QoS'
@@ -127,7 +128,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('due to absent signature', async function () {
-      const receipt = relayHelper.createReceipt({ enableQos: true })
+      const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef05', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await expectRevert(
         penalizer.claim(receipt),
         'worker signature mismatch'
@@ -135,7 +137,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('due to forged signature', async function () {
-      const receipt = relayHelper.createReceipt({ enableQos: true })
+      const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef06', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
       receipt.workerSignature = web3.utils.randomHex(130)
       await expectRevert(
         penalizer.claim(receipt),
@@ -144,7 +147,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
     })
 
     it('due to worker address mismatch', async function () {
-      const receipt = relayHelper.createReceipt({ enableQos: true })
+      const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef07', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
       await expectRevert(
         penalizer.claim(receipt),
