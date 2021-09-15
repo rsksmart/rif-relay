@@ -1,4 +1,5 @@
 import { ether } from '@openzeppelin/test-helpers'
+import { PrefixedHexString } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
@@ -11,6 +12,25 @@ import { getLocalEip712Signature } from '../../Utils'
 import { getGaslessAccount } from '../TestUtils'
 
 const gasPrice = '1'
+
+interface CommitmentParams{
+  enableQos: boolean
+}
+
+interface CommitmentReceipt {
+  workerAddress: Address
+  commitment: {
+    time: number
+    from: Address
+    to: Address
+    relayHubAddress: Address
+    relayWorker: Address
+    enableQos: boolean
+    data: PrefixedHexString
+    signature: PrefixedHexString
+  }
+  workerSignature: PrefixedHexString
+}
 
 export class RelayHelper {
   relayHub: RelayHubInstance
@@ -91,32 +111,37 @@ export class RelayHelper {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-  async createCommitmentReceipt (enableQos: boolean) {
+  async createCommitmentReceipt (params: CommitmentParams): Promise<CommitmentReceipt> {
+    // temporarily hard-coded
+    return {
+      workerAddress: '',
+      commitment: {
+        time: 1626784918999,
+        from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
+        to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
+        data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
+        relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
+        relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
+        enableQos: params.enableQos,
+        signature: ''
+      },
+      workerSignature: ''
+    }
+  }
+
+  async signCommitment (commitmentReceipt: CommitmentReceipt): Promise<void> {
     const worker = await getGaslessAccount()
 
-    // temporarily hard-coded
-    const c = {
-      time: 1626784918999,
-      from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
-      to: '0x1Af2844A588759D0DE58abD568ADD96BB8B3B6D8',
-      data: '0xa9059cbb000000000000000000000000d82c5cc006c83e9f0348f6896571aefa5aa2bbc600000000000000000000000000000000000000000000000029a2241af62c0000',
-      relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
-      relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
-      enableQos: enableQos,
-      signature: '0xcba668ad3ba3a5389bebc3b8211bdbb0e8223f8f2145eb687235d6dc0aead3255618f039becb02dc78bc51575c14a47c547718d52753f4983fb0ba9b5c260c4f1b'
-    }
-
+    const c = commitmentReceipt.commitment
     const commitment = new Commitment(c.time, c.from, c.to, c.data, c.relayHubAddress, c.relayWorker, c.enableQos, c.signature)
-    const digest = ethers.utils.arrayify(ethers.utils.keccak256(commitment.encodeForSign()))
+
+    const hash = ethers.utils.keccak256(commitment.encodeForSign())
+    const digest = ethers.utils.arrayify(hash)
 
     const signerWallet = new ethers.Wallet(worker.privateKey)
     const sig = await signerWallet.signMessage(digest)
 
-    return {
-      workerAddress: toChecksumAddress(worker.address),
-      commitment: c,
-      workerSignature: sig
-    }
+    commitmentReceipt.workerAddress = toChecksumAddress(worker.address)
+    commitmentReceipt.workerSignature = sig
   }
 }
