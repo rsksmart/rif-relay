@@ -10,6 +10,8 @@ import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccou
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
 import { RelayHelper } from './Utils'
+import { fail } from 'assert'
+import { Transaction } from 'ethereumjs-tx'
 
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -28,7 +30,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   let relayHelper: RelayHelper
 
   const gasPrice = '1'
-  const relayGas = 4e6
+  const txGas = 4e6
 
   before(async function () {
     const env = await getTestingEnvironment()
@@ -81,7 +83,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
       await relayHub.relayCall(relayRequest, signature, {
         from: relayWorker,
-        gas: relayGas,
+        gas: txGas,
         gasPrice: gasPrice
       })
 
@@ -94,7 +96,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
       await relayHub.relayCall(relayRequest, signature, {
         from: relayWorker,
-        gas: relayGas,
+        gas: txGas,
         gasPrice: gasPrice
       })
 
@@ -170,6 +172,35 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         penalizer.claim(receipt, { from: otherAccount }),
         'receiver must claim commitment'
       )
+    })
+  })
+
+  describe('should be able to accept claims', function () {
+    it('for unfulfilled, unpenalized transactions', async function () {
+      const rr = await relayHelper.createRelayRequest({ from: sender.address, to: recipient.address, relayData: '0xdeadbeefff', enableQos: true })
+      const receipt = relayHelper.createReceipt({ relayRequest: rr })
+      await relayHelper.signReceipt(receipt)
+
+      // tx must be put together manually because sender account is locked
+      const txObject = {
+        from: sender.address,
+        to: recipient.address,
+        data: penalizer.contract.methods.claim(receipt).encodeABI(),
+        gas: web3.utils.toHex(txGas),
+        gasPrice: web3.utils.toHex(gasPrice)
+      }
+      const tx = new Transaction(txObject)
+      tx.sign(sender.privateKey)
+      const serializedTx = tx.serialize()
+      const rawTx = '0x' + serializedTx.toString('hex')
+
+      // broadcast tx
+      try {
+        const receipt = await web3.eth.sendSignedTransaction(rawTx)
+        console.log(receipt)
+      } catch (err) {
+        fail(err)
+      }
     })
   })
 })
