@@ -1,4 +1,5 @@
 import { ether } from '@openzeppelin/test-helpers'
+import { Transaction } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
@@ -142,4 +143,20 @@ export class RelayHelper {
     commitmentReceipt.workerAddress = toChecksumAddress(this.relayWorker)
     commitmentReceipt.workerSignature = await web3.eth.sign(hash, this.relayWorker)
   }
+}
+
+export function createRawTx (from: AccountKeypair, to: Address, data: string, gas: string, gasPrice: string): string {
+  const txObject = {
+    from: from.address,
+    to: to,
+    data: data,
+    gas: web3.utils.toHex(gas),
+    gasPrice: web3.utils.toHex(gasPrice)
+  }
+
+  const tx = new Transaction(txObject)
+  tx.sign(from.privateKey)
+  const serializedTx = tx.serialize()
+
+  return '0x' + serializedTx.toString('hex')
 }

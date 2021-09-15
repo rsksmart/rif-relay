@@ -9,7 +9,7 @@ import {
 import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
-import { RelayHelper } from './Utils'
+import { createRawTx, RelayHelper } from './Utils'
 import { fail } from 'assert'
 import { Transaction } from 'ethereumjs-tx'
 
@@ -181,20 +181,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await relayHelper.signReceipt(receipt)
 
-      // tx must be put together manually because sender account is locked
-      const txObject = {
-        from: sender.address,
-        to: recipient.address,
-        data: penalizer.contract.methods.claim(receipt).encodeABI(),
-        gas: web3.utils.toHex(txGas),
-        gasPrice: web3.utils.toHex(gasPrice)
-      }
-      const tx = new Transaction(txObject)
-      tx.sign(sender.privateKey)
-      const serializedTx = tx.serialize()
-      const rawTx = '0x' + serializedTx.toString('hex')
+      const rawTx = createRawTx(sender, recipient.address, penalizer.contract.methods.claim(receipt).encodeABI(), txGas.toString(), gasPrice)
 
-      // broadcast tx
       try {
         const receipt = await web3.eth.sendSignedTransaction(rawTx)
         console.log(receipt)
