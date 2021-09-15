@@ -127,7 +127,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, other]) 
       )
     })
 
-    it('due to absent signature', async function () {
+    it('due to missing signature', async function () {
       const rr = await relayHelper.createRelayRequest({ from: gaslessAccount.address, to: target, relayData: '0xdeadbeef05', enableQos: true })
       const receipt = relayHelper.createReceipt({ relayRequest: rr })
       await expectRevert(

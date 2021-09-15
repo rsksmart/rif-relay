@@ -8,8 +8,6 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { RelayHubInstance, TestVerifierEverythingAcceptedInstance, TestTokenInstance, IForwarderInstance } from '../../types/truffle-contracts'
 import { getLocalEip712Signature } from '../../Utils'
-import { getGaslessAccount } from '../TestUtils'
-
 const gasPrice = '1'
 
 interface RelayRequestParams{
@@ -120,11 +118,10 @@ export class RelayHelper {
   createReceipt (params: CommitmentParams): CommitmentReceipt {
     const request = params.relayRequest.request
     const relayData = params.relayRequest.relayData
-    // temporarily hard-coded
     return {
       workerAddress: relayData.relayWorker,
       commitment: {
-        time: 1626784918999,
+        time: 0,
         from: request.from,
         to: request.to,
         data: request.data,
@@ -138,18 +135,11 @@ export class RelayHelper {
   }
 
   async signReceipt (commitmentReceipt: CommitmentReceipt): Promise<void> {
-    const worker = await getGaslessAccount()
-
     const c = commitmentReceipt.commitment
     const commitment = new Commitment(c.time as Number, c.from as string, c.to as string, c.data, c.relayHubAddress as string, c.relayWorker as string, c.enableQos, c.signature)
-
     const hash = ethers.utils.keccak256(commitment.encodeForSign())
-    const digest = ethers.utils.arrayify(hash)
 
-    const signerWallet = new ethers.Wallet(worker.privateKey)
-    const sig = await signerWallet.signMessage(digest)
-
-    commitmentReceipt.workerAddress = toChecksumAddress(worker.address)
-    commitmentReceipt.workerSignature = sig
+    commitmentReceipt.workerAddress = toChecksumAddress(this.relayWorker)
+    commitmentReceipt.workerSignature = await web3.eth.sign(hash, this.relayWorker)
   }
 }
