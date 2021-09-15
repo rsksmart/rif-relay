@@ -1,5 +1,4 @@
 import { ether } from '@openzeppelin/test-helpers'
-import { PrefixedHexString } from 'ethereumjs-tx'
 import { ethers } from 'ethers'
 import { toChecksumAddress } from 'web3-utils'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
@@ -18,18 +17,18 @@ interface CommitmentParams{
 }
 
 interface CommitmentReceipt {
-  workerAddress: Address
+  workerAddress: string | BN
   commitment: {
-    time: number
-    from: Address
-    to: Address
-    relayHubAddress: Address
-    relayWorker: Address
+    time: number | BN | string
+    from: string | BN
+    to: string | BN
+    relayHubAddress: string | BN
+    relayWorker: string | BN
     enableQos: boolean
-    data: PrefixedHexString
-    signature: PrefixedHexString
+    data: string
+    signature: string
   }
-  workerSignature: PrefixedHexString
+  workerSignature: string
 }
 
 export class RelayHelper {
@@ -111,10 +110,10 @@ export class RelayHelper {
     )
   }
 
-  async createCommitmentReceipt (params: CommitmentParams): Promise<CommitmentReceipt> {
+  createReceipt (params: CommitmentParams): CommitmentReceipt {
     // temporarily hard-coded
     return {
-      workerAddress: '',
+      workerAddress: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
       commitment: {
         time: 1626784918999,
         from: '0x2F4034C552Bb3A241bB941F8B270FF972507EA09',
@@ -123,17 +122,17 @@ export class RelayHelper {
         relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701',
         relayWorker: '0x86c659194f559c76a83fa8238120cfc6cb7440dc',
         enableQos: params.enableQos,
-        signature: ''
+        signature: '0x00'
       },
-      workerSignature: ''
+      workerSignature: '0x00'
     }
   }
 
-  async signCommitment (commitmentReceipt: CommitmentReceipt): Promise<void> {
+  async signReceipt (commitmentReceipt: CommitmentReceipt): Promise<void> {
     const worker = await getGaslessAccount()
 
     const c = commitmentReceipt.commitment
-    const commitment = new Commitment(c.time, c.from, c.to, c.data, c.relayHubAddress, c.relayWorker, c.enableQos, c.signature)
+    const commitment = new Commitment(c.time as Number, c.from as string, c.to as string, c.data, c.relayHubAddress as string, c.relayWorker as string, c.enableQos, c.signature)
 
     const hash = ethers.utils.keccak256(commitment.encodeForSign())
     const digest = ethers.utils.arrayify(hash)
