@@ -319,5 +319,35 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         fail(err)
       }
     })
+
+    it('and reject them if tx is unfulfilled but penalized', async function () {
+      const rr = await relayHelper.createRelayRequest({
+        from: sender.address,
+        to: recipient.address,
+        relayData: '0xdeadbeef10', // same as previous test case
+        enableQos: true
+      })
+      const sig = relayHelper.getRelayRequestSignature(rr, sender)
+
+      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      await relayHelper.signReceipt(receipt)
+
+      // attempt to repeat previously successful claim
+      const rawTx = await createRawTx(
+        sender,
+        penalizer.address,
+        penalizer.contract.methods.claim(receipt).encodeABI(),
+        txGas.toString(),
+        gasPrice,
+        env
+      )
+
+      try {
+        await web3.eth.sendSignedTransaction(rawTx)
+        fail("expected claim to fail, but it didn't")
+      } catch (err) {
+        assert(err.message.includes('tx already penalized'))
+      }
+    })
   })
 })
