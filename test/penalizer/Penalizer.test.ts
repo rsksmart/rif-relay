@@ -300,6 +300,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
+      // in this case, the worker signed a commitment without relaying the corresponding tx
+      // this means a claim would be valid, and penalization should take place
       const rawTx = await createRawTx(
         sender,
         penalizer.address,
