@@ -19,11 +19,6 @@ interface RelayRequestParams{
   enableQos?: boolean
 }
 
-interface CommitmentParams{
-  relayRequest: RelayRequest
-  signature: string
-}
-
 interface CommitmentReceipt {
   workerAddress: string | BN
   commitment: {
@@ -118,9 +113,9 @@ export class RelayHelper {
     )
   }
 
-  createReceipt (params: CommitmentParams): CommitmentReceipt {
-    const request = params.relayRequest.request
-    const relayData = params.relayRequest.relayData
+  createReceipt (relayRequest: RelayRequest, signature: string): CommitmentReceipt {
+    const request = relayRequest.request
+    const relayData = relayRequest.relayData
     return {
       workerAddress: relayData.relayWorker,
       commitment: {
@@ -131,7 +126,7 @@ export class RelayHelper {
         relayHubAddress: this.relayHub.address,
         relayWorker: relayData.relayWorker,
         enableQos: request.enableQos,
-        signature: params.signature
+        signature: signature
       },
       workerSignature: '0x00'
     }

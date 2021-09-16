@@ -128,7 +128,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
         hublessPenalizer.claim(receipt),
@@ -145,7 +145,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
         penalizer.claim(receipt),
@@ -162,7 +162,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
         penalizer.claim(receipt),
@@ -179,7 +179,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       receipt.workerSignature = web3.utils.randomHex(130)
 
       await expectRevert(
@@ -197,7 +197,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       receipt.commitment.relayWorker = otherAccount
       await relayHelper.signReceipt(receipt)
 
@@ -216,7 +216,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       receipt.commitment.relayHubAddress = otherAccount
       await relayHelper.signReceipt(receipt)
 
@@ -235,7 +235,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
       await expectRevert(
@@ -268,7 +268,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         gasPrice: gasPrice
       })
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
       const rawTx = await createRawTx(
@@ -297,7 +297,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
       const rawTx = await createRawTx(
@@ -342,7 +342,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       })
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
-      const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
+      const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
       // attempt to repeat previously successful claim
