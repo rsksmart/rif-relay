@@ -11,7 +11,8 @@ import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
 import { createRawTx, fundAccount, RelayHelper } from './Utils'
 import { fail } from 'assert'
-import { Environment } from '../../src/common/Environments'
+import { toBN } from 'web3-utils'
+import { TransactionReceipt } from 'web3-core'
 
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -20,8 +21,6 @@ const testToken = artifacts.require('TestToken')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 
 contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAccount, fundedAccount]) {
-  let env: Environment
-
   // contracts
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
@@ -33,9 +32,11 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   const gasPrice = '1'
   const txGas = 4e6
+  let chainId: number
 
   before(async function () {
-    env = await getTestingEnvironment()
+    const env = await getTestingEnvironment()
+    chainId = env.chainId
 
     // set up contracts
     penalizer = await Penalizer.new()
@@ -58,13 +59,13 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   describe('should be able to have its hub set', function () {
     it('starting out with an unset address', async function () {
-      assert.equal(await penalizer.getHub(), zeroAddress())
+      assert.equal(await penalizer.getHub(), zeroAddress(), 'penalizer hub does not match zero address')
     })
 
     it('successfully from its owner address', async function () {
       await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
 
-      assert.equal(await penalizer.getHub(), relayHub.address)
+      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub does not match relay hub')
     })
 
     it('unsuccessfully from another address', async function () {
@@ -74,7 +75,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       )
 
       // hub should remain set with its previous value
-      assert.equal(await penalizer.getHub(), relayHub.address)
+      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub did not keep its relay hub value')
     })
   })
 
@@ -94,7 +95,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         gasPrice: gasPrice
       })
 
-      assert.isFalse(await penalizer.fulfilled(sig))
+      assert.isFalse(await penalizer.fulfilled(sig), 'tx relayed without qos is fulfilled')
     })
 
     it('successfully if qos is enabled', async function () {
@@ -112,7 +113,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         gasPrice: gasPrice
       })
 
-      assert.isTrue(await penalizer.fulfilled(sig))
+      assert.isTrue(await penalizer.fulfilled(sig), 'tx relayed with qos is not fulfilled')
     })
   })
 
@@ -179,7 +180,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
       const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
-
       receipt.workerSignature = web3.utils.randomHex(130)
 
       await expectRevert(
@@ -198,9 +198,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
       const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
-
       receipt.commitment.relayWorker = otherAccount
-
       await relayHelper.signReceipt(receipt)
 
       await expectRevert(
@@ -219,9 +217,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       const sig = relayHelper.getRelayRequestSignature(rr, sender)
 
       const receipt = relayHelper.createReceipt({ relayRequest: rr, signature: sig })
-
       receipt.commitment.relayHubAddress = otherAccount
-
       await relayHelper.signReceipt(receipt)
 
       await expectRevert(
@@ -281,14 +277,14 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         penalizer.contract.methods.claim(receipt).encodeABI(),
         txGas.toString(),
         gasPrice,
-        env
+        chainId
       )
 
       try {
         await web3.eth.sendSignedTransaction(rawTx)
         fail("expected claim to fail, but it didn't")
       } catch (err) {
-        assert(err.message.includes("can't penalize fulfilled tx"))
+        assert.isTrue(err.message.includes("can't penalize fulfilled tx"), 'unexpected revert reason')
       }
     })
 
@@ -310,14 +306,31 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         penalizer.contract.methods.claim(receipt).encodeABI(),
         txGas.toString(),
         gasPrice,
-        env
+        chainId
       )
 
+      let stakeInfo = await relayHub.getStakeInfo(relayManager)
+      let stake = toBN(stakeInfo.stake)
+
+      const balanceBefore = toBN(await web3.eth.getBalance(sender.address))
+      const toBurn = stake.div(toBN(2))
+      const reward = stake.sub(toBurn)
+
+      let txReceipt: TransactionReceipt
       try {
-        await web3.eth.sendSignedTransaction(rawTx)
+        txReceipt = await web3.eth.sendSignedTransaction(rawTx)
       } catch (err) {
         fail(err)
       }
+
+      stakeInfo = await relayHub.getStakeInfo(relayManager)
+      stake = toBN(stakeInfo.stake)
+
+      const balanceAfter = toBN(await web3.eth.getBalance(sender.address))
+      const gasUsed = toBN(txReceipt.gasUsed)
+
+      assert.isTrue(stake.eq(toBN(0)), 'stake was not burned')
+      assert.isTrue(balanceAfter.eq(balanceBefore.add(reward).sub(gasUsed)), 'unexpected beneficiary balance after claim')
     })
 
     it('and reject them if tx is unfulfilled but penalized', async function () {
@@ -339,14 +352,14 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         penalizer.contract.methods.claim(receipt).encodeABI(),
         txGas.toString(),
         gasPrice,
-        env
+        chainId
       )
 
       try {
         await web3.eth.sendSignedTransaction(rawTx)
         fail("expected claim to fail, but it didn't")
       } catch (err) {
-        assert(err.message.includes('tx already penalized'))
+        assert.isTrue(err.message.includes('tx already penalized'))
       }
     })
   })
