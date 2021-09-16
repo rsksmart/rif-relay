@@ -16,7 +16,7 @@ interface RelayRequestParams{
   from: Address
   to: Address
   relayData: string
-  enableQos?: boolean
+  enableQos: boolean
 }
 
 interface CommitmentReceipt {
@@ -89,7 +89,7 @@ export class RelayHelper {
         tokenContract: this.token.address,
         tokenAmount: '1',
         tokenGas: '50000',
-        enableQos: params.enableQos ?? false
+        enableQos: params.enableQos
       },
       relayData: {
         gasPrice: gasPrice,

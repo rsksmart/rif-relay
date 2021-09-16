@@ -13,6 +13,7 @@ import { createRawTx, fundAccount, RelayHelper } from './Utils'
 import { fail } from 'assert'
 import { toBN } from 'web3-utils'
 import { TransactionReceipt } from 'web3-core'
+import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
 const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -81,13 +82,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   describe('should fulfill transactions', function () {
     it('unsuccessfully if qos is disabled', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef01',
-        enableQos: false
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef01', enableQos: false })
 
       await relayHub.relayCall(rr, sig, {
         from: relayWorker,
@@ -99,13 +94,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('successfully if qos is enabled', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef02',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef02', enableQos: true })
 
       await relayHub.relayCall(rr, sig, {
         from: relayWorker,
@@ -121,13 +110,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     it('due to hub not being set', async function () {
       const hublessPenalizer = await Penalizer.new()
 
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef03'
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef03' })
       const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
@@ -137,14 +120,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to receiving a commitment with qos disabled', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef04',
-        enableQos: false
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef04', enableQos: false })
       const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
@@ -154,14 +130,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to missing signature', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef05',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef05', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
 
       await expectRevert(
@@ -171,14 +140,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to forged signature', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef06',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef06', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
       receipt.workerSignature = web3.utils.randomHex(130)
 
@@ -189,16 +151,9 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to worker address mismatch', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef07',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef07', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
-      receipt.commitment.relayWorker = otherAccount
+      receipt.commitment.relayWorker = otherAccount // tamper with receipt worker
       await relayHelper.signReceipt(receipt)
 
       await expectRevert(
@@ -208,16 +163,9 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to relay hub mismatch', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef07',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef07', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
-      receipt.commitment.relayHubAddress = otherAccount
+      receipt.commitment.relayHubAddress = otherAccount // tamper with receipt hub
       await relayHelper.signReceipt(receipt)
 
       await expectRevert(
@@ -227,14 +175,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('due to claim not being made by commitment receiver', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef08',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef08', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
@@ -254,14 +195,9 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     // from this point onwards txs must be put together manually since the sender account is locked
 
     it('and reject them if tx is fulfilled', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef09',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef09', enableQos: true })
 
+      // if tx is successfully relayed, it will be marked as fulfilled
       await relayHub.relayCall(rr, sig, {
         from: relayWorker,
         gas: txGas,
@@ -289,18 +225,11 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('and accept them if tx is unfulfilled and unpenalized', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef10',
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef10', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
-      // in this case, the worker signed a commitment without relaying the corresponding tx
+      // in this case, the worker signed a commitment without relaying the corresponding tx first
       // this means a claim would be valid, and penalization should take place
       const rawTx = await createRawTx(
         sender,
@@ -336,18 +265,13 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     it('and reject them if tx is unfulfilled but penalized', async function () {
-      const rr = await relayHelper.createRelayRequest({
-        from: sender.address,
-        to: recipient.address,
-        relayData: '0xdeadbeef10', // same as previous test case
-        enableQos: true
-      })
-      const sig = relayHelper.getRelayRequestSignature(rr, sender)
-
+      // same as previous test case
+      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef10', enableQos: true })
       const receipt = relayHelper.createReceipt(rr, sig)
       await relayHelper.signReceipt(receipt)
 
       // attempt to repeat previously successful claim
+      // a claim would be invalid here since tx has already been penalized
       const rawTx = await createRawTx(
         sender,
         penalizer.address,
@@ -365,4 +289,21 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       }
     })
   })
+
+  interface RelayRequestParams{
+    relayData: string
+    enableQos?: boolean
+  }
+
+  async function createRelayRequestAndSignature (params: RelayRequestParams): Promise<[RelayRequest, string]> {
+    const rr = await relayHelper.createRelayRequest({
+      from: sender.address,
+      to: recipient.address,
+      relayData: params.relayData,
+      enableQos: params.enableQos ?? false
+    })
+    const sig = relayHelper.getRelayRequestSignature(rr, sender)
+
+    return [rr, sig]
+  }
 })
