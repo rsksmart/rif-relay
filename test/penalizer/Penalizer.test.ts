@@ -359,7 +359,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         await web3.eth.sendSignedTransaction(rawTx)
         fail("expected claim to fail, but it didn't")
       } catch (err) {
-        assert.isTrue(err.message.includes('tx already penalized'))
+        assert.isTrue(err.message.includes('tx already penalized'), 'unexpected revert reason')
       }
     })
   })
