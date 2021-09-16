@@ -46,7 +46,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     const smartWalletTemplate = await SmartWallet.new()
     const token = await testToken.new()
 
-    sender = await getGaslessAccount() // relay request origin should have no funds
+    sender = await getGaslessAccount() // sender should be able to relay without funds
 
     // smart wallet
     const factory = await createSmartWalletFactory(smartWalletTemplate)
