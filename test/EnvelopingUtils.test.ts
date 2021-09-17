@@ -54,7 +54,7 @@ contract('Enveloping utils', function (accounts) {
         );
         const SmartWalletFactory = artifacts.require('SmartWalletFactory');
 
-        const localhost = 'http://localhost:8090';
+        const localhost = 'http://localhost:8091';
         const message = 'hello world';
 
         // @ts-ignore
@@ -212,7 +212,7 @@ contract('Enveloping utils', function (accounts) {
                 chainId: chainId,
                 relayVerifierAddress: verifier.address,
                 deployVerifierAddress: deployVerifier.address,
-                preferredRelays: ['http://localhost:8090']
+                preferredRelays: ['http://localhost:8091']
             };
 
             config = configure(partialConfig);

@@ -50,7 +50,7 @@ sourceMapSupport.install({ errorFormatterForce: true });
 
 const RelayHub = artifacts.require('RelayHub');
 
-const localhostOne = 'http://localhost:8090';
+const localhostOne = 'http://localhost:8091';
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`;
 export const deployTypeHash = web3.utils.keccak256(deployTypeName);
 

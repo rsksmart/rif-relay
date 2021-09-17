@@ -44,10 +44,10 @@ To contribute to the project, create a branch with the name of the new feature y
 
 Ensure that you are in the project's root directory and that the test's name has no typos
 
-#### Running Flows.test.ts test throws the error: http://localhost:8090 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
+#### Running Flows.test.ts test throws the error: http://localhost:8091 => Error: local view call to 'relayCall()' reverted: view call to 'relayCall'..
 
 Stop the running node and delete the db used by the node.
 
-#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
+#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8091
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`

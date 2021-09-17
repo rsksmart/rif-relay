@@ -81,7 +81,7 @@ abiDecoder.addABI(SmartWalletFactory.abi);
 const expect = chai.expect;
 chai.use(sinonChai);
 
-const localhostOne = 'http://localhost:8090';
+const localhostOne = 'http://localhost:8091';
 const cheapRelayerUrl = 'http://localhost:54321';
 const underlyingProvider = web3.currentProvider as HttpProvider;
 
@@ -102,7 +102,7 @@ class MockHttpClient extends HttpClient {
     }
 
     private mapUrl(relayUrl: string): string {
-        return relayUrl.replace(':8090', `:${this.mockPort}`);
+        return relayUrl.replace(':8091', `:${this.mockPort}`);
     }
 }
 
@@ -287,7 +287,7 @@ gasOptions.forEach((gasOption) => {
                 let server: Server | undefined;
                 try {
                     const pingResponse = await axios
-                        .get('http://localhost:8090/getaddr')
+                        .get('http://localhost:8091/getaddr')
                         .then((res) => res.data);
                     const mockServer = express();
                     mockServer.use(bodyParser.urlencoded({ extended: false }));
@@ -1466,7 +1466,7 @@ gasOptions.forEach((gasOption) => {
 
             it('use preferred relay if one is set', async () => {
                 relayClient = new RelayClient(underlyingProvider, {
-                    preferredRelays: ['http://localhost:8090'],
+                    preferredRelays: ['http://localhost:8091'],
                     ...config
                 });
 
