@@ -3,7 +3,6 @@ import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { ether } from '@openzeppelin/test-helpers';
-import { ServerConfig } from '@rsksmart/rif-relay-server';
 import {
     RelayHubInstance,
     SmartWalletFactoryInstance,
@@ -81,8 +80,7 @@ export async function startRelay(
     args.push('--checkInterval', 10);
     args.push('--logLevel', 5);
     args.push('--relayHubAddress', relayHub.address);
-    const configFile = ServerConfig.loadConfigPath();
-    args.push('--config', configFile);
+    args.push('--port', 8091);
     if (options.rskNodeUrl) {
         args.push('--rskNodeUrl', options.rskNodeUrl);
     }
