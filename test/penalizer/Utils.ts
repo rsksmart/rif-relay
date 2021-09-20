@@ -113,13 +113,13 @@ export class RelayHelper {
     )
   }
 
-  createReceipt (relayRequest: RelayRequest, signature: string): CommitmentReceipt {
+  createReceipt (relayRequest: RelayRequest, signature: string, time: number = Math.floor(Date.now() / 1000)): CommitmentReceipt {
     const request = relayRequest.request
     const relayData = relayRequest.relayData
     return {
       workerAddress: relayData.relayWorker,
       commitment: {
-        time: 0,
+        time,
         from: request.from,
         to: request.to,
         data: request.data,

@@ -1,9 +1,11 @@
-import { expectRevert } from '@openzeppelin/test-helpers'
+import { ether, expectRevert } from '@openzeppelin/test-helpers'
 
 import {
   PenalizerInstance,
   RelayHubInstance,
-  TestRecipientInstance
+  SmartWalletInstance,
+  TestRecipientInstance,
+  TestTokenInstance
 } from '../../types/truffle-contracts'
 
 import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
@@ -26,6 +28,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   let relayHub: RelayHubInstance
   let penalizer: PenalizerInstance
   let recipient: TestRecipientInstance
+  let forwarder: SmartWalletInstance
+  let token: TestTokenInstance
 
   let sender: AccountKeypair // wallet owner and relay request origin
 
@@ -45,13 +49,13 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()
-    const token = await testToken.new()
+    token = await testToken.new()
 
     sender = await getGaslessAccount() // sender should be able to relay without funds
 
     // smart wallet
     const factory = await createSmartWalletFactory(smartWalletTemplate)
-    const forwarder = await createSmartWallet(relayOwner, sender.address, factory, sender.privateKey, env.chainId)
+    forwarder = await createSmartWallet(relayOwner, sender.address, factory, sender.privateKey, env.chainId)
 
     // relay helper class
     relayHelper = new RelayHelper(relayHub, relayOwner, relayWorker, relayManager, forwarder, verifier, token, env.chainId)
@@ -240,28 +244,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         chainId
       )
 
-      let stakeInfo = await relayHub.getStakeInfo(relayManager)
-      let stake = toBN(stakeInfo.stake)
-
-      const balanceBefore = toBN(await web3.eth.getBalance(sender.address))
-      const toBurn = stake.div(toBN(2))
-      const reward = stake.sub(toBurn)
-
-      let txReceipt: TransactionReceipt
-      try {
-        txReceipt = await web3.eth.sendSignedTransaction(rawTx)
-      } catch (err) {
-        fail(err)
-      }
-
-      stakeInfo = await relayHub.getStakeInfo(relayManager)
-      stake = toBN(stakeInfo.stake)
-
-      const balanceAfter = toBN(await web3.eth.getBalance(sender.address))
-      const gasUsed = toBN(txReceipt.gasUsed)
-
-      assert.isTrue(stake.eq(toBN(0)), 'stake was not burned')
-      assert.isTrue(balanceAfter.eq(balanceBefore.add(reward).sub(gasUsed)), 'unexpected beneficiary balance after claim')
+      await assertClaimIsSuccessful(relayHub, relayManager, sender, rawTx)
     })
 
     it('and reject them if tx is unfulfilled but penalized', async function () {
@@ -290,6 +273,79 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
   })
 
+  describe('should receive/reject claims according with the commitment time', function () {
+    before(async function () {
+      await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
+    })
+    beforeEach(async () => {
+      await token.mint('1000', forwarder.address)
+
+      await relayHub.stakeForAddress(relayManager, 1000, {
+        from: relayOwner,
+        value: ether('1'),
+        gasPrice: gasPrice
+      })
+      await fundAccount(fundedAccount, sender.address, '10')
+    })
+
+    // successful claims
+    const acceptableCommitmentTimes = [
+      // due to security implications, we accept a up to 15 secs of delay
+      // but we cannot set exactly this time in tests
+      10,
+      0,
+      // set a past commitment time
+      -100,
+      -150
+    ]
+    acceptableCommitmentTimes.forEach((timeDiff, index) => {
+      it(`accept them if commit time is ${Math.abs(timeDiff)} seconds in ${timeDiff < 0 ? 'past' : 'future'}`, async function () {
+        const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeff1${index}`, enableQos: true })
+        const now = getSecondsSinceUnixEpoch()
+        const receiptTime = now + timeDiff
+        const receipt = relayHelper.createReceipt(rr, sig, receiptTime)
+        await relayHelper.signReceipt(receipt)
+
+        const rawTx = await createRawTx(
+          sender,
+          penalizer.address,
+          penalizer.contract.methods.claim(receipt).encodeABI(),
+          txGas.toString(),
+          gasPrice,
+          chainId
+        )
+        await assertClaimIsSuccessful(relayHub, relayManager, sender, rawTx)
+      })
+    })
+
+    // commitment time not yet expired, unsuccessful claims
+    const futureReceiptTime = [
+      50,
+      150,
+      250,
+      350
+    ]
+    futureReceiptTime.forEach((timeDiff, index) => {
+      it(`reject them if commit time is  ${timeDiff} seconds in future`, async function () {
+        const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbfef1${index}`, enableQos: true })
+        const now = getSecondsSinceUnixEpoch()
+        const receipt = relayHelper.createReceipt(rr, sig, now + timeDiff)
+        await relayHelper.signReceipt(receipt)
+
+        const rawTx = await createRawTx(
+          sender,
+          penalizer.address,
+          penalizer.contract.methods.claim(receipt).encodeABI(),
+          txGas.toString(),
+          gasPrice,
+          chainId
+        )
+
+        await assertTransactionFails(rawTx, 'too early to claim')
+      })
+    })
+  })
+
   interface RelayRequestParams{
     relayData: string
     enableQos?: boolean
@@ -307,3 +363,41 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     return [rr, sig]
   }
 })
+
+
+function getSecondsSinceUnixEpoch (): number {
+  return Math.floor(Date.now() / 1000)
+}
+
+async function assertTransactionFails (rawTx: string, reason: string): Promise<void> {
+  try {
+    await web3.eth.sendSignedTransaction(rawTx)
+    fail("expected claim to fail, but it didn't")
+  } catch (err) {
+    assert.isTrue(err.message.includes(reason), `unexpected revert reason: ${err.message}`)
+  }
+}
+
+async function assertClaimIsSuccessful (relayHub: RelayHubInstance, relayManager: string, sender: AccountKeypair, rawTx: string): Promise<void> {
+  let stakeInfo = await relayHub.getStakeInfo(relayManager)
+  let stake = toBN(stakeInfo.stake)
+  const balanceBefore = toBN(await web3.eth.getBalance(sender.address))
+  const toBurn = stake.div(toBN(2))
+  const reward = stake.sub(toBurn)
+
+  let txReceipt: TransactionReceipt
+  try {
+    txReceipt = await web3.eth.sendSignedTransaction(rawTx)
+  } catch (err) {
+    fail(err)
+  }
+
+  stakeInfo = await relayHub.getStakeInfo(relayManager)
+  stake = toBN(stakeInfo.stake)
+
+  const balanceAfter = toBN(await web3.eth.getBalance(sender.address))
+  const gasUsed = toBN(txReceipt.gasUsed)
+
+  assert.isTrue(stake.eq(toBN(0)), 'stake was not burned')
+  assert.isTrue(balanceAfter.eq(balanceBefore.add(reward).sub(gasUsed)), 'unexpected beneficiary balance after claim')
+}

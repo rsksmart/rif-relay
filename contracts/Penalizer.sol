@@ -154,7 +154,7 @@ contract Penalizer is IPenalizer, Ownable {
          * - https://cryptomarketpool.com/block-timestamp-manipulation-attack/
          */
         /* solhint-disable-next-line not-rely-on-time */
-        require(commitmentReceipt.commitment.time <= block.timestamp, "too early to claim");
+        require(commitmentReceipt.commitment.time <= block.timestamp + 15, "too early to claim");
 
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
         require(fulfilledTransactions[txId] == false, "can't penalize fulfilled tx");
