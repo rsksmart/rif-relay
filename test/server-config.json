@@ -1,9 +1,13 @@
 {
     "url": "http://localhost:8090",
     "port": 8090,
-    "relayHubAddress": "",
+    "relayHubAddress": "0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701",
+    "relayVerifierAddress": "0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2",
+    "deployVerifierAddress": "0x1938517B0762103d52590Ca21d459968c25c9E67",
     "gasPriceFactor": 1,
     "rskNodeUrl": "http://127.0.0.1:4444",
-    "workdir": "",
-    "devMode": "true"
+    "devMode": true,
+    "customReplenish": false,
+    "logLevel": 1,
+    "workdir": "/home/user/workspace/enveloping/environment"
 }
