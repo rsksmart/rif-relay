@@ -319,8 +319,10 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
 
     // commitment time not yet expired, unsuccessful claims
+    // if we set a small future time, the claims can be successful
+    // due to the 15 seconds of delay we accept.
     const futureReceiptTime = [
-      50,
+      60,
       150,
       250,
       350
@@ -364,7 +366,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   }
 })
 
-
 function getSecondsSinceUnixEpoch (): number {
   return Math.floor(Date.now() / 1000)
 }
@@ -374,7 +375,11 @@ async function assertTransactionFails (rawTx: string, reason: string): Promise<v
     await web3.eth.sendSignedTransaction(rawTx)
     fail("expected claim to fail, but it didn't")
   } catch (err) {
-    assert.isTrue(err.message.includes(reason), `unexpected revert reason: ${err.message}`)
+    if (err instanceof Error) {
+      assert.isTrue(err.message.includes(reason), `unexpected revert reason: ${err.message}`)
+    } else {
+      fail('Unknown error')
+    }
   }
 }
 
