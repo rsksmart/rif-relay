@@ -11,7 +11,7 @@ import {
 import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { zeroAddress } from 'ethereumjs-util'
-import { createRawTx, fundAccount, RelayHelper } from './Utils'
+import { createRawTx, fundAccount, currentTimeInSeconds, RelayHelper } from './Utils'
 import { fail } from 'assert'
 import { toBN } from 'web3-utils'
 import { TransactionReceipt } from 'web3-core'
@@ -244,7 +244,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         chainId
       )
 
-      await assertClaimIsSuccessful(relayHub, relayManager, sender, rawTx)
+      await assertStakeIsBurned(relayHub, relayManager, sender, rawTx)
     })
 
     it('and reject them if tx is unfulfilled but penalized', async function () {
@@ -273,77 +273,75 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
   })
 
-  describe('should receive/reject claims according with the commitment time', function () {
+  describe('should receive claims according with the commitment time', function () {
     before(async function () {
       await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
     })
-    beforeEach(async () => {
-      await token.mint('1000', forwarder.address)
 
-      await relayHub.stakeForAddress(relayManager, 1000, {
-        from: relayOwner,
-        value: ether('1'),
-        gasPrice: gasPrice
+    describe('and accept them', () => {
+      beforeEach(async () => {
+        await relayHub.stakeForAddress(relayManager, 1000, {
+          from: relayOwner,
+          value: ether('1'),
+          gasPrice: gasPrice
+        })
       })
-      await fundAccount(fundedAccount, sender.address, '10')
-    })
 
-    // successful claims
-    const acceptableCommitmentTimes = [
-      // due to security implications, we accept a up to 15 secs of delay
-      // but we cannot set exactly this time in tests
-      10,
-      0,
-      // set a past commitment time
-      -100,
-      -150
-    ]
-    acceptableCommitmentTimes.forEach((timeDiff, index) => {
-      it(`accept them if commit time is ${Math.abs(timeDiff)} seconds in ${timeDiff < 0 ? 'past' : 'future'}`, async function () {
-        const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeff1${index}`, enableQos: true })
-        const now = getSecondsSinceUnixEpoch()
-        const receiptTime = now + timeDiff
-        const receipt = relayHelper.createReceipt(rr, sig, receiptTime)
-        await relayHelper.signReceipt(receipt)
+      const allowedCommitmentTimes = [
+        // due to security implications, we accept a up to 15 secs of delay
+        // but we cannot test for the exact time
+        10,
+        0,
+        // set a past commitment time
+        -100,
+        -150
+      ]
+      allowedCommitmentTimes.forEach((timeDiff, index) => {
+        it(`when the commit time is ${Math.abs(timeDiff)} seconds in the ${timeDiff < 0 ? 'past' : 'future'}`, async function () {
+          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeff1${index}`, enableQos: true })
+          const receipt = relayHelper.createReceipt(rr, sig, currentTimeInSeconds() + timeDiff)
+          await relayHelper.signReceipt(receipt)
 
-        const rawTx = await createRawTx(
-          sender,
-          penalizer.address,
-          penalizer.contract.methods.claim(receipt).encodeABI(),
-          txGas.toString(),
-          gasPrice,
-          chainId
-        )
-        await assertClaimIsSuccessful(relayHub, relayManager, sender, rawTx)
+          const rawTx = await createRawTx(
+            sender,
+            penalizer.address,
+            penalizer.contract.methods.claim(receipt).encodeABI(),
+            txGas.toString(),
+            gasPrice,
+            chainId
+          )
+          await assertStakeIsBurned(relayHub, relayManager, sender, rawTx)
+        })
       })
     })
 
-    // commitment time not yet expired, unsuccessful claims
-    // if we set a small future time, the claims can be successful
-    // due to the 15 seconds of delay we accept.
-    const futureReceiptTime = [
-      60,
-      150,
-      250,
-      350
-    ]
-    futureReceiptTime.forEach((timeDiff, index) => {
-      it(`reject them if commit time is  ${timeDiff} seconds in future`, async function () {
-        const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbfef1${index}`, enableQos: true })
-        const now = getSecondsSinceUnixEpoch()
-        const receipt = relayHelper.createReceipt(rr, sig, now + timeDiff)
-        await relayHelper.signReceipt(receipt)
+    describe('and reject them', () => {
+      // commitment time not yet expired, unsuccessful claims
+      // if we set a small future time, the claims can be successful
+      // due to the 15 seconds of delay we accept.
+      const forbiddenCommitmentTime = [
+        60,
+        150,
+        250,
+        350
+      ]
+      forbiddenCommitmentTime.forEach((timeDiff, index) => {
+        it(`when the commit time is ${timeDiff} seconds in the future`, async function () {
+          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbfef1${index}`, enableQos: true })
+          const receipt = relayHelper.createReceipt(rr, sig, currentTimeInSeconds() + timeDiff)
+          await relayHelper.signReceipt(receipt)
 
-        const rawTx = await createRawTx(
-          sender,
-          penalizer.address,
-          penalizer.contract.methods.claim(receipt).encodeABI(),
-          txGas.toString(),
-          gasPrice,
-          chainId
-        )
+          const rawTx = await createRawTx(
+            sender,
+            penalizer.address,
+            penalizer.contract.methods.claim(receipt).encodeABI(),
+            txGas.toString(),
+            gasPrice,
+            chainId
+          )
 
-        await assertTransactionFails(rawTx, 'too early to claim')
+          await assertTransactionFails(rawTx, 'too early to claim')
+        })
       })
     })
   })
@@ -366,10 +364,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   }
 })
 
-function getSecondsSinceUnixEpoch (): number {
-  return Math.floor(Date.now() / 1000)
-}
-
 async function assertTransactionFails (rawTx: string, reason: string): Promise<void> {
   try {
     await web3.eth.sendSignedTransaction(rawTx)
@@ -383,7 +377,7 @@ async function assertTransactionFails (rawTx: string, reason: string): Promise<v
   }
 }
 
-async function assertClaimIsSuccessful (relayHub: RelayHubInstance, relayManager: string, sender: AccountKeypair, rawTx: string): Promise<void> {
+async function assertStakeIsBurned (relayHub: RelayHubInstance, relayManager: string, sender: AccountKeypair, rawTx: string): Promise<void> {
   let stakeInfo = await relayHub.getStakeInfo(relayManager)
   let stake = toBN(stakeInfo.stake)
   const balanceBefore = toBN(await web3.eth.getBalance(sender.address))
