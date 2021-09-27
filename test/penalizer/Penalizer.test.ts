@@ -346,6 +346,24 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     })
   })
 
+  it('claim should fail if no stake has been added back', async () => {
+    // the stack previously added has been burned from previous successful claims
+    const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbfef10', enableQos: true })
+    const receipt = relayHelper.createReceipt(rr, sig)
+    await relayHelper.signReceipt(receipt)
+
+    const rawTx = await createRawTx(
+      sender,
+      penalizer.address,
+      penalizer.contract.methods.claim(receipt).encodeABI(),
+      txGas.toString(),
+      gasPrice,
+      chainId
+    )
+
+    await assertTransactionFails(rawTx)
+  })
+
   interface RelayRequestParams{
     relayData: string
     enableQos?: boolean
@@ -364,16 +382,20 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   }
 })
 
-async function assertTransactionFails (rawTx: string, reason: string): Promise<void> {
+async function assertTransactionFails (rawTx: string, reason?: string): Promise<void> {
   try {
     await web3.eth.sendSignedTransaction(rawTx)
     fail("expected claim to fail, but it didn't")
   } catch (err) {
-    if (err instanceof Error) {
-      assert.isTrue(err.message.includes(reason), `unexpected revert reason: ${err.message}`)
-    } else {
+    if (reason === undefined || reason === null) {
+      // we don't want to check why the transaction failed, but only if failed or not.
+      assert(true)
+      return
+    }
+    if (!(err instanceof Error)) {
       fail('Unknown error')
     }
+    assert.isTrue(err.message.includes(reason), `unexpected revert reason: ${err.message}`)
   }
 }
 
