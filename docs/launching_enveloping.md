@@ -39,7 +39,7 @@ In order to run an instance of Enveloping in Regtest:
         workdir: '/some/absolute/path' // an absolute path to the working directory of the server, the server will store all the information there
     }
     ```
-3. From the root directory run `node dist/src/cli/commands/enveloping.js relayer-run --config jsrelay/config/relay-config.json`.
+3. From the root directory run `node dist/src/cli/commands/enveloping.js relayer-run --config test/server-config.json`.
 4. To check if it is working, run `curl http://localhost:8090/getaddr`.
 
 ## Deploy contracts on testnet
