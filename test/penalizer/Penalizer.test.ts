@@ -290,7 +290,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
     // successful claims
     const acceptableCommitmentTimes = [
-      // due to security implications, we accept a up to 15 secs of delay
+      // due to security implications, we accept up to 15 secs of delay
       // but we cannot set exactly this time in tests
       10,
       0,
