@@ -147,7 +147,7 @@ contract Penalizer is IPenalizer, Ownable {
          * time check. We are aware that the miner could tamper the block.timestamp 
          * but right now the implementation of ethereum protocol would invalidate
          * blocks with more than 15 seconds in future. 
-         * We can accept a variability of +/- 15 seconds, without being impacted by that.
+         * We can accept a variability of +15 seconds, without being impacted by that.
          * References:
          * - https://consensys.github.io/smart-contract-best-practices/recommendations/#timestamp-dependence
          * - https://swcregistry.io/docs/SWC-116
