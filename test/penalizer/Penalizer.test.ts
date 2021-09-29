@@ -45,8 +45,8 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
     // set up contracts
     penalizer = await Penalizer.new()
-    await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
     relayHub = await deployHub(penalizer.address)
+    await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()
