@@ -220,12 +220,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         chainId
       )
 
-      try {
-        await web3.eth.sendSignedTransaction(rawTx)
-        fail("expected claim to fail, but it didn't")
-      } catch (err) {
-        assert.isTrue(err.message.includes("can't penalize fulfilled tx"), 'unexpected revert reason')
-      }
+      await assertTransactionFails(rawTx, "can't penalize fulfilled tx")
     })
 
     it('and accept them if tx is unfulfilled and unpenalized', async function () {
@@ -264,12 +259,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
         chainId
       )
 
-      try {
-        await web3.eth.sendSignedTransaction(rawTx)
-        fail("expected claim to fail, but it didn't")
-      } catch (err) {
-        assert.isTrue(err.message.includes('tx already penalized'), 'unexpected revert reason')
-      }
+      await assertTransactionFails(rawTx, 'tx already penalized')
     })
   })
 
@@ -298,7 +288,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       ]
       allowedCommitmentTimes.forEach((timeDiff, index) => {
         it(`when the commit time is ${Math.abs(timeDiff)} seconds in the ${timeDiff < 0 ? 'past' : 'future'}`, async function () {
-          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeff1${index}`, enableQos: true })
+          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeef2${index}`, enableQos: true })
           const receipt = relayHelper.createReceipt(rr, sig, currentTimeInSeconds() + timeDiff)
           await relayHelper.signReceipt(receipt)
 
@@ -327,7 +317,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
       ]
       forbiddenCommitmentTime.forEach((timeDiff, index) => {
         it(`when the commit time is ${timeDiff} seconds in the future`, async function () {
-          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbfef1${index}`, enableQos: true })
+          const [rr, sig] = await createRelayRequestAndSignature({ relayData: `0xdeadbeef3${index}`, enableQos: true })
           const receipt = relayHelper.createReceipt(rr, sig, currentTimeInSeconds() + timeDiff)
           await relayHelper.signReceipt(receipt)
 
@@ -348,7 +338,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   it('claim should fail if no stake has been added back', async () => {
     // the stack previously added has been burned from previous successful claims
-    const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbfef10', enableQos: true })
+    const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef11', enableQos: true })
     const receipt = relayHelper.createReceipt(rr, sig)
     await relayHelper.signReceipt(receipt)
 
@@ -389,7 +379,6 @@ async function assertTransactionFails (rawTx: string, reason?: string): Promise<
   } catch (err) {
     if (reason === undefined || reason === null) {
       // we don't want to check why the transaction failed, but only if failed or not.
-      assert(true)
       return
     }
     if (!(err instanceof Error)) {
