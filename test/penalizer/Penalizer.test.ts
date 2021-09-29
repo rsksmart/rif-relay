@@ -45,6 +45,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
     // set up contracts
     penalizer = await Penalizer.new()
+    await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
     relayHub = await deployHub(penalizer.address)
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
@@ -63,6 +64,9 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   })
 
   describe('should be able to have its hub set', function () {
+    before(async function () {
+      await penalizer.setHub(zeroAddress(), { from: await penalizer.owner() })
+    })
     it('starting out with an unset address', async function () {
       assert.equal(await penalizer.getHub(), zeroAddress(), 'penalizer hub does not match zero address')
     })
@@ -264,10 +268,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   })
 
   describe('should receive claims according with the commitment time', function () {
-    before(async function () {
-      await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
-    })
-
     describe('and accept them', () => {
       beforeEach(async () => {
         await relayHub.stakeForAddress(relayManager, 1000, {
