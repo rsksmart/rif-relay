@@ -113,13 +113,13 @@ export class RelayHelper {
     )
   }
 
-  createReceipt (relayRequest: RelayRequest, signature: string): CommitmentReceipt {
+  createReceipt (relayRequest: RelayRequest, signature: string, time?: number): CommitmentReceipt {
     const request = relayRequest.request
     const relayData = relayRequest.relayData
     return {
       workerAddress: relayData.relayWorker,
       commitment: {
-        time: 0,
+        time: time ?? currentTimeInSeconds(),
         from: request.from,
         to: request.to,
         data: request.data,
@@ -167,4 +167,8 @@ export async function fundAccount (fundedAccount: Address, destination: Address,
     value: web3.utils.toWei(ethAmount, 'ether'),
     gasPrice: gasPrice
   })
+}
+
+export function currentTimeInSeconds (): number {
+  return Math.floor(Date.now() / 1000)
 }
