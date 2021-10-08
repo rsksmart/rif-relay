@@ -5,7 +5,7 @@ services:
       context: "."
       args:
         - rskj_codename=SNAPSHOT
-        - rskj_version=3.1.0
+        - rskj_version=3.2.0
         - working_branch=master
     container_name: rsk-node
     image: rskj:latest
