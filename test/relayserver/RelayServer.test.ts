@@ -366,15 +366,13 @@ contract('RelayServer', function (accounts) {
   })
 
   describe('#createRelayTransaction()', function () {
-    async function createAndVerifyRelayTransaction (): Promise<RelayTransactionRequest> {
-      const req = await env.createRelayHttpRequest()
+    async function expectRelayTransactionToSucceed (request: RelayTransactionRequest): Promise<void> {
       assert.equal((await env.relayServer.txStoreManager.getAll()).length, 0)
-      await env.relayServer.createRelayTransaction(req)
+      await env.relayServer.createRelayTransaction(request)
       const pendingTransactions = await env.relayServer.txStoreManager.getAll()
       assert.equal(pendingTransactions.length, 1)
       assert.equal(pendingTransactions[0].serverAction, ServerAction.RELAY_CALL)
       // TODO: add asserts here!!!
-      return req
     }
 
     async function expectRelayTransactionToFail (request: RelayTransactionRequest, msg: string): Promise<void> {
@@ -393,23 +391,27 @@ contract('RelayServer', function (accounts) {
     })
 
     it('should relay transaction', async function () {
-      await createAndVerifyRelayTransaction()
+      const req = await env.createRelayHttpRequest()
+      await expectRelayTransactionToSucceed(req)
     })
 
     it('should fail if the same relay transaction is submitted twice', async () => {
-      const relayTxRequest = await createAndVerifyRelayTransaction()
+      const relayTxRequest = await env.createRelayHttpRequest()
+      await expectRelayTransactionToSucceed(relayTxRequest)
       await expectRelayTransactionToFail(relayTxRequest, 'Unacceptable relayMaxNonce')
     })
 
     describe('with the goal of submitting a relay transaction twice', () => {
       it('should fail if the relayMaxNonce is manually tampered ', async () => {
-        const relayTxRequest = await createAndVerifyRelayTransaction()
+        const relayTxRequest = await env.createRelayHttpRequest()
+        await expectRelayTransactionToSucceed(relayTxRequest)
         relayTxRequest.metadata.relayMaxNonce = relayTxRequest.metadata.relayMaxNonce + 1
         await expectRelayTransactionToFail(relayTxRequest, 'revert nonce mismatch')
       })
 
       it('should fail if the relayMaxNonce and the nonce is manually tampered', async () => {
-        const relayTxRequest = await createAndVerifyRelayTransaction()
+        const relayTxRequest = await env.createRelayHttpRequest()
+        await expectRelayTransactionToSucceed(relayTxRequest)
         const nextNonce = relayTxRequest.metadata.relayMaxNonce + 1
         relayTxRequest.metadata.relayMaxNonce = nextNonce
         relayTxRequest.relayRequest.request.nonce = nextNonce.toString()
