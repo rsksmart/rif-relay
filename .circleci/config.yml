@@ -5,7 +5,7 @@ parameters:
         default: "rsksmart/rskj.git"
     version:
         type: string
-        default: "3.1.0-SNAPSHOT"
+        default: '3.2.0-SNAPSHOT'
     branch:
         type: string
         default: "master"
@@ -69,12 +69,23 @@ commands:
       - run:
           name: "Execute << parameters.test >>"
           command: |
+                  ls ~/rsksmart/rskj/rskj-core/build/libs/
                   java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                  until nc -z 127.0.0.1 4444
-                  do
-                   echo "Waiting for RskJ..."
-                   sleep 1
+                  
+                  _i=0
+                  while [ $_i -lt 30 ]; do
+                    curl -Ss -H "Content-type: application/json" \
+                        -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+                        http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
+                    sleep 1
+                    _i=$((_i + 1))
                   done
+                  if [ $_i -eq 30 ]; then
+                    echo "No response from rskj after 30 seconds; aborting..." >&2
+                    exit 1
+                  fi
+
+                  sleep 5
                   npx truffle test --network rsk << parameters.test >>
 
 jobs: # a collection of steps
@@ -89,11 +100,18 @@ jobs: # a collection of steps
           name: Tests without DB reset Set B
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                    until nc -z 127.0.0.1 4444
-                    do
-                      echo "Waiting for RskJ..."
+                    _i=0
+                    while [ $_i -lt 30 ]; do
+                      curl -Ss -H "Content-type: application/json" \
+                          -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+                          http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
                       sleep 1
+                      _i=$((_i + 1))
                     done
+                    if [ $_i -eq 30 ]; then
+                      echo "No response from rskj after 30 seconds; aborting..." >&2
+                      exit 1
+                    fi
                     npx truffle test --network rsk test/Verifiers.test.ts
                     npx truffle test --network rsk test/RelayHubPenalizations.test.ts
                     npx truffle test --network rsk test/RelayHubRegistrationsManagement.test.ts
@@ -167,11 +185,18 @@ jobs: # a collection of steps
           name: Tests without DB reset Set A
           command: |
                     java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                    until nc -z 127.0.0.1 4444
-                    do
-                      echo "Waiting for RskJ..."
+                    _i=0
+                    while [ $_i -lt 30 ]; do
+                      curl -Ss -H "Content-type: application/json" \
+                          -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+                          http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
                       sleep 1
+                      _i=$((_i + 1))
                     done
+                    if [ $_i -eq 30 ]; then
+                      echo "No response from rskj after 30 seconds; aborting..." >&2
+                      exit 1
+                    fi
                     npx truffle test --network rsk test/Flows.test.ts
                     npx truffle test --network rsk test/TestEnvironment.test.ts
                     npx truffle test --network rsk test/HttpWrapper.test.ts
@@ -190,11 +215,18 @@ jobs: # a collection of steps
           name: Tests without DB reset Set C
           command: |
                     java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                    until nc -z 127.0.0.1 4444
-                    do
-                      echo "Waiting for RskJ..."
+                    _i=0
+                    while [ $_i -lt 30 ]; do
+                      curl -Ss -H "Content-type: application/json" \
+                          -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+                          http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
                       sleep 1
+                      _i=$((_i + 1))
                     done
+                    if [ $_i -eq 30 ]; then
+                      echo "No response from rskj after 30 seconds; aborting..." >&2
+                      exit 1
+                    fi
                     npx truffle test --network rsk test/relayclient/RelayClient.test.ts
                     npx truffle test --network rsk test/relayserver/NetworkSimulation.test.ts
                     npx truffle test --network rsk test/relayserver/RegistrationManager.test.ts
