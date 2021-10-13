@@ -54,7 +54,7 @@
     "@types/lodash": "^4.14.161",
     "@types/minimist": "^1.2.0",
     "@types/nedb": "^1.8.11",
-    "@types/node": "^13.0.0",
+    "@types/node": "^13.13.4",
     "@types/semver": "^7.3.4",
     "@types/sinon": "^9.0.0",
     "@types/sinon-chai": "^3.2.5",
