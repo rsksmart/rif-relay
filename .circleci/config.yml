@@ -5,7 +5,7 @@ parameters:
         default: 'rsksmart/rskj.git'
     version:
         type: string
-        default: '3.1.0-SNAPSHOT'
+        default: '3.2.0-SNAPSHOT'
     branch:
         type: string
         default: 'master'
@@ -63,27 +63,6 @@ commands:
             - run:
                   name: Prettier
                   command: npm run prettier
-    run_rskj_test:
-        description: 'Execute the parameter test against RSKj node'
-        parameters:
-            test:
-                type: string
-        steps:
-            - run:
-                  name: 'Execute << parameters.test >>'
-                  command: |
-                      java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                      until nc -z 127.0.0.1 4444
-                      do
-                       echo "Waiting for RskJ..."
-                       sleep 1
-                      done
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-                      npx truffle test --network regtest << parameters.test >>
-                      rm -rf contracts
-                      rm -rf migrations
-                      rm -rf contract-addresses.json
 jobs: # a collection of steps
     CodeStyle Checks: # Lint and other pre-checks thread
         working_directory: ~/gls # directory where steps will run
@@ -100,75 +79,44 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set B
+                  name: Tests Thread 1
                   command: |
-                      java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                      until nc -z 127.0.0.1 4444
-                      do
-                        echo "Waiting for RskJ..."
-                        sleep 1
-                      done
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-                      npx truffle test --network regtest test/Verifiers.test.ts
-                      npx truffle test --network regtest test/RelayHubPenalizations.test.ts
-                      npx truffle test --network regtest test/RelayHubRegistrationsManagement.test.ts
-                      npx truffle test --network regtest test/TxStoreManager.test.ts
-                      npx truffle test --network regtest test/Utils.test.ts
-                      npx truffle test --network regtest test/common/VersionManager.test.ts
-                      npx truffle test --network regtest test/regressions/PayableWithEmit.test.ts
-                      npx truffle test --network regtest test/relayclient/AccountManager.test.ts
-                      npx truffle test --network regtest test/relayclient/ContractInteractor.test.ts
-                      npx truffle test --network regtest test/relayclient/Configurator.test.ts
-                      rm -rf contracts
-                      rm -rf migrations
-                      rm -rf contract-addresses.json
+                      RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
+                      RSKJ_VERSION="<<pipeline.parameters.version>>"
+                      source "scripts/utils.sh"
+                      run_test_suite_on_ci $TEST_SUITE_1
             - store_artifacts:
                   path: ~/gls/logs
-
     Test Thread 2: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
         steps: # a collection of executable commands
             - prepare
-            - run_rskj_test:
-                  test: 'test/relayclient/RelaySelectionManager.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayserver/RelayServerRequestsProfiling.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayserver/ServerConfigParams.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayserver/TransactionManager.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayclient/KnownRelaysManager.test.ts'
-            - run_rskj_test:
-                  test: 'test/smartwallet/SmartWallet.test.ts'
-            - run_rskj_test:
-                  test: 'test/smartwallet/CustomSmartWallet.test.ts'
+            - run:
+                  name: Tests Thread 2
+                  command: |
+                      RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
+                      RSKJ_VERSION="<<pipeline.parameters.version>>"
+                      source "scripts/utils.sh"
+                      run_test_suite_on_ci $TEST_SUITE_2
             - store_artifacts:
                   path: ~/gls/logs
-
     Test Thread 3: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
             - image: cimg/openjdk:8.0-node
-
         steps: # a collection of executable commands
             - prepare
-            - run_rskj_test:
-                  test: 'test/SampleRecipient.test.ts'
-            - run_rskj_test:
-                  test: 'test/StakeManagement.test.ts'
-            - run_rskj_test:
-                  test: 'test/RSKAddressValidator.test.ts'
-            - run_rskj_test:
-                  test: 'test/EnvelopingUtils.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayclient/SmartWalletDiscovery.test.ts'
+            - run:
+                  name: Tests Thread 3
+                  command: |
+                      RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
+                      RSKJ_VERSION="<<pipeline.parameters.version>>"
+                      source "scripts/utils.sh"
+                      run_test_suite_on_ci $TEST_SUITE_3
             - store_artifacts:
                   path: ~/gls/logs
-
     Test Thread 4: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
@@ -176,27 +124,14 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set A
+                  name: Tests Thread 4
                   command: |
-                      java -Dminer.client.autoMine=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                      until nc -z 127.0.0.1 4444
-                      do
-                        echo "Waiting for RskJ..."
-                        sleep 1
-                      done
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-                      npx truffle test --network regtest test/Flows.test.ts
-                      npx truffle test --network regtest test/TestEnvironment.test.ts
-                      npx truffle test --network regtest test/HttpWrapper.test.ts
-                      npx truffle test --network regtest test/KeyManager.test.ts
-                      npx truffle test --network regtest test/WalletFactory.test.ts
-                      rm -rf contracts
-                      rm -rf migrations
-                      rm -rf contract-addresses.json
+                      RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
+                      RSKJ_VERSION="<<pipeline.parameters.version>>"
+                      source "scripts/utils.sh"
+                      run_test_suite_on_ci $TEST_SUITE_4
             - store_artifacts:
                   path: ~/gls/logs
-
     Test Thread 5: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
@@ -204,45 +139,14 @@ jobs: # a collection of steps
         steps: # a collection of executable commands
             - prepare
             - run:
-                  name: Tests without DB reset Set C
+                  name: Tests Thread 5
                   command: |
-                      java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 << pipeline.parameters.hardfork >> -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-<< pipeline.parameters.version >>-all.jar co.rsk.Start --regtest --reset nohup &
-                      until nc -z 127.0.0.1 4444
-                      do
-                        echo "Waiting for RskJ..."
-                        sleep 1
-                      done
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-                      cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-                      npx truffle test --network regtest test/relayclient/RelayClient.test.ts
-                      npx truffle test --network regtest test/relayserver/NetworkSimulation.test.ts
-                      npx truffle test --network regtest test/relayserver/RegistrationManager.test.ts
-                      npx truffle test --network regtest test/relayserver/RelayServer.test.ts
-                      rm -rf contracts
-                      rm -rf migrations
-                      rm -rf contract-addresses.json
+                      RSKJ_HARD_FORK="<<pipeline.parameters.hardfork>>"
+                      RSKJ_VERSION="<<pipeline.parameters.version>>"
+                      source "scripts/utils.sh"
+                      run_test_suite_on_ci $TEST_SUITE_5
             - store_artifacts:
                   path: ~/gls/logs
-
-    Test Thread 6: # Test thread
-        working_directory: ~/gls # directory where steps will run
-        docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
-        steps: # a collection of executable commands
-            - prepare
-            - run_rskj_test:
-                  test: 'test/RelayHub.test.ts'
-            - run_rskj_test:
-                  test: 'test/VersionRegistry.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayclient/RelayProvider.test.ts'
-            - run_rskj_test:
-                  test: 'test/relayclient/RelaySelectionManager.test.ts'
-            - store_artifacts:
-                  path: ~/gls/logs
-            - store_artifacts:
-                  path: ~/rsksmart/rskj/rskj-core/build/libs/logs
-                  destination: ~/rskj/logs
 workflows:
     commit:
         jobs:
@@ -252,4 +156,3 @@ workflows:
             - Test Thread 3
             - Test Thread 4
             - Test Thread 5
-            - Test Thread 6

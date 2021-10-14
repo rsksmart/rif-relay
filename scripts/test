@@ -6,6 +6,8 @@
 #trap 'exec 2>&4 1>&3' 0 1 2 3
 #exec 1>${TEST_LOG} 2>&1
 
+source "scripts/utils.sh"
+
 trap ctrl_c INT
 
 function ctrl_c() {
@@ -19,90 +21,8 @@ if [ -z "${NETWORK}" ]; then
         docker network create rif-relay-testing
 fi
 
-function run_batch() {
-  TESTS=("$@")
-  unset TESTS[0]
-  BATCH_NAME=$1
-  echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
-  docker-compose -f docker/docker-compose.yml build
-  docker-compose -f docker/docker-compose.yml up -d
-  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-
-  _i=0
-  while [ $_i -lt 30 ]; do
-    curl -Ss -H "Content-type: application/json" \
-        -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
-        http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
-    sleep 1
-    _i=$((_i + 1))
-  done
-  if [ $_i -eq 30 ]; then
-    echo "No response from rskj after 30 seconds; aborting..." >&2
-    exit 1
-  fi
-  sleep 5
-
-  echo "#################################################################################### START BATCH TESTS ####################################################################################"
-  TEST_FAIL=0
-  npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
-  echo "#################################################################################### END BATCH TESTS ####################################################################################"
-  rm -rf contracts
-  rm -rf migrations
-  rm -rf contract-addresses.json
-
-  docker-compose -f docker/docker-compose.yml down
-  echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
-
-  if [ "${TEST_FAIL}" == "1" ]; then
-    exit 1
-  fi
-}
-
-# Test_Group_1
-run_batch Test_Group_1 \
-    test/Verifiers.test.ts \
-    test/RelayHubPenalizations.test.ts \
-    test/RelayHubRegistrationsManagement.test.ts \
-    test/TxStoreManager.test.ts \
-    test/Utils.test.ts \
-    test/common/VersionManager.test.ts \
-    test/regressions/PayableWithEmit.test.ts \
-    test/relayclient/AccountManager.test.ts \
-    test/relayclient/ContractInteractor.test.ts \
-    test/relayclient/Configurator.test.ts
-
-# Test_Group_2
-run_batch RelaySelectionManager test/relayclient/RelaySelectionManager.test.ts
-run_batch RelayServerRequestsProfiling test/relayserver/RelayServerRequestsProfiling.test.ts
-run_batch ServerConfigParams test/relayserver/ServerConfigParams.test.ts
-run_batch TransactionManager test/relayserver/TransactionManager.test.ts
-run_batch KnownRelaysManager test/relayclient/KnownRelaysManager.test.ts
-run_batch SmartWallet test/smartwallet/SmartWallet.test.ts
-run_batch SampleRecipient test/SampleRecipient.test.ts
-run_batch StakeManagement test/StakeManagement.test.ts
-run_batch RSKAddressValidator test/RSKAddressValidator.test.ts
-run_batch EnvelopingUtils test/EnvelopingUtils.test.ts
-run_batch SmartWalletDiscovery test/relayclient/SmartWalletDiscovery.test.ts
-run_batch CustomSmartWallet test/smartwallet/CustomSmartWallet.test.ts
-
-# Test_Group_3
-run_batch Test_Group_3 \
-    test/Flows.test.ts \
-    test/TestEnvironment.test.ts \
-    test/HttpWrapper.test.ts \
-    test/KeyManager.test.ts \
-    test/WalletFactory.test.ts
-
-# Test_Group_4
-run_batch Test_Group_4 \
-    test/relayclient/RelayClient.test.ts \
-    test/relayserver/NetworkSimulation.test.ts \
-    test/relayserver/RegistrationManager.test.ts \
-    test/relayserver/RelayServer.test.ts
-
-# Test_Group_5
-run_batch RelayHub test/RelayHub.test.ts
-run_batch VersionRegistry test/VersionRegistry.test.ts
-run_batch RelayProvider test/relayclient/RelayProvider.test.ts
-run_batch RelaySelectionManager test/relayclient/RelaySelectionManager.test.ts
+run_test_suite_against_docker $TEST_SUITE_1
+run_test_suite_against_docker $TEST_SUITE_2
+run_test_suite_against_docker $TEST_SUITE_3
+run_test_suite_against_docker $TEST_SUITE_4
+run_test_suite_against_docker $TEST_SUITE_5
