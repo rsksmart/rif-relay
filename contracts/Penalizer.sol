@@ -15,6 +15,8 @@ import "./interfaces/IPenalizer.sol";
 contract Penalizer is IPenalizer, Ownable {
 
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
+    // bytes4(keccak256("penalize(address,address)"))
+    bytes4 private constant PENALIZE_SELECTOR = 0xebcd31ac;
     
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
@@ -149,8 +151,7 @@ contract Penalizer is IPenalizer, Ownable {
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
         require(fulfilledTransactions[txId] == false, "can't penalize fulfilled tx");
         require(penalizedTransactions[txId] == false, "tx already penalized");
-            
-        (bool success, ) = hub.call(abi.encodeWithSignature("penalize(address,address)", workerAddress, msg.sender));
+        (bool success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, workerAddress, msg.sender));
         require(success, "Relay Hub penalize call failed");
         penalizedTransactions[txId] = true;
     }

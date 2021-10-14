@@ -24,6 +24,8 @@ contract RelayHub is IRelayHub {
     address public override penalizer;
 
     string public override versionHub = "2.0.1+enveloping.hub.irelayhub";
+    // bytes4(keccak256("fulfill(bytes)"))
+    bytes4 private constant FULFILL_SELECTOR = 0x144f725e;
 
     // maps relay worker's address to its manager's address
     mapping(address => bytes32) public override workerToManager;
@@ -185,7 +187,7 @@ contract RelayHub is IRelayHub {
         }
 
         if (deployRequest.request.enableQos == true){
-            (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signature));
             require(success, "Penalizer fulfill call failed");
         }
     }
@@ -194,6 +196,7 @@ contract RelayHub is IRelayHub {
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     ) external override returns (bool destinationCallSuccess){
+        (signature);
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == relayRequest.relayData.relayWorker,
@@ -249,7 +252,7 @@ contract RelayHub is IRelayHub {
         }
 
         if (relayRequest.request.enableQos == true){
-            (bool success, ) = penalizer.call(abi.encodeWithSignature("fulfill(bytes)", signature));
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signature));
             require(success, "Penalizer fulfill call failed");
         }
     }
