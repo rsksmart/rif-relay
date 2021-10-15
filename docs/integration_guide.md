@@ -51,7 +51,7 @@ const deployVerifierAddress = '0x1938517B0762103d52590Ca21d459968c25c9E67'; // t
 const config = await resolveConfiguration(web3.currentProvider, {
     verbose: window.location.href.includes('verbose'),
     onlyPreferredRelays: true,
-    preferredRelays: ['http://localhost:8090'],
+    preferredRelays: ['http://localhost:8095'],
     factory: smartWalletFactoryAddress,
     gasPriceFactorPercent: 0,
     relayLookupWindowBlocks: 1e5,
@@ -185,7 +185,7 @@ const partialConfig: Partial<EnvelopingConfig> = {
     chainId: chainId,
     relayVerifierAddress: relayVerifier.address, // The verifier that will verify the relayed transaction
     deployVerifierAddress: deployVerifier.address, // The verifier that will verify the smart wallet deployment
-    preferredRelays: ['http://localhost:8090'] //If there is a preferred relay server.
+    preferredRelays: ['http://localhost:8095'] //If there is a preferred relay server.
 };
 config = configure(partialConfig);
 enveloping = new Enveloping(config, web3, workerAddress);

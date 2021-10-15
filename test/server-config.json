@@ -1,6 +1,6 @@
 {
-    "url": "http://localhost:8090",
-    "port": 8090,
+    "url": "http://localhost:8095",
+    "port": 8095,
     "relayHubAddress": "",
     "gasPriceFactor": 1,
     "rskNodeUrl": "http://127.0.0.1:4444",

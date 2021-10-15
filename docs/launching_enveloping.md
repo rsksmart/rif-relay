@@ -27,7 +27,7 @@ In order to run an instance of Enveloping in Regtest:
     ```json5
     {
         url: 'localhost', // the interface where the relay server will be exposed
-        port: 8090, // the port where it will be running
+        port: 8095, // the port where it will be running
         relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701', // the relay hub contract address (can be retrieved from the summary of the deployment).
         relayVerifierAddress: '0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2', // the relay verifier contract address (can be retrieved from the summary of the deployment).
         deployVerifierAddress: '0x1938517B0762103d52590Ca21d459968c25c9E67', // the deploy verifier contract address (can be retrieved from the summary of the deployment).
@@ -40,7 +40,7 @@ In order to run an instance of Enveloping in Regtest:
     }
     ```
 3. From the root directory run `node dist/src/cli/commands/enveloping.js relayer-run --config jsrelay/config/relay-config.json`.
-4. To check if it is working, run `curl http://localhost:8090/getaddr`.
+4. To check if it is working, run `curl http://localhost:8095/getaddr`.
 
 ## Deploy contracts on testnet
 
@@ -66,8 +66,8 @@ To implement and use your own replenish strategy:
 In order to run an Enveloping instance in Testnet, clone the project then run the following from the project's root directory:
 
 1. Create the project home folder, in this folder the jsrelay databases will be placed: `mkdir enveloping_relay`
-2. In a terminal run `node dist/src/cli/commands/enveloping.js relayer-run --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --deployVerifierAddress=<DEPLOY_VERIFIER_CONTRACT_ADDRESS> --relayVerifierAddress=<RELAY_VERIFIER_CONTRACT_ADDRESS> --versionRegistryAddress=<VERSION_REGISTRY_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8090 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8090/jsrelay`)
-3. In another terminal run `curl http://localhost:8090/getaddr` which will return some JSON with information of the running jsRelay Server, for example:
+2. In a terminal run `node dist/src/cli/commands/enveloping.js relayer-run --rskNodeUrl "http://localhost:4444" --relayHubAddress=<RELAY_HUB_CONTRACT_ADDRESS> --deployVerifierAddress=<DEPLOY_VERIFIER_CONTRACT_ADDRESS> --relayVerifierAddress=<RELAY_VERIFIER_CONTRACT_ADDRESS> --versionRegistryAddress=<VERSION_REGISTRY_CONTRACT_ADDRESS> --url <RELAY_URL> --port 8095 --workdir enveloping_relay --checkInterval 30000` where `<RELAY_HUB_CONTRACT_ADDRESS>` is the address for the relayHub you are using in the current network [(see Testnet Contracts section)](#c02.1), `<RELAY_URL>` in most cases will be `http://localhost`, and the server will be reachable in `<RELAY_URL>:port` unless `<RELAY_URL>` already defines a port (e.g, if `<RELAY_URL>` is `http://localhost:8095/jsrelay`)
+3. In another terminal run `curl http://localhost:8095/getaddr` which will return some JSON with information of the running jsRelay Server, for example:
 
 ```json
 {
@@ -89,6 +89,6 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 
 ## Troubleshooting
 
-#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
+#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8095
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
