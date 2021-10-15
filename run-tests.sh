@@ -75,6 +75,7 @@ set -e
 # Test_Group_1
 run_batch \
     test/RelayHubPenalizations.test.ts \
+    test/penalizer/Penalizer.test.ts \
     test/RelayHubRegistrationsManagement.test.ts \
     test/TxStoreManager.test.ts \
     test/common/VersionManager.test.ts \
