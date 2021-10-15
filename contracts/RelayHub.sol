@@ -24,8 +24,8 @@ contract RelayHub is IRelayHub {
     address public override penalizer;
 
     string public override versionHub = "2.0.1+enveloping.hub.irelayhub";
-    // bytes4(keccak256("fulfill(bytes)"))
-    bytes4 private constant FULFILL_SELECTOR = 0x144f725e;
+    // bytes4(keccak256("fulfill(bytes32)"))
+    bytes4 private constant FULFILL_SELECTOR = 0x5508ff94;
 
     // maps relay worker's address to its manager's address
     mapping(address => bytes32) public override workerToManager;
@@ -146,6 +146,9 @@ contract RelayHub is IRelayHub {
         EnvelopingTypes.DeployRequest calldata deployRequest,
         bytes calldata signature
     ) external override {
+        /* statement originally present in the GSN repo; 
+         * we left it here because of a small gas improvement noticed on tests execution.
+         */
         (signature);
 
         bytes32 managerEntry = workerToManager[msg.sender];
@@ -187,7 +190,8 @@ contract RelayHub is IRelayHub {
         }
 
         if (deployRequest.request.enableQos == true){
-            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signature));
+            bytes32 signatureHash = keccak256(signature);
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");
         }
     }
@@ -252,7 +256,8 @@ contract RelayHub is IRelayHub {
         }
 
         if (relayRequest.request.enableQos == true){
-            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signature));
+            bytes32 signatureHash = keccak256(signature);
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");
         }
     }

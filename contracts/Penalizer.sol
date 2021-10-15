@@ -109,10 +109,9 @@ contract Penalizer is IPenalizer, Ownable {
         _;
     }
 
-    function fulfill(bytes calldata txSignature) external override relayHubOnly() {
-        bytes32 txId = keccak256(txSignature);
-        require(!fulfilledTransactions[txId], "Transaction already fulfilled");
-        fulfilledTransactions[txId] = true;
+    function fulfill(bytes32 txhash) external override relayHubOnly() {
+        require(!fulfilledTransactions[txhash], "Transaction already fulfilled");
+        fulfilledTransactions[txhash] = true;
     }
 
     function fulfilled(bytes calldata txSignature) external view override returns (bool){
