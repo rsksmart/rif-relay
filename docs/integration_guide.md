@@ -51,7 +51,7 @@ const deployVerifierAddress = '0x1938517B0762103d52590Ca21d459968c25c9E67'; // t
 const config = await resolveConfiguration(web3.currentProvider, {
     verbose: window.location.href.includes('verbose'),
     onlyPreferredRelays: true,
-    preferredRelays: ['http://localhost:8095'],
+    preferredRelays: ['http://localhost:8090'],
     factory: smartWalletFactoryAddress,
     gasPriceFactorPercent: 0,
     relayLookupWindowBlocks: 1e5,

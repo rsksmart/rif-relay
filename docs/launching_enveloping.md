@@ -27,7 +27,7 @@ In order to run an instance of Enveloping in Regtest:
     ```json5
     {
         url: 'localhost', // the interface where the relay server will be exposed
-        port: 8095, // the port where it will be running
+        port: 8090, // the port where it will be running
         relayHubAddress: '0x3bA95e1cccd397b5124BcdCC5bf0952114E6A701', // the relay hub contract address (can be retrieved from the summary of the deployment).
         relayVerifierAddress: '0x74Dc4471FA8C8fBE09c7a0C400a0852b0A9d04b2', // the relay verifier contract address (can be retrieved from the summary of the deployment).
         deployVerifierAddress: '0x1938517B0762103d52590Ca21d459968c25c9E67', // the deploy verifier contract address (can be retrieved from the summary of the deployment).
@@ -89,6 +89,6 @@ In order to run an Enveloping instance in Testnet, clone the project then run th
 
 ## Troubleshooting
 
-#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8095
+#### Running some test and one of them throws: Error: listen EADDRINUSE: address already in use :::8090
 
 The relay server running in the background. Run the bash file `scripts/kill-relay-server.sh`
