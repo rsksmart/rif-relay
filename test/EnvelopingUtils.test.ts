@@ -40,7 +40,7 @@ import {
     AccountKeypair
 } from '@rsksmart/rif-relay-client';
 import { WebsocketProvider } from 'web3-core';
-import { RIF_RELAY_HOST, RIF_RELAY_PORT } from './Utils';
+import { RIF_RELAY_URL } from './Utils';
 
 contract('Enveloping utils', function (accounts) {
     describe('Relay-related functionalities', function () {
@@ -55,7 +55,7 @@ contract('Enveloping utils', function (accounts) {
         );
         const SmartWalletFactory = artifacts.require('SmartWalletFactory');
 
-        const localhost = `${RIF_RELAY_HOST}:${RIF_RELAY_PORT}`;
+        const localhost = RIF_RELAY_URL;
         const message = 'hello world';
 
         // @ts-ignore
@@ -213,7 +213,7 @@ contract('Enveloping utils', function (accounts) {
                 chainId: chainId,
                 relayVerifierAddress: verifier.address,
                 deployVerifierAddress: deployVerifier.address,
-                preferredRelays: [`${RIF_RELAY_HOST}:${RIF_RELAY_PORT}`]
+                preferredRelays: [RIF_RELAY_URL]
             };
 
             config = configure(partialConfig);
