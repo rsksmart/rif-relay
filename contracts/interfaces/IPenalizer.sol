@@ -29,7 +29,7 @@ interface IPenalizer {
 
     function getHub() external view returns (address);
 
-    function fulfill(bytes calldata txSignature) external;
+    function fulfill(bytes32 txhash) external;
 
     function fulfilled(bytes calldata txSignature) external view returns (bool);
 
