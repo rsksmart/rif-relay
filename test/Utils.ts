@@ -5,6 +5,9 @@ import path from 'path';
 import { DeploymentResult } from './TestSetup';
 import { RelayHubConfiguration } from '@rsksmart/rif-relay-common';
 
+export const RIF_RELAY_HOST = 'http://localhost';
+export const RIF_RELAY_PORT = '8095';
+
 export const networks = new Map<string, string>([
     ['localhost', 'http://127.0.0.1:4444'],
     ['development', 'http://127.0.0.1:4444'],
