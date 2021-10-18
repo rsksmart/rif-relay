@@ -38,7 +38,6 @@ contract RelayHub is IRelayHub, Ownable {
     mapping(address => StakeInfo) public stakes;
 
     constructor(
-        address _penalizer,
         uint256 _maxWorkerCount,
         uint256 _minimumEntryDepositValue,
         uint256 _minimumUnstakeDelay,
@@ -50,8 +49,6 @@ contract RelayHub is IRelayHub, Ownable {
             _minimumEntryDepositValue > 0 && 
             _minimumUnstakeDelay > 0, "invalid hub init params"   
         );
-
-        penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake = _minimumStake;
