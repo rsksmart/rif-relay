@@ -200,6 +200,9 @@ contract RelayHub is IRelayHub {
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     ) external override returns (bool destinationCallSuccess){
+        /* statement originally present in the GSN repo; 
+         * we left it here because of a small gas improvement noticed on tests execution.
+         */
         (signature);
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
