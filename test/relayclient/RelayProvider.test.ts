@@ -61,7 +61,7 @@ contract('RelayProvider', function (accounts) {
     sender = accounts[0]
     gaslessAccount = await getGaslessAccount()
     web3 = new Web3(underlyingProvider)
-    relayHub = await deployHub(constants.ZERO_ADDRESS)
+    relayHub = await deployHub()
 
     sWalletTemplate = await SmartWallet.new()
     const env = (await getTestingEnvironment())

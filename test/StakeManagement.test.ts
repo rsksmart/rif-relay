@@ -56,9 +56,10 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
 
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
-      penalizer = await Penalizer.new()
-      relayHub = await RelayHub.new(penalizer.address, maxWorkerCount,
+      relayHub = await RelayHub.new(maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+      penalizer = await Penalizer.new(relayHub.address)
+      relayHub.setPenalizer(penalizer.address, )
     })
 
     testStakeNotValid()

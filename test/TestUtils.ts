@@ -278,14 +278,12 @@ export async function getTestingEnvironment (): Promise<Environment> {
 }
 
 export async function deployHub (
-  penalizer: string = constants.ZERO_ADDRESS,
   configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHubInstance> {
   const relayHubConfiguration: RelayHubConfiguration = {
     ...defaultEnvironment.relayHubConfiguration,
     ...configOverride
   }
   return await RelayHub.new(
-    penalizer,
     relayHubConfiguration.maxWorkerCount,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,

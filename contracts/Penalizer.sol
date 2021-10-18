@@ -14,16 +14,22 @@ import "./interfaces/IPenalizer.sol";
 
 contract Penalizer is IPenalizer, Ownable {
 
+    address public override hub;
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
+    
     // bytes4(keccak256("penalize(address,address)"))
     bytes4 private constant PENALIZE_SELECTOR = 0xebcd31ac;
     
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
 
-    address private hub;
-
     using ECDSA for bytes32;
+
+    constructor(
+        address _hub
+    ) public {
+        hub = _hub;
+    }
 
     function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
         (transaction.nonce,
@@ -35,29 +41,15 @@ contract Penalizer is IPenalizer, Ownable {
         return transaction;
     }
 
-    modifier relayManagerOnly(IRelayHub relayHub) {
-        require(relayHub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
-        _;
-    }
-
-    function setHub(address relayHub) public override onlyOwner{
-        hub = relayHub;
-    }
-
-    function getHub() external override view returns (address){
-        return hub;
-    }
-
     function penalizeRepeatedNonce(
         bytes memory unsignedTx1,
         bytes memory signature1,
         bytes memory unsignedTx2,
-        bytes memory signature2,
-        IRelayHub relayHub
+        bytes memory signature2
     )
     external
     override
-    relayManagerOnly(relayHub)
+    relayHubOnly()
     {
         // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
@@ -69,6 +61,7 @@ contract Penalizer is IPenalizer, Ownable {
         // to the address who reported it (msg.sender), thus incentivizing anyone to report offending relays.
         // If reported via a relay, the forfeited stake is split between
         // msg.sender (the relay used for reporting) and the address that reported it.
+        require(IRelayHub(hub).isRelayManagerStaked(msg.sender), "Unknown relay manager");
 
         bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
         bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
@@ -101,11 +94,13 @@ contract Penalizer is IPenalizer, Ownable {
         penalizedTransactions[txHash1] = true;
         penalizedTransactions[txHash2] = true;
 
-        relayHub.penalize(addr1, msg.sender);
+        (bool success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, addr1, msg.sender));
+
+        require(success, "Relay Hub penalize call failed");
     }
 
     modifier relayHubOnly() {
-        require(msg.sender == hub, "Unknown Relay Hub");
+        require(hub != address(0), "relay hub not set");
         _;
     }
 

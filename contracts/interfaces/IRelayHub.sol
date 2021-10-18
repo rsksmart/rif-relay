@@ -89,6 +89,8 @@ interface IRelayHub {
     
     function penalize(address relayWorker, address payable beneficiary) external;
 
+    function setPenalizer(address _penalizer) external;
+
     /* getters */
     function penalizer() external view returns(address);
 

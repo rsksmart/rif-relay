@@ -78,8 +78,9 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         console.log(addr)
       }
 
-      penalizer = await Penalizer.new()
-      relayHub = await deployHub(penalizer.address)
+      relayHub = await deployHub()
+      penalizer = await Penalizer.new(relayHub.address)
+      relayHub.setPenalizer(penalizer.address)
       env = await getTestingEnvironment()
       const networkId = await web3.eth.net.getId()
       const chain = await web3.eth.net.getNetworkType()
@@ -126,7 +127,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
 
       it('penalizeRepeatedNonce', async function () {
         await expectRevert(
-          penalizer.penalizeRepeatedNonce(penalizableTxData, penalizableTxSignature, penalizableTxData, penalizableTxSignature, relayHub.address, { from: other }),
+          penalizer.penalizeRepeatedNonce(penalizableTxData, penalizableTxSignature, penalizableTxData, penalizableTxSignature, { from: other }),
           'Unknown relay manager'
         )
       })
@@ -165,7 +166,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const rskDifference: number = isRsk(env) ? 210000 : 0
 
           await expectPenalization(async (opts) =>
-            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
+            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, opts), rskDifference
           )
         })
 
@@ -180,7 +181,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const rskDifference: number = isRsk(env) ? 185000 : 0
 
           await expectPenalization(async (opts) =>
-            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
+            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, opts), rskDifference
           )
         })
 
@@ -195,7 +196,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const rskDifference: number = isRsk(env) ? 185000 : 0
 
           await expectPenalization(async (opts) =>
-            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
+            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, opts), rskDifference
           )
         })
 
@@ -208,7 +209,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { gasPrice: 70 }), chainId, env) // only gasPrice may be different
 
           await expectRevert(
-            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
+            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, { from: reporterRelayManager }),
             'tx is equal'
           )
         })
@@ -222,7 +223,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { nonce: 1 }), chainId, env)
 
           await expectRevert(
-            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
+            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, { from: reporterRelayManager }),
             'Different nonce'
           )
         })
@@ -237,7 +238,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigB = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { privateKey: privateKey }), chainId, env)
 
           await expectRevert(
-            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
+            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, { from: reporterRelayManager }),
             'Different signer'
           )
         })
@@ -253,7 +254,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const rskDifference: number = isRsk(env) ? 185000 : 0
 
           await expectPenalization(async (opts) =>
-            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, opts), rskDifference
+            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, opts), rskDifference
           )
 
           // stake relayer again to attempt to penalize again with the same set of transactions. It must fail.
@@ -264,7 +265,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           })
 
           await expectRevert(
-            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, relayHub.address, { from: reporterRelayManager }),
+            penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigB.data, txDataSigB.signature, { from: reporterRelayManager }),
             'Transactions already penalized'
           )
 
@@ -272,7 +273,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
           const txDataSigC = getDataAndSignature(relayRequest, Object.assign({}, relayCallArgs, { value: 200 }), chainId, env)
 
           await expectPenalization(async (opts) =>
-            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigC.data, txDataSigC.signature, relayHub.address, opts), rskDifference
+            await penalizer.penalizeRepeatedNonce(txDataSigA.data, txDataSigA.signature, txDataSigC.data, txDataSigC.signature, opts), rskDifference
           )
         })
       })

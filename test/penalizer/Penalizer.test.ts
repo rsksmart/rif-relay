@@ -1,4 +1,4 @@
-import { ether, expectRevert } from '@openzeppelin/test-helpers'
+import { constants, ether, expectRevert } from '@openzeppelin/test-helpers'
 
 import {
   PenalizerInstance,
@@ -44,9 +44,9 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     chainId = env.chainId
 
     // set up contracts
-    penalizer = await Penalizer.new()
-    relayHub = await deployHub(penalizer.address)
-    await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
+    relayHub = await deployHub()
+    penalizer = await Penalizer.new(relayHub.address)
+    await relayHub.setPenalizer(penalizer.address, { from: await relayHub.owner() })
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()
@@ -61,31 +61,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     // relay helper class
     relayHelper = new RelayHelper(relayHub, relayOwner, relayWorker, relayManager, forwarder, verifier, token, env.chainId)
     await relayHelper.init()
-  })
-
-  describe('should be able to have its hub set', function () {
-    before(async function () {
-      await penalizer.setHub(zeroAddress(), { from: await penalizer.owner() })
-    })
-    it('starting out with an unset address', async function () {
-      assert.equal(await penalizer.getHub(), zeroAddress(), 'penalizer hub does not match zero address')
-    })
-
-    it('successfully from its owner address', async function () {
-      await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
-
-      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub does not match relay hub')
-    })
-
-    it('unsuccessfully from another address', async function () {
-      await expectRevert(
-        penalizer.setHub(otherAccount, { from: otherAccount }),
-        'caller is not the owner'
-      )
-
-      // hub should remain set with its previous value
-      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub did not keep its relay hub value')
-    })
   })
 
   describe('should fulfill transactions', function () {
@@ -116,7 +91,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   describe('should reject claims', function () {
     it('due to hub not being set', async function () {
-      const hublessPenalizer = await Penalizer.new()
+      const hublessPenalizer = await Penalizer.new(constants.ZERO_ADDRESS)
 
       const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef03' })
       const receipt = relayHelper.createReceipt(rr, sig)

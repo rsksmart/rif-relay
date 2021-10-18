@@ -16,8 +16,8 @@ const CustomSmartWalletFactory = artifacts.require('CustomSmartWalletFactory')
 const CustomSmartWalletDeployVerifier = artifacts.require('CustomSmartWalletDeployVerifier')
 
 module.exports = async function (deployer) {
-  await deployer.deploy(Penalizer)
-  await deployer.deploy(RelayHub, Penalizer.address, 4, 4, 4, 4)
+  await deployer.deploy(RelayHub, 4, 4, 4, 4)
+  await deployer.deploy(Penalizer, RelayHub.address)
 
   const penalizer = await new web3.eth.Contract(Penalizer.abi, Penalizer.address)
   await penalizer.methods.setHub(RelayHub.address).send({ from: await penalizer.methods.owner().call() })
@@ -44,8 +44,8 @@ module.exports = async function (deployer) {
   console.log('|===================================|============================================|')
   console.log('| Contract                          | Address                                    |')
   console.log('|===================================|============================================|')
-  console.log(`| Penalizer                         | ${Penalizer.address} |`)
   console.log(`| RelayHub                          | ${RelayHub.address} |`)
+  console.log(`| Penalizer                         | ${Penalizer.address} |`)
   console.log('| Smart Wallet Contracts ========================================================|')
   console.log(`| SmartWallet                       | ${SmartWallet.address} |`)
   console.log(`| SmartWalletFactory                | ${SmartWalletFactory.address} |`)

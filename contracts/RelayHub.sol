@@ -7,6 +7,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./utils/Eip712Library.sol";
@@ -14,7 +15,7 @@ import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
 
-contract RelayHub is IRelayHub {
+contract RelayHub is IRelayHub, Ownable {
     using SafeMath for uint256;
 
     uint256 public override minimumStake;
@@ -55,6 +56,11 @@ contract RelayHub is IRelayHub {
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake = _minimumStake;
         minimumEntryDepositValue = _minimumEntryDepositValue;
+    }
+
+    function setPenalizer(address _penalizer) public override onlyOwner{
+        require(penalizer == address(0), "penalizer already set");
+        penalizer = _penalizer;
     }
 
     function registerRelayServer(

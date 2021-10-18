@@ -102,7 +102,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
       before(async function () {
         chainId = (await getTestingEnvironment()).chainId
-        relayHub = await deployHub(constants.ZERO_ADDRESS)
+        relayHub = await deployHub()
         await stake(relayHub, relayManager, accounts[0])
         await register(relayHub, relayManager, accounts[2], preferredRelayUrl)
 

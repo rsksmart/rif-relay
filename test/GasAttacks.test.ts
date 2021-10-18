@@ -61,9 +61,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
     beforeEach(async function () {
       env = await getTestingEnvironment()
       chainId = env.chainId
-
-      penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(penalizer.address)
+      
+      relayHubInstance = await deployHub()
+      penalizer = await Penalizer.new(relayHubInstance.address)
+      relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 

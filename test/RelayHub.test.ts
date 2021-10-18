@@ -69,10 +69,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
   describe('add/disable relay workers', function () {
     beforeEach(async function () {
-      penalizer = await Penalizer.new()
       env = await getTestingEnvironment()
       chainId = env.chainId
-      relayHubInstance = await deployHub(penalizer.address)
+      relayHubInstance = await deployHub()
+      penalizer = await Penalizer.new(relayHubInstance.address)
+      relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -255,8 +256,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(penalizer.address)
+      relayHubInstance = await deployHub()
+      penalizer = await Penalizer.new(relayHubInstance.address)
+      relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -1257,8 +1259,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       env = await getTestingEnvironment()
       chainId = env.chainId
 
-      penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(penalizer.address)
+      relayHubInstance = await deployHub()
+      penalizer = await Penalizer.new(relayHubInstance.address)
+      relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -1574,7 +1577,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
     const gas = 4e6
 
     beforeEach(async function () {
-      relayHubInstance = await deployHub(penalizerMock)
+      relayHubInstance = await deployHub()
     })
 
     context('with unknown worker', function () {
