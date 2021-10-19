@@ -80,7 +80,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
 
       relayHub = await deployHub()
       penalizer = await Penalizer.new(relayHub.address)
-      relayHub.setPenalizer(penalizer.address)
+      await relayHub.setPenalizer(penalizer.address)
       env = await getTestingEnvironment()
       const networkId = await web3.eth.net.getId()
       const chain = await web3.eth.net.getNetworkType()

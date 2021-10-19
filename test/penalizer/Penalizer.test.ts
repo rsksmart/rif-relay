@@ -10,7 +10,6 @@ import {
 
 import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { zeroAddress } from 'ethereumjs-util'
 import { createRawTx, fundAccount, currentTimeInSeconds, RelayHelper } from './Utils'
 import { fail } from 'assert'
 import { toBN } from 'web3-utils'

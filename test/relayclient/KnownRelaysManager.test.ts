@@ -15,7 +15,6 @@ import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { Environment } from '../../src/common/Environments'
-import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 

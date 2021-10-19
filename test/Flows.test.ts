@@ -65,7 +65,7 @@ options.forEach(params => {
 
       rhub = await deployHub()
       const p = await Penalizer.new(rhub.address)
-      rhub.setPenalizer(p.address)
+      await rhub.setPenalizer(p.address)
 
       if (params.relay) {
         process.env.relaylog = 'true'

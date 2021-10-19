@@ -73,7 +73,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       chainId = env.chainId
       relayHubInstance = await deployHub()
       penalizer = await Penalizer.new(relayHubInstance.address)
-      relayHubInstance.setPenalizer(penalizer.address)
+      await relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -258,7 +258,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       relayHubInstance = await deployHub()
       penalizer = await Penalizer.new(relayHubInstance.address)
-      relayHubInstance.setPenalizer(penalizer.address)
+      await relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -1261,7 +1261,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       relayHubInstance = await deployHub()
       penalizer = await Penalizer.new(relayHubInstance.address)
-      relayHubInstance.setPenalizer(penalizer.address)
+      await relayHubInstance.setPenalizer(penalizer.address)
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
