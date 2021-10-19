@@ -19,8 +19,8 @@ module.exports = async function (deployer) {
   await deployer.deploy(RelayHub, 4, 4, 4, 4)
   await deployer.deploy(Penalizer, RelayHub.address)
 
-  const penalizer = await new web3.eth.Contract(Penalizer.abi, Penalizer.address)
-  await penalizer.methods.setHub(RelayHub.address).send({ from: await penalizer.methods.owner().call() })
+  const relayHub = await new web3.eth.Contract(RelayHub.abi, RelayHub.address)
+  await relayHub.methods.setPenalizer(Penalizer.address).send({ from: await relayHub.methods.owner().call() })
 
   await deployer.deploy(SmartWallet)
   await deployer.deploy(SmartWalletFactory, SmartWallet.address)
