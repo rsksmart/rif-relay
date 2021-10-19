@@ -61,7 +61,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
     beforeEach(async function () {
       env = await getTestingEnvironment()
       chainId = env.chainId
-      
+
       relayHubInstance = await deployHub()
       penalizer = await Penalizer.new(relayHubInstance.address)
       relayHubInstance.setPenalizer(penalizer.address)

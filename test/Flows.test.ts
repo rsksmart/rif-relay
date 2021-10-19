@@ -60,14 +60,13 @@ options.forEach(params => {
       // An account from RSK that has been depleted to ensure it has no funds
       gaslessAccount = await getExistingGaslessAccount()
 
-      
       verifier = await TestVerifierEverythingAccepted.new()
       deployVerifier = await TestDeployVerifierEverythingAccepted.new()
 
       rhub = await deployHub()
       const p = await Penalizer.new(rhub.address)
       rhub.setPenalizer(p.address)
-      
+
       if (params.relay) {
         process.env.relaylog = 'true'
         relayproc = (await startRelay(rhub, {

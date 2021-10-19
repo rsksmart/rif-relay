@@ -59,7 +59,7 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
       relayHub = await RelayHub.new(maxWorkerCount,
         minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       penalizer = await Penalizer.new(relayHub.address)
-      relayHub.setPenalizer(penalizer.address, )
+      relayHub.setPenalizer(penalizer.address)
     })
 
     testStakeNotValid()
