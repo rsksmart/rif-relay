@@ -18,7 +18,9 @@ contract Penalizer is IPenalizer, Ownable {
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     // bytes4(keccak256("penalize(address,address)"))
     bytes4 private constant PENALIZE_SELECTOR = 0xebcd31ac;
-    
+    // bytes4(keccack256("isRelayManagerStaked(address)"))
+    bytes4 private constant IS_RELAY_MANAGER_STAKED_SELECTOR = 0x2ad311b5;
+
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
 
@@ -57,7 +59,9 @@ contract Penalizer is IPenalizer, Ownable {
         // to the address who reported it (msg.sender), thus incentivizing anyone to report offending relays.
         // If reported via a relay, the forfeited stake is split between
         // msg.sender (the relay used for reporting) and the address that reported it.
-        require(IRelayHub(hub).isRelayManagerStaked(msg.sender), "Unknown relay manager");
+        (bool success, bytes memory ret) = hub.call(abi.encodeWithSelector(IS_RELAY_MANAGER_STAKED_SELECTOR, msg.sender));
+        require(success, "isRelayManagerStaked call failed");
+        require(abi.decode(ret, (bool)), "Unknown relay manager");
 
         bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
         bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
@@ -90,7 +94,7 @@ contract Penalizer is IPenalizer, Ownable {
         penalizedTransactions[txHash1] = true;
         penalizedTransactions[txHash2] = true;
 
-        (bool success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, addr1, msg.sender));
+        (success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, addr1, msg.sender));
 
         require(success, "Relay Hub penalize call failed");
     }
