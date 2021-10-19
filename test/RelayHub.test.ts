@@ -1578,6 +1578,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     beforeEach(async function () {
       relayHubInstance = await deployHub()
+      await relayHubInstance.setPenalizer(penalizerMock)
     })
 
     context('with unknown worker', function () {
