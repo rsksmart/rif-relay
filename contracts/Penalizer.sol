@@ -98,9 +98,12 @@ contract Penalizer is IPenalizer, Ownable {
         require(success, "Relay Hub penalize call failed");
     }
 
-    function fulfill(bytes32 txhash) external override{
-        // Can be called by the Relay Hub only
+    modifier hubOnly() {
         require(msg.sender == hub, "Unknown Relay Hub");
+        _;
+    }
+
+    function fulfill(bytes32 txhash) external override hubOnly{
         require(!fulfilledTransactions[txhash], "Transaction already fulfilled");
         fulfilledTransactions[txhash] = true;
     }
@@ -110,8 +113,7 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
-        // relay hub and commitment QoS must be set
-        require(hub != address(0), "relay hub not set");
+        // commitment QoS must be set
         require(commitmentReceipt.commitment.enableQos, "commitment without QoS");
 
         // commitment must be signed by worker
