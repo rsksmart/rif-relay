@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 import "./utils/RLPReader.sol";
 import "./utils/RSKAddrValidator.sol";
-import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
 contract Penalizer is IPenalizer, Ownable {
