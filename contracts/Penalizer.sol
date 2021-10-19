@@ -49,7 +49,6 @@ contract Penalizer is IPenalizer, Ownable {
     )
     external
     override
-    relayHubOnly()
     {
         // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
@@ -99,12 +98,9 @@ contract Penalizer is IPenalizer, Ownable {
         require(success, "Relay Hub penalize call failed");
     }
 
-    modifier relayHubOnly() {
-        require(hub != address(0), "relay hub not set");
-        _;
-    }
-
-    function fulfill(bytes32 txhash) external override relayHubOnly() {
+    function fulfill(bytes32 txhash) external override{
+        // Can be called by the Relay Hub only
+        require(msg.sender == hub, "Unknown Relay Hub");
         require(!fulfilledTransactions[txhash], "Transaction already fulfilled");
         fulfilledTransactions[txhash] = true;
     }
