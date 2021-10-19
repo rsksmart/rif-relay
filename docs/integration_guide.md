@@ -185,7 +185,7 @@ const partialConfig: Partial<EnvelopingConfig> = {
     chainId: chainId,
     relayVerifierAddress: relayVerifier.address, // The verifier that will verify the relayed transaction
     deployVerifierAddress: deployVerifier.address, // The verifier that will verify the smart wallet deployment
-    preferredRelays: ['http://localhost:8095'] //If there is a preferred relay server.
+    preferredRelays: ['http://localhost:8090'] //If there is a preferred relay server.
 };
 config = configure(partialConfig);
 enveloping = new Enveloping(config, web3, workerAddress);
