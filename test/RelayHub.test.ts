@@ -46,7 +46,7 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(walletFactoryAbi)
 abiDecoder.addABI(relayHubAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock, randomAddress]) {
   let chainId: number
   let relayHub: string
   let penalizer: PenalizerInstance
@@ -1578,7 +1578,30 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     beforeEach(async function () {
       relayHubInstance = await deployHub()
-      await relayHubInstance.setPenalizer(penalizerMock)
+    })
+
+    context('smart contract setter', function () {
+      it('should start out with an unset address', async function () {
+        assert.equal(await relayHubInstance.penalizer(), constants.ZERO_ADDRESS, 'hub penalizer does not match zero address')
+      })
+
+      it('should not be able to set penalizer if not owner', async function () {
+        await expectRevert(
+          relayHubInstance.setPenalizer(penalizerMock, { from: randomAddress }), 'caller is not the owner'
+        )
+      })
+
+      it('should be able to set penalizer if owner', async function () {
+        await relayHubInstance.setPenalizer(penalizerMock)
+        assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value not set as expected')
+      })
+
+      it('should not be able to set penalizer if already set', async function () {
+        await expectRevert(
+          relayHubInstance.setPenalizer(randomAddress), 'penalizer already set'
+        )
+        assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value changed unexpectedly')
+      })
     })
 
     context('with unknown worker', function () {
@@ -1590,6 +1613,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         await relayHubInstance.addRelayWorkers([relayWorker], {
           from: relayManager
         })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown worker is specified', async function () {
@@ -1615,6 +1639,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           from: relayManager
         })
         await relayHubInstance.unlockStake(relayManager, { from: relayOwner })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown penalizer is specified', async function () {
@@ -1703,6 +1728,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
         await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
         await relayHubInstance.registerRelayServer(url, { from: relayManager })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown penalizer is specified', async function () {
