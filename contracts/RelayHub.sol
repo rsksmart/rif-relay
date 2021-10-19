@@ -37,6 +37,9 @@ contract RelayHub is IRelayHub, Ownable {
     // maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
 
+    // restricts the setting of the penalizer to only once
+    bool private penalizerSet = false;
+
     constructor(
         uint256 _maxWorkerCount,
         uint256 _minimumEntryDepositValue,
@@ -56,8 +59,9 @@ contract RelayHub is IRelayHub, Ownable {
     }
 
     function setPenalizer(address _penalizer) public override onlyOwner{
-        require(penalizer == address(0), "penalizer already set");
+        require(!penalizerSet, "penalizer already set");
         penalizer = _penalizer;
+        penalizerSet = true;
     }
 
     function registerRelayServer(

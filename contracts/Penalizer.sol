@@ -16,7 +16,6 @@ contract Penalizer is IPenalizer, Ownable {
 
     address public override hub;
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
-    
     // bytes4(keccak256("penalize(address,address)"))
     bytes4 private constant PENALIZE_SELECTOR = 0xebcd31ac;
     
@@ -25,9 +24,7 @@ contract Penalizer is IPenalizer, Ownable {
 
     using ECDSA for bytes32;
 
-    constructor(
-        address _hub
-    ) public {
+    constructor(address _hub) public {
         hub = _hub;
     }
 
