@@ -15,7 +15,7 @@ interface IPenalizer {
         bytes data;
     }
     
-    function hub() external view returns(address);
+    function relayHub() external view returns(address);
 
     function versionPenalizer() external view returns (string memory);
 
