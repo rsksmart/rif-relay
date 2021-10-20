@@ -89,18 +89,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   })
 
   describe('should reject claims', function () {
-    it('due to hub not being set', async function () {
-      const hublessPenalizer = await Penalizer.new(constants.ZERO_ADDRESS)
-
-      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef03' })
-      const receipt = relayHelper.createReceipt(rr, sig)
-
-      await expectRevert(
-        hublessPenalizer.claim(receipt),
-        'relay hub not set'
-      )
-    })
-
     it('due to receiving a commitment with qos disabled', async function () {
       const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef04', enableQos: false })
       const receipt = relayHelper.createReceipt(rr, sig)
