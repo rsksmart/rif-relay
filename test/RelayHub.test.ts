@@ -46,7 +46,7 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(walletFactoryAbi)
 abiDecoder.addABI(relayHubAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock, randomAddress]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock, other]) {
   let chainId: number
   let relayHub: string
   let penalizer: PenalizerInstance
@@ -1587,7 +1587,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
       it('should not be able to set penalizer if not owner', async function () {
         await expectRevert(
-          relayHubInstance.setPenalizer(penalizerMock, { from: randomAddress }), 'caller is not the owner'
+          relayHubInstance.setPenalizer(penalizerMock, { from: other }), 'caller is not the owner'
         )
       })
 
@@ -1601,7 +1601,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         await relayHubInstance.setPenalizer(penalizerMock, { from: await relayHubInstance.owner() })
         // attempt to set a second time
         await expectRevert(
-          relayHubInstance.setPenalizer(randomAddress, { from: await relayHubInstance.owner() }), 'penalizer already set'
+          relayHubInstance.setPenalizer(other, { from: await relayHubInstance.owner() }), 'penalizer already set'
         )
         assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value changed unexpectedly')
       })
