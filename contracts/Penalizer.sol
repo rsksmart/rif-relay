@@ -94,7 +94,6 @@ contract Penalizer is IPenalizer, Ownable {
         penalizedTransactions[txHash2] = true;
 
         (success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, addr1, msg.sender));
-
         require(success, "Relay Hub penalize call failed");
     }
 
