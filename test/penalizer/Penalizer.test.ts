@@ -1,4 +1,4 @@
-import { constants, ether, expectRevert } from '@openzeppelin/test-helpers'
+import { ether, expectRevert } from '@openzeppelin/test-helpers'
 
 import {
   PenalizerInstance,
