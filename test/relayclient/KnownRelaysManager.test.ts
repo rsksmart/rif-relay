@@ -35,6 +35,7 @@ import {
     ContractInteractor,
     EnvelopingConfig
 } from '@rsksmart/rif-relay-common';
+import { RIF_RELAY_URL } from '../Utils';
 
 const TestVerifierConfigurableMisbehavior = artifacts.require(
     'TestVerifierConfigurableMisbehavior'
@@ -276,7 +277,7 @@ contract('KnownRelaysManager 2', function (accounts) {
             env = await getTestingEnvironment();
             relayHub = await deployHub(constants.ZERO_ADDRESS);
             config = configure({
-                preferredRelays: ['http://localhost:8090'],
+                preferredRelays: [RIF_RELAY_URL],
                 relayHubAddress: relayHub.address,
                 chainId: env.chainId
             });
@@ -327,9 +328,9 @@ contract('KnownRelaysManager 2', function (accounts) {
             const preferredRelays = knownRelaysManager.preferredRelayers;
             const activeRelays = knownRelaysManager.allRelayers;
             assert.equal(preferredRelays.length, 1);
-            assert.equal(preferredRelays[0].relayUrl, 'http://localhost:8090');
+            assert.equal(preferredRelays[0].relayUrl, RIF_RELAY_URL);
             assert.equal(activeRelays.length, 3);
-            assert.equal(activeRelays[0].relayUrl, 'http://localhost:8090');
+            assert.equal(activeRelays[0].relayUrl, RIF_RELAY_URL);
             assert.equal(activeRelays[1].relayUrl, 'stakeAndAuthorization1');
             assert.equal(activeRelays[2].relayUrl, 'stakeAndAuthorization2');
         });
