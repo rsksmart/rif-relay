@@ -197,6 +197,7 @@ contract RelayHub is IRelayHub, Ownable {
         }
 
         if (deployRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
             bytes32 signatureHash = keccak256(signature);
             (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");
@@ -266,6 +267,7 @@ contract RelayHub is IRelayHub, Ownable {
         }
 
         if (relayRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
             bytes32 signatureHash = keccak256(signature);
             (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");
