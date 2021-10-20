@@ -1592,11 +1592,14 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
       })
 
       it('should be able to set penalizer if owner', async function () {
-        await relayHubInstance.setPenalizer(penalizerMock)
+        relayHubInstance.setPenalizer(penalizerMock)
         assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value not set as expected')
       })
 
       it('should not be able to set penalizer if already set', async function () {
+        // set penalizer the first time
+        relayHubInstance.setPenalizer(penalizerMock)
+        // attempt to set a second time
         await expectRevert(
           relayHubInstance.setPenalizer(randomAddress), 'penalizer already set'
         )
