@@ -8,7 +8,7 @@ import {
   TestTokenInstance
 } from '../../types/truffle-contracts'
 
-import { createSmartWallet, createSmartWalletFactory, deployHub, deployHubAndPenalizer, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
+import { createSmartWallet, createSmartWalletFactory, deployHubAndPenalizer, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { createRawTx, fundAccount, currentTimeInSeconds, RelayHelper } from './Utils'
 import { fail } from 'assert'
