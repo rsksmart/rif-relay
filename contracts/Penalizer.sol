@@ -133,7 +133,7 @@ contract Penalizer is IPenalizer, Ownable {
         
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
-        require(relayHub == commitmentReceipt.commitment.relayHubAddress, "relay relayHub does not match");
+        require(relayHub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
         require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
         
         /* Although it could be a security flaw, in this case we don't need a strict
