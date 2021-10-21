@@ -18,7 +18,7 @@ import {
   SmartWalletFactoryInstance
 } from '../types/truffle-contracts'
 
-import { deployHub, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount } from './TestUtils'
+import { getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getGaslessAccount, deployHubAndPenalizer } from './TestUtils'
 import { constants } from '../src/common/Constants'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
 import { getRawTxOptions } from '../src/common/ContractInteractor'
@@ -78,9 +78,7 @@ contract('RelayHub Penalizations', function ([defaultAccount, relayOwner, relayW
         console.log(addr)
       }
 
-      relayHub = await deployHub()
-      penalizer = await Penalizer.new(relayHub.address)
-      await relayHub.setPenalizer(penalizer.address)
+      ({relayHub, penalizer} = await deployHubAndPenalizer())
       env = await getTestingEnvironment()
       const networkId = await web3.eth.net.getId()
       const chain = await web3.eth.net.getNetworkType()

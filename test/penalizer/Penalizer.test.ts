@@ -8,7 +8,7 @@ import {
   TestTokenInstance
 } from '../../types/truffle-contracts'
 
-import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
+import { createSmartWallet, createSmartWalletFactory, deployHub, deployHubAndPenalizer, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import { createRawTx, fundAccount, currentTimeInSeconds, RelayHelper } from './Utils'
 import { fail } from 'assert'
@@ -40,12 +40,10 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   before(async function () {
     const env = await getTestingEnvironment()
-    chainId = env.chainId
+    chainId = env.chainId;
 
     // set up contracts
-    relayHub = await deployHub()
-    penalizer = await Penalizer.new(relayHub.address)
-    await relayHub.setPenalizer(penalizer.address, { from: await relayHub.owner() })
+    ({relayHub, penalizer} = await deployHubAndPenalizer())
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()

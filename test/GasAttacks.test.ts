@@ -21,7 +21,7 @@ import {
   SmartWalletFactoryInstance,
   TestTokenInstance
 } from '../types/truffle-contracts'
-import { deployHub, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory } from './TestUtils'
+import { getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, deployHubAndPenalizer } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
@@ -60,11 +60,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
   describe('relayCall', function () {
     beforeEach(async function () {
       env = await getTestingEnvironment()
-      chainId = env.chainId
+      chainId = env.chainId;
 
-      relayHubInstance = await deployHub()
-      penalizer = await Penalizer.new(relayHubInstance.address)
-      await relayHubInstance.setPenalizer(penalizer.address)
+      ({relayHub: relayHubInstance, penalizer: penalizer} = await deployHubAndPenalizer())
       verifierContract = await TestVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 

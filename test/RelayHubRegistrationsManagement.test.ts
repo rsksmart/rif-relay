@@ -5,7 +5,7 @@ import {
   PenalizerInstance,
   RelayHubInstance
 } from '../types/truffle-contracts'
-import { deployHub } from './TestUtils'
+import { deployHubAndPenalizer } from './TestUtils'
 
 const Penalizer = artifacts.require('Penalizer')
 
@@ -28,9 +28,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   }
 
   beforeEach(async function () {
-    relayHub = await deployHub(hubConfig)
-    penalizer = await Penalizer.new(relayHub.address)
-    await relayHub.setPenalizer(penalizer.address)
+    ({relayHub, penalizer} = await deployHubAndPenalizer())
   })
 
   context('without stake for relayManager', function () {

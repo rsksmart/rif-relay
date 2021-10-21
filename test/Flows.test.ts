@@ -12,9 +12,10 @@ import {
   TestRecipientInstance,
   SmartWalletInstance,
   SmartWalletFactoryInstance,
-  TestDeployVerifierEverythingAcceptedInstance
+  TestDeployVerifierEverythingAcceptedInstance,
+  PenalizerInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
+import { startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount, deployHubAndPenalizer } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { EnvelopingConfig } from '../src/relayclient/Configurator'
 import { toBuffer } from 'ethereumjs-util'
@@ -45,6 +46,7 @@ options.forEach(params => {
     let verifier: TestVerifierEverythingAcceptedInstance
     let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
     let rhub: RelayHubInstance
+    let p: PenalizerInstance
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<EnvelopingConfig>
     let fundedAccount: AccountKeypair
@@ -63,9 +65,7 @@ options.forEach(params => {
       verifier = await TestVerifierEverythingAccepted.new()
       deployVerifier = await TestDeployVerifierEverythingAccepted.new()
 
-      rhub = await deployHub()
-      const p = await Penalizer.new(rhub.address)
-      await rhub.setPenalizer(p.address)
+      ({relayHub: rhub, penalizer: p} = await deployHubAndPenalizer())
 
       if (params.relay) {
         process.env.relaylog = 'true'
