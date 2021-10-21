@@ -26,6 +26,8 @@ run_batch()
 	done
 
 	docker stop "$cid"
+	# sometimes the container is still running so we need to remove it forcefully
+	docker rm --force enveloping-rskj 2>/dev/null
 }
 
 setup_containers()
