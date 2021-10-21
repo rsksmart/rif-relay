@@ -1,4 +1,5 @@
 .gitignore
+.github
 .prettierignore
 package.json
 package-lock.json

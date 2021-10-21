@@ -18,7 +18,6 @@ import {
     getDomainSeparatorHash,
     constants,
     RelayRequest,
-    RelayData,
     ForwardRequest,
     EIP712RelayData
 } from '@rsksmart/rif-relay-common';

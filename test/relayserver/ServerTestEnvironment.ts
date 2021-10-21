@@ -50,8 +50,9 @@ import {
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
 import { ether } from '@openzeppelin/test-helpers';
-
+import { RIF_RELAY_URL } from '../Utils';
 const TestRecipient = artifacts.require('TestRecipient');
+
 const TestVerifierEverythingAccepted = artifacts.require(
     'TestVerifierEverythingAccepted'
 );
@@ -71,7 +72,7 @@ abiDecoder.addABI(TestVerifierEverythingAccepted.abi);
 // @ts-ignore
 abiDecoder.addABI(TestDeployVerifierEverythingAccepted.abi);
 
-export const LocalhostOne = 'http://localhost:8090';
+export const LocalhostOne = RIF_RELAY_URL;
 
 export interface PrepareRelayRequestOption {
     to: string;

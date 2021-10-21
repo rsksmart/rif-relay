@@ -63,6 +63,7 @@ import bodyParser from 'body-parser';
 import { Server } from 'http';
 import { toBN, toHex } from 'web3-utils';
 import { ether } from '@openzeppelin/test-helpers';
+import { RIF_RELAY_PORT, RIF_RELAY_URL } from '../Utils';
 
 const TestRecipient = artifacts.require('TestRecipient');
 const TestRelayVerifier = artifacts.require('TestVerifierEverythingAccepted');
@@ -81,7 +82,7 @@ abiDecoder.addABI(SmartWalletFactory.abi);
 const expect = chai.expect;
 chai.use(sinonChai);
 
-const localhostOne = 'http://localhost:8090';
+const localhostOne = RIF_RELAY_URL;
 const cheapRelayerUrl = 'http://localhost:54321';
 const underlyingProvider = web3.currentProvider as HttpProvider;
 class MockHttpClient extends HttpClient {
@@ -101,7 +102,7 @@ class MockHttpClient extends HttpClient {
     }
 
     private mapUrl(relayUrl: string): string {
-        return relayUrl.replace(':8090', `:${this.mockPort}`);
+        return relayUrl.replace(`:${RIF_RELAY_PORT}`, `:${this.mockPort}`);
     }
 }
 
@@ -286,7 +287,7 @@ gasOptions.forEach((gasOption) => {
                 let server: Server | undefined;
                 try {
                     const pingResponse = await axios
-                        .get('http://localhost:8090/getaddr')
+                        .get(`${RIF_RELAY_URL}/getaddr`)
                         .then((res) => res.data);
                     const mockServer = express();
                     mockServer.use(bodyParser.urlencoded({ extended: false }));
@@ -1460,7 +1461,7 @@ gasOptions.forEach((gasOption) => {
 
             it('use preferred relay if one is set', async () => {
                 relayClient = new RelayClient(underlyingProvider, {
-                    preferredRelays: ['http://localhost:8090'],
+                    preferredRelays: [RIF_RELAY_URL],
                     ...config
                 });
 

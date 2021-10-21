@@ -4,6 +4,10 @@ import fs from 'fs';
 import path from 'path';
 import { DeploymentResult } from './TestSetup';
 import { RelayHubConfiguration } from '@rsksmart/rif-relay-common';
+import * as config from './server-config.json';
+
+export const RIF_RELAY_PORT = config.port;
+export const RIF_RELAY_URL = config.url;
 
 export const networks = new Map<string, string>([
     ['localhost', 'http://127.0.0.1:4444'],

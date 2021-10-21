@@ -45,12 +45,13 @@ import {
 
 //@ts-ignore
 import sourceMapSupport from 'source-map-support';
+import { RIF_RELAY_URL } from './Utils';
 //@ts-ignore
 sourceMapSupport.install({ errorFormatterForce: true });
 
 const RelayHub = artifacts.require('RelayHub');
 
-const localhostOne = 'http://localhost:8090';
+const localhostOne = RIF_RELAY_URL;
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`;
 export const deployTypeHash = web3.utils.keccak256(deployTypeName);
 
