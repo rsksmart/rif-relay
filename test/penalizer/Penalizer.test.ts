@@ -16,7 +16,6 @@ import { toBN } from 'web3-utils'
 import { TransactionReceipt } from 'web3-core'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
-const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestRecipient = artifacts.require('TestRecipient')
 const testToken = artifacts.require('TestToken')
@@ -43,7 +42,7 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     chainId = env.chainId;
 
     // set up contracts
-    ({relayHub, penalizer} = await deployHubAndPenalizer())
+    ({ relayHub, penalizer } = await deployHubAndPenalizer())
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()

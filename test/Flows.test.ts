@@ -12,8 +12,7 @@ import {
   TestRecipientInstance,
   SmartWalletInstance,
   SmartWalletFactoryInstance,
-  TestDeployVerifierEverythingAcceptedInstance,
-  PenalizerInstance
+  TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
 import { startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount, deployHubAndPenalizer } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
@@ -25,7 +24,6 @@ const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeployVerifierEverythingAccepted')
 
-const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 
 const options = [
@@ -46,7 +44,6 @@ options.forEach(params => {
     let verifier: TestVerifierEverythingAcceptedInstance
     let deployVerifier: TestDeployVerifierEverythingAcceptedInstance
     let rhub: RelayHubInstance
-    let p: PenalizerInstance
     let relayproc: ChildProcessWithoutNullStreams
     let relayClientConfig: Partial<EnvelopingConfig>
     let fundedAccount: AccountKeypair
@@ -63,9 +60,9 @@ options.forEach(params => {
       gaslessAccount = await getExistingGaslessAccount()
 
       verifier = await TestVerifierEverythingAccepted.new()
-      deployVerifier = await TestDeployVerifierEverythingAccepted.new()
+      deployVerifier = await TestDeployVerifierEverythingAccepted.new();
 
-      ({relayHub: rhub, penalizer: p} = await deployHubAndPenalizer())
+      ({ relayHub: rhub } = await deployHubAndPenalizer())
 
       if (params.relay) {
         process.env.relaylog = 'true'

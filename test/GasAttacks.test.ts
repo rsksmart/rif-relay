@@ -13,7 +13,6 @@ import abiDecoder from 'abi-decoder'
 
 import {
   RelayHubInstance,
-  PenalizerInstance,
   TestRecipientInstance,
   IForwarderInstance,
   TestVerifierEverythingAcceptedInstance,
@@ -29,7 +28,6 @@ import { toBN } from 'web3-utils'
 
 const { assert } = chai.use(chaiAsPromised)
 const SmartWallet = artifacts.require('SmartWallet')
-const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
 
@@ -41,7 +39,6 @@ abiDecoder.addABI(relayHubAbi)
 contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
   let chainId: number
   let relayHub: string
-  let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
   let verifierContract: TestVerifierEverythingAcceptedInstance
@@ -62,7 +59,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
       env = await getTestingEnvironment()
       chainId = env.chainId;
 
-      ({relayHub: relayHubInstance, penalizer: penalizer} = await deployHubAndPenalizer())
+      ({ relayHub: relayHubInstance } = await deployHubAndPenalizer())
       verifierContract = await TestVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
 

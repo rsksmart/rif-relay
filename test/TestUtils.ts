@@ -296,7 +296,7 @@ export async function deployHubAndPenalizer (configOverride: Partial<RelayHubCon
   const penalizer = await Penalizer.new(relayHubInstance.address)
   await relayHubInstance.setPenalizer(penalizer.address, { from: await relayHubInstance.owner() })
   return {
-    relayHub: relayHubInstance, 
+    relayHub: relayHubInstance,
     penalizer: penalizer
   }
 }
