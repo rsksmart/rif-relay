@@ -54,7 +54,7 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
     })
   }
 
-  beforeEach(async function (){
+  beforeEach(async function () {
     relayHub = await RelayHub.new(maxWorkerCount, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
   })
 
