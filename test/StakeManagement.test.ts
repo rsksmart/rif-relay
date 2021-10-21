@@ -54,10 +54,12 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
     })
   }
 
+  beforeEach(async function (){
+    relayHub = await RelayHub.new(maxWorkerCount, minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
+  })
+
   describe('with no stake for relay server', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
       penalizer = await Penalizer.new(relayHub.address)
       await relayHub.setPenalizer(penalizer.address)
     })
@@ -86,9 +88,6 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
 
   describe('with stake deposited for relay server', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
-
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
@@ -181,9 +180,6 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
 
   describe('with authorized hub', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
-
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
@@ -215,9 +211,6 @@ contract('StakeManagement', function ([_, relayManager, worker, anyRelayHub, own
 
   describe('with unlock scheduled', function () {
     beforeEach(async function () {
-      relayHub = await RelayHub.new(maxWorkerCount,
-        minimumEntryDepositValue, minimumUnstakeDelay, minimumStake)
-
       await relayHub.stakeForAddress(relayManager, initialUnstakeDelay, {
         value: initialStake,
         from: owner
