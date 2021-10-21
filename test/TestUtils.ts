@@ -5,7 +5,7 @@ import path from 'path'
 
 import { ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance, PenalizerInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance, PenalizerInstance, PenalizerContract } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configure } from '../src/relayclient/Configurator'
@@ -291,9 +291,9 @@ export async function deployHub (
     relayHubConfiguration.minimumStake)
 }
 
-export async function deployHubAndPenalizer (configOverride: Partial<RelayHubConfiguration> = {}): Promise<{relayHub: RelayHubInstance, penalizer: PenalizerInstance}> {
+export async function deployHubAndPenalizer (configOverride: Partial<RelayHubConfiguration> = {}, penalizerContract: PenalizerContract = Penalizer): Promise<{relayHub: RelayHubInstance, penalizer: PenalizerInstance}> {
   const relayHubInstance = await deployHub(configOverride)
-  const penalizer = await Penalizer.new(relayHubInstance.address)
+  const penalizer = await penalizerContract.new(relayHubInstance.address)
   await relayHubInstance.setPenalizer(penalizer.address, { from: await relayHubInstance.owner() })
   return {
     relayHub: relayHubInstance,
