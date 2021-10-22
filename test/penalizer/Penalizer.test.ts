@@ -8,16 +8,14 @@ import {
   TestTokenInstance
 } from '../../types/truffle-contracts'
 
-import { createSmartWallet, createSmartWalletFactory, deployHub, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
+import { createSmartWallet, createSmartWalletFactory, deployHubAndPenalizer, getGaslessAccount, getTestingEnvironment } from '../TestUtils'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
-import { zeroAddress } from 'ethereumjs-util'
 import { createRawTx, fundAccount, currentTimeInSeconds, RelayHelper } from './Utils'
 import { fail } from 'assert'
 import { toBN } from 'web3-utils'
 import { TransactionReceipt } from 'web3-core'
 import { RelayRequest } from '../../src/common/EIP712/RelayRequest'
 
-const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 const TestRecipient = artifacts.require('TestRecipient')
 const testToken = artifacts.require('TestToken')
@@ -41,12 +39,10 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
 
   before(async function () {
     const env = await getTestingEnvironment()
-    chainId = env.chainId
+    chainId = env.chainId;
 
     // set up contracts
-    penalizer = await Penalizer.new()
-    relayHub = await deployHub(penalizer.address)
-    await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
+    ({ relayHub, penalizer } = await deployHubAndPenalizer())
     recipient = await TestRecipient.new()
     const verifier = await TestVerifierEverythingAccepted.new()
     const smartWalletTemplate = await SmartWallet.new()
@@ -61,31 +57,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
     // relay helper class
     relayHelper = new RelayHelper(relayHub, relayOwner, relayWorker, relayManager, forwarder, verifier, token, env.chainId)
     await relayHelper.init()
-  })
-
-  describe('should be able to have its hub set', function () {
-    before(async function () {
-      await penalizer.setHub(zeroAddress(), { from: await penalizer.owner() })
-    })
-    it('starting out with an unset address', async function () {
-      assert.equal(await penalizer.getHub(), zeroAddress(), 'penalizer hub does not match zero address')
-    })
-
-    it('successfully from its owner address', async function () {
-      await penalizer.setHub(relayHub.address, { from: await penalizer.owner() })
-
-      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub does not match relay hub')
-    })
-
-    it('unsuccessfully from another address', async function () {
-      await expectRevert(
-        penalizer.setHub(otherAccount, { from: otherAccount }),
-        'caller is not the owner'
-      )
-
-      // hub should remain set with its previous value
-      assert.equal(await penalizer.getHub(), relayHub.address, 'penalizer hub did not keep its relay hub value')
-    })
   })
 
   describe('should fulfill transactions', function () {
@@ -115,18 +86,6 @@ contract('Penalizer', function ([relayOwner, relayWorker, relayManager, otherAcc
   })
 
   describe('should reject claims', function () {
-    it('due to hub not being set', async function () {
-      const hublessPenalizer = await Penalizer.new()
-
-      const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef03' })
-      const receipt = relayHelper.createReceipt(rr, sig)
-
-      await expectRevert(
-        hublessPenalizer.claim(receipt),
-        'relay hub not set'
-      )
-    })
-
     it('due to receiving a commitment with qos disabled', async function () {
       const [rr, sig] = await createRelayRequestAndSignature({ relayData: '0xdeadbeef04', enableQos: false })
       const receipt = relayHelper.createReceipt(rr, sig)

@@ -14,20 +14,17 @@ interface IPenalizer {
         uint256 value;
         bytes data;
     }
+    
+    function relayHub() external view returns(address);
+
+    function versionPenalizer() external view returns (string memory);
 
     function penalizeRepeatedNonce(
         bytes calldata unsignedTx1,
         bytes calldata signature1,
         bytes calldata unsignedTx2,
-        bytes calldata signature2,
-        IRelayHub relayHub
+        bytes calldata signature2
     ) external;
-
-    function versionPenalizer() external view returns (string memory);
-
-    function setHub(address relayHub) external;
-
-    function getHub() external view returns (address);
 
     function fulfill(bytes32 txhash) external;
 

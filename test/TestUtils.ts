@@ -5,7 +5,7 @@ import path from 'path'
 
 import { ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance, PenalizerInstance, PenalizerContract } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configure } from '../src/relayclient/Configurator'
@@ -31,6 +31,7 @@ import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
 require('source-map-support').install({ errorFormatterForce: true })
 
 const RelayHub = artifacts.require('RelayHub')
+const Penalizer = artifacts.require('Penalizer')
 
 const localhostOne = 'http://localhost:8090'
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`
@@ -278,18 +279,26 @@ export async function getTestingEnvironment (): Promise<Environment> {
 }
 
 export async function deployHub (
-  penalizer: string = constants.ZERO_ADDRESS,
   configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHubInstance> {
   const relayHubConfiguration: RelayHubConfiguration = {
     ...defaultEnvironment.relayHubConfiguration,
     ...configOverride
   }
   return await RelayHub.new(
-    penalizer,
     relayHubConfiguration.maxWorkerCount,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
+}
+
+export async function deployHubAndPenalizer (configOverride: Partial<RelayHubConfiguration> = {}, penalizerContract: PenalizerContract = Penalizer): Promise<{relayHub: RelayHubInstance, penalizer: PenalizerInstance}> {
+  const relayHubInstance = await deployHub(configOverride)
+  const penalizer = await penalizerContract.new(relayHubInstance.address)
+  await relayHubInstance.setPenalizer(penalizer.address, { from: await relayHubInstance.owner() })
+  return {
+    relayHub: relayHubInstance,
+    penalizer: penalizer
+  }
 }
 
 export async function createSmartWalletFactory (template: IForwarderInstance): Promise<SmartWalletFactoryInstance> {

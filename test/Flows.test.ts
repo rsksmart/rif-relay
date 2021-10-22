@@ -14,7 +14,7 @@ import {
   SmartWalletFactoryInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { deployHub, startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount } from './TestUtils'
+import { startRelay, stopRelay, getTestingEnvironment, createSmartWalletFactory, createSmartWallet, getExistingGaslessAccount, deployHubAndPenalizer } from './TestUtils'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { EnvelopingConfig } from '../src/relayclient/Configurator'
 import { toBuffer } from 'ethereumjs-util'
@@ -24,7 +24,6 @@ const TestRecipient = artifacts.require('tests/TestRecipient')
 const TestVerifierEverythingAccepted = artifacts.require('tests/TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('tests/TestDeployVerifierEverythingAccepted')
 
-const Penalizer = artifacts.require('Penalizer')
 const SmartWallet = artifacts.require('SmartWallet')
 
 const options = [
@@ -60,11 +59,11 @@ options.forEach(params => {
       // An account from RSK that has been depleted to ensure it has no funds
       gaslessAccount = await getExistingGaslessAccount()
 
-      const p = await Penalizer.new()
       verifier = await TestVerifierEverythingAccepted.new()
-      deployVerifier = await TestDeployVerifierEverythingAccepted.new()
+      deployVerifier = await TestDeployVerifierEverythingAccepted.new();
 
-      rhub = await deployHub(p.address)
+      ({ relayHub: rhub } = await deployHubAndPenalizer())
+
       if (params.relay) {
         process.env.relaylog = 'true'
         relayproc = (await startRelay(rhub, {

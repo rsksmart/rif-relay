@@ -13,7 +13,6 @@ import abiDecoder from 'abi-decoder'
 
 import {
   RelayHubInstance,
-  PenalizerInstance,
   TestRecipientInstance,
   IForwarderInstance,
   TestVerifierEverythingAcceptedInstance,
@@ -24,7 +23,7 @@ import {
   TestDeployVerifierConfigurableMisbehaviorInstance,
   TestDeployVerifierEverythingAcceptedInstance
 } from '../types/truffle-contracts'
-import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, evmMineMany } from './TestUtils'
+import { stripHex, deployHub, encodeRevertReason, getTestingEnvironment, createSmartWallet, getGaslessAccount, createSmartWalletFactory, evmMineMany, deployHubAndPenalizer } from './TestUtils'
 
 import chaiAsPromised from 'chai-as-promised'
 import { AccountKeypair } from '../src/relayclient/AccountManager'
@@ -34,7 +33,6 @@ import { toBN, toChecksumAddress, toHex } from 'web3-utils'
 
 const { assert } = chai.use(chaiAsPromised)
 const SmartWallet = artifacts.require('SmartWallet')
-const Penalizer = artifacts.require('Penalizer')
 const TestVerifierEverythingAccepted = artifacts.require('TestVerifierEverythingAccepted')
 const TestDeployVerifierEverythingAccepted = artifacts.require('TestDeployVerifierEverythingAccepted')
 const TestRecipient = artifacts.require('TestRecipient')
@@ -46,10 +44,9 @@ abiDecoder.addABI(TestRecipient.abi)
 abiDecoder.addABI(walletFactoryAbi)
 abiDecoder.addABI(relayHubAbi)
 
-contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock]) {
+contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorrectWorker, incorrectRelayManager, unknownWorker, beneficiary, penalizerMock, other]) {
   let chainId: number
   let relayHub: string
-  let penalizer: PenalizerInstance
   let relayHubInstance: RelayHubInstance
   let recipientContract: TestRecipientInstance
   let verifierContract: TestVerifierEverythingAcceptedInstance
@@ -69,10 +66,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
   describe('add/disable relay workers', function () {
     beforeEach(async function () {
-      penalizer = await Penalizer.new()
       env = await getTestingEnvironment()
-      chainId = env.chainId
-      relayHubInstance = await deployHub(penalizer.address)
+      chainId = env.chainId;
+      ({ relayHub: relayHubInstance } = await deployHubAndPenalizer())
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -253,10 +249,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
   describe('relayCall', function () {
     beforeEach(async function () {
       env = await getTestingEnvironment()
-      chainId = env.chainId
+      chainId = env.chainId;
 
-      penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(penalizer.address)
+      ({ relayHub: relayHubInstance } = await deployHubAndPenalizer())
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -1255,10 +1250,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
 
     beforeEach(async function () {
       env = await getTestingEnvironment()
-      chainId = env.chainId
+      chainId = env.chainId;
 
-      penalizer = await Penalizer.new()
-      relayHubInstance = await deployHub(penalizer.address)
+      ({ relayHub: relayHubInstance } = await deployHubAndPenalizer())
       verifierContract = await TestVerifierEverythingAccepted.new()
       deployVerifierContract = await TestDeployVerifierEverythingAccepted.new()
       gaslessAccount = await getGaslessAccount()
@@ -1574,7 +1568,34 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
     const gas = 4e6
 
     beforeEach(async function () {
-      relayHubInstance = await deployHub(penalizerMock)
+      relayHubInstance = await deployHub()
+    })
+
+    context('smart contract setter', function () {
+      it('should start out with an unset address', async function () {
+        assert.equal(await relayHubInstance.penalizer(), constants.ZERO_ADDRESS, 'hub penalizer does not match zero address')
+      })
+
+      it('should not be able to set penalizer if not owner', async function () {
+        await expectRevert(
+          relayHubInstance.setPenalizer(penalizerMock, { from: other }), 'caller is not the owner'
+        )
+      })
+
+      it('should be able to set penalizer if owner', async function () {
+        await relayHubInstance.setPenalizer(penalizerMock, { from: await relayHubInstance.owner() })
+        assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value not set as expected')
+      })
+
+      it('should not be able to set penalizer if already set', async function () {
+        // set penalizer the first time
+        await relayHubInstance.setPenalizer(penalizerMock, { from: await relayHubInstance.owner() })
+        // attempt to set a second time
+        await expectRevert(
+          relayHubInstance.setPenalizer(other, { from: await relayHubInstance.owner() }), 'penalizer already set'
+        )
+        assert.equal(await relayHubInstance.penalizer(), penalizerMock, 'hub penalizer value changed unexpectedly')
+      })
     })
 
     context('with unknown worker', function () {
@@ -1586,6 +1607,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         await relayHubInstance.addRelayWorkers([relayWorker], {
           from: relayManager
         })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown worker is specified', async function () {
@@ -1611,6 +1633,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
           from: relayManager
         })
         await relayHubInstance.unlockStake(relayManager, { from: relayOwner })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown penalizer is specified', async function () {
@@ -1699,6 +1722,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker, incorr
         })
         await relayHubInstance.addRelayWorkers([relayWorker], { from: relayManager })
         await relayHubInstance.registerRelayServer(url, { from: relayManager })
+        await relayHubInstance.setPenalizer(penalizerMock)
       })
 
       it('should not penalize when an unknown penalizer is specified', async function () {

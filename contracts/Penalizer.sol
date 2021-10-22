@@ -9,21 +9,25 @@ import "@openzeppelin/contracts/cryptography/ECDSA.sol";
 
 import "./utils/RLPReader.sol";
 import "./utils/RSKAddrValidator.sol";
-import "./interfaces/IRelayHub.sol";
 import "./interfaces/IPenalizer.sol";
 
 contract Penalizer is IPenalizer, Ownable {
 
+    address public override relayHub;
     string public override versionPenalizer = "2.0.1+enveloping.penalizer.ipenalizer";
     // bytes4(keccak256("penalize(address,address)"))
     bytes4 private constant PENALIZE_SELECTOR = 0xebcd31ac;
-    
+    // bytes4(keccack256("isRelayManagerStaked(address)"))
+    bytes4 private constant IS_RELAY_MANAGER_STAKED_SELECTOR = 0x2ad311b5;
+
     mapping(bytes32 => bool) public penalizedTransactions;
     mapping(bytes32 => bool) public fulfilledTransactions;
 
-    address private hub;
-
     using ECDSA for bytes32;
+
+    constructor(address _relayHub) public {
+        relayHub = _relayHub;
+    }
 
     function decodeTransaction(bytes memory rawTransaction) private pure returns (Transaction memory transaction) {
         (transaction.nonce,
@@ -35,29 +39,14 @@ contract Penalizer is IPenalizer, Ownable {
         return transaction;
     }
 
-    modifier relayManagerOnly(IRelayHub relayHub) {
-        require(relayHub.isRelayManagerStaked(msg.sender), "Unknown relay manager");
-        _;
-    }
-
-    function setHub(address relayHub) public override onlyOwner{
-        hub = relayHub;
-    }
-
-    function getHub() external override view returns (address){
-        return hub;
-    }
-
     function penalizeRepeatedNonce(
         bytes memory unsignedTx1,
         bytes memory signature1,
         bytes memory unsignedTx2,
-        bytes memory signature2,
-        IRelayHub relayHub
+        bytes memory signature2
     )
     external
     override
-    relayManagerOnly(relayHub)
     {
         // Can be called by a relay manager only.
         // If a relay attacked the system by signing multiple transactions with the same nonce
@@ -69,6 +58,9 @@ contract Penalizer is IPenalizer, Ownable {
         // to the address who reported it (msg.sender), thus incentivizing anyone to report offending relays.
         // If reported via a relay, the forfeited stake is split between
         // msg.sender (the relay used for reporting) and the address that reported it.
+        (bool success, bytes memory ret) = relayHub.call(abi.encodeWithSelector(IS_RELAY_MANAGER_STAKED_SELECTOR, msg.sender));
+        require(success, "isRelayManagerStaked call failed");
+        require(abi.decode(ret, (bool)), "Unknown relay manager");
 
         bytes32 txHash1 = keccak256(abi.encodePacked(unsignedTx1));
         bytes32 txHash2 = keccak256(abi.encodePacked(unsignedTx2));
@@ -101,15 +93,16 @@ contract Penalizer is IPenalizer, Ownable {
         penalizedTransactions[txHash1] = true;
         penalizedTransactions[txHash2] = true;
 
-        relayHub.penalize(addr1, msg.sender);
+        (success, ) = relayHub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, addr1, msg.sender));
+        require(success, "Relay Hub penalize call failed");
     }
 
     modifier relayHubOnly() {
-        require(msg.sender == hub, "Unknown Relay Hub");
+        require(msg.sender == relayHub, "Unknown Relay Hub");
         _;
     }
 
-    function fulfill(bytes32 txhash) external override relayHubOnly() {
+    function fulfill(bytes32 txhash) external override relayHubOnly{
         require(!fulfilledTransactions[txhash], "Transaction already fulfilled");
         fulfilledTransactions[txhash] = true;
     }
@@ -119,8 +112,7 @@ contract Penalizer is IPenalizer, Ownable {
     }
 
     function claim(CommitmentReceipt calldata commitmentReceipt) external override {
-        // relay hub and commitment QoS must be set
-        require(hub != address(0), "relay hub not set");
+        // commitment QoS must be set
         require(commitmentReceipt.commitment.enableQos, "commitment without QoS");
 
         // commitment must be signed by worker
@@ -141,7 +133,7 @@ contract Penalizer is IPenalizer, Ownable {
         
         // commitment fields must match 
         require(workerAddress == commitmentReceipt.commitment.relayWorker, "worker address does not match");
-        require(hub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
+        require(relayHub == commitmentReceipt.commitment.relayHubAddress, "relay hub does not match");
         require(msg.sender == commitmentReceipt.commitment.from, "receiver must claim commitment");
         
         /* Although it could be a security flaw, in this case we don't need a strict
@@ -160,7 +152,7 @@ contract Penalizer is IPenalizer, Ownable {
         bytes32 txId = keccak256(commitmentReceipt.commitment.signature);
         require(fulfilledTransactions[txId] == false, "can't penalize fulfilled tx");
         require(penalizedTransactions[txId] == false, "tx already penalized");
-        (bool success, ) = hub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, workerAddress, msg.sender));
+        (bool success, ) = relayHub.call(abi.encodeWithSelector(PENALIZE_SELECTOR, workerAddress, msg.sender));
         require(success, "Relay Hub penalize call failed");
         penalizedTransactions[txId] = true;
     }

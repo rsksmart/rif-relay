@@ -7,6 +7,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./utils/Eip712Library.sol";
@@ -14,7 +15,7 @@ import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
 
-contract RelayHub is IRelayHub {
+contract RelayHub is IRelayHub, Ownable {
     using SafeMath for uint256;
 
     uint256 public override minimumStake;
@@ -36,8 +37,10 @@ contract RelayHub is IRelayHub {
     // maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
 
+    // restricts the setting of the penalizer to only once
+    bool private penalizerSet = false;
+
     constructor(
-        address _penalizer,
         uint256 _maxWorkerCount,
         uint256 _minimumEntryDepositValue,
         uint256 _minimumUnstakeDelay,
@@ -49,12 +52,16 @@ contract RelayHub is IRelayHub {
             _minimumEntryDepositValue > 0 && 
             _minimumUnstakeDelay > 0, "invalid hub init params"   
         );
-
-        penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake = _minimumStake;
         minimumEntryDepositValue = _minimumEntryDepositValue;
+    }
+
+    function setPenalizer(address _penalizer) public override onlyOwner{
+        require(!penalizerSet, "penalizer already set");
+        penalizer = _penalizer;
+        penalizerSet = true;
     }
 
     function registerRelayServer(
@@ -190,6 +197,7 @@ contract RelayHub is IRelayHub {
         }
 
         if (deployRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
             bytes32 signatureHash = keccak256(signature);
             (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");
@@ -259,6 +267,7 @@ contract RelayHub is IRelayHub {
         }
 
         if (relayRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
             bytes32 signatureHash = keccak256(signature);
             (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
             require(success, "Penalizer fulfill call failed");

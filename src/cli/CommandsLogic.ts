@@ -250,8 +250,6 @@ export default class CommandsLogic {
       gasPrice: deployOptions.gasPrice ?? (1e9).toString()
     }
 
-    const penalizer = await this.getContract(Penalizer, {}, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
-
     const smartWallet = await this.getContract(SmartWallet, {}, deployOptions.smartWalletTemplateAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     const smartWalletFactory = await this.getContract(SmartWalletFactory, {
       arguments: [
@@ -268,12 +266,17 @@ export default class CommandsLogic {
 
     const rInstance = await this.getContract(RelayHub, {
       arguments: [
-        penalizer.options.address,
         deployOptions.relayHubConfiguration.maxWorkerCount,
         deployOptions.relayHubConfiguration.minimumEntryDepositValue,
         deployOptions.relayHubConfiguration.minimumUnstakeDelay,
         deployOptions.relayHubConfiguration.minimumStake]
     }, deployOptions.relayHubAddress, merge({}, options, { gas: 5e6 }), deployOptions.skipConfirmation)
+
+    const penalizer = await this.getContract(Penalizer, {
+      arguments: [
+        rInstance.options.address
+      ]
+    }, deployOptions.penalizerAddress, Object.assign({}, options), deployOptions.skipConfirmation)
 
     const regInstance = await this.getContract(VersionRegistryAbi, {}, deployOptions.registryAddress, Object.assign({}, options), deployOptions.skipConfirmation)
     if (deployOptions.registryHubId != null) {

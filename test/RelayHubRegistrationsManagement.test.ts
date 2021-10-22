@@ -2,18 +2,14 @@ import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers'
 import { RelayHubConfiguration } from '../src/relayclient/types/RelayHubConfiguration'
 
 import {
-  PenalizerInstance,
   RelayHubInstance
 } from '../types/truffle-contracts'
-import { deployHub } from './TestUtils'
-
-const Penalizer = artifacts.require('Penalizer')
+import { deployHubAndPenalizer } from './TestUtils'
 
 contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, relayWorker1, relayWorker2, relayWorker3]) {
   const relayUrl = 'http://new-relay.com'
 
   let relayHub: RelayHubInstance
-  let penalizer: PenalizerInstance
 
   const maxWorkerCount = 3
   const minimumEntryDepositValue = ether('1').toString()
@@ -28,8 +24,7 @@ contract('RelayHub Relay Management', function ([_, relayOwner, relayManager, re
   }
 
   beforeEach(async function () {
-    penalizer = await Penalizer.new()
-    relayHub = await deployHub(penalizer.address, hubConfig)
+    ({ relayHub } = await deployHubAndPenalizer(hubConfig))
   })
 
   context('without stake for relayManager', function () {
