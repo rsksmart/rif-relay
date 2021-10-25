@@ -9,7 +9,7 @@ RUN gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 1A92D89421
 RUN gpg --finger 1A92D8942171AFA951A857365DECF4415E3B8FA4
 
 ARG rskj_codename=SNAPSHOT
-ARG rskj_version=3.0.0
+ARG rskj_version=3.2.0
 ARG working_branch=master
 
 RUN git clone --single-branch --depth 1 --branch "${working_branch}" https://github.com/rsksmart/rskj.git /code/rskj
@@ -24,7 +24,7 @@ RUN ./gradlew --no-daemon clean build -x test
 FROM openjdk:8-jdk-slim-buster
 
 ARG rskj_codename=SNAPSHOT
-ARG rskj_version=3.0.0
+ARG rskj_version=3.2.0
 
 WORKDIR /usr/local/rskj
 COPY --from=build /code/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-${rskj_codename}-all.jar ./rsk.jar
