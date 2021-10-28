@@ -33,7 +33,7 @@ import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
     Environment,
-    RelayData
+    RelayManagerData
 } from '@rsksmart/rif-relay-common';
 import { RIF_RELAY_URL } from '../Utils';
 
@@ -337,7 +337,9 @@ contract('KnownRelaysManager 2', function (accounts) {
         });
 
         it("should use 'relayFilter' to remove unsuitable relays", async function () {
-            const relayFilter = (registeredEventInfo: RelayData): boolean => {
+            const relayFilter = (
+                registeredEventInfo: RelayManagerData
+            ): boolean => {
                 return registeredEventInfo.url.includes('2');
             };
             const knownRelaysManagerWithFilter = new KnownRelaysManager(
@@ -354,7 +356,7 @@ contract('KnownRelaysManager 2', function (accounts) {
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     describe('#getRelaysSortedForTransaction()', function () {
-        const relayData: RelayData = Object.assign({} as any, {
+        const relayData: RelayManagerData = Object.assign({} as any, {
             manager: accounts[0],
             url: 'url'
         });
@@ -559,7 +561,7 @@ contract('KnownRelaysManager 2', function (accounts) {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     describe('getRelaysSortedForTransaction', function () {
         const biasedRelayScore = async function (
-            relay: RelayData
+            relay: RelayManagerData
         ): Promise<number> {
             if (relay.url === 'alex') {
                 return await Promise.resolve(1000);
@@ -577,7 +579,7 @@ contract('KnownRelaysManager 2', function (accounts) {
                 undefined,
                 biasedRelayScore
             );
-            const activeRelays: RelayData[] = [
+            const activeRelays: RelayManagerData[] = [
                 {
                     manager: accounts[0],
                     url: 'alex',

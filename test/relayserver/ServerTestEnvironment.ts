@@ -45,7 +45,7 @@ import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
     PingResponse,
-    RelayData,
+    RelayManagerData,
     RelayHubConfiguration,
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
@@ -275,7 +275,7 @@ export class ServerTestEnvironment {
             relayHubAddress: this.relayHub.address,
             relayWorkerAddress: this.relayServer.workerAddress
         };
-        const relayData: RelayData = {
+        const managerData: RelayManagerData = {
             manager: '',
             penalized: false,
             url: '',
@@ -284,7 +284,7 @@ export class ServerTestEnvironment {
         };
         const relayInfo: RelayInfo = {
             pingResponse: pingResponse as PingResponse,
-            relayData: relayData
+            relayInfo: managerData
         };
 
         let transactionDetails: EnvelopingTransactionDetails = {

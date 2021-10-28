@@ -1214,7 +1214,7 @@ gasOptions.forEach((gasOption) => {
                     version: ''
                 };
                 relayInfo = {
-                    relayData: {
+                    relayInfo: {
                         manager: relayManager,
                         url: relayUrl,
                         penalized: false,
