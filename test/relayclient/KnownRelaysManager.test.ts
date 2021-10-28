@@ -583,22 +583,19 @@ contract('KnownRelaysManager 2', function (accounts) {
                 {
                     manager: accounts[0],
                     url: 'alex',
-                    penalized: false,
-                    stakeAdded: true,
+                    currentlyStaked: true,
                     registered: true
                 },
                 {
                     manager: accounts[0],
                     url: 'joe',
-                    penalized: false,
-                    stakeAdded: true,
+                    currentlyStaked: true,
                     registered: true
                 },
                 {
                     manager: accounts[1],
                     url: 'joe',
-                    penalized: false,
-                    stakeAdded: true,
+                    currentlyStaked: true,
                     registered: true
                 }
             ];

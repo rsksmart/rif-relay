@@ -19,7 +19,7 @@ import {
     constants,
     RelayRequest,
     ForwardRequest,
-    EIP712RelayData
+    RelayData
 } from '@rsksmart/rif-relay-common';
 import { expectRevert } from '@openzeppelin/test-helpers';
 
@@ -53,7 +53,7 @@ async function getTokenBalance(
 
 function createRequest(
     request: Partial<ForwardRequest>,
-    relayData: Partial<EIP712RelayData>
+    relayData: Partial<RelayData>
 ): RelayRequest {
     const baseRequest: RelayRequest = {
         request: {
@@ -117,7 +117,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
     let token: TestTokenInstance;
     let smartWallet: CustomSmartWalletInstance;
     let domainSeparatorHash: string;
-    let relayData: Partial<EIP712RelayData>;
+    let relayData: Partial<RelayData>;
 
     before(async () => {
         senderAddress = bufferToHex(

@@ -35,7 +35,7 @@ contract('RelaySelectionManager', async function (accounts) {
     );
     const stubGetActiveRelays = sinon.stub(
         dependencyTree.contractInteractor,
-        'getActiveRelays'
+        'getActiveRelayInfo'
     );
     const stubGetRelayData = sinon.stub(
         dependencyTree.contractInteractor,
@@ -49,9 +49,8 @@ contract('RelaySelectionManager', async function (accounts) {
     const relayInfo = {
         manager: '',
         url: '',
-        penalized: false,
-        registered: false,
-        stakeAdded: true
+        currentlyStaked: true,
+        registered: false
     };
     const pingResponse = {
         relayWorkerAddress: '',
