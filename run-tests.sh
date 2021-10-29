@@ -27,7 +27,7 @@ run_batch()
 
 	docker stop "$cid"
 	# sometimes the container is still running so we need to remove it forcefully
-	docker rm --force enveloping-rskj 2>/dev/null
+	docker rm --force enveloping-rskj 2>/dev/null || true
 }
 
 setup_containers()
@@ -61,6 +61,7 @@ setup_containers()
 
 cleanup()
 {
+	echo "exit $? due to $previous_command"
 	docker stop enveloping-rskj 2>/dev/null || true
 	[ -n "$TEST_RUNNER_CID" ] && docker stop "$TEST_RUNNER_CID" || true
 	[ -n "$TEST_NETWORK" ] && docker network rm "$TEST_NETWORK" || true
@@ -70,10 +71,12 @@ TEST_NETWORK=
 TEST_RUNNER_CID=
 
 trap 'cleanup' EXIT INT QUIT TERM
+trap 'previous_command=$this_command; this_command=$BASH_COMMAND' DEBUG
 
 setup_containers
 
-set -e
+# set -e
+set -ex
 
 # Test_Group_1
 run_batch \
