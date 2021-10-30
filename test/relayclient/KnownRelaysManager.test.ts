@@ -329,11 +329,10 @@ contract('KnownRelaysManager 2', function (accounts) {
             const activeRelays = knownRelaysManager.allRelayers;
             assert.equal(preferredRelays.length, 1);
             assert.equal(preferredRelays[0].url, RIF_RELAY_URL);
-            assert.equal(activeRelays.length, 4);
+            assert.equal(activeRelays.length, 3);
             assert.equal(activeRelays[0].url, RIF_RELAY_URL);
             assert.equal(activeRelays[1].url, 'stakeAndAuthorization1');
             assert.equal(activeRelays[2].url, 'stakeAndAuthorization2');
-            assert.equal(activeRelays[3].url, 'stakeUnlocked');
         });
 
         it("should use 'relayFilter' to remove unsuitable relays", async function () {
