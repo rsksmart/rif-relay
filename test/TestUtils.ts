@@ -5,7 +5,7 @@ import path from 'path'
 
 import { ether } from '@openzeppelin/test-helpers'
 
-import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance } from '../types/truffle-contracts'
+import { RelayHubInstance, SmartWalletFactoryInstance, CustomSmartWalletFactoryInstance, IForwarderInstance, SmartWalletInstance, CustomSmartWalletInstance, TestRecipientInstance, PenalizerInstance, PenalizerContract } from '../types/truffle-contracts'
 import HttpWrapper from '../src/relayclient/HttpWrapper'
 import HttpClient from '../src/relayclient/HttpClient'
 import { configure } from '../src/relayclient/Configurator'
@@ -27,10 +27,12 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 import ethWallet from 'ethereumjs-wallet'
 import { Address } from '../src/relayclient/types/Aliases'
 import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import { HttpProvider } from 'web3-core'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
 const RelayHub = artifacts.require('RelayHub')
+const Penalizer = artifacts.require('Penalizer')
 
 const localhostOne = 'http://localhost:8090'
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`
@@ -278,18 +280,26 @@ export async function getTestingEnvironment (): Promise<Environment> {
 }
 
 export async function deployHub (
-  penalizer: string = constants.ZERO_ADDRESS,
   configOverride: Partial<RelayHubConfiguration> = {}): Promise<RelayHubInstance> {
   const relayHubConfiguration: RelayHubConfiguration = {
     ...defaultEnvironment.relayHubConfiguration,
     ...configOverride
   }
   return await RelayHub.new(
-    penalizer,
     relayHubConfiguration.maxWorkerCount,
     relayHubConfiguration.minimumEntryDepositValue,
     relayHubConfiguration.minimumUnstakeDelay,
     relayHubConfiguration.minimumStake)
+}
+
+export async function deployHubAndPenalizer (configOverride: Partial<RelayHubConfiguration> = {}, penalizerContract: PenalizerContract = Penalizer): Promise<{relayHub: RelayHubInstance, penalizer: PenalizerInstance}> {
+  const relayHubInstance = await deployHub(configOverride)
+  const penalizer = await penalizerContract.new(relayHubInstance.address)
+  await relayHubInstance.setPenalizer(penalizer.address, { from: await relayHubInstance.owner() })
+  return {
+    relayHub: relayHubInstance,
+    penalizer: penalizer
+  }
 }
 
 export async function createSmartWalletFactory (template: IForwarderInstance): Promise<SmartWalletFactoryInstance> {
@@ -313,6 +323,7 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
+      enableQos: false,
       recoverer: recoverer,
       index: '0'
     },
@@ -366,6 +377,7 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
+      enableQos: false,
       recoverer: recoverer,
       index: '0'
     },
@@ -464,7 +476,8 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
       gas: '200000',
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
-      tokenGas: tokenGas
+      tokenGas: tokenGas,
+      enableQos: false
     },
     relayData: {
       gasPrice: '1',
@@ -525,3 +538,10 @@ export function hasCode (code: string): boolean {
  * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
  */
 export const INCORRECT_ECDSA_SIGNATURE = '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c'
+
+export const getHostnameFromProvider = (): string => {
+  const underlyingProvider = web3.currentProvider as HttpProvider
+  const providerUrl = new URL(underlyingProvider.host)
+  const hostname = providerUrl.hostname
+  return hostname
+}

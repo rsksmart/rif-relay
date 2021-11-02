@@ -300,6 +300,7 @@ export class RelayClient {
         nonce: senderNonce,
         tokenAmount: tokenAmount,
         tokenGas: tokenGas,
+        enableQos: transactionDetails.enableQos ?? false,
         tokenContract: transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: transactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         index: transactionDetails.index ?? '0'
@@ -543,6 +544,7 @@ export class RelayClient {
         nonce: senderNonce,
         tokenAmount: transactionDetails.tokenAmount ?? '0x00',
         tokenGas: transactionDetails.tokenGas ?? '0x00',
+        enableQos: transactionDetails.enableQos ?? false,
         tokenContract: transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: transactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         index: transactionDetails.index ?? '0'
@@ -614,6 +616,7 @@ export class RelayClient {
         gas: gasLimit,
         tokenAmount: transactionDetails.tokenAmount ?? '0x00',
         tokenGas: transactionDetails.tokenGas ?? '0x00',
+        enableQos: transactionDetails.enableQos ?? false,
         tokenContract: transactionDetails.tokenContract ?? constants.ZERO_ADDRESS
       },
       relayData: {

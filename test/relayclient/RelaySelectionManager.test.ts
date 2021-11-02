@@ -10,7 +10,6 @@ import { PartialRelayInfo } from '../../src/relayclient/types/RelayInfo'
 import { register, stake } from './KnownRelaysManager.test'
 import PingResponse from '../../src/common/PingResponse'
 import { deployHub, getTestingEnvironment } from '../TestUtils'
-import { constants } from '../../src/common/Constants'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
 const { expect, assert } = require('chai').use(chaiAsPromised)
@@ -102,7 +101,7 @@ contract('RelaySelectionManager', async function (accounts) {
 
       before(async function () {
         chainId = (await getTestingEnvironment()).chainId
-        relayHub = await deployHub(constants.ZERO_ADDRESS)
+        relayHub = await deployHub()
         await stake(relayHub, relayManager, accounts[0])
         await register(relayHub, relayManager, accounts[2], preferredRelayUrl)
 

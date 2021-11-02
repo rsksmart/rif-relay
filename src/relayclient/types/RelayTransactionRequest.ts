@@ -32,6 +32,7 @@ export const DeployTransactionRequestShape = {
       tokenContract: ow.string,
       tokenAmount: ow.string,
       tokenGas: ow.string,
+      enableQos: ow.boolean,
       recoverer: ow.string,
       index: ow.string
     },
@@ -63,7 +64,8 @@ export const RelayTransactionRequestShape = {
       data: ow.string,
       tokenContract: ow.string,
       tokenAmount: ow.string,
-      tokenGas: ow.string
+      tokenGas: ow.string,
+      enableQos: ow.boolean
     },
     relayData: {
       gasPrice: ow.string,

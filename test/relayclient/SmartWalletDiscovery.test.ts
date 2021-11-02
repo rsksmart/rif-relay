@@ -12,6 +12,7 @@ import { toChecksumAddress } from 'web3-utils'
 import { constants } from '../../src/common/Constants'
 import { Address } from '../../src/relayclient/types/Aliases'
 import { WebsocketProvider } from 'web3-core'
+import { getHostnameFromProvider } from '../TestUtils'
 
 const CustomSmartWallet = artifacts.require('CustomSmartWallet')
 const SmartWallet = artifacts.require('SmartWallet')
@@ -1135,7 +1136,7 @@ contract('SmartWalletDiscovery', function (accounts) {
   }
 
   async function init (isCustom: boolean): Promise<void> {
-    socketProvider = new Web3.providers.WebsocketProvider('ws://127.0.0.1:4445/websocket')
+    socketProvider = new Web3.providers.WebsocketProvider(`ws://${getHostnameFromProvider()}:4445/websocket`)
 
     CustomSmartWalletFactory.setProvider(socketProvider, undefined)
     SmartWalletFactory.setProvider(socketProvider, undefined)

@@ -355,6 +355,7 @@ gasOptions.forEach(gasOption => {
             tokenContract: token.address,
             tokenAmount: '1',
             tokenGas: tokenPaymentEstimate.toString(),
+            enableQos: false,
             recoverer: constants.ZERO_ADDRESS,
             index: '0'
           },
@@ -858,7 +859,9 @@ gasOptions.forEach(gasOption => {
           to,
           data,
           relayHub.address,
-          relayWorkerAddress
+          relayWorkerAddress,
+          false,
+          INCORRECT_ECDSA_SIGNATURE
         )
         badCommitmentReceipt = {
           commitment: commitment,

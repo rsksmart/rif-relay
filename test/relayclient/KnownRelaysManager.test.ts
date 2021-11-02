@@ -15,7 +15,6 @@ import sinon from 'sinon'
 import { ChildProcessWithoutNullStreams } from 'child_process'
 import { RelayRegisteredEventInfo } from '../../src/relayclient/types/RelayRegisteredEventInfo'
 import { Environment } from '../../src/common/Environments'
-import { constants } from '../../src/common/Constants'
 import { AccountKeypair } from '../../src/relayclient/AccountManager'
 import EnvelopingTransactionDetails from '../../src/relayclient/types/EnvelopingTransactionDetails'
 
@@ -69,7 +68,7 @@ contract('KnownRelaysManager', function (
       workerRelayWorkersAdded = await web3.eth.personal.newAccount('password')
       workerRelayServerRegistered = await web3.eth.personal.newAccount('password')
       workerNotActive = await web3.eth.personal.newAccount('password')
-      relayHub = await deployHub(constants.ZERO_ADDRESS)
+      relayHub = await deployHub()
       config = configure({
         relayHubAddress: relayHub.address,
         relayLookupWindowBlocks,
@@ -188,7 +187,7 @@ contract('KnownRelaysManager 2', function (accounts) {
 
     before(async function () {
       env = await getTestingEnvironment()
-      relayHub = await deployHub(constants.ZERO_ADDRESS)
+      relayHub = await deployHub()
       config = configure({
         preferredRelays: ['http://localhost:8090'],
         relayHubAddress: relayHub.address,

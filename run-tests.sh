@@ -3,6 +3,7 @@ run_batch()
 {
 	cid=$(docker run --init --network "$TEST_NETWORK" \
 	    --expose 4444 -p 127.0.0.1:4444:4444 \
+		--expose 4445 -p 127.0.0.1:4445:4445 \
 	    --rm -itd --name enveloping-rskj rsknode --regtest)
 
 	_i=0
@@ -25,6 +26,8 @@ run_batch()
 	done
 
 	docker stop "$cid"
+	# sometimes the container is still running so we need to remove it forcefully
+	docker rm --force enveloping-rskj 2>/dev/null || true
 }
 
 setup_containers()
@@ -75,6 +78,7 @@ set -e
 # Test_Group_1
 run_batch \
     test/RelayHubPenalizations.test.ts \
+    test/penalizer/Penalizer.test.ts \
     test/RelayHubRegistrationsManagement.test.ts \
     test/TxStoreManager.test.ts \
     test/common/VersionManager.test.ts \
@@ -103,7 +107,6 @@ run_batch \
     test/TestEnvironment.test.ts \
     test/HttpWrapper.test.ts \
     test/KeyManager.test.ts \
-    test/PaymasterCommitment.test.ts \
     test/WalletFactory.test.ts
 
 # Test_Group_4
@@ -119,3 +122,6 @@ run_batch test/RelayHub.test.ts
 run_batch test/VersionRegistry.test.ts
 run_batch test/relayclient/RelayProvider.test.ts
 run_batch test/relayclient/RelaySelectionManager.test.ts
+
+# Test_Group_6
+run_batch test/enveloping/EnvelopingArbiter.test.ts

@@ -7,6 +7,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/math/SafeMath.sol";
 
 import "./utils/Eip712Library.sol";
@@ -14,7 +15,7 @@ import "./interfaces/EnvelopingTypes.sol";
 import "./interfaces/IRelayHub.sol";
 import "./interfaces/IForwarder.sol";
 
-contract RelayHub is IRelayHub {
+contract RelayHub is IRelayHub, Ownable {
     using SafeMath for uint256;
 
     uint256 public override minimumStake;
@@ -24,6 +25,8 @@ contract RelayHub is IRelayHub {
     address public override penalizer;
 
     string public override versionHub = "2.0.1+enveloping.hub.irelayhub";
+    // bytes4(keccak256("fulfill(bytes32)"))
+    bytes4 private constant FULFILL_SELECTOR = 0x5508ff94;
 
     // maps relay worker's address to its manager's address
     mapping(address => bytes32) public override workerToManager;
@@ -34,8 +37,10 @@ contract RelayHub is IRelayHub {
     // maps relay managers to their stakes
     mapping(address => StakeInfo) public stakes;
 
+    // restricts the setting of the penalizer to only once
+    bool private penalizerSet = false;
+
     constructor(
-        address _penalizer,
         uint256 _maxWorkerCount,
         uint256 _minimumEntryDepositValue,
         uint256 _minimumUnstakeDelay,
@@ -47,12 +52,16 @@ contract RelayHub is IRelayHub {
             _minimumEntryDepositValue > 0 && 
             _minimumUnstakeDelay > 0, "invalid hub init params"   
         );
-
-        penalizer = _penalizer;
         maxWorkerCount = _maxWorkerCount;
         minimumUnstakeDelay = _minimumUnstakeDelay;
         minimumStake = _minimumStake;
         minimumEntryDepositValue = _minimumEntryDepositValue;
+    }
+
+    function setPenalizer(address _penalizer) public override onlyOwner{
+        require(!penalizerSet, "penalizer already set");
+        penalizer = _penalizer;
+        penalizerSet = true;
     }
 
     function registerRelayServer(
@@ -144,6 +153,9 @@ contract RelayHub is IRelayHub {
         EnvelopingTypes.DeployRequest calldata deployRequest,
         bytes calldata signature
     ) external override {
+        /* statement originally present in the GSN repo; 
+         * we left it here because of a small gas improvement noticed on tests execution.
+         */
         (signature);
 
         bytes32 managerEntry = workerToManager[msg.sender];
@@ -183,14 +195,23 @@ contract RelayHub is IRelayHub {
                 )
             }
         }
+
+        if (deployRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
+            bytes32 signatureHash = keccak256(signature);
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
+            require(success, "Penalizer fulfill call failed");
+        }
     }
 
     function relayCall(
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     ) external override returns (bool destinationCallSuccess){
+        /* statement originally present in the GSN repo; 
+         * we left it here because of a small gas improvement noticed on tests execution.
+         */
         (signature);
-
         require(msg.sender == tx.origin, "RelayWorker cannot be a contract");
         require(
             msg.sender == relayRequest.relayData.relayWorker,
@@ -243,6 +264,13 @@ contract RelayHub is IRelayHub {
                 keccak256(signature),
                 relayedCallReturnValue
             );
+        }
+
+        if (relayRequest.request.enableQos == true){
+            require(penalizerSet, "cannot fulfill without penalizer");
+            bytes32 signatureHash = keccak256(signature);
+            (bool success, ) = penalizer.call(abi.encodeWithSelector(FULFILL_SELECTOR, signatureHash));
+            require(success, "Penalizer fulfill call failed");
         }
     }
 
