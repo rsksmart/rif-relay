@@ -27,6 +27,7 @@ import { AccountKeypair } from '../src/relayclient/AccountManager'
 import ethWallet from 'ethereumjs-wallet'
 import { Address } from '../src/relayclient/types/Aliases'
 import { DeployRequest, RelayRequest } from '../src/common/EIP712/RelayRequest'
+import { HttpProvider } from 'web3-core'
 
 require('source-map-support').install({ errorFormatterForce: true })
 
@@ -537,3 +538,10 @@ export function hasCode (code: string): boolean {
  * Not all "signatures" are valid, so using a hard-coded one for predictable error message.
  */
 export const INCORRECT_ECDSA_SIGNATURE = '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c'
+
+export const getHostnameFromProvider = (): string => {
+  const underlyingProvider = web3.currentProvider as HttpProvider
+  const providerUrl = new URL(underlyingProvider.host)
+  const hostname = providerUrl.hostname
+  return hostname
+}

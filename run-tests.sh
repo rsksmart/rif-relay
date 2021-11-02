@@ -3,6 +3,7 @@ run_batch()
 {
 	cid=$(docker run --init --network "$TEST_NETWORK" \
 	    --expose 4444 -p 127.0.0.1:4444:4444 \
+		--expose 4445 -p 127.0.0.1:4445:4445 \
 	    --rm -itd --name enveloping-rskj rsknode --regtest)
 
 	_i=0
@@ -25,6 +26,8 @@ run_batch()
 	done
 
 	docker stop "$cid"
+	# sometimes the container is still running so we need to remove it forcefully
+	docker rm --force enveloping-rskj 2>/dev/null || true
 }
 
 setup_containers()
