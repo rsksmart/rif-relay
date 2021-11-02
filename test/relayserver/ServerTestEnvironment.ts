@@ -9,7 +9,8 @@ import * as fs from 'fs';
 import {
     IDeployVerifier,
     IRelayHub,
-    IRelayVerifier
+    IRelayVerifier,
+    RelayManagerData
 } from '@rsksmart/rif-relay-contracts';
 import {
     IForwarderInstance,
@@ -48,7 +49,6 @@ import {
     RelayHubConfiguration,
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
-import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { ether } from '@openzeppelin/test-helpers';
 import { RIF_RELAY_URL } from '../Utils';
 const TestRecipient = artifacts.require('TestRecipient');
