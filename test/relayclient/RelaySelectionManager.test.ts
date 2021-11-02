@@ -14,9 +14,9 @@ import { register, stake } from './KnownRelaysManager.test';
 import {
     constants,
     EnvelopingTransactionDetails,
-    PingResponse,
-    RelayManagerData
+    PingResponse
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { deployHub, getTestingEnvironment } from '../TestUtils';
 
 import * as chai from 'chai';

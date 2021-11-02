@@ -32,9 +32,9 @@ import {
     ContractInteractor,
     EnvelopingConfig,
     EnvelopingTransactionDetails,
-    Environment,
-    RelayManagerData
+    Environment
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { RIF_RELAY_URL } from '../Utils';
 
 const TestVerifierConfigurableMisbehavior = artifacts.require(

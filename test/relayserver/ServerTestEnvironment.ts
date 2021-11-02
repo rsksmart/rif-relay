@@ -45,10 +45,10 @@ import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
     PingResponse,
-    RelayManagerData,
     RelayHubConfiguration,
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
+import { RelayManagerData } from '@rsksmart/rif-relay-contracts';
 import { ether } from '@openzeppelin/test-helpers';
 import { RIF_RELAY_URL } from '../Utils';
 const TestRecipient = artifacts.require('TestRecipient');
