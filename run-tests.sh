@@ -61,7 +61,6 @@ setup_containers()
 
 cleanup()
 {
-	echo "exit $? due to $previous_command"
 	docker stop enveloping-rskj 2>/dev/null || true
 	[ -n "$TEST_RUNNER_CID" ] && docker stop "$TEST_RUNNER_CID" || true
 	[ -n "$TEST_NETWORK" ] && docker network rm "$TEST_NETWORK" || true
@@ -71,12 +70,10 @@ TEST_NETWORK=
 TEST_RUNNER_CID=
 
 trap 'cleanup' EXIT INT QUIT TERM
-trap 'previous_command=$this_command; this_command=$BASH_COMMAND' DEBUG
 
 setup_containers
 
-# set -e
-set -ex
+set -e
 
 # Test_Group_1
 run_batch \
