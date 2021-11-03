@@ -9,7 +9,8 @@ import * as fs from 'fs';
 import {
     IDeployVerifier,
     IRelayHub,
-    IRelayVerifier
+    IRelayVerifier,
+    RelayManagerData
 } from '@rsksmart/rif-relay-contracts';
 import {
     IForwarderInstance,
@@ -45,7 +46,6 @@ import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
     PingResponse,
-    RelayData,
     RelayHubConfiguration,
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
@@ -275,16 +275,15 @@ export class ServerTestEnvironment {
             relayHubAddress: this.relayHub.address,
             relayWorkerAddress: this.relayServer.workerAddress
         };
-        const relayData: RelayData = {
+        const managerData: RelayManagerData = {
             manager: '',
-            penalized: false,
             url: '',
-            stakeAdded: false,
+            currentlyStaked: true,
             registered: false
         };
         const relayInfo: RelayInfo = {
             pingResponse: pingResponse as PingResponse,
-            relayData: relayData
+            relayInfo: managerData
         };
 
         let transactionDetails: EnvelopingTransactionDetails = {

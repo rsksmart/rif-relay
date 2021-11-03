@@ -1214,12 +1214,11 @@ gasOptions.forEach((gasOption) => {
                     version: ''
                 };
                 relayInfo = {
-                    relayData: {
+                    relayInfo: {
                         manager: relayManager,
                         url: relayUrl,
-                        penalized: false,
-                        registered: false,
-                        stakeAdded: false
+                        currentlyStaked: true,
+                        registered: false
                     },
                     pingResponse
                 };
