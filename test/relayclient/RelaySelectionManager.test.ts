@@ -49,7 +49,7 @@ contract('RelaySelectionManager', async function (accounts) {
     const relayInfo = {
         manager: '',
         url: '',
-        currentlyStaked: true,
+        currentlyStaked: false,
         registered: false
     };
     const pingResponse = {
