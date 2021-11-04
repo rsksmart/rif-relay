@@ -278,7 +278,7 @@ export class ServerTestEnvironment {
         const managerData: RelayManagerData = {
             manager: '',
             url: '',
-            currentlyStaked: true,
+            currentlyStaked: false,
             registered: false
         };
         const relayInfo: RelayInfo = {
