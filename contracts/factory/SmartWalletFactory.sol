@@ -107,15 +107,16 @@ contract SmartWalletFactory is ISmartWalletFactory {
         uint256 index,
         bytes calldata sig
     ) external override {
-        bytes memory packed = abi.encodePacked(
-            "\x19\x10",
+        bytes32 _hash = keccak256(abi.encodePacked(
+            address(this),
             owner,
             recoverer,
             index
-        );
-
-        require(RSKAddrValidator.safeEquals(keccak256(packed).recover(sig),owner), "Invalid signature");
-
+        ));
+        (sig);
+        bytes32 message = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", _hash));
+        require(RSKAddrValidator.safeEquals(message.recover(sig),owner), "Invalid signature");
+        
         //a6b63eb8  =>  initialize(address owner,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas)  
         bytes memory initData = abi.encodeWithSelector(
             hex"a6b63eb8",
