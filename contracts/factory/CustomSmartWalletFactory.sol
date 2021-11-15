@@ -112,6 +112,7 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
         bytes calldata sig
     ) external override {
         bytes32 _hash = keccak256(abi.encodePacked(
+            address(this),
             owner,
             recoverer,
             logic,
