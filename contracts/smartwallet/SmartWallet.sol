@@ -10,6 +10,9 @@ import "../utils/RSKAddrValidator.sol";
 /* solhint-disable avoid-low-level-calls */
 
 contract SmartWallet is IForwarder {
+    
+     //slot for owner = bytes32(uint256(keccak256('eip1967.proxy.owner')) - 1) = a7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+    bytes32 private constant _OWNER_SLOT = 0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a;
     using ECDSA for bytes32;
 
     uint256 public override nonce;
@@ -28,7 +31,7 @@ contract SmartWallet is IForwarder {
     function getOwner() private view returns (bytes32 owner){
         assembly {
             owner := sload(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a
+                _OWNER_SLOT
             )
         }
     }
@@ -114,7 +117,7 @@ contract SmartWallet is IForwarder {
             /* solhint-disable avoid-tx-origin */
             (success, ret) = req.tokenContract.call{gas: req.tokenGas}(
                 abi.encodeWithSelector(
-                    hex"a9059cbb", 
+                    hex"a9059cbb", //transfer(address,uint256) 
                     tx.origin,
                     req.tokenAmount
                 )
@@ -251,7 +254,7 @@ contract SmartWallet is IForwarder {
 
         assembly {
             sstore(
-                0xa7b53796fd2d99cb1f5ae019b54f9e024446c3d12b483f733ccc62ed04eb126a,
+                _OWNER_SLOT,
                 ownerCell
             )
         }
@@ -259,7 +262,7 @@ contract SmartWallet is IForwarder {
         //we need to initialize the contract
         if (tokenAmount > 0) {
             (bool success, bytes memory ret ) = tokenAddr.call{gas: tokenGas}(abi.encodeWithSelector(
-                hex"a9059cbb",
+                hex"a9059cbb", //transfer(address,uint256) 
                 tokenRecipient,
                 tokenAmount));
 
