@@ -135,9 +135,10 @@ contract('RegistrationManager', function (accounts) {
                 workerIndex
             );
             assert.equal(relayServer.lastScannedBlock, latestBlock.number + 1);
-            assert.deepEqual(
-                relayServer.registrationManager.stakeRequired.currentValue,
-                oneEther
+            assert.isTrue(
+                relayServer.registrationManager.stakeRequired.currentValue.eq(
+                    oneEther
+                )
             );
             assert.equal(
                 relayServer.registrationManager.ownerAddress,
@@ -211,9 +212,10 @@ contract('RegistrationManager', function (accounts) {
             await newServer.init();
             assert.equal(newServer.registrationManager.ownerAddress, undefined);
             await newServer.registrationManager.refreshStake();
-            assert.deepEqual(
-                newServer.registrationManager.stakeRequired.currentValue,
-                oneEther
+            assert.isTrue(
+                newServer.registrationManager.stakeRequired.currentValue.eq(
+                    oneEther
+                )
             );
             assert.equal(
                 newServer.registrationManager.ownerAddress,
@@ -239,9 +241,10 @@ contract('RegistrationManager', function (accounts) {
             const workerBalanceAfter = await newServer.getWorkerBalance(
                 workerIndex
             );
-            assert.deepEqual(
-                newServer.registrationManager.stakeRequired.currentValue,
-                oneEther
+            assert.isTrue(
+                newServer.registrationManager.stakeRequired.currentValue.eq(
+                    oneEther
+                )
             );
             assert.equal(
                 newServer.registrationManager.ownerAddress,
@@ -546,9 +549,10 @@ contract('RegistrationManager', function (accounts) {
                 newServer.registrationManager.balanceRequired.requiredValue =
                     toBN(0);
                 await newServer.registrationManager.refreshStake();
-                assert.deepEqual(
-                    newServer.registrationManager.stakeRequired.currentValue,
-                    oneEther
+                assert.isTrue(
+                    newServer.registrationManager.stakeRequired.currentValue.eq(
+                        oneEther
+                    )
                 );
                 assert.equal(
                     newServer.registrationManager.ownerAddress,

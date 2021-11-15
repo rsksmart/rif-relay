@@ -18,8 +18,8 @@ import {
     getDomainSeparatorHash,
     constants,
     RelayRequest,
-    RelayData,
-    ForwardRequest
+    ForwardRequest,
+    RelayData
 } from '@rsksmart/rif-relay-common';
 import { expectRevert } from '@openzeppelin/test-helpers';
 

@@ -10,36 +10,36 @@ import abiDecoder from 'abi-decoder';
 import { IWalletFactory } from '@rsksmart/rif-relay-contracts';
 import {
     RelayHubInstance,
-    TestVerifierConfigurableMisbehaviorInstance,
+    SmartWalletFactoryInstance,
+    SmartWalletInstance,
     TestDeployVerifierConfigurableMisbehaviorInstance,
     TestRecipientContract,
     TestRecipientInstance,
-    SmartWalletFactoryInstance,
-    SmartWalletInstance,
-    TestTokenInstance
+    TestTokenInstance,
+    TestVerifierConfigurableMisbehaviorInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
+    constants,
     EnvelopingConfig,
-    isRsk,
     EnvelopingTransactionDetails,
-    constants
+    isRsk
 } from '@rsksmart/rif-relay-common';
 import {
-    deployHub,
-    startRelay,
-    stopRelay,
-    getTestingEnvironment,
-    createSmartWalletFactory,
     createSmartWallet,
+    createSmartWalletFactory,
+    deployHub,
     getGaslessAccount,
+    getTestingEnvironment,
     prepareTransaction,
-    RelayServerData
+    RelayServerData,
+    startRelay,
+    stopRelay
 } from '../TestUtils';
 import BadRelayClient from '../dummies/BadRelayClient';
 import {
     AccountKeypair,
-    RelayProvider,
-    configure
+    configure,
+    RelayProvider
 } from '@rsksmart/rif-relay-client';
 
 import * as chai from 'chai';

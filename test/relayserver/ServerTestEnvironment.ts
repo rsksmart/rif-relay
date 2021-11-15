@@ -3,21 +3,22 @@ import abiDecoder from 'abi-decoder';
 import Web3 from 'web3';
 import crypto from 'crypto';
 import { HttpProvider } from 'web3-core';
-import { toHex, keccak256 } from 'web3-utils';
+import { keccak256, toHex } from 'web3-utils';
 import * as ethUtils from 'ethereumjs-util';
 import * as fs from 'fs';
 import {
-    IRelayVerifier,
     IDeployVerifier,
-    IRelayHub
+    IRelayHub,
+    IRelayVerifier,
+    RelayManagerData
 } from '@rsksmart/rif-relay-contracts';
 import {
     IForwarderInstance,
     IRelayHubInstance,
-    TestVerifierEverythingAcceptedInstance,
-    TestRecipientInstance,
     SmartWalletInstance,
-    TestDeployVerifierEverythingAcceptedInstance
+    TestDeployVerifierEverythingAcceptedInstance,
+    TestRecipientInstance,
+    TestVerifierEverythingAcceptedInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
     assertRelayAdded,
@@ -27,35 +28,31 @@ import {
 import {
     KeyManager,
     RelayServer,
-    TxStoreManager,
-    ServerConfigParams
+    ServerConfigParams,
+    TxStoreManager
 } from '@rsksmart/rif-relay-server';
 import { PrefixedHexString } from 'ethereumjs-tx';
+import { configure, RelayClient, RelayInfo } from '@rsksmart/rif-relay-client';
 import {
-    configure,
-    RelayClient,
-    RelayInfo,
-    RelayRegisteredEventInfo
-} from '@rsksmart/rif-relay-client';
-import {
-    deployHub,
-    getTestingEnvironment,
-    createSmartWalletFactory,
     createSmartWallet,
-    getGaslessAccount
+    createSmartWalletFactory,
+    deployHub,
+    getGaslessAccount,
+    getTestingEnvironment
 } from '../TestUtils';
 import {
-    RelayHubConfiguration,
-    RelayTransactionRequest,
-    EnvelopingConfig,
     constants,
     ContractInteractor,
+    EnvelopingConfig,
     EnvelopingTransactionDetails,
-    PingResponse
+    PingResponse,
+    RelayHubConfiguration,
+    RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
 import { ether } from '@openzeppelin/test-helpers';
 import { RIF_RELAY_URL } from '../Utils';
 const TestRecipient = artifacts.require('TestRecipient');
+
 const TestVerifierEverythingAccepted = artifacts.require(
     'TestVerifierEverythingAccepted'
 );
@@ -278,13 +275,15 @@ export class ServerTestEnvironment {
             relayHubAddress: this.relayHub.address,
             relayWorkerAddress: this.relayServer.workerAddress
         };
-        const eventInfo: RelayRegisteredEventInfo = {
-            relayManager: '',
-            relayUrl: ''
+        const managerData: RelayManagerData = {
+            manager: '',
+            url: '',
+            currentlyStaked: false,
+            registered: false
         };
         const relayInfo: RelayInfo = {
             pingResponse: pingResponse as PingResponse,
-            relayInfo: eventInfo
+            relayInfo: managerData
         };
 
         let transactionDetails: EnvelopingTransactionDetails = {
@@ -384,11 +383,11 @@ export class ServerTestEnvironment {
         );
         assert.equal(event2.name, 'TransactionRelayed');
         /**
-     * event TransactionRelayed(
-        address indexed relayManager,
-        address relayWorker,
-        bytes32 relayRequestSigHash);
-    */
+         * event TransactionRelayed(
+         address indexed relayManager,
+         address relayWorker,
+         bytes32 relayRequestSigHash);
+         */
         assert.equal(
             event2.args.relayWorker.toLowerCase(),
             this.relayServer.workerAddress.toLowerCase()
