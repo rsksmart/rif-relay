@@ -168,14 +168,25 @@ contract('CustomSmartWalletFactory', ([from]) => {
             const recoverer = constants.ZERO_ADDRESS;
             const index = '0';
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'address', v: logicAddress },
                     { t: 'uint256', v: index },
                     { t: 'bytes', v: initParams } // Init params is empty
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -234,14 +245,25 @@ contract('CustomSmartWalletFactory', ([from]) => {
                 index
             );
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'address', v: logicAddress },
                     { t: 'uint256', v: index },
                     { t: 'bytes', v: initParams }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -278,14 +300,25 @@ contract('CustomSmartWalletFactory', ([from]) => {
             const recoverer = constants.ZERO_ADDRESS;
             const index = '0';
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'address', v: logicAddress },
                     { t: 'uint256', v: index },
                     { t: 'bytes', v: initParams }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -325,14 +358,25 @@ contract('CustomSmartWalletFactory', ([from]) => {
                 index
             );
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'address', v: logicAddress },
                     { t: 'uint256', v: index },
                     { t: 'bytes', v: initParams }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -1048,12 +1092,23 @@ contract('SmartWalletFactory', ([from]) => {
                 index
             );
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'uint256', v: index }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -1086,12 +1141,23 @@ contract('SmartWalletFactory', ([from]) => {
             const recoverer = constants.ZERO_ADDRESS;
             const index = '0';
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'uint256', v: index }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
@@ -1125,12 +1191,23 @@ contract('SmartWalletFactory', ([from]) => {
                 index
             );
 
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'uint256', v: index }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
