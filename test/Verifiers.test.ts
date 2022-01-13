@@ -23,6 +23,7 @@ import {
     createSmartWallet,
     bytes32
 } from './TestUtils';
+import { PERSONAL_SIGN_PREFIX } from './Utils';
 
 const DeployVerifier = artifacts.require('DeployVerifier');
 const RelayVerifier = artifacts.require('RelayVerifier');
@@ -137,12 +138,23 @@ contract(
             await deployVerifier.acceptToken(token.address, {
                 from: verifierOwner
             });
-            const toSign: string =
+            const message: string =
                 web3.utils.soliditySha3(
-                    { t: 'bytes2', v: '0x1910' },
+                    { t: 'address', v: factory.address },
                     { t: 'address', v: ownerAddress },
                     { t: 'address', v: recoverer },
                     { t: 'uint256', v: index }
+                ) ?? '';
+
+            const toSign: string =
+                web3.utils.soliditySha3(
+                    {
+                        t: 'string',
+                        v:
+                            PERSONAL_SIGN_PREFIX +
+                            web3.utils.hexToBytes(message).length
+                    },
+                    { t: 'bytes32', v: message }
                 ) ?? '';
 
             const toSignAsBinaryArray = ethers.utils.arrayify(toSign);
