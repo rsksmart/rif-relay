@@ -5,7 +5,7 @@ parameters:
         default: 'rsksmart/rskj.git'
     version:
         type: string
-        default: '3.2.0-SNAPSHOT'
+        default: '3.3.0-SNAPSHOT'
     branch:
         type: string
         default: 'master'
@@ -67,7 +67,7 @@ jobs: # a collection of steps
     CodeStyle Checks: # Lint and other pre-checks thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
 
         steps: # a collection of executable commands
             - prepare_container
@@ -75,7 +75,7 @@ jobs: # a collection of steps
     Test Thread 1: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
         steps: # a collection of executable commands
             - prepare
             - run:
@@ -90,7 +90,7 @@ jobs: # a collection of steps
     Test Thread 2: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
         steps: # a collection of executable commands
             - prepare
             - run:
@@ -105,7 +105,7 @@ jobs: # a collection of steps
     Test Thread 3: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
         steps: # a collection of executable commands
             - prepare
             - run:
@@ -120,7 +120,7 @@ jobs: # a collection of steps
     Test Thread 4: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
         steps: # a collection of executable commands
             - prepare
             - run:
@@ -135,7 +135,7 @@ jobs: # a collection of steps
     Test Thread 5: # Test thread
         working_directory: ~/gls # directory where steps will run
         docker: # run the steps with Docker
-            - image: cimg/openjdk:8.0-node
+            - image: cimg/openjdk:8.0.292-node
         steps: # a collection of executable commands
             - prepare
             - run:
