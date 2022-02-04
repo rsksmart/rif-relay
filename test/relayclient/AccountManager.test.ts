@@ -138,6 +138,7 @@ contract('AccountManager', function () {
                 value: '0',
                 gas: '1',
                 tokenContract: constants.ZERO_ADDRESS,
+                collectorContract: constants.ZERO_ADDRESS,
                 tokenAmount: '0',
                 tokenGas: '0'
             },
