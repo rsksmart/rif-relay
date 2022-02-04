@@ -90,6 +90,7 @@ contract('Utils', function (accounts) {
                     value: '0',
                     gas: gasLimit,
                     tokenContract: constants.ZERO_ADDRESS,
+                    collectorContract: constants.ZERO_ADDRESS,
                     tokenAmount: '0',
                     tokenGas: '0'
                 },
