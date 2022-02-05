@@ -607,7 +607,7 @@ export async function prepareTransaction(
     tokenContract: string,
     tokenAmount: string,
     tokenGas = '50000',
-    collectorContract?: string,
+    collectorContract?: string
 ): Promise<{ relayRequest: RelayRequest; signature: string }> {
     const chainId = (await getTestingEnvironment()).chainId;
     const relayRequest: RelayRequest = {
