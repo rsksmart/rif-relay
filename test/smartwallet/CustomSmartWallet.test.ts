@@ -181,6 +181,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
                     nonce: initialNonce.toString(),
                     relayHub: worker,
                     tokenContract: token.address,
+                    collectorContract: constants.ZERO_ADDRESS,
                     from: senderAddress
                 },
                 relayData
@@ -264,6 +265,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
                     nonce: initialNonce.toString(),
                     relayHub: worker,
                     tokenContract: token.address,
+                    collectorContract: constants.ZERO_ADDRESS,
                     from: senderAddress
                 },
                 relayData
@@ -370,6 +372,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
                     nonce: initialNonce.toString(),
                     relayHub: caller.address,
                     tokenContract: token.address,
+                    collectorContract: constants.ZERO_ADDRESS,
                     from: senderAddress
                 },
                 relayData
@@ -463,6 +466,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
                     nonce: initialNonce.toString(),
                     relayHub: caller.address,
                     tokenContract: token.address,
+                    collectorContract: constants.ZERO_ADDRESS,
                     from: senderAddress
                 },
                 relayData
