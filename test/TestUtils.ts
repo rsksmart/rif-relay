@@ -606,7 +606,8 @@ export async function prepareTransaction(
     swallet: string,
     tokenContract: string,
     tokenAmount: string,
-    tokenGas = '50000'
+    tokenGas = '50000',
+    collectorContract?: string,
 ): Promise<{ relayRequest: RelayRequest; signature: string }> {
     const chainId = (await getTestingEnvironment()).chainId;
     const relayRequest: RelayRequest = {
@@ -621,6 +622,7 @@ export async function prepareTransaction(
             value: '0',
             gas: '200000',
             tokenContract: tokenContract,
+            collectorContract: collectorContract ?? constants.ZERO_ADDRESS,
             tokenAmount: tokenAmount,
             tokenGas: tokenGas
         },

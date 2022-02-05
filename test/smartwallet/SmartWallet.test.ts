@@ -180,6 +180,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         nonce: '0',
                         data: '0x',
                         tokenContract: constants.ZERO_ADDRESS,
+                        collectorContract: constants.ZERO_ADDRESS,
                         tokenAmount: '1',
                         tokenGas: '50000'
                     },
