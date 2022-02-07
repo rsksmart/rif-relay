@@ -140,6 +140,7 @@ contract(
                         value: '0',
                         gas: gasLimit,
                         tokenContract: token.address,
+                        collectorContract: constants.ZERO_ADDRESS,
                         tokenAmount: '1',
                         tokenGas: '50000'
                     },
@@ -519,6 +520,7 @@ contract(
                         value: '0',
                         gas: gasLimit,
                         tokenContract: token.address,
+                        collectorContract: constants.ZERO_ADDRESS,
                         tokenAmount: '1',
                         tokenGas: '50000'
                     },
@@ -841,6 +843,8 @@ contract(
                             );
                         completeReq.request.tokenAmount = balanceToTransfer;
                         completeReq.request.tokenContract = token.address;
+                        completeReq.request.collectorContract =
+                            constants.ZERO_ADDRESS;
 
                         let estimatedDestinationCallGas =
                             await web3.eth.estimateGas({
@@ -1238,6 +1242,8 @@ contract(
                             );
                         completeReq.request.tokenAmount = '0x00';
                         completeReq.request.tokenContract =
+                            constants.ZERO_ADDRESS;
+                        completeReq.request.collectorContract =
                             constants.ZERO_ADDRESS;
                         completeReq.request.tokenGas = '0x00';
 
@@ -1740,6 +1746,7 @@ contract(
                                     .encodeABI(),
                                 nonce: nonceBefore.toString(),
                                 tokenContract: tokenInstance.address,
+                                collectorContract: constants.ZERO_ADDRESS,
                                 tokenAmount: '0',
                                 tokenGas: '0'
                             },
