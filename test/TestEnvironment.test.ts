@@ -110,6 +110,7 @@ contract('TestEnvironment', function (accounts) {
                         tokenAmount: '0x00',
                         tokenGas: '0',
                         tokenContract: tToken.address,
+                        collectorContract: constants.ZERO_ADDRESS,
                         isSmartWalletDeploy: false,
                         clientId: '1',
                         relayHub:
