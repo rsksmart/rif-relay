@@ -6,7 +6,8 @@ import {
     cloneRelayRequest,
     Environment,
     TypedRequestData,
-    getDomainSeparatorHash
+    getDomainSeparatorHash,
+    constants
 } from '@rsksmart/rif-relay-common';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
@@ -106,7 +107,8 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     gas: gasLimit,
                     tokenContract: token.address,
                     tokenAmount: '1',
-                    tokenGas: '50000'
+                    tokenGas: '50000',
+                    collectorContract: constants.ZERO_ADDRESS
                 },
                 relayData: {
                     gasPrice,
