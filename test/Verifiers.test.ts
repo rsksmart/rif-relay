@@ -289,7 +289,8 @@ contract(
                     gas: gasLimit,
                     tokenContract: token.address,
                     tokenAmount: tokensPaid.toString(),
-                    tokenGas: '50000'
+                    tokenGas: '50000',
+                    collectorContract: constants.ZERO_ADDRESS
                 },
                 relayData: {
                     gasPrice,
@@ -310,7 +311,8 @@ contract(
                     gas: gasLimit,
                     tokenContract: relayHub, // relayHub is an address not authorized as token contract
                     tokenAmount: tokensPaid.toString(),
-                    tokenGas: '50000'
+                    tokenGas: '50000',
+                    collectorContract: constants.ZERO_ADDRESS
                 },
                 relayData: {
                     gasPrice,
