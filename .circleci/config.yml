@@ -31,12 +31,12 @@ commands:
                       ./gradlew clean build -x test
 
             - restore_cache: # special step to restore the dependency cache
-                  key: dependency-cachev6-{{ checksum "package.json" }}-npm
+                  key: dependency-cachev7-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
                   command: npm install
             - save_cache: # special step to save the dependency cache
-                  key: dependency-cachev6-{{ checksum "package.json" }}-npm
+                  key: dependency-cachev7-{{ checksum "package.json" }}-npm
                   paths:
                       - ./node_modules
             - run:
@@ -47,7 +47,7 @@ commands:
         steps:
             - checkout # special step to check out source code to working directory
             - restore_cache: # special step to restore the dependency cache
-                  key: dependency-cachev6-{{ checksum "package.json" }}-npm
+                  key: dependency-cachev7-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
                   command: npm install
