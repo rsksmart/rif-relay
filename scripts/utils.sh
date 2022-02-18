@@ -115,11 +115,11 @@ function run_test_suite_against_docker() {
   unset TESTS[0]
   TEST_TYPE=$1
   unset TESTS[1]
-  TEST_NAME=$1
+  TEST_NAME=$2
 
   if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
   then
-    run_batch_against_docker "${TESTS[@]}"
+    run_batch_against_docker "${TEST_NAME} ${TESTS[@]}"
   elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
   then
     for test_case in "${TESTS[@]}"
