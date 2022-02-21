@@ -77,7 +77,7 @@ function run_test_suite_on_ci() {
   TEST_FAIL=0
   if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
   then
-    run_batch_on_ci "${TESTS[@]}" || TEST_FAIL=1
+    run_batch_on_ci "${TEST_NAME} ${TESTS[@]}"|| TEST_FAIL=1
   elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
   then
     for test_case in "${TESTS[@]}"
