@@ -87,7 +87,7 @@
     "jsonrpc-lite": "^2.2.0",
     "lodash": "^4.17.20",
     "loglevel": "^1.7.0",
-    "minimist": "^1.2.5",
+    "minimist": "^1.2.6",
     "nedb-async": "^0.1.3",
     "ow": "^0.17.0",
     "patch-package": "^6.4.6",
