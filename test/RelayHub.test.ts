@@ -982,7 +982,7 @@ contract(
                         );
 
                         console.log(
-                            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`
+                            `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed}`
                         );
 
                         let logs = abiDecoder.decodeLogs(txReceipt.logs);
@@ -1158,7 +1158,7 @@ contract(
                         );
 
                         console.log(
-                            `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed}`
+                            `Cumulative Gas Used in second run: ${txReceipt.cumulativeGasUsed}`
                         );
 
                         logs = abiDecoder.decodeLogs(txReceipt.logs);
@@ -1541,13 +1541,12 @@ contract(
                         message = message.concat(message);
                         message = message.concat(message);
                         message = message.concat(message);
-                        message = message.concat(message);
                         const completeReq: RelayRequest = cloneRelayRequest(
                             sharedRelayRequestData
                         );
                         completeReq.request.data =
                             recipientContract.contract.methods
-                                .emitMessage3(message)
+                                .emitMessage(message)
                                 .encodeABI();
                         completeReq.request.nonce = nonceBefore.toString();
                         completeReq.relayData.callForwarder =
@@ -1579,11 +1578,13 @@ contract(
                                 data: completeReq.request.data
                             });
 
-                        const tokenPaymentEstimation = 0; /* await web3.eth.estimateGas({
-            from: completeReq.relayData.callForwarder,
-            to: token.address,
-            data: token.contract.methods.transfer(relayWorker, '1').encodeABI()
-          }) */
+                        // tokenAmount is set to 0
+                        const tokenPaymentEstimation = 0;
+                        /* const tokenPaymentEstimation = await web3.eth.estimateGas({
+                            from: completeReq.relayData.callForwarder,
+                            to: token.address,
+                            data: token.contract.methods.transfer(relayWorker, '1').encodeABI()
+                        }); */
 
                         // gas estimation fit
                         // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
@@ -1636,13 +1637,15 @@ contract(
                             tx
                         );
 
-                        // const overheadCost = txReceipt.cumulativeGasUsed - costForCalling - estimatedDestinationCallCost
-                        // console.log("data overhead: ", overheadCost)
+                        // const costForCalling = 0;
+                        // const overheadCost = txReceipt.cumulativeGasUsed - costForCalling - estimatedDestinationCallCost;
+                        // console.log('data overhead: ', overheadCost);
 
                         // console.log('---------------SmartWallet: RelayCall metrics------------------------')
                         console.log(
-                            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`
+                            `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed}`
                         );
+                        console.log(`Gas Used: ${txReceipt.gasUsed}`);
 
                         let previousGas: BigInt = BigInt(0);
                         let previousStep = null;
@@ -1715,18 +1718,67 @@ contract(
 
                         assert.isNotNull(transactionRelayedEvent);
 
-                        // const callWithoutRelay = await recipientContract.emitMessage(message)
-                        // const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
-                        // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
-                        // console.log('--------------- Destination Call Without enveloping------------------------')
-                        // console.log(`Cummulative Gas Used: ${gasUsed}`)
-                        // console.log('---------------------------------------')
-                        // console.log('--------------- Enveloping Overhead ------------------------')
-                        // console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
-                        // console.log('---------------------------------------')
+                        const callWithoutRelay =
+                            await recipientContract.emitMessage(message);
+                        const cumulativeGasUsedWithoutRelay: number =
+                            callWithoutRelay.receipt.cumulativeGasUsed;
+                        const gasOverhead =
+                            txReceipt.cumulativeGasUsed -
+                            cumulativeGasUsedWithoutRelay;
+                        console.log(
+                            '--------------- Destination Call Without enveloping------------------------'
+                        );
+                        console.log(
+                            `Gas Used: ${callWithoutRelay.receipt.gasUsed}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
+                        );
+                        console.log('---------------------------------------');
+                        console.log(
+                            '--------------- Destination Call with enveloping------------------------'
+                        );
+                        console.log(
+                            `Gas Used: ${txReceipt.gasUsed}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed}`
+                        );
+                        console.log('---------------------------------------');
+                        console.log(
+                            `--------------- Enveloping Overhead (message length: ${message.length}) ------------------------`
+                        );
+                        console.log(`Overhead Gas: ${gasOverhead}`);
+                        console.log('---------------------------------------');
+
+                        console.log('Round 2');
+
+                        completeReq.request.nonce = nonceAfter.toString();
+                        const reqToSign2 = new TypedRequestData(
+                            chainId,
+                            sWalletInstance.address,
+                            completeReq
+                        );
+
+                        const sig2 = getLocalEip712Signature(
+                            reqToSign2,
+                            gaslessAccount.privateKey
+                        );
+                        const { tx: tx2 } = await relayHubInstance.relayCall(
+                            completeReq,
+                            sig2,
+                            {
+                                from: relayWorker,
+                                gas,
+                                gasPrice
+                            }
+                        );
+                        const txReceipt2 = await web3.eth.getTransactionReceipt(
+                            tx2
+                        );
+                        console.log(
+                            '--------------- Destination Call with enveloping------------------------'
+                        );
+                        console.log(
+                            `Gas Used: ${txReceipt2.gasUsed}, CumulativeGasUsed: ${txReceipt2.cumulativeGasUsed}`
+                        );
                     });
 
-                    it('gas estimation tests', async function () {
+                    it.skip('gas estimation tests', async function () {
                         const nonceBefore = await forwarderInstance.nonce();
                         const TestToken = artifacts.require('TestToken');
                         const tokenInstance = await TestToken.new();
@@ -1855,6 +1907,223 @@ contract(
                         );
 
                         assert.isNotNull(transactionRelayedEvent);
+                    });
+
+                    it.skip('gas estimation tests for token transfer - with token payment', async function () {
+                        const SmartWallet = artifacts.require('SmartWallet');
+                        const smartWalletTemplate: SmartWalletInstance =
+                            await SmartWallet.new();
+                        const smartWalletFactory: SmartWalletFactoryInstance =
+                            await createSmartWalletFactory(smartWalletTemplate);
+                        const sWalletInstance = await createSmartWallet(
+                            _,
+                            gaslessAccount.address,
+                            smartWalletFactory,
+                            gaslessAccount.privateKey,
+                            chainId
+                        );
+
+                        const nonceBefore = await sWalletInstance.nonce();
+                        await token.mint('10000', sWalletInstance.address);
+
+                        const swalletInitialBalance = await token.balanceOf(
+                            sWalletInstance.address
+                        );
+                        const relayWorkerInitialBalance = await token.balanceOf(
+                            relayWorker
+                        );
+
+                        const fees = toHex(
+                            swalletInitialBalance.toNumber() - 5_000
+                        );
+                        // to simulate a sponsored transaction, comment-out the next line
+                        // const fees = '0x00';
+                        const isSponsored = fees === '0x00';
+
+                        const accounts = await web3.eth.getAccounts();
+                        const firstAccount = accounts[0];
+                        // necessary to execute the transfer tx without relay
+                        await token.mint('10000', firstAccount);
+                        const transferReceiver = accounts[1];
+                        const balanceToTransfer = toHex(1_000);
+
+                        // forge the request
+                        const completeReq: RelayRequest = cloneRelayRequest(
+                            sharedRelayRequestData
+                        );
+                        completeReq.request.data = token.contract.methods
+                            .transfer(transferReceiver, balanceToTransfer)
+                            .encodeABI();
+                        completeReq.request.to = token.address;
+                        completeReq.request.nonce = nonceBefore.toString();
+                        completeReq.relayData.callForwarder =
+                            sWalletInstance.address;
+                        completeReq.relayData.domainSeparator =
+                            getDomainSeparatorHash(
+                                sWalletInstance.address,
+                                chainId
+                            );
+                        completeReq.request.tokenAmount = fees;
+                        completeReq.request.tokenContract = isSponsored
+                            ? constants.ZERO_ADDRESS
+                            : token.address;
+
+                        const estimatedDestinationCallGas =
+                            await web3.eth.estimateGas({
+                                from: completeReq.relayData.callForwarder,
+                                to: completeReq.request.to,
+                                gasPrice: completeReq.relayData.gasPrice,
+                                data: completeReq.request.data
+                            });
+
+                        let internalDestinationCallCost =
+                            estimatedDestinationCallGas >
+                            constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
+                                ? estimatedDestinationCallGas -
+                                  constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
+                                : estimatedDestinationCallGas;
+                        internalDestinationCallCost =
+                            internalDestinationCallCost *
+                            constants.ESTIMATED_GAS_CORRECTION_FACTOR;
+                        completeReq.request.gas = toHex(
+                            internalDestinationCallCost
+                        );
+
+                        const estimatedTokenPaymentGas =
+                            await web3.eth.estimateGas({
+                                from: completeReq.relayData.callForwarder,
+                                to: token.address,
+                                data: token.contract.methods
+                                    .transfer(relayWorker, fees)
+                                    .encodeABI()
+                            });
+
+                        if (!isSponsored) {
+                            let internalTokenCallCost =
+                                estimatedTokenPaymentGas >
+                                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
+                                    ? estimatedTokenPaymentGas -
+                                      constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
+                                    : estimatedTokenPaymentGas;
+                            internalTokenCallCost =
+                                internalTokenCallCost *
+                                constants.ESTIMATED_GAS_CORRECTION_FACTOR;
+
+                            completeReq.request.tokenGas = toHex(
+                                internalTokenCallCost
+                            );
+                        }
+
+                        const reqToSign = new TypedRequestData(
+                            chainId,
+                            sWalletInstance.address,
+                            completeReq
+                        );
+
+                        const sig = getLocalEip712Signature(
+                            reqToSign,
+                            gaslessAccount.privateKey
+                        );
+
+                        const { tx } = await relayHubInstance.relayCall(
+                            completeReq,
+                            sig,
+                            {
+                                from: relayWorker,
+                                gas,
+                                gasPrice
+                            }
+                        );
+                        const txReceipt = await web3.eth.getTransactionReceipt(
+                            tx
+                        );
+
+                        const sWalletFinalBalance = await token.balanceOf(
+                            sWalletInstance.address
+                        );
+                        const relayWorkerFinalBalance = await token.balanceOf(
+                            relayWorker
+                        );
+
+                        assert.isTrue(
+                            swalletInitialBalance.eq(
+                                sWalletFinalBalance
+                                    .add(toBN(fees))
+                                    .add(toBN(balanceToTransfer))
+                            ),
+                            'SW Payment did not occur'
+                        );
+                        assert.isTrue(
+                            relayWorkerFinalBalance.eq(
+                                relayWorkerInitialBalance.add(toBN(fees))
+                            ),
+                            'Worker did not receive payment'
+                        );
+
+                        const nonceAfter = await sWalletInstance.nonce();
+                        assert.equal(
+                            nonceBefore.addn(1).toNumber(),
+                            nonceAfter.toNumber(),
+                            'Incorrect nonce after execution'
+                        );
+
+                        console.log(
+                            `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed}`
+                        );
+
+                        const logs = abiDecoder.decodeLogs(txReceipt.logs);
+
+                        const findLog = (logs: any, name: string) =>
+                            logs.find((e: any) => e != null && e.name === name);
+
+                        // necessary to reproduce a tx rejected by the recipient
+                        // const transactionRelayedButRevertedByRecipient = findLog(logs,'TransactionRelayedButRevertedByRecipient');
+                        // assert.isTrue(
+                        //     transactionRelayedButRevertedByRecipient !== undefined &&
+                        //     transactionRelayedButRevertedByRecipient !== null,
+                        //     'transactionRelayedButRevertedByRecipient not found'
+                        // );
+                        // console.log({transactionRelayedButRevertedByRecipient});
+                        // console.log('transactionRelayedButRevertedByRecipient', transactionRelayedButRevertedByRecipient.events);
+
+                        const transactionRelayedEvent = findLog(
+                            logs,
+                            'TransactionRelayed'
+                        );
+                        assert.isTrue(
+                            transactionRelayedEvent !== undefined &&
+                                transactionRelayedEvent !== null,
+                            'TransactionRelayedEvent not found'
+                        );
+
+                        const callWithoutRelay = await token.transfer(
+                            gaslessAccount.address,
+                            '1000'
+                        );
+                        const cumulativeGasUsedWithoutRelay: number =
+                            callWithoutRelay.receipt.cumulativeGasUsed;
+                        const gasOverhead =
+                            txReceipt.cumulativeGasUsed -
+                            cumulativeGasUsedWithoutRelay;
+                        console.log(
+                            '--------------- Destination Call Without enveloping------------------------'
+                        );
+                        console.log(
+                            `Gas Used: ${callWithoutRelay.receipt.gasUsed}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
+                        );
+                        console.log('---------------------------------------');
+                        console.log(
+                            '--------------- Destination Call with enveloping------------------------'
+                        );
+                        console.log(
+                            `Gas Used: ${txReceipt.gasUsed}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed}`
+                        );
+                        console.log('---------------------------------------');
+                        console.log(
+                            '--------------- Enveloping Overhead ------------------------'
+                        );
+                        console.log(`Overhead Gas: ${gasOverhead}`);
+                        console.log('---------------------------------------');
                     });
 
                     it('should fail to relay if the worker has been disabled', async function () {
