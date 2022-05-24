@@ -4,9 +4,9 @@ services:
         build:
             context: '.'
             args:
-                - rskj_codename=SNAPSHOT
+                - rskj_codename=IRIS
                 - rskj_version=3.3.0
-                - working_branch=master
+                - working_branch=IRIS-3.3.0
         container_name: rsk-node
         image: rskj:latest
         command: --regtest

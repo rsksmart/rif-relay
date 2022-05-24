@@ -8,9 +8,9 @@ RUN apt-get update -y && \
 RUN gpg --keyserver https://secchannel.rsk.co/release.asc --recv-keys 1A92D8942171AFA951A857365DECF4415E3B8FA4
 RUN gpg --finger 1A92D8942171AFA951A857365DECF4415E3B8FA4
 
-ARG rskj_codename=SNAPSHOT
+ARG rskj_codename=IRIS
 ARG rskj_version=3.3.0
-ARG working_branch=master
+ARG working_branch=IRIS-3.3.0
 
 RUN git clone --single-branch --depth 1 --branch "${working_branch}" https://github.com/rsksmart/rskj.git /code/rskj
 
@@ -23,7 +23,7 @@ RUN ./gradlew --no-daemon clean build -x test
 
 FROM openjdk:8-jdk-slim-buster
 
-ARG rskj_codename=SNAPSHOT
+ARG rskj_codename=IRIS
 ARG rskj_version=3.3.0
 
 WORKDIR /usr/local/rskj

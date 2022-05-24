@@ -557,7 +557,6 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
     describe('#verifyAndCallByOwner', () => {
         let recipient: TestForwarderTargetInstance;
         let recipientFunction: any;
-
         beforeEach(async () => {
             await fillTokens(token, smartWallet.address, '1000');
             recipient = await TestForwarderTarget.new();
@@ -592,6 +591,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
             const result = await smartWallet.directExecute(
                 recipient.address,
+                0,
                 recipientFunction,
                 { from: fundedAccount }
             );
@@ -643,6 +643,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             );
             await smartWallet.directExecute(
                 recipient.address,
+                0,
                 recipientFunction,
                 {
                     from: fundedAccount
@@ -650,6 +651,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             );
             const result = await smartWallet.directExecute.call(
                 recipient.address,
+                0,
                 recipientFunction,
                 { from: fundedAccount }
             );
@@ -682,6 +684,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
             const result = await smartWallet.directExecute(
                 recipient.address,
+                0,
                 recipientFunction,
                 { from: fundedAccount }
             );

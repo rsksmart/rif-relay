@@ -12,6 +12,9 @@ if (fs.existsSync(secretMnemonicFile)) {
 }
 
 module.exports = {
+    contracts_directory: 'node_modules/@rsksmart/rif-relay-contracts/contracts',
+    migrations_directory:
+        'node_modules/@rsksmart/rif-relay-contracts/migrations',
     networks: {
         development: {
             verbose: process.env.VERBOSE,
@@ -56,6 +59,7 @@ module.exports = {
         slow: 1000,
         reporter: 'eth-gas-reporter',
         reporterOptions: {
+            src: 'node_modules/@rsksmart/rif-relay-contracts/contracts',
             currency: 'USD',
             onlyCalledMethods: true,
             showTimeSpent: true,
