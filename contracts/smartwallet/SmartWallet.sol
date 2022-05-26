@@ -67,7 +67,7 @@ contract SmartWallet is IForwarder {
     }
 
 
-    function directExecute(address to, bytes calldata data) external override payable returns (
+    function directExecute(address to, uint256 value, bytes calldata data) external override payable returns (
             bool success,
             bytes memory ret  
         )
@@ -79,14 +79,7 @@ contract SmartWallet is IForwarder {
             "Not the owner of the SmartWallet"
         );
 
-        (success, ret) = to.call{value: msg.value}(data);
-
-        //If any balance has been added then trasfer it to the owner EOA
-        if (address(this).balance > 0) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(msg.sender).transfer(address(this).balance);
-        }
-   
+        (success, ret) = to.call{value: value}(data);
     }
     
     function execute(
@@ -138,15 +131,7 @@ contract SmartWallet is IForwarder {
             //methods that revert if the gasleft() is not enough to execute whatever logic they have.
 
             require(gasleft() > req.gas,"Not enough gas left");
-            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);
-     
-            //If any balance has been added then trasfer it to the owner EOA
-            uint256 balanceToTransfer = address(this).balance;
-            if ( balanceToTransfer > 0) {
-                //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-                payable(req.from).transfer(balanceToTransfer);
-            }
-  
+            (success, ret) = req.to.call{gas: req.gas, value: req.value}(req.data);  
     }
 
    

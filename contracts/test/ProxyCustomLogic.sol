@@ -34,7 +34,7 @@ contract ProxyCustomLogic is IWalletCustomLogic {
         require(success, "call failed");
     }
 
-    function directExecute(address to, bytes calldata data) override external payable returns (
+    function directExecute(address to, uint256 value, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
         emit LogicCalled();  

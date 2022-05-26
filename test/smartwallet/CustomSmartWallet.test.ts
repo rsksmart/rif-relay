@@ -285,7 +285,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
       const initialNonce = await smartWallet.nonce()
 
-      const result = await smartWallet.directExecute(recipient.address, recipientFunction, { from: fundedAccount })
+      const result = await smartWallet.directExecute(recipient.address, 0, recipientFunction, { from: fundedAccount })
 
       // @ts-ignore
       assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')
@@ -302,8 +302,8 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
     it('should revert if logic revert', async () => {
       const customLogic = await FailureCustomLogic.new()
       await smartWallet.initialize(fundedAccount, customLogic.address, token.address, worker, '0', '400000', '0x')
-      await smartWallet.directExecute(recipient.address, recipientFunction, { from: fundedAccount })
-      const result = await smartWallet.directExecute.call(recipient.address, recipientFunction, { from: fundedAccount })
+      await smartWallet.directExecute(recipient.address, 0, recipientFunction, { from: fundedAccount })
+      const result = await smartWallet.directExecute.call(recipient.address, 0, recipientFunction, { from: fundedAccount })
       assert.isTrue(!result[0], 'should revert')
     })
 
@@ -317,7 +317,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
 
       const initialNonce = await smartWallet.nonce()
 
-      const result = await smartWallet.directExecute(recipient.address, recipientFunction, { from: fundedAccount })
+      const result = await smartWallet.directExecute(recipient.address, 0, recipientFunction, { from: fundedAccount })
 
       // @ts-ignore
       assert(containsEvent(customLogic.abi, result.receipt.rawLogs, 'LogicCalled'), 'Should call custom logic')

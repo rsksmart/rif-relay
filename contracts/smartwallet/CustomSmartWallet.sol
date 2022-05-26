@@ -66,7 +66,7 @@ contract CustomSmartWallet is IForwarder {
         
     }
 
-    function directExecute(address to, bytes calldata data) external override payable returns (
+    function directExecute(address to, uint256 value, bytes calldata data) external override payable returns (
             bool success,
             bytes memory ret  
         )
@@ -87,16 +87,10 @@ contract CustomSmartWallet is IForwarder {
 
         // If there's no extra logic, then call the destination contract
         if (logicStrg == bytes32(0)) {
-            (success, ret) = to.call{value: msg.value}(data);
+            (success, ret) = to.call{value: value}(data);
         } else {
             //If there's extra logic, delegate the execution
             (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
-        }
-
-        //If any balance has been added then trasfer it to the owner EOA
-        if (address(this).balance > 0) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(msg.sender).transfer(address(this).balance);
         }
     }
     
@@ -162,13 +156,6 @@ contract CustomSmartWallet is IForwarder {
         } else {
             //If there's extra logic, delegate the execution
             (success, ret) = (address(uint160(uint256(logicStrg)))).delegatecall(msg.data);
-        }
-    
-        //If any balance has been added then trasfer it to the owner EOA
-        uint256 balanceToTransfer = address(this).balance;
-        if ( balanceToTransfer > 0) {
-            //can't fail: req.from signed (off-chain) the request, so it must be an EOA...
-            payable(req.from).transfer(balanceToTransfer);
         }
     }
 

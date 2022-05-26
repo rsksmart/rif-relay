@@ -31,7 +31,7 @@ contract FailureCustomLogic is IWalletCustomLogic {
         revert("always fail");
     }
 
-    function directExecute(address to, bytes calldata data) override external payable returns (
+    function directExecute(address to, uint256 value, bytes calldata data) override external payable returns (
         bytes memory ret  
     ) {  
         revert("always fail");

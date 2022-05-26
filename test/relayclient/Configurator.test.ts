@@ -17,7 +17,7 @@ contract('client-configuration', () => {
     describe('failures', () => {
       it('should fail with no params', async () => {
         // @ts-ignore
-        await expect(resolveConfiguration()).to.eventually.rejectedWith(/Cannot read property/)
+        await expect(resolveConfiguration()).to.eventually.rejectedWith( /Cannot read properties of undefined/)
       })
 
       it('should throw if the first arg not provider', async () => {

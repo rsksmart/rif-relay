@@ -31,10 +31,10 @@ const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const options = [
-  {
-    title: 'CustomSmartWallet',
-    simple: false
-  },
+  /*  {
+     title: 'CustomSmartWallet',
+     simple: false
+   }, */
   {
     title: 'SmartWallet',
     simple: true
@@ -46,7 +46,7 @@ const tokens = [
     title: 'TestToken',
     tokenIndex: 0
   },
-  {
+  /* {
     title: 'TetherToken',
     tokenIndex: 1
   },
@@ -57,10 +57,10 @@ const tokens = [
   {
     title: 'NonCompliantTestToken',
     tokenIndex: 3
-  }
+  } */
 ]
 
-async function fillTokens (tokenIndex: number, token: TestTokenInstance|TetherTokenInstance|NonRevertTestTokenInstance|NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
+async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
   switch (tokenIndex) {
     case 0:
       await (token as TestTokenInstance).mint(amount, recipient)
@@ -78,7 +78,7 @@ async function fillTokens (tokenIndex: number, token: TestTokenInstance|TetherTo
   }
 }
 
-async function getTokenBalance (tokenIndex: number, token: TestTokenInstance|TetherTokenInstance|NonRevertTestTokenInstance|NonCompliantTestTokenInstance, account: string): Promise<BN> {
+async function getTokenBalance(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, account: string): Promise<BN> {
   let balance: BN = toBN(-1)
   switch (tokenIndex) {
     case 0:
@@ -384,9 +384,6 @@ options.forEach(element => {
           beforeEach(async () => {
             recipient = await TestForwarderTarget.new()
           })
-          afterEach('should not leave funds in the forwarder', async () => {
-            assert.equal(await web3.eth.getBalance(sw.address), '0')
-          })
 
           it('should fail to forward request if value specified but not provided', async () => {
             const value = ether('1')
@@ -469,13 +466,11 @@ options.forEach(element => {
             assert.equal(tknBalance.toString(), (initialWorkerTokenBalance.add(new BN(1))).toString())
           })
 
-          it('should forward all funds left in forwarder to "from" address', async () => {
+          it('should not forward all funds left in forwarder to "from" address', async () => {
             // The owner of the SmartWallet might have a balance != 0
             const tokenBalanceBefore = await getTokenBalance(tokenToUse.tokenIndex, token, worker)
             const ownerOriginalBalance = await web3.eth.getBalance(senderAddress)
             const recipientOriginalBalance = await web3.eth.getBalance(recipient.address)
-            const smartWalletBalance = await web3.eth.getBalance(sw.address)
-            assert.equal(smartWalletBalance, '0', 'SmartWallet balance is not zero')
 
             const value = ether('1')
             const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
@@ -513,9 +508,12 @@ options.forEach(element => {
 
             assert.isTrue(BigInt(value.toString()) === (BigInt(valBalance) - BigInt(recipientOriginalBalance)))
 
-            // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
-            // is called
-            assert.equal(await web3.eth.getBalance(senderAddress), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value.toString())).toString())
+            // The RTBC must not return to the owner EOA once the execute()
+            //Sender must have the same amount of ether
+            assert.equal(await web3.eth.getBalance(senderAddress), ownerOriginalBalance)
+
+            //Smart wallet must have the extra funds that were added
+            assert.equal(await web3.eth.getBalance(sw.address), extraFunds.toString());
           })
         })
       })
@@ -550,7 +548,7 @@ options.forEach(element => {
           const func = recipient.contract.methods.emitMessage('hello').encodeABI()
 
           const initialNonce = await sw.nonce()
-          await sw.directExecute(recipient.address, func, { from: otherAccount })
+          await sw.directExecute(recipient.address, 0, func, { from: otherAccount })
 
           // @ts-ignore
           const logs = await recipient.getPastEvents('TestForwarderMessage')
@@ -563,13 +561,13 @@ options.forEach(element => {
 
         it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
           const func = recipient.contract.methods.emitMessage('hello').encodeABI()
-          await expectRevert(sw.directExecute(recipient.address, func, { from: defaultAccount }), 'Not the owner of the SmartWallet')
+          await expectRevert(sw.directExecute(recipient.address, 0, func, { from: defaultAccount }), 'Not the owner of the SmartWallet')
         })
 
         it('should return revert message of target revert', async () => {
           const func = recipient.contract.methods.testRevert().encodeABI()
-          await sw.directExecute(recipient.address, func, { from: otherAccount })
-          const result = await sw.directExecute.call(recipient.address, func, { from: otherAccount })
+          await sw.directExecute(recipient.address, 0, func, { from: otherAccount })
+          const result = await sw.directExecute.call(recipient.address, 0, func, { from: otherAccount })
 
           const revertMessage = Buffer.from(result[1].slice(result[1].length - 64, result[1].length), 'hex')
           const reducedBuff = revertMessage.slice(0, 11)
@@ -584,46 +582,31 @@ options.forEach(element => {
           beforeEach(async () => {
             recipient = await TestForwarderTarget.new()
           })
-          afterEach('should not leave funds in the forwarder', async () => {
-            assert.equal(await web3.eth.getBalance(sw.address), '0')
+          afterEach('should leave funds in the forwarder', async () => {
+            async () => {
+              const balance = Number(await web3.eth.getBalance(sw.address));
+              expect(balance).to.be.greaterThan(0);
+            }
           })
 
-          it('should forward request with value', async () => {
+          it('should forward request with value and left funds in the Smart Wallet', async () => {
             const value = ether('1')
             const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
+            const extraFunds = ether('4');
+            // Put in the smart wallet 4 RBTC
+            await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds });
             const initialRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
-            const initialSenderBalance = await web3.eth.getBalance(otherAccount)
-            const ret = await sw.directExecute(recipient.address, func, { from: otherAccount, value: value.toString(), gasPrice: value.toString() })
+            const initialSenderBalance = await web3.eth.getBalance(sw.address)
+            const initialOwnerBalance = await web3.eth.getBalance(otherAccount)
+            const ret = await sw.directExecute(recipient.address, value.toString(), func, { from: otherAccount, gasPrice: value.toString() })
             const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 RBTC
             const finalRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
-            const finalSenderBalance = await web3.eth.getBalance(otherAccount)
+            const finalSenderBalance = await web3.eth.getBalance(sw.address)
+            const finalOwnerBalance = await web3.eth.getBalance(otherAccount);
             assert.equal(BigInt(finalRecipientEtherBalance).toString(), (BigInt(initialRecipientEtherBalance) + BigInt(value.toString())).toString())
-            assert.equal(BigInt(finalSenderBalance).toString(), (BigInt(initialSenderBalance) - BigInt(value.toString()) - gasUsedToCall).toString())
-          })
-
-          it('should forward all funds left in forwarder to "from" address', async () => {
-            // The owner of the SmartWallet might have a balance != 0
-            const ownerOriginalBalance = await web3.eth.getBalance(otherAccount)
-            const recipientOriginalBalance = await web3.eth.getBalance(recipient.address)
-
-            const value = ether('1')
-            const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-
-            const extraFunds = ether('4')
-            // Put in the smart wallet 4 RBTC
-            await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds })
-
-            // note: not transfering value in TX.
-            const ret = await sw.directExecute(recipient.address, func, { from: otherAccount, gasPrice: value.toString(), value: value.toString() })
-            const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 RBTC
-
-            // The value=1 RBTC of value transfered should now be in the balance of the called contract (recipient)
-            const valBalance = await web3.eth.getBalance(recipient.address)
-            assert.isTrue(BigInt(value.toString()) === (BigInt(valBalance) - BigInt(recipientOriginalBalance)))
-
-            // The rest of value (4-1 = 3 RBTC), in possession of the smart wallet, must return to the owner EOA once the execute()
-            // is called
-            assert.equal(await web3.eth.getBalance(otherAccount), (BigInt(ownerOriginalBalance) + BigInt(extraFunds) - BigInt(value) - BigInt(gasUsedToCall)).toString())
+            assert.equal(BigInt(finalSenderBalance).toString(), (BigInt(initialSenderBalance) - BigInt(value.toString())).toString())
+            assert.equal(BigInt(finalOwnerBalance).toString(), (BigInt(initialOwnerBalance) - BigInt(gasUsedToCall)).toString()
+            );
           })
         })
       })
@@ -679,7 +662,7 @@ options.forEach(element => {
               }
             ]
           },
-          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+            [recovererAccount, tokenBalanceBefore.toNumber().toString()])
 
           if (element.simple) {
             txResp = await (sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice })
@@ -737,7 +720,7 @@ options.forEach(element => {
               }
             ]
           },
-          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+            [recovererAccount, tokenBalanceBefore.toNumber().toString()])
 
           if (element.simple) {
             const swInstance = sw as SmartWalletInstance
@@ -789,7 +772,7 @@ options.forEach(element => {
               }
             ]
           },
-          [recovererAccount, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens
+            [recovererAccount, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens
 
           if (tokenToUse.tokenIndex !== 1) {
             if (element.simple) {
@@ -871,7 +854,7 @@ options.forEach(element => {
               }
             ]
           },
-          [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
+            [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
 
           if (tokenToUse.tokenIndex !== 1) {
             if (element.simple) {

@@ -33,7 +33,7 @@ interface IWalletCustomLogic {
      * @param to Target contract address
      * @param data Destination function 
      */
-    function directExecute(address to, bytes calldata data) external payable returns (
+    function directExecute(address to, uint256 value, bytes calldata data) external payable returns (
         bytes memory ret  
     );
 }
