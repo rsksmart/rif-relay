@@ -31,10 +31,10 @@ const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const options = [
-  /*  {
+   {
      title: 'CustomSmartWallet',
      simple: false
-   }, */
+   },
   {
     title: 'SmartWallet',
     simple: true
@@ -46,7 +46,7 @@ const tokens = [
     title: 'TestToken',
     tokenIndex: 0
   },
-  /* {
+  {
     title: 'TetherToken',
     tokenIndex: 1
   },
@@ -57,7 +57,7 @@ const tokens = [
   {
     title: 'NonCompliantTestToken',
     tokenIndex: 3
-  } */
+  }
 ]
 
 async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
