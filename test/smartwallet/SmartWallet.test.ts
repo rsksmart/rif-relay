@@ -31,10 +31,10 @@ const NonCompliantTestToken = artifacts.require('NonCompliantTestToken')
 const TestSmartWallet = artifacts.require('TestSmartWallet')
 
 const options = [
-   {
-     title: 'CustomSmartWallet',
-     simple: false
-   },
+  {
+    title: 'CustomSmartWallet',
+    simple: false
+  },
   {
     title: 'SmartWallet',
     simple: true
@@ -60,7 +60,7 @@ const tokens = [
   }
 ]
 
-async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
+async function fillTokens (tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, recipient: string, amount: string): Promise<void> {
   switch (tokenIndex) {
     case 0:
       await (token as TestTokenInstance).mint(amount, recipient)
@@ -78,7 +78,7 @@ async function fillTokens(tokenIndex: number, token: TestTokenInstance | TetherT
   }
 }
 
-async function getTokenBalance(tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, account: string): Promise<BN> {
+async function getTokenBalance (tokenIndex: number, token: TestTokenInstance | TetherTokenInstance | NonRevertTestTokenInstance | NonCompliantTestTokenInstance, account: string): Promise<BN> {
   let balance: BN = toBN(-1)
   switch (tokenIndex) {
     case 0:
@@ -509,11 +509,11 @@ options.forEach(element => {
             assert.isTrue(BigInt(value.toString()) === (BigInt(valBalance) - BigInt(recipientOriginalBalance)))
 
             // The RTBC must not return to the owner EOA once the execute()
-            //Sender must have the same amount of ether
+            // Sender must have the same amount of ether
             assert.equal(await web3.eth.getBalance(senderAddress), ownerOriginalBalance)
 
-            //Smart wallet must have the extra funds that were added
-            assert.equal(await web3.eth.getBalance(sw.address), extraFunds.toString());
+            // Smart wallet must have the extra funds that were added
+            assert.equal(await web3.eth.getBalance(sw.address), extraFunds.toString())
           })
         })
       })
@@ -584,17 +584,17 @@ options.forEach(element => {
           })
           afterEach('should leave funds in the forwarder', async () => {
             async () => {
-              const balance = Number(await web3.eth.getBalance(sw.address));
-              expect(balance).to.be.greaterThan(0);
+              const balance = Number(await web3.eth.getBalance(sw.address))
+              expect(balance).to.be.greaterThan(0)
             }
           })
 
           it('should forward request with value and left funds in the Smart Wallet', async () => {
             const value = ether('1')
             const func = recipient.contract.methods.mustReceiveEth(value.toString()).encodeABI()
-            const extraFunds = ether('4');
+            const extraFunds = ether('4')
             // Put in the smart wallet 4 RBTC
-            await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds });
+            await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds })
             const initialRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
             const initialSenderBalance = await web3.eth.getBalance(sw.address)
             const initialOwnerBalance = await web3.eth.getBalance(otherAccount)
@@ -602,11 +602,11 @@ options.forEach(element => {
             const gasUsedToCall = BigInt(ret.receipt.cumulativeGasUsed) * BigInt(value.toString()) // Gas price = 1 RBTC
             const finalRecipientEtherBalance = await web3.eth.getBalance(recipient.address)
             const finalSenderBalance = await web3.eth.getBalance(sw.address)
-            const finalOwnerBalance = await web3.eth.getBalance(otherAccount);
+            const finalOwnerBalance = await web3.eth.getBalance(otherAccount)
             assert.equal(BigInt(finalRecipientEtherBalance).toString(), (BigInt(initialRecipientEtherBalance) + BigInt(value.toString())).toString())
             assert.equal(BigInt(finalSenderBalance).toString(), (BigInt(initialSenderBalance) - BigInt(value.toString())).toString())
             assert.equal(BigInt(finalOwnerBalance).toString(), (BigInt(initialOwnerBalance) - BigInt(gasUsedToCall)).toString()
-            );
+            )
           })
         })
       })
@@ -662,7 +662,7 @@ options.forEach(element => {
               }
             ]
           },
-            [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
 
           if (element.simple) {
             txResp = await (sw as SmartWalletInstance).recover(otherAccount, factory.address, template.address, token.address, 0, tokenTransferCall, { from: recovererAccount, gasPrice })
@@ -720,7 +720,7 @@ options.forEach(element => {
               }
             ]
           },
-            [recovererAccount, tokenBalanceBefore.toNumber().toString()])
+          [recovererAccount, tokenBalanceBefore.toNumber().toString()])
 
           if (element.simple) {
             const swInstance = sw as SmartWalletInstance
@@ -772,7 +772,7 @@ options.forEach(element => {
               }
             ]
           },
-            [recovererAccount, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens
+          [recovererAccount, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens
 
           if (tokenToUse.tokenIndex !== 1) {
             if (element.simple) {
@@ -854,7 +854,7 @@ options.forEach(element => {
               }
             ]
           },
-            [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
+          [constants.ZERO_ADDRESS, (tokenBalanceBefore.toNumber() + 1).toString()]) // SmartWallet does not have this amount of tokens, and recipient is address(0) so OZ ERC20 will also revert
 
           if (tokenToUse.tokenIndex !== 1) {
             if (element.simple) {
