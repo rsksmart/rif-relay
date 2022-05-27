@@ -5,10 +5,10 @@ parameters:
         default: "rsksmart/rskj.git"
     version:
         type: string
-        default: '3.2.0-SNAPSHOT'
+        default: '3.3.0-SNAPSHOT'
     branch:
         type: string
-        default: "master"
+        default: "IRIS-3.3.0"
     hardfork:
         type: string
         default: "-Dblockchain.config.hardforkActivationHeights.iris300=0"
