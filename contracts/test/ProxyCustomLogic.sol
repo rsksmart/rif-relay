@@ -39,7 +39,7 @@ contract ProxyCustomLogic is IWalletCustomLogic {
     ) {  
         emit LogicCalled();  
         bool success;              
-        (success, ret) = to.call{value: msg.value}(data);
+        (success, ret) = to.call{value: value}(data);
         require(success, "call failed");
 
     }

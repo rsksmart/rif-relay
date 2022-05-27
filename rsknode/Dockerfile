@@ -23,8 +23,8 @@ RUN ./gradlew --no-daemon clean build -x test
 
 FROM openjdk:8-jdk-slim-buster
 
-ARG rskj_codename=SNAPSHOT
-ARG rskj_version=3.2.0
+ARG rskj_codename=IRIS
+ARG rskj_version=3.3.0
 
 WORKDIR /usr/local/rskj
 COPY --from=build /code/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-${rskj_codename}-all.jar ./rsk.jar
