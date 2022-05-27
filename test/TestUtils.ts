@@ -55,7 +55,18 @@ export async function startRelay (
 
   const serverWorkDir = '/tmp/enveloping/test/server'
 
-  fs.rmdirSync(serverWorkDir, { recursive: true })
+  try {
+    /*
+     * It raises an error if the folder doesn't exist on macos.
+     * If we decide to drop the support for node version minor than v14.14.0
+     * we could use [fs.rmDir](https://nodejs.org/docs/latest-v16.x/api/fs.html#fsrmsyncpath-options).
+     */
+    fs.rmdirSync(serverWorkDir, { recursive: true })
+  } catch (error) {
+    console.log(
+      `startRelay: deletion of ${serverWorkDir} failed. Folder not found`
+    )
+  }
   args.push('--workdir', serverWorkDir)
   args.push('--devMode', true)
   args.push('--checkInterval', 10)
@@ -113,7 +124,7 @@ export async function startRelay (
     [runServerPath, ...args])
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
-  let relaylog = function (_: string): void {}
+  let relaylog = function (_: string): void { }
   if (options.relaylog) {
     relaylog = (msg: string) => msg.split('\n').forEach(line => console.log(`relay-${proc.pid.toString()}> ${line}`))
   }
@@ -451,7 +462,7 @@ export function bufferToHexString (b: Buffer): string {
   return '0x' + b.toString('hex')
 }
 
-export async function prepareTransaction (relayHub: Address, testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenAmount: string, tokenGas: string = '50000'): Promise<{ relayRequest: RelayRequest, signature: string}> {
+export async function prepareTransaction (relayHub: Address, testRecipient: TestRecipientInstance, account: AccountKeypair, relayWorker: Address, verifier: Address, nonce: string, swallet: string, tokenContract: Address, tokenAmount: string, tokenGas: string = '50000'): Promise<{ relayRequest: RelayRequest, signature: string }> {
   const chainId = (await getTestingEnvironment()).chainId
   const relayRequest: RelayRequest = {
     request: {
@@ -496,7 +507,7 @@ export function containsEvent (abi: any, rawLogs: any, eventName: string): boole
   const eventsAbiByTopic = getEventsAbiByTopic(abi)
   // @ts-ignore
   return rawLogs.some(log => eventsAbiByTopic.has(log.topics[0]) &&
-      eventsAbiByTopic.get(log.topics[0]).name === eventName
+    eventsAbiByTopic.get(log.topics[0]).name === eventName
   )
 }
 
