@@ -7,11 +7,7 @@ describe('RelayServer-webpack', () => {
   before('create webpack', function () {
     this.timeout(15000)
     const jsrelayDir = path.join(__dirname, '../../dockers', 'jsrelay')
-    try {
-      fs.rmdirSync(path.join(jsrelayDir, 'dist'), { recursive: true })
-    } catch (error) {
-      console.log(error)
-    }
+    fs.rmSync(path.join(jsrelayDir, 'dist'), { recursive: true })
     childProcess.execSync('npx webpack', { cwd: jsrelayDir, stdio: 'inherit' })
     oneFileRelayer = path.join(jsrelayDir, 'dist', 'relayserver.js')
   })
