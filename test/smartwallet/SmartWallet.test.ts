@@ -1129,6 +1129,34 @@ options.forEach((element) => {
                         );
                     });
 
+                    it('should fail if executed function is non-payable', async () => {
+                        const func = recipient.contract.methods
+                            .emitMessage('hello')
+                            .encodeABI();
+                        const extraFunds = ether('4');
+                        await web3.eth.sendTransaction({
+                            from: defaultAccount,
+                            to: sw.address,
+                            value: extraFunds
+                        });
+                        await sw.directExecute(
+                            recipient.address,
+                            extraFunds,
+                            func,
+                            { from: otherAccount }
+                        );
+                        // @ts-ignore
+                        const logs = await recipient.getPastEvents(
+                            'TestForwarderMessage'
+                        );
+
+                        assert.equal(
+                            logs.length,
+                            0,
+                            'TestRecipient should not emit'
+                        );
+                    });
+
                     it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
                         const func = recipient.contract.methods
                             .emitMessage('hello')
