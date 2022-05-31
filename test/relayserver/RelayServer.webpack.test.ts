@@ -7,7 +7,16 @@ describe('RelayServer-webpack', () => {
   before('create webpack', function () {
     this.timeout(15000)
     const jsrelayDir = path.join(__dirname, '../../dockers', 'jsrelay')
-    fs.rmSync(path.join(jsrelayDir, 'dist'), { recursive: true })
+    try {
+      /*
+       * It raises an error if the folder doesn't exist on macos.
+       * If we decide to drop the support for node version minor than v14.14.0
+       * we could use [fs.rmDir](https://nodejs.org/docs/latest-v16.x/api/fs.html#fsrmsyncpath-options).
+       */
+      fs.rmdirSync(path.join(jsrelayDir, 'dist'), { recursive: true })
+    } catch (error) {
+      console.log(`deletion of ${path.join(jsrelayDir, 'dist')} failed. Folder not found`)
+    }
     childProcess.execSync('npx webpack', { cwd: jsrelayDir, stdio: 'inherit' })
     oneFileRelayer = path.join(jsrelayDir, 'dist', 'relayserver.js')
   })

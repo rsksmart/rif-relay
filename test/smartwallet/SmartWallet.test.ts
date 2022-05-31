@@ -552,11 +552,23 @@ options.forEach(element => {
 
           // @ts-ignore
           const logs = await recipient.getPastEvents('TestForwarderMessage')
+
           assert.equal(logs.length, 1, 'TestRecipient should emit')
           assert.equal(logs[0].args.origin, otherAccount, 'test "from" account is the tx.origin')
           assert.equal(logs[0].args.msgSender, sw.address, 'msg.sender must be the smart wallet address')
 
           assert.equal((await sw.nonce()).toString(), initialNonce.toString(), 'direct execute should NOT increment nonce')
+        })
+
+        it('should fail if executed function is non-payable', async () => {
+          const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+          const extraFunds = ether('4')
+          await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds })
+          await sw.directExecute(recipient.address, extraFunds, func, { from: otherAccount })
+          // @ts-ignore
+          const logs = await recipient.getPastEvents('TestForwarderMessage')
+
+          assert.equal(logs.length, 0, 'TestRecipient should not emit')
         })
 
         it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {

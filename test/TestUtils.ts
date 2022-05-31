@@ -54,8 +54,16 @@ export async function startRelay (
   const args = []
 
   const serverWorkDir = '/tmp/enveloping/test/server'
-
-  fs.rmSync(serverWorkDir, { recursive: true })
+  try {
+    /*
+     * It raises an error if the folder doesn't exist on macos.
+     * If we decide to drop the support for node version minor than v14.14.0
+     * we could use [fs.rmDir](https://nodejs.org/docs/latest-v16.x/api/fs.html#fsrmsyncpath-options).
+     */
+    fs.rmdirSync(serverWorkDir, { recursive: true })
+  } catch (error) {
+    console.log(`startRelay: deletion of ${serverWorkDir} failed. Folder not found`)
+  }
   args.push('--workdir', serverWorkDir)
   args.push('--devMode', true)
   args.push('--checkInterval', 10)
