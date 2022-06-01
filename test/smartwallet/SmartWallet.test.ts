@@ -1169,6 +1169,37 @@ options.forEach((element) => {
                         );
                     });
 
+                    it('should call function if its payable', async () => {
+                        const extraFunds = ether('4');
+                        const func = recipient.contract.methods
+                            .mustReceiveEth(extraFunds.toString())
+                            .encodeABI();
+                        // transfer funds to smart wallet for execution
+                        await web3.eth.sendTransaction({
+                            from: defaultAccount,
+                            to: sw.address,
+                            value: extraFunds
+                        });
+                        const initialSenderBalance = await web3.eth.getBalance(
+                            sw.address
+                        );
+
+                        await sw.directExecute(
+                            recipient.address,
+                            extraFunds,
+                            func,
+                            { from: otherAccount }
+                        );
+                        const finalSenderBalance = await web3.eth.getBalance(
+                            sw.address
+                        );
+                        assert.equal(
+                            BigInt(initialSenderBalance) -
+                                BigInt(extraFunds.toString()),
+                            BigInt(finalSenderBalance)
+                        );
+                    });
+
                     it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
                         const func = recipient.contract.methods
                             .emitMessage('hello')
