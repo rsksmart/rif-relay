@@ -1129,16 +1129,20 @@ options.forEach((element) => {
                         );
                     });
 
-                    it('should fail if executed function is non-payable', async () => {
+                    it('should NOT call function if its non payable', async () => {
                         const func = recipient.contract.methods
                             .emitMessage('hello')
                             .encodeABI();
                         const extraFunds = ether('4');
+                        //transfer funds to smart wallet for execution
                         await web3.eth.sendTransaction({
                             from: defaultAccount,
                             to: sw.address,
                             value: extraFunds
                         });
+                        const initialSenderBalance = await web3.eth.getBalance(
+                            sw.address
+                        );
                         await sw.directExecute(
                             recipient.address,
                             extraFunds,
@@ -1154,6 +1158,14 @@ options.forEach((element) => {
                             logs.length,
                             0,
                             'TestRecipient should not emit'
+                        );
+                        const finalSenderBalance = await web3.eth.getBalance(
+                            sw.address
+                        );
+                        assert.equal(
+                            BigInt(initialSenderBalance),
+                            BigInt(finalSenderBalance),
+                            'Balance should be the same'
                         );
                     });
 
