@@ -45,7 +45,7 @@ const tokens = [
   {
     title: 'TestToken',
     tokenIndex: 0
-  },
+  }
   {
     title: 'TetherToken',
     tokenIndex: 1
@@ -560,15 +560,18 @@ options.forEach(element => {
           assert.equal((await sw.nonce()).toString(), initialNonce.toString(), 'direct execute should NOT increment nonce')
         })
 
-        it('should fail if executed function is non-payable', async () => {
+        it('should NOT call function if its non payable', async () => {
           const func = recipient.contract.methods.emitMessage('hello').encodeABI()
+          // transfer funds to smart wallet for execution
           const extraFunds = ether('4')
           await web3.eth.sendTransaction({ from: defaultAccount, to: sw.address, value: extraFunds })
+          const initialSenderBalance = await web3.eth.getBalance(sw.address)
           await sw.directExecute(recipient.address, extraFunds, func, { from: otherAccount })
           // @ts-ignore
           const logs = await recipient.getPastEvents('TestForwarderMessage')
-
           assert.equal(logs.length, 0, 'TestRecipient should not emit')
+          const finalSenderBalance = await web3.eth.getBalance(sw.address)
+          assert.equal(BigInt(initialSenderBalance), BigInt(finalSenderBalance), 'Balance should be the same')
         })
 
         it('should NOT call function if msg.sender is not the SmartWallet owner', async () => {
