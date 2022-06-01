@@ -45,7 +45,7 @@ const tokens = [
   {
     title: 'TestToken',
     tokenIndex: 0
-  }
+  },
   {
     title: 'TetherToken',
     tokenIndex: 1
