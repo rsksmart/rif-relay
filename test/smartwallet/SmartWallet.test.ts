@@ -52,30 +52,30 @@ const TYPES_OF_WALLETS = [
     {
         title: 'CustomSmartWallet',
         simple: false
+    },
+    {
+        title: 'SmartWallet',
+        simple: true
     }
-    // {
-    //     title: 'SmartWallet',
-    //     simple: true
-    // }
 ];
 
 const TOKENS = [
     {
         title: 'TestToken',
         tokenIndex: 0
+    },
+    {
+        title: 'TetherToken',
+        tokenIndex: 1
+    },
+    {
+        title: 'NonRevertTestToken',
+        tokenIndex: 2
+    },
+    {
+        title: 'NonCompliantTestToken',
+        tokenIndex: 3
     }
-    // {
-    //     title: 'TetherToken',
-    //     tokenIndex: 1
-    // },
-    // {
-    //     title: 'NonRevertTestToken',
-    //     tokenIndex: 2
-    // },
-    // {
-    //     title: 'NonCompliantTestToken',
-    //     tokenIndex: 3
-    // }
 ];
 
 const FAKE_PRIVATE_KEY = 1;
@@ -170,7 +170,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                 let smartWallet:
                     | SmartWalletInstance
                     | CustomSmartWalletInstance;
-                let domainSeparatorHash: string;
+                // let domainSeparatorHash: string;
 
                 const request: RelayRequest = {
                     request: {
@@ -259,39 +259,43 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                 describe('#verify', () => {
                     describe('#verify failures', () => {
-                        // it('should fail on unregistered domain separator', async () => {
-                        //     // const dummyDomainSeparator = bytes32(1);
-                        //     const dataToSign = new TypedRequestData(
-                        //         chainId,
-                        //         smartWallet.address,
-                        //         request
-                        //     );
-                        //     const suffixData = bufferToHex(
-                        //         TypedDataUtils.encodeData(
-                        //             dataToSign.primaryType,
-                        //             dataToSign.message,
-                        //             dataToSign.types
-                        //         ).slice((1 + ForwardRequestType.length) * 32)
-                        //     );
-                        //     const sig = signTypedData_v4(senderPrivateKey, {
-                        //         data: dataToSign
-                        //     });
+                        it('should fail on unregistered domain separator', async () => {
+                            console.log('SmartWallet262 Starting test');
+                            // const dummyDomainSeparator = bytes32(1);
+                            const dataToSign = new TypedRequestData(
+                                chainId,
+                                smartWallet.address,
+                                request
+                            );
 
-                        //     // await smartWallet.buildDomainSeparator();
-                        //     // console.log('SmartWallet.test276 request.domainSeparator ', request.relayData.domainSeparator);
-                        //     // console.log('SmartWallet.test277 domainSeparator ', await smartWallet.domainSeparator());
-                        //     await expectRevert(
-                        //         smartWallet.verify(
-                        //             // dummyDomainSeparator,
-                        //             suffixData,
-                        //             request.request,
-                        //             sig
-                        //         ),
-                        //         'Signature mismatch'
-                        //     );
-                        // });
+                            dataToSign.domain.name = 'Wrong domain separator';
 
-                        it.only('should fail on wrong nonce', async () => {
+                            const suffixData = bufferToHex(
+                                TypedDataUtils.encodeData(
+                                    dataToSign.primaryType,
+                                    dataToSign.message,
+                                    dataToSign.types
+                                ).slice((1 + ForwardRequestType.length) * 32)
+                            );
+                            const sig = signTypedData_v4(senderPrivateKey, {
+                                data: dataToSign
+                            });
+
+                            // await smartWallet.buildDomainSeparator();
+                            // console.log('SmartWallet.test276 request.domainSeparator ', request.relayData.domainSeparator);
+                            // console.log('SmartWallet.test277 domainSeparator ', await smartWallet.domainSeparator());
+                            await expectRevert(
+                                smartWallet.verify(
+                                    // dummyDomainSeparator,
+                                    suffixData,
+                                    request.request,
+                                    sig
+                                ),
+                                'Signature mismatch'
+                            );
+                        });
+
+                        it('should fail on wrong nonce', async () => {
                             const req = {
                                 request: {
                                     ...request.request,
@@ -411,11 +415,11 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                             // await smartWallet.buildDomainSeparator();
                             console.log(
-                                'SmartWallet.test276 request.domainSeparator ',
+                                'SmartWallet.test414 request.domainSeparator ',
                                 request.relayData.domainSeparator
                             );
                             console.log(
-                                'SmartWallet.test277 domainSeparator ',
+                                'SmartWallet.test418 domainSeparator ',
                                 await smartWallet.domainSeparator()
                             );
 
