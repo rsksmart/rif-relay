@@ -15,7 +15,7 @@ import { bytes32, containsEvent, getTestingEnvironment } from '../TestUtils';
 import {
     TypedRequestData,
     ForwardRequestType,
-    getDomainSeparatorHash,
+    // getDomainSeparatorHash,
     constants,
     RelayRequest,
     ForwardRequest,
@@ -70,7 +70,7 @@ function createRequest(
         },
         relayData: {
             gasPrice: '1',
-            domainSeparator: '0x',
+            // domainSeparator: '0x',
             relayWorker: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
@@ -116,7 +116,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
     let senderAddress: string;
     let token: TestTokenInstance;
     let smartWallet: CustomSmartWalletInstance;
-    let domainSeparatorHash: string;
+    // let domainSeparatorHash: string;
     let relayData: Partial<RelayData>;
 
     before(async () => {
@@ -129,13 +129,13 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
     beforeEach(async () => {
         smartWallet = await CustomSmartWallet.new();
         chainId = (await getTestingEnvironment()).chainId;
-        domainSeparatorHash = getDomainSeparatorHash(
-            smartWallet.address,
-            chainId
-        );
+        // domainSeparatorHash = getDomainSeparatorHash(
+        //     smartWallet.address,
+        //     chainId
+        // );
         relayData = {
-            callForwarder: smartWallet.address,
-            domainSeparator: domainSeparatorHash
+            callForwarder: smartWallet.address
+            // domainSeparator: domainSeparatorHash
         };
     });
 
@@ -192,13 +192,13 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             );
 
             const result = await smartWallet.execute(
-                domainSeparatorHash,
+                // domainSeparatorHash,
                 suffixData,
                 relayRequest.request,
                 signature,
                 { from: worker }
             );
-
+            
             // @ts-ignore
             assert(
                 containsEvent(
@@ -283,7 +283,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             );
 
             const result = await smartWallet.execute(
-                domainSeparatorHash,
+                // domainSeparatorHash,
                 suffixData,
                 relayRequest.request,
                 sig,
@@ -391,7 +391,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             const result = await caller.callExecute(
                 smartWallet.address,
                 relayRequest.request,
-                domainSeparatorHash,
+                // domainSeparatorHash,
                 suffixData,
                 sig,
                 { from: worker }
@@ -484,7 +484,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
             const result = await caller.callExecute(
                 smartWallet.address,
                 relayRequest.request,
-                domainSeparatorHash,
+                // domainSeparatorHash,
                 suffixData,
                 sig,
                 { from: worker }
@@ -521,7 +521,7 @@ contract('Custom Smart Wallet using TestToken', ([worker, fundedAccount]) => {
                 caller.callExecute(
                     smartWallet.address,
                     relayRequest.request,
-                    domainSeparatorHash,
+                    // domainSeparatorHash,
                     suffixData,
                     sig,
                     { from: worker }
