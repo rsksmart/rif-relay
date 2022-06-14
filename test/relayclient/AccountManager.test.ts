@@ -147,7 +147,7 @@ contract('AccountManager', function () {
                 relayWorker: constants.ZERO_ADDRESS,
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS,
-                domainSeparator: '0x'
+                // domainSeparator: '0x'
             }
         };
         beforeEach(async function () {
@@ -179,7 +179,7 @@ contract('AccountManager', function () {
             return cloneRequest;
         }
 
-        it('should use internally controlled keypair for signing if available', async function () {
+        it.only('should use internally controlled keypair for signing if available', async function () {
             relayRequest.request.from = address;
             const signedData = new TypedRequestData(
                 defaultEnvironment.chainId,
