@@ -593,7 +593,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
             );
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
