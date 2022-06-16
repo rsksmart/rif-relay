@@ -59,8 +59,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
             gasPrice: '1',
             relayWorker: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
-            callVerifier: constants.ZERO_ADDRESS,
-            // domainSeparator: '0x'
+            callVerifier: constants.ZERO_ADDRESS
         }
     };
 
@@ -885,8 +884,7 @@ contract('SmartWalletFactory', ([from]) => {
             gasPrice: '1',
             relayWorker: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
-            callVerifier: constants.ZERO_ADDRESS,
-            // domainSeparator: '0x'
+            callVerifier: constants.ZERO_ADDRESS
         }
     };
 

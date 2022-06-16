@@ -37,7 +37,6 @@ import {
     RelayHubConfiguration,
     TypedRequestData,
     RequestType,
-    getDomainSeparatorHash,
     TypedDeployRequestData,
     DeployRequestDataType,
     DEPLOY_PARAMS
@@ -507,7 +506,6 @@ export async function createCustomSmartWallet(
         rReq
     );
 
-    
     const deploySignature = getLocalEip712Signature(createdataToSign, privKey);
     const encoded = TypedDataUtils.encodeData(
         createdataToSign.primaryType,
