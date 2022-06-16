@@ -30,7 +30,6 @@ import {
 } from '../TestUtils';
 import {
     TypedRequestData,
-    // getDomainSeparatorHash,
     ForwardRequestType,
     constants,
     RelayRequest
@@ -170,7 +169,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                 let smartWallet:
                     | SmartWalletInstance
                     | CustomSmartWalletInstance;
-                // let domainSeparatorHash: string;
 
                 const request: RelayRequest = {
                     request: {
@@ -187,7 +185,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                     },
                     relayData: {
                         gasPrice: '1',
-                        // domainSeparator: '0x',
                         relayWorker: constants.ZERO_ADDRESS,
                         callForwarder: constants.ZERO_ADDRESS,
                         callVerifier: constants.ZERO_ADDRESS
@@ -250,18 +247,11 @@ TYPES_OF_WALLETS.forEach((element) => {
                     }
 
                     request.relayData.callForwarder = smartWallet.address;
-                    // request.relayData.domainSeparator = getDomainSeparatorHash(
-                    //     smartWallet.address,
-                    //     chainId
-                    // );
-                    // domainSeparatorHash = request.relayData.domainSeparator;
                 });
 
                 describe('#verify', () => {
                     describe('#verify failures', () => {
                         it('should fail on unregistered domain separator', async () => {
-                            console.log('SmartWallet262 Starting test');
-                            // const dummyDomainSeparator = bytes32(1);
                             const dataToSign = new TypedRequestData(
                                 chainId,
                                 smartWallet.address,
@@ -281,12 +271,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 data: dataToSign
                             });
 
-                            // await smartWallet.buildDomainSeparator();
-                            // console.log('SmartWallet.test276 request.domainSeparator ', request.relayData.domainSeparator);
-                            // console.log('SmartWallet.test277 domainSeparator ', await smartWallet.domainSeparator());
                             await expectRevert(
                                 smartWallet.verify(
-                                    // dummyDomainSeparator,
                                     suffixData,
                                     request.request,
                                     sig
@@ -326,7 +312,6 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                             await expectRevert(
                                 smartWallet.verify(
-                                    // domainSeparatorHash,
                                     suffixData,
                                     req.request,
                                     sig
@@ -351,7 +336,6 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                             await expectRevert(
                                 smartWallet.verify(
-                                    // domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x'
@@ -360,7 +344,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
                             await expectRevert(
                                 smartWallet.verify(
-                                    // domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x123456'
@@ -369,7 +352,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
                             await expectRevert(
                                 smartWallet.verify(
-                                    // domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x' + '1b'.repeat(65)
@@ -411,20 +393,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 ).slice((1 + ForwardRequestType.length) * 32)
                             );
 
-                            // console.log('SmartWallet397 suffixData:', suffixData);
-
-                            // await smartWallet.buildDomainSeparator();
-                            console.log(
-                                'SmartWallet.test414 request.domainSeparator ',
-                                request.relayData.domainSeparator
-                            );
-                            console.log(
-                                'SmartWallet.test418 domainSeparator ',
-                                await smartWallet.domainSeparator()
-                            );
-
                             await smartWallet.verify(
-                                // domainSeparatorHash,
                                 suffixData,
                                 request.request,
                                 sig
@@ -499,7 +468,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -570,7 +538,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                         // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
                         // declared in solidity
                         await smartWallet.execute(
-                            // domainSeparatorHash,
                             suffixData,
                             req1.request,
                             sig,
@@ -672,7 +639,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const ret = await testfwd.callExecute(
                             smartWallet.address,
                             req1.request,
-                            // domainSeparatorHash,
                             suffixData,
                             sig,
                             { from: worker }
@@ -734,7 +700,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const ret = await testfwd.callExecute(
                             smartWallet.address,
                             req1.request,
-                            // domainSeparatorHash,
                             suffixData,
                             sig,
                             { from: worker }
@@ -756,7 +721,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -847,7 +811,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value: '0' }
@@ -909,7 +872,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -976,7 +938,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -1069,7 +1030,6 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
-                                // domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }

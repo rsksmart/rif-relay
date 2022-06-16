@@ -18,7 +18,6 @@ import {
     constants,
     DeployRequest,
     DeployRequestDataType,
-    // getDomainSeparatorHash,
     TypedDeployRequestData
 } from '@rsksmart/rif-relay-common';
 
@@ -80,10 +79,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
         // A new factory for new create2 addresses each
         factory = await CustomSmartWalletFactory.new(fwd.address);
         request.relayData.callForwarder = factory.address;
-        // request.relayData.domainSeparator = getDomainSeparatorHash(
-        //     factory.address,
-        //     chainId
-        // );
     });
 
     describe('#getCreationBytecode', () => {
@@ -514,7 +509,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
@@ -664,7 +658,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
             await expectRevert(
                 factory.relayedUserSmartWalletCreation(
                     req.request,
-                    // getDomainSeparatorHash(factory.address, env.chainId),
                     suffixData,
                     sig
                 ),
@@ -724,7 +717,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
@@ -905,10 +897,6 @@ contract('SmartWalletFactory', ([from]) => {
         // A new factory for new create2 addresses each
         factory = await SmartWalletFactory.new(fwd.address);
         request.relayData.callForwarder = factory.address;
-        // request.relayData.domainSeparator = getDomainSeparatorHash(
-        //     factory.address,
-        //     chainId
-        // );
     });
 
     describe('#getCreationBytecode', () => {
@@ -1279,7 +1267,6 @@ contract('SmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
@@ -1353,7 +1340,6 @@ contract('SmartWalletFactory', ([from]) => {
             );
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
@@ -1414,7 +1400,6 @@ contract('SmartWalletFactory', ([from]) => {
             await expectRevert(
                 factory.relayedUserSmartWalletCreation(
                     req.request,
-                    // getDomainSeparatorHash(factory.address, env.chainId),
                     suffixData,
                     sig
                 ),
@@ -1469,7 +1454,6 @@ contract('SmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                // getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
                 sig
             );
