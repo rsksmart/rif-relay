@@ -1,20 +1,18 @@
 version: '3'
 services:
     rskj:
-        build:
-            context: '.'
-            args:
-                - rskj_codename=SNAPSHOT
-                - rskj_version=3.3.0
-                - working_branch=master
         container_name: rsk-node
-        image: rskj:latest
-        command: --regtest
+        image: rsksmart/rskj:IRIS-3
+        command: java -Drsk.conf.file=./node.conf -Dlogback.configurationFile=./logback.xml -cp ./rsk.jar co.rsk.Start --regtest
         ports:
             - '127.0.0.1:4444:4444'
             - '127.0.0.1:4445:4445'
         networks:
             - 'rif-relay-testing'
+        volumes:
+            - logback.xml:/home/rsk/logback.xml
+            - node.conf:/home/rsk/node.conf
+        entrypoint: ""
 
 networks:
     rif-relay-testing:
