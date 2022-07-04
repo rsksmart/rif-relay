@@ -24,7 +24,7 @@ commands:
             - run:
                   name: Run RSKj
                   command: |
-                      docker run -d -p 127.0.0.1:4444:4444 --name enveloping-rskj -it -v $PWD/logback.xml:/home/rsk/logback.xml -v $PWD/node.conf:/home/rsk/node.conf --entrypoint "" rsksmart/rskj:IRIS-3 java -Drsk.conf.file=./node.conf -Dlogback.configurationFile=./logback.xml -cp ./rsk.jar co.rsk.Start
+                      docker % docker run -p 127.0.0.1:4444:4444 --name enveloping-rskj -it -v $PWD/logback.xml:/etc/rsk/logback.xml -v $PWD/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3
 
             - restore_cache: # special step to restore the dependency cache
                   key: dependency-cachev7-{{ checksum "package.json" }}-npm
