@@ -9,8 +9,8 @@ services:
         networks:
             - 'rif-relay-testing'
         volumes:
-            - logback.xml:/usr/local/rskj/logback.xml
-            - node.conf:/usr/local/rskj/node.conf
+            - logback.xml:/etc/rsk/logback.xml
+            - node.conf:/etc/rsk/node.conf
 
 networks:
     rif-relay-testing:
