@@ -4,8 +4,8 @@ services:
         container_name: rsk-node
         image: rsksmart/rskj:IRIS-3
         ports:
-            - '127.0.0.1:4444:4444'
-            - '127.0.0.1:4445:4445'
+            - '4444:4444'
+            - '4445:4445'
         networks:
             - 'rif-relay-testing'
         volumes:
