@@ -1,28 +1,13 @@
-# Building
-
-To build the default `PAPYRUS-2.1.0`, run in the `rsknode` folder:
-
-```
-docker build -t rskj:2.1.0-PAPYRUS .
-```
-
-To build a different version, say `LOREMIPSUM-42.0.0`, use instead
-
-```
-docker build \
-    --build-arg rskj_version=42.0.0 \
-    --build-arg rskj_codename=LOREMIPSUM \
-    -t rskj:42.0.0-LOREMIPSUM .
-```
-
 # Running
 
-To run, use the recently generated tag (`-t` parameter for `docker
-build`):
+To run the RSKj container please use the following command:
+
+```bash
+docker run -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445  --name enveloping-rskj -it -v $PWD/logback.xml:/etc/rsk/logback.xml -v $PWD/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3 --regtest
+```
+
+You could also use docker-compose:
 
 ```
-docker run -p 127.0.0.1:4444:4444 --name enveloping-rskj rskj:2.1.0-PAPYRUS --regtest
+docker-compose up -d
 ```
-
-`--regtest` can be modified to any other of the networks or parameters
-supported by the rskj binary.
