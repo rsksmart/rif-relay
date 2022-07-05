@@ -1,7 +1,13 @@
 /* global artifacts describe */
 // @ts-ignore
 import {
-    constants, defaultEnvironment, EnvelopingConfig, isRsk, RelayTransactionRequest, sleep, TokenResponse
+    constants,
+    defaultEnvironment,
+    EnvelopingConfig,
+    isRsk,
+    RelayTransactionRequest,
+    sleep,
+    TokenResponse
 } from '@rsksmart/rif-relay-common';
 import {
     TestDeployVerifierConfigurableMisbehaviorInstance,
@@ -11,8 +17,10 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
     RelayServer,
-    SendTransactionDetails, ServerAction,
-    ServerConfigParams, SignedTransactionDetails
+    SendTransactionDetails,
+    ServerAction,
+    ServerConfigParams,
+    SignedTransactionDetails
 } from '@rsksmart/rif-relay-server';
 import chai from 'chai';
 import chaiAsPromised from 'chai-as-promised';
@@ -22,7 +30,9 @@ import sinonChai from 'sinon-chai';
 import { HttpProvider } from 'web3-core';
 import { toBN, toHex } from 'web3-utils';
 import {
-    evmMineMany, getTestingEnvironment, INCORRECT_ECDSA_SIGNATURE,
+    evmMineMany,
+    getTestingEnvironment,
+    INCORRECT_ECDSA_SIGNATURE,
     revert,
     snapshot
 } from '../TestUtils';
