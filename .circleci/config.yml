@@ -24,11 +24,7 @@ commands:
       - run:
           name: Clone and Build RSKj
           command: |
-                  GIT_SSH_COMMAND='ssh -i ~/.ssh/id_rsa_fingerprint'
-                  git clone -b << pipeline.parameters.branch >> git@github.com:<< pipeline.parameters.repo >>  ~/rsksmart/rskj
-                  cd ~/rsksmart/rskj/
-                  ./configure.sh
-                  ./gradlew clean build -x test
+                docker run -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445  --name enveloping-rskj -it -v $PWD/logback.xml:/etc/rsk/logback.xml -v $PWD/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3 --regtest
 
       - restore_cache: # special step to restore the dependency cache
           key: dependency-cachev4-{{ checksum "package.json" }}-yarn2
