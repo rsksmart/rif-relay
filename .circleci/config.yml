@@ -43,13 +43,11 @@ commands:
             docker network create rif-relay-testing
             docker create -v /cfg --name files node:12.18.3 /bin/true
             docker cp $PWD files:/cfg
-            docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
+            docker run --volumes-from files -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 \
                 --network rif-relay-testing --name enveloping-rskj -it \
                 --entrypoint "" << pipeline.parameters.repo >>:<< pipeline.parameters.tag >>  java -cp rsk.jar \
                 -Dlogback.configurationFile=/cfg/project/rsknode/logback.xml \
-                -Drsk.conf.file=/cfg/project/rsknode/node.conf \
-                -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true \
-                -Dminer.minGasPrice=1 -Dblockchain.config.hardforkActivationHeights.iris300=0 co.rsk.Start \
+                -Drsk.conf.file=/cfg/project/rsknode/node.conf co.rsk.Start \
                 --regtest
             docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
             docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 yarn
@@ -63,6 +61,7 @@ commands:
       - run:
           name: Execute << parameters.test >>
           command: |
+            docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
             docker run --volumes-from files \
                 --network rif-relay-testing -w /cfg/project node:12.18.3 \
                 npx truffle test --network rskdocker << parameters.test >>
@@ -130,8 +129,6 @@ jobs:
       - prepare
       - run_rskj_node
       - run_rskj_test:
-          test: test/relayclient/SmartWalletDiscovery.test.ts
-      - run_rskj_test:
           test: test/SampleRecipient.test.ts
       - run_rskj_test:
           test: test/StakeManagement.test.ts
@@ -139,6 +136,8 @@ jobs:
           test: test/RSKAddressValidator.test.ts
       - run_rskj_test:
           test: test/EnvelopingUtils.test.ts
+      - run_rskj_test:
+            test: test/relayclient/SmartWalletDiscovery.test.ts
 
   Test_Thread_4:
     docker:
