@@ -47,11 +47,12 @@ commands:
                 --network rif-relay-testing --name enveloping-rskj -it \
                 --entrypoint "" << pipeline.parameters.repo >>:<< pipeline.parameters.tag >>  java -cp rsk.jar \
                 -Dlogback.configurationFile=/cfg/project/rsknode/logback.xml \
-                -Drsk.conf.file=/cfg/project/rsknode/node.conf co.rsk.Start \
+                -Drsk.conf.file=/cfg/project/rsknode/node.conf \
+                -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true \
+                -Dminer.minGasPrice=1 -Dblockchain.config.hardforkActivationHeights.iris300=0 co.rsk.Start \
                 --regtest
             docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
             docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 yarn
-            docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 yarn generate
 
   run_rskj_test:
     description: Execute the parameter test against RSKj node
