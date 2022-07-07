@@ -43,7 +43,7 @@ commands:
             docker network create rif-relay-testing
             docker create -v /cfg --name files node:12.18.3 /bin/true
             docker cp $PWD files:/cfg
-            docker run --volumes-from files -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 \
+            docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
                 --network rif-relay-testing --name enveloping-rskj -it \
                 --entrypoint "" << pipeline.parameters.repo >>:<< pipeline.parameters.tag >>  java -cp rsk.jar \
                 -Dlogback.configurationFile=/cfg/project/rsknode/logback.xml \
@@ -61,7 +61,6 @@ commands:
       - run:
           name: Execute << parameters.test >>
           command: |
-            docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
             docker run --volumes-from files \
                 --network rif-relay-testing -w /cfg/project node:12.18.3 \
                 npx truffle test --network rskdocker << parameters.test >>
@@ -69,14 +68,14 @@ commands:
 jobs:
   Lint_Tsc:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare_wo_rskj
       - pre-checks
 
   Test_Thread_1:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
@@ -103,7 +102,7 @@ jobs:
 
   Test_Thread_2:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
@@ -124,10 +123,12 @@ jobs:
 
   Test_Thread_3:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
+      - run_rskj_test:
+          test: test/relayclient/SmartWalletDiscovery.test.ts
       - run_rskj_test:
           test: test/SampleRecipient.test.ts
       - run_rskj_test:
@@ -137,11 +138,11 @@ jobs:
       - run_rskj_test:
           test: test/EnvelopingUtils.test.ts
       - run_rskj_test:
-            test: test/relayclient/SmartWalletDiscovery.test.ts
+          test: test/relayclient/SmartWalletDiscovery.test.ts
 
   Test_Thread_4:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
@@ -158,7 +159,7 @@ jobs:
   
   Test_Thread_5:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
@@ -175,7 +176,7 @@ jobs:
 
   Test_Thread_6:
     docker:
-      - image: 'cimg/node:14.19'
+      - image: 'cimg/node:12.18.3'
     steps:
       - prepare
       - run_rskj_node
