@@ -13,14 +13,6 @@ commands:
     steps:
       - checkout
       - setup_remote_docker
-      - run:
-          name: Install Docker Compose
-          environment:
-            COMPOSE_VERSION: 1.29.2
-          command: |
-            curl -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o ~/docker-compose
-            chmod +x ~/docker-compose
-            sudo mv ~/docker-compose /usr/local/bin/docker-compose
 
   pre-checks:
     description: Execute lint and tsc
@@ -59,6 +51,7 @@ commands:
                 --regtest
             docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
             docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 yarn
+            docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 yarn generate
 
   run_rskj_test:
     description: Execute the parameter test against RSKj node
@@ -76,14 +69,14 @@ commands:
 jobs:
   Lint_Tsc:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare_wo_rskj
       - pre-checks
 
   Test_Thread_1:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
@@ -110,7 +103,7 @@ jobs:
 
   Test_Thread_2:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
@@ -131,7 +124,7 @@ jobs:
 
   Test_Thread_3:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
@@ -148,7 +141,7 @@ jobs:
 
   Test_Thread_4:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
@@ -165,7 +158,7 @@ jobs:
   
   Test_Thread_5:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
