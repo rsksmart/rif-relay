@@ -129,13 +129,13 @@ jobs:
       - prepare
       - run_rskj_node
       - run_rskj_test:
+          test: test/relayclient/SmartWalletDiscovery.test.ts
+      - run_rskj_test:
           test: test/SampleRecipient.test.ts
       - run_rskj_test:
           test: test/StakeManagement.test.ts
       - run_rskj_test:
           test: test/RSKAddressValidator.test.ts
-      - run_rskj_test:
-          test: test/relayclient/SmartWalletDiscovery.test.ts
       - run_rskj_test:
           test: test/EnvelopingUtils.test.ts
 
@@ -175,14 +175,14 @@ jobs:
 
   Test_Thread_6:
     docker:
-      - image: 'cimg/node:16.15'
+      - image: 'cimg/node:14.19'
     steps:
       - prepare
       - run_rskj_node
       - run_rskj_test:
-          test: test/RelayHub.test.ts
-      - run_rskj_test:
           test: test/VersionRegistry.test.ts
+      - run_rskj_test:
+          test: test/RelayHub.test.ts
       - run_rskj_test:
           test: test/relayclient/RelayProvider.test.ts
       - run_rskj_test:
