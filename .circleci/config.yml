@@ -128,8 +128,6 @@ jobs:
       - prepare
       - run_rskj_node
       - run_rskj_test:
-          test: test/relayclient/SmartWalletDiscovery.test.ts
-      - run_rskj_test:
           test: test/SampleRecipient.test.ts
       - run_rskj_test:
           test: test/StakeManagement.test.ts
