@@ -112,8 +112,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     gasPrice,
                     relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });
