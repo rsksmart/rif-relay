@@ -39,6 +39,7 @@ import {
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment';
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils';
 
+const expect = chai.expect;
 chai.use(chaiAsPromised).use(sinonChai);
 
 const TestToken = artifacts.require('TestToken');
