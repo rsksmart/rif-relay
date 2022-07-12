@@ -33,7 +33,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
     let fwd: CustomSmartWalletInstance;
     let token: TestTokenInstance;
     let factory: CustomSmartWalletFactoryInstance;
-    let chainId: number;
     const ownerPrivateKey = toBuffer(bytes32(1));
     let ownerAddress: string;
     const recipientPrivateKey = toBuffer(bytes32(1));
@@ -63,7 +62,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
     };
 
     before(async () => {
-        chainId = (await getTestingEnvironment()).chainId;
         ownerAddress = bufferToHex(
             privateToAddress(ownerPrivateKey)
         ).toLowerCase();
@@ -848,7 +846,6 @@ contract('SmartWalletFactory', ([from]) => {
     let fwd: SmartWalletInstance;
     let token: TestTokenInstance;
     let factory: SmartWalletFactoryInstance;
-    let chainId: number;
     const ownerPrivateKey = toBuffer(bytes32(1));
     let ownerAddress: string;
     const recipientPrivateKey = toBuffer(bytes32(1));
@@ -880,7 +877,6 @@ contract('SmartWalletFactory', ([from]) => {
     };
 
     before(async () => {
-        chainId = (await getTestingEnvironment()).chainId;
         ownerAddress = bufferToHex(
             privateToAddress(ownerPrivateKey)
         ).toLowerCase();

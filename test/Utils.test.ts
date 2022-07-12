@@ -6,7 +6,6 @@ import chai from 'chai';
 import {
     RelayRequest,
     TypedRequestData,
-    getDomainSeparatorHash,
     constants,
     estimateMaxPossibleRelayCallWithLinearFit,
     getLocalEip712Signature
