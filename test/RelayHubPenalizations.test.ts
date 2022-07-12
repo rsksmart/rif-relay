@@ -79,7 +79,6 @@ contract(
             relayData: {
                 gasPrice: '50',
                 relayWorker,
-                domainSeparator: '',
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS
             }
@@ -591,10 +590,6 @@ contract(
                 r.request.relayHub = relayHub.address;
                 r.relayData.callForwarder = smartWallet.address;
                 r.relayData.callVerifier = verifier.address;
-                r.relayData.domainSeparator = getDomainSeparatorHash(
-                    smartWallet.address,
-                    env.chainId
-                );
 
                 return r;
             }
