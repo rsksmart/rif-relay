@@ -29,7 +29,6 @@ import {
     Web3Provider,
     RelayTransactionRequest,
     constants,
-    getDomainSeparatorHash,
     TypedDeployRequestData
 } from '@rsksmart/rif-relay-common';
 import {
