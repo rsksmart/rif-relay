@@ -148,7 +148,6 @@ workflows:
     commit:
         jobs:
             - CodeStyle Checks
-            - Test_Thread_1
             - Test_Thread_2
             - Test_Thread_3
             - Test_Thread_4
