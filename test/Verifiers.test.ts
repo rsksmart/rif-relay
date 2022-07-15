@@ -14,8 +14,7 @@ import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util';
 import {
     DeployRequest,
     RelayRequest,
-    constants,
-    getDomainSeparatorHash
+    constants
 } from '@rsksmart/rif-relay-common';
 import {
     getTestingEnvironment,
@@ -91,9 +90,7 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: factory.address,
-                    callVerifier: deployVerifier.address,
-                    domainSeparator:
-                        '0x0000000000000000000000000000000000000000000000000000000000000000'
+                    callVerifier: deployVerifier.address
                 }
             };
 
@@ -301,11 +298,7 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address,
-                    domainSeparator: getDomainSeparatorHash(
-                        smartWallet,
-                        chainId
-                    )
+                    callVerifier: relayVerifier.address
                 }
             };
 
@@ -326,11 +319,7 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address,
-                    domainSeparator: getDomainSeparatorHash(
-                        smartWallet,
-                        chainId
-                    )
+                    callVerifier: relayVerifier.address
                 }
             };
 

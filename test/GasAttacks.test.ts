@@ -5,8 +5,7 @@ import {
     RelayRequest,
     cloneRelayRequest,
     Environment,
-    TypedRequestData,
-    getDomainSeparatorHash
+    TypedRequestData
 } from '@rsksmart/rif-relay-common';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
@@ -112,8 +111,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     gasPrice,
                     relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });

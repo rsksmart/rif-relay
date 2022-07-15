@@ -6,7 +6,6 @@ import chai from 'chai';
 import {
     RelayRequest,
     TypedRequestData,
-    getDomainSeparatorHash,
     constants,
     estimateMaxPossibleRelayCallWithLinearFit,
     getLocalEip712Signature
@@ -97,8 +96,7 @@ contract('Utils', function (accounts) {
                     gasPrice,
                     relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });

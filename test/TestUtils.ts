@@ -37,7 +37,6 @@ import {
     RelayHubConfiguration,
     TypedRequestData,
     RequestType,
-    getDomainSeparatorHash,
     TypedDeployRequestData,
     DeployRequestDataType,
     DEPLOY_PARAMS
@@ -410,7 +409,6 @@ export async function createSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            domainSeparator: '0x',
             relayWorker: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
@@ -433,7 +431,6 @@ export async function createSmartWallet(
     const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)); // keccak256 of suffixData
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
-        getDomainSeparatorHash(factory.address, chainId),
         suffixData,
         deploySignature
     );
@@ -493,7 +490,6 @@ export async function createCustomSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            domainSeparator: '0x',
             relayWorker: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
@@ -516,7 +512,6 @@ export async function createCustomSmartWallet(
     const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)); // keccak256 of suffixData
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
-        getDomainSeparatorHash(factory.address, chainId),
         suffixData,
         deploySignature,
         { from: relayHub }
@@ -628,7 +623,6 @@ export async function prepareTransaction(
         },
         relayData: {
             gasPrice: '1',
-            domainSeparator: getDomainSeparatorHash(swallet, chainId),
             relayWorker: relayWorker,
             callForwarder: swallet,
             callVerifier: verifier
