@@ -96,7 +96,8 @@ contract('Utils', function (accounts) {
                     gasPrice,
                     relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier
+                    callVerifier: verifier,
+                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
                 }
             };
         });

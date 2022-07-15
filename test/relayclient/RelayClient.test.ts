@@ -487,7 +487,11 @@ gasOptions.forEach((gasOption) => {
                         gasPrice: '1',
                         relayWorker: relayWorker,
                         callForwarder: factory.address,
-                        callVerifier: deployVerifier.address
+                        callVerifier: deployVerifier.address,
+                        domainSeparator: getDomainSeparatorHash(
+                            factory.address,
+                            chainId
+                        )
                     }
                 };
                 const dataToSign = new TypedDeployRequestData(

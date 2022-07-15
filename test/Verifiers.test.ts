@@ -90,7 +90,9 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: factory.address,
-                    callVerifier: deployVerifier.address
+                    callVerifier: deployVerifier.address,
+                    domainSeparator:
+                        '0x0000000000000000000000000000000000000000000000000000000000000000'
                 }
             };
 
@@ -298,7 +300,11 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address
+                    callVerifier: relayVerifier.address,
+                    domainSeparator: getDomainSeparatorHash(
+                        smartWallet,
+                        chainId
+                    )
                 }
             };
 
@@ -319,7 +325,11 @@ contract(
                     gasPrice,
                     relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address
+                    callVerifier: relayVerifier.address,
+                    domainSeparator: getDomainSeparatorHash(
+                        smartWallet,
+                        chainId
+                    )
                 }
             };
 

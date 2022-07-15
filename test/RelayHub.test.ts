@@ -146,7 +146,11 @@ contract(
                         gasPrice,
                         relayWorker,
                         callForwarder: forwarder,
-                        callVerifier: verifier
+                        callVerifier: verifier,
+                        domainSeparator: getDomainSeparatorHash(
+                            forwarder,
+                            chainId
+                        )
                     }
                 };
             });
@@ -521,7 +525,11 @@ contract(
                         gasPrice,
                         relayWorker,
                         callForwarder: forwarder,
-                        callVerifier: verifier
+                        callVerifier: verifier,
+                        domainSeparator: getDomainSeparatorHash(
+                            forwarder,
+                            chainId
+                        )
                     }
                 };
             });
@@ -825,6 +833,11 @@ contract(
                         completeReq.request.nonce = nonceBefore.toString();
                         completeReq.relayData.callForwarder =
                             sWalletInstance.address;
+                        completeReq.relayData.domainSeparator =
+                            getDomainSeparatorHash(
+                                sWalletInstance.address,
+                                chainId
+                            );
                         completeReq.request.tokenAmount = balanceToTransfer;
                         completeReq.request.tokenContract = token.address;
 
@@ -1217,6 +1230,11 @@ contract(
                         completeReq.request.nonce = nonceBefore.toString();
                         completeReq.relayData.callForwarder =
                             sWalletInstance.address;
+                        completeReq.relayData.domainSeparator =
+                            getDomainSeparatorHash(
+                                sWalletInstance.address,
+                                chainId
+                            );
                         completeReq.request.tokenAmount = '0x00';
                         completeReq.request.tokenContract =
                             constants.ZERO_ADDRESS;
@@ -1533,6 +1551,11 @@ contract(
                         completeReq.request.nonce = nonceBefore.toString();
                         completeReq.relayData.callForwarder =
                             sWalletInstance.address;
+                        completeReq.relayData.domainSeparator =
+                            getDomainSeparatorHash(
+                                sWalletInstance.address,
+                                chainId
+                            );
                         completeReq.request.tokenAmount = '0x00';
                         completeReq.request.tokenGas = '0';
 
@@ -2198,7 +2221,11 @@ contract(
                         gasPrice,
                         relayWorker,
                         callForwarder: factory.address,
-                        callVerifier: deployVerifierContract.address
+                        callVerifier: deployVerifierContract.address,
+                        domainSeparator: getDomainSeparatorHash(
+                            factory.address,
+                            chainId
+                        )
                     }
                 };
             });
