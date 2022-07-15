@@ -327,7 +327,7 @@ contract('RelayServer', function (accounts) {
                     assert.fail();
                 } catch (e) {
                     if (revertReasonSupported) {
-                        assert.include(e.message, 'Signature mismatch');
+                        assert.include(e.message, 'signature mismatch');
                     } else {
                         assert.include(
                             e.message,

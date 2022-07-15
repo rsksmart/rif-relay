@@ -30,6 +30,7 @@ import {
 } from '../TestUtils';
 import {
     TypedRequestData,
+    getDomainSeparatorHash,
     ForwardRequestType,
     constants,
     RelayRequest
@@ -47,7 +48,7 @@ const NonRevertTestToken = artifacts.require('NonRevertTestToken');
 const NonCompliantTestToken = artifacts.require('NonCompliantTestToken');
 const TestSmartWallet = artifacts.require('TestSmartWallet');
 
-const TYPES_OF_WALLETS = [
+const options = [
     {
         title: 'CustomSmartWallet',
         simple: false
@@ -58,7 +59,7 @@ const TYPES_OF_WALLETS = [
     }
 ];
 
-const TOKENS = [
+const tokens = [
     {
         title: 'TestToken',
         tokenIndex: 0
@@ -76,8 +77,6 @@ const TOKENS = [
         tokenIndex: 3
     }
 ];
-
-const FAKE_PRIVATE_KEY = 1;
 
 async function fillTokens(
     tokenIndex: number,
@@ -142,8 +141,8 @@ async function getTokenBalance(
     return balance;
 }
 
-TYPES_OF_WALLETS.forEach((element) => {
-    TOKENS.forEach((tokenToUse) => {
+options.forEach((element) => {
+    tokens.forEach((tokenToUse) => {
         contract(
             `${element.title} using ${tokenToUse.title}`,
             ([
@@ -153,8 +152,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                 payerAccount
             ]) => {
                 const countParams = ForwardRequestType.length;
-                const senderPrivateKey = toBuffer(bytes32(FAKE_PRIVATE_KEY));
-
+                const senderPrivateKey = toBuffer(bytes32(1));
                 let chainId: number;
                 let senderAddress: string;
                 let template: SmartWalletInstance | CustomSmartWalletInstance;
@@ -166,9 +164,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                     | TetherTokenInstance
                     | NonRevertTestTokenInstance
                     | NonCompliantTestTokenInstance;
-                let smartWallet:
-                    | SmartWalletInstance
-                    | CustomSmartWalletInstance;
+                let sw: SmartWalletInstance | CustomSmartWalletInstance;
+                let domainSeparatorHash: string;
 
                 const request: RelayRequest = {
                     request: {
@@ -185,6 +182,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                     },
                     relayData: {
                         gasPrice: '1',
+                        domainSeparator: '0x',
                         relayWorker: constants.ZERO_ADDRESS,
                         callForwarder: constants.ZERO_ADDRESS,
                         callVerifier: constants.ZERO_ADDRESS
@@ -223,7 +221,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const SmartWallet = artifacts.require('SmartWallet');
                         template = await SmartWallet.new();
                         factory = await createSmartWalletFactory(template);
-                        smartWallet = await createSmartWallet(
+                        sw = await createSmartWallet(
                             defaultAccount,
                             senderAddress,
                             factory,
@@ -237,7 +235,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         factory = await createCustomSmartWalletFactory(
                             template
                         );
-                        smartWallet = await createCustomSmartWallet(
+                        sw = await createCustomSmartWallet(
                             defaultAccount,
                             senderAddress,
                             factory,
@@ -246,20 +244,23 @@ TYPES_OF_WALLETS.forEach((element) => {
                         );
                     }
 
-                    request.relayData.callForwarder = smartWallet.address;
+                    request.relayData.callForwarder = sw.address;
+                    request.relayData.domainSeparator = getDomainSeparatorHash(
+                        sw.address,
+                        chainId
+                    );
+                    domainSeparatorHash = request.relayData.domainSeparator;
                 });
 
                 describe('#verify', () => {
                     describe('#verify failures', () => {
                         it('should fail on unregistered domain separator', async () => {
+                            const dummyDomainSeparator = bytes32(1);
                             const dataToSign = new TypedRequestData(
                                 chainId,
-                                smartWallet.address,
+                                sw.address,
                                 request
                             );
-
-                            dataToSign.domain.name = 'Wrong domain separator';
-
                             const suffixData = bufferToHex(
                                 TypedDataUtils.encodeData(
                                     dataToSign.primaryType,
@@ -270,14 +271,14 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const sig = signTypedData_v4(senderPrivateKey, {
                                 data: dataToSign
                             });
-
                             await expectRevert(
-                                smartWallet.verify(
+                                sw.verify(
+                                    dummyDomainSeparator,
                                     suffixData,
                                     request.request,
                                     sig
                                 ),
-                                'Signature mismatch'
+                                'Invalid domain separator'
                             );
                         });
 
@@ -291,13 +292,11 @@ TYPES_OF_WALLETS.forEach((element) => {
                                     ...request.relayData
                                 }
                             };
-
                             const dataToSign = new TypedRequestData(
                                 chainId,
-                                smartWallet.address,
+                                sw.address,
                                 req
                             );
-
                             const suffixData = bufferToHex(
                                 TypedDataUtils.encodeData(
                                     dataToSign.primaryType,
@@ -305,13 +304,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                                     dataToSign.types
                                 ).slice((1 + ForwardRequestType.length) * 32)
                             );
-
                             const sig = signTypedData_v4(senderPrivateKey, {
                                 data: dataToSign
                             });
 
                             await expectRevert(
-                                smartWallet.verify(
+                                sw.verify(
+                                    domainSeparatorHash,
                                     suffixData,
                                     req.request,
                                     sig
@@ -319,11 +318,10 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 'nonce mismatch'
                             );
                         });
-
                         it('should fail on invalid signature', async () => {
                             const dataToSign = new TypedRequestData(
                                 chainId,
-                                smartWallet.address,
+                                sw.address,
                                 request
                             );
                             const suffixData = bufferToHex(
@@ -335,7 +333,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
 
                             await expectRevert(
-                                smartWallet.verify(
+                                sw.verify(
+                                    domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x'
@@ -343,7 +342,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 'ECDSA: invalid signature length'
                             );
                             await expectRevert(
-                                smartWallet.verify(
+                                sw.verify(
+                                    domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x123456'
@@ -351,34 +351,32 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 'ECDSA: invalid signature length'
                             );
                             await expectRevert(
-                                smartWallet.verify(
+                                sw.verify(
+                                    domainSeparatorHash,
                                     suffixData,
                                     request.request,
                                     '0x' + '1b'.repeat(65)
                                 ),
-                                'Signature mismatch'
+                                'signature mismatch'
                             );
                         });
                     });
-
                     describe('#verify success', () => {
                         before(async () => {
                             request.request.nonce = (
-                                await smartWallet.nonce()
+                                await sw.nonce()
                             ).toString();
                         });
 
                         it('should verify valid signature', async () => {
                             request.request.nonce = (
-                                await smartWallet.nonce()
+                                await sw.nonce()
                             ).toString();
-
                             const dataToSign = new TypedRequestData(
                                 chainId,
-                                smartWallet.address,
+                                sw.address,
                                 request
                             );
-
                             const sig: string = signTypedData_v4(
                                 senderPrivateKey,
                                 {
@@ -393,7 +391,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                                 ).slice((1 + ForwardRequestType.length) * 32)
                             );
 
-                            await smartWallet.verify(
+                            await sw.verify(
+                                domainSeparatorHash,
                                 suffixData,
                                 request.request,
                                 sig
@@ -412,7 +411,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         await fillTokens(
                             tokenToUse.tokenIndex,
                             token,
-                            smartWallet.address,
+                            sw.address,
                             '1000'
                         );
 
@@ -435,19 +434,17 @@ TYPES_OF_WALLETS.forEach((element) => {
                             await getTokenBalance(
                                 tokenToUse.tokenIndex,
                                 token,
-                                smartWallet.address
+                                sw.address
                             );
                         const req1 = { ...request };
                         req1.request.to = recipient.address;
                         req1.request.data = func;
-                        req1.request.nonce = (
-                            await smartWallet.nonce()
-                        ).toString();
+                        req1.request.nonce = (await sw.nonce()).toString();
                         req1.request.tokenAmount = '10000000000';
                         req1.request.relayHub = testfwd.address;
                         const reqData: EIP712TypedData = new TypedRequestData(
                             chainId,
-                            smartWallet.address,
+                            sw.address,
                             req1
                         );
 
@@ -466,8 +463,9 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                         await expectRevert(
                             testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -483,7 +481,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const swTknBalance = await getTokenBalance(
                             tokenToUse.tokenIndex,
                             token,
-                            smartWallet.address
+                            sw.address
                         );
                         assert.isTrue(
                             initialWorkerTokenBalance.eq(tknBalance),
@@ -508,10 +506,10 @@ TYPES_OF_WALLETS.forEach((element) => {
                             await getTokenBalance(
                                 tokenToUse.tokenIndex,
                                 token,
-                                smartWallet.address
+                                sw.address
                             );
 
-                        const initialNonce = await smartWallet.nonce();
+                        const initialNonce = await sw.nonce();
 
                         const req1 = { ...request };
                         req1.request.data = func;
@@ -521,7 +519,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         req1.request.relayHub = defaultAccount;
                         const reqData: EIP712TypedData = new TypedRequestData(
                             chainId,
-                            smartWallet.address,
+                            sw.address,
                             req1
                         );
 
@@ -537,7 +535,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                         );
                         // note: we pass request as-is (with extra field): web3/truffle can only send javascript members that were
                         // declared in solidity
-                        await smartWallet.execute(
+                        await sw.execute(
+                            domainSeparatorHash,
                             suffixData,
                             req1.request,
                             sig,
@@ -552,7 +551,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const swTknBalance = await getTokenBalance(
                             tokenToUse.tokenIndex,
                             token,
-                            smartWallet.address
+                            sw.address
                         );
 
                         assert.equal(
@@ -586,12 +585,12 @@ TYPES_OF_WALLETS.forEach((element) => {
                         );
                         assert.equal(
                             logs[0].args.msgSender,
-                            smartWallet.address,
+                            sw.address,
                             'msg.sender must be the smart wallet address'
                         );
 
                         assert.equal(
-                            (await smartWallet.nonce()).toString(),
+                            (await sw.nonce()).toString(),
                             initialNonce.add(new BN(1)).toString(),
                             'verifyAndCall should increment nonce'
                         );
@@ -610,15 +609,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const req1 = { ...request };
                         req1.request.data = func;
                         req1.request.to = recipient.address;
-                        req1.request.nonce = (
-                            await smartWallet.nonce()
-                        ).toString();
+                        req1.request.nonce = (await sw.nonce()).toString();
                         req1.request.tokenAmount = '1';
                         req1.request.relayHub = testfwd.address;
 
                         const reqData: EIP712TypedData = new TypedRequestData(
                             chainId,
-                            smartWallet.address,
+                            sw.address,
                             req1
                         );
 
@@ -637,8 +634,9 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                         // the helper simply emits the method return values
                         const ret = await testfwd.callExecute(
-                            smartWallet.address,
+                            sw.address,
                             req1.request,
+                            domainSeparatorHash,
                             suffixData,
                             sig,
                             { from: worker }
@@ -671,15 +669,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const req1 = { ...request };
                         req1.request.data = func;
                         req1.request.to = recipient.address;
-                        req1.request.nonce = (
-                            await smartWallet.nonce()
-                        ).toString();
+                        req1.request.nonce = (await sw.nonce()).toString();
                         req1.request.tokenAmount = '1';
                         req1.request.relayHub = testfwd.address;
 
                         const reqData: EIP712TypedData = new TypedRequestData(
                             chainId,
-                            smartWallet.address,
+                            sw.address,
                             req1
                         );
 
@@ -698,8 +694,9 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                         // the helper simply emits the method return values
                         const ret = await testfwd.callExecute(
-                            smartWallet.address,
+                            sw.address,
                             req1.request,
+                            domainSeparatorHash,
                             suffixData,
                             sig,
                             { from: worker }
@@ -719,8 +716,9 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                         await expectRevert(
                             testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -748,7 +746,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             await fillTokens(
                                 tokenToUse.tokenIndex,
                                 token,
-                                smartWallet.address,
+                                sw.address,
                                 '1000'
                             );
                         });
@@ -759,9 +757,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             'should not leave funds in the forwarder',
                             async () => {
                                 assert.equal(
-                                    await web3.eth.getBalance(
-                                        smartWallet.address
-                                    ),
+                                    await web3.eth.getBalance(sw.address),
                                     '0'
                                 );
                             }
@@ -782,19 +778,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const req1 = { ...request };
                             req1.request.data = func;
                             req1.request.to = recipient.address;
-                            req1.request.nonce = (
-                                await smartWallet.nonce()
-                            ).toString();
+                            req1.request.nonce = (await sw.nonce()).toString();
                             req1.request.tokenAmount = '1';
                             req1.request.value = value.toString();
                             req1.request.relayHub = testfwd.address;
 
                             const reqData: EIP712TypedData =
-                                new TypedRequestData(
-                                    chainId,
-                                    smartWallet.address,
-                                    req1
-                                );
+                                new TypedRequestData(chainId, sw.address, req1);
                             const sig = signTypedData_v4(senderPrivateKey, {
                                 data: reqData
                             });
@@ -809,8 +799,9 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
 
                             const ret = await testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value: '0' }
@@ -845,19 +836,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const req1 = { ...request };
                             req1.request.data = func;
                             req1.request.to = recipient.address;
-                            req1.request.nonce = (
-                                await smartWallet.nonce()
-                            ).toString();
+                            req1.request.nonce = (await sw.nonce()).toString();
                             req1.request.tokenAmount = '1';
                             req1.request.value = ether('2').toString();
                             req1.request.relayHub = testfwd.address;
 
                             const reqData: EIP712TypedData =
-                                new TypedRequestData(
-                                    chainId,
-                                    smartWallet.address,
-                                    req1
-                                );
+                                new TypedRequestData(chainId, sw.address, req1);
                             const sig = signTypedData_v4(senderPrivateKey, {
                                 data: reqData
                             });
@@ -870,8 +855,9 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
 
                             const ret = await testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -908,19 +894,13 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const req1 = { ...request };
                             req1.request.data = func;
                             req1.request.to = recipient.address;
-                            req1.request.nonce = (
-                                await smartWallet.nonce()
-                            ).toString();
+                            req1.request.nonce = (await sw.nonce()).toString();
                             req1.request.tokenAmount = '1';
                             req1.request.value = value.toString();
                             req1.request.relayHub = testfwd.address;
 
                             const reqData: EIP712TypedData =
-                                new TypedRequestData(
-                                    chainId,
-                                    smartWallet.address,
-                                    req1
-                                );
+                                new TypedRequestData(chainId, sw.address, req1);
 
                             const sig = signTypedData_v4(senderPrivateKey, {
                                 data: reqData
@@ -936,8 +916,9 @@ TYPES_OF_WALLETS.forEach((element) => {
                             );
 
                             const ret = await testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -977,7 +958,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const recipientOriginalBalance =
                                 await web3.eth.getBalance(recipient.address);
                             const smartWalletBalance =
-                                await web3.eth.getBalance(smartWallet.address);
+                                await web3.eth.getBalance(sw.address);
                             assert.equal(
                                 smartWalletBalance,
                                 '0',
@@ -992,24 +973,18 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const req1 = { ...request };
                             req1.request.data = func;
                             req1.request.to = recipient.address;
-                            req1.request.nonce = (
-                                await smartWallet.nonce()
-                            ).toString();
+                            req1.request.nonce = (await sw.nonce()).toString();
                             req1.request.tokenAmount = tokensPaid.toString();
                             req1.request.value = value.toString();
                             req1.request.relayHub = testfwd.address;
 
                             const reqData: EIP712TypedData =
-                                new TypedRequestData(
-                                    chainId,
-                                    smartWallet.address,
-                                    req1
-                                );
+                                new TypedRequestData(chainId, sw.address, req1);
 
                             const extraFunds = ether('4');
                             await web3.eth.sendTransaction({
                                 from: defaultAccount,
-                                to: smartWallet.address,
+                                to: sw.address,
                                 value: extraFunds
                             });
 
@@ -1028,8 +1003,9 @@ TYPES_OF_WALLETS.forEach((element) => {
 
                             // note: not transfering value in TX.
                             const ret = await testfwd.callExecute(
-                                smartWallet.address,
+                                sw.address,
                                 req1.request,
+                                domainSeparatorHash,
                                 suffixData,
                                 sig,
                                 { from: worker }
