@@ -10,6 +10,7 @@ import {
     DeployRequest,
     cloneDeployRequest,
     TypedRequestData,
+    getDomainSeparatorHash,
     TypedDeployRequestData,
     constants
 } from '@rsksmart/rif-relay-common';

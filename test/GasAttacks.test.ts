@@ -5,7 +5,8 @@ import {
     RelayRequest,
     cloneRelayRequest,
     Environment,
-    TypedRequestData
+    TypedRequestData,
+    getDomainSeparatorHash
 } from '@rsksmart/rif-relay-common';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';

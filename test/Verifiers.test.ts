@@ -14,7 +14,8 @@ import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util';
 import {
     DeployRequest,
     RelayRequest,
-    constants
+    constants,
+    getDomainSeparatorHash
 } from '@rsksmart/rif-relay-common';
 import {
     getTestingEnvironment,

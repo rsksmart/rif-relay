@@ -29,6 +29,7 @@ import {
     getRawTxOptions,
     cloneRelayRequest,
     RelayRequest,
+    getDomainSeparatorHash,
     isRsk,
     Environment
 } from '@rsksmart/rif-relay-common';
