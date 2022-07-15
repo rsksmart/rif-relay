@@ -52,7 +52,7 @@ commands:
                   name: Run RSKJ Container Image
                   command: |
                       docker network create rif-relay-testing
-                      docker create -v /cfg --name files node:12.18.3 /bin/true
+                      docker create -v /cfg --name files node:16.15 /bin/true
                       docker cp $PWD files:/cfg
                       docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
                           --network rif-relay-testing --name enveloping-rskj -it \
@@ -61,7 +61,7 @@ commands:
                           -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
                           --regtest
                       docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
-                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 npm install
+                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:16.15 npm install
 
     run_rskj_test:
         description: Execute the parameter test against RSKj node
@@ -73,7 +73,7 @@ commands:
                   name: Execute << parameters.test >>
                   command: |
                       docker run --volumes-from files \
-                          --network rif-relay-testing -w /cfg/project node:12.18.3 \
+                          --network rif-relay-testing -w /cfg/project node:16.15 \
                           npx truffle test --network rskdocker << parameters.test >>
 
 jobs:
@@ -84,17 +84,17 @@ jobs:
             - prepare_container
             - pre-checks
 
-    Test_Thread_1:
-        docker:
-            - image: 'cimg/node:16.15'
-        steps:
-            - prepare
-            - run_rskj_node
-            - run:
-                  name: Tests Thread 1
-                  command: |
-                      source "scripts/utils.sh"
-                      run_test_suite_on_ci $TEST_SUITE_1
+    # Test_Thread_1:
+    #     docker:
+    #         - image: 'cimg/node:16.15'
+    #     steps:
+    #         - prepare
+    #         - run_rskj_node
+    #         - run:
+    #               name: Tests Thread 1
+    #               command: |
+    #                   source "scripts/utils.sh"
+    #                   run_test_suite_on_ci $TEST_SUITE_1
 
     Test_Thread_2:
         docker:
