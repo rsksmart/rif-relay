@@ -61,6 +61,7 @@ commands:
                           -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
                           --regtest
                       docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
+                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project cimg/node:16.15 echo $PWD
                       docker run --volumes-from files --network rif-relay-testing -w /cfg/project cimg/node:16.15 npm install
 
     run_rskj_test:
