@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "0.0.1-alpha-0",
   "description": "RIF Enveloping",
   "name": "@rsksmart/enveloping",
   "license": "MIT",
@@ -28,10 +28,9 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "postinstall": "scripts/postinstall",
+    "prepare": "scripts/prepare",
     "test": "scripts/test",
     "testOnly": "scripts/testOnly",
-    "prepare": "./scripts/prepare",
     "build": "./scripts/build",
     "prettier:fix": "npx prettier --write --ignore-unknown .",
     "prettier": "npx prettier --check ."
@@ -39,10 +38,10 @@
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
     "@openzeppelin/contracts": "^3.2.0",
-    "@rsksmart/rif-relay-client": "https://github.com/infuy/rif-relay-client",
-    "@rsksmart/rif-relay-common": "https://github.com/infuy/rif-relay-common",
-    "@rsksmart/rif-relay-contracts": "https://github.com/anarancio/rif-relay-contracts",
-    "@rsksmart/rif-relay-server": "https://github.com/infuy/rif-relay-server",
+    "@rsksmart/rif-relay-client": "0.0.2-alpha.3",
+    "@rsksmart/rif-relay-common": "0.0.2-alpha.4",
+    "@rsksmart/rif-relay-contracts": "0.0.2-alpha.6",
+    "@rsksmart/rif-relay-server": "rsksmart/rif-relay-server",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
     "@trufflesuite/web3-provider-engine": "^15.0.13-1",
