@@ -29,6 +29,14 @@ module.exports = {
             gas: 6300000,
             gasPrice: 60000000 // 0.06 gwei
         },
+        regtest: {
+            verbose: process.env.VERBOSE,
+            host: 'enveloping-rskj',
+            port: 4444,
+            network_id: 33,
+            gas: 6300000,
+            gasPrice: 60000000 // 0.06 gwei
+        },
         testnet: {
             provider: function () {
                 return new HDWalletProvider(
