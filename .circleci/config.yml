@@ -22,7 +22,7 @@ commands:
                       chmod +x ~/docker-compose
                       sudo mv ~/docker-compose /usr/local/bin/docker-compose
 
-    prepare_container:
+    prepare-container:
         description: 'Preparing Rif Relay Container'
         steps:
             - checkout # special step to check out source code to working directory
@@ -48,6 +48,7 @@ commands:
     run_rskj_node:
         description: Create network and Run RSKJ Container Image on Remote Docker
         steps:
+            - prepare-container
             - run:
                   name: Run RSKJ Container Image
                   command: |
@@ -61,8 +62,6 @@ commands:
                           -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
                           --regtest
                       docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
-                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 echo $PWD
-                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npm install
 
     run_rskj_test:
         description: Execute the parameter test against RSKj node
@@ -82,7 +81,7 @@ jobs:
         docker:
             - image: 'cimg/node:16.15'
         steps:
-            - prepare_container
+            - prepare-container
             - pre-checks
 
     # Test_Thread_1:
