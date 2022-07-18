@@ -110,6 +110,19 @@ function run_batch_against_docker() {
   docker-compose -f docker/docker-compose.yml down
 }
 
+function run_batch_against_ci_docker() {
+  docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
+      --network rif-relay-testing --name enveloping-rskj -it \
+      --entrypoint "" rsksmart/rskj:IRIS-3  java -cp rsk.jar \
+      -Dlogback.configurationFile=/cfg/project/docker/logback.xml \
+      -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
+      --regtest
+
+  docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
+  
+  run_batch $@
+}
+
 function run_test_suite_against_docker() {
   TESTS=("$@")
   unset TESTS[0]
@@ -125,6 +138,31 @@ function run_test_suite_against_docker() {
     for test_case in "${TESTS[@]}"
     do
       run_batch_against_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
+      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
+        exit 1
+      fi
+    done
+  else
+    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
+    exit 1
+  fi
+}
+
+function run_test_suite_on_ci_docker() {
+  TESTS=("$@")
+  unset TESTS[0]
+  TEST_TYPE=$1
+  unset TESTS[1]
+  TEST_NAME=$2
+
+  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
+  then
+    run_batch_against_ci_docker "${TEST_NAME} ${TESTS[@]}"
+  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
+  then
+    for test_case in "${TESTS[@]}"
+    do
+      run_batch_against_ci_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
       if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
         exit 1
       fi
