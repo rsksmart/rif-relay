@@ -30,6 +30,7 @@ import {
     deployHub,
     getGaslessAccount,
     getTestingEnvironment,
+    getWebSocketUrl,
     prepareTransaction,
     RelayServerData,
     startRelay,
@@ -139,7 +140,7 @@ contract('RelayProvider', function (accounts) {
 
             if (isRsk(await getTestingEnvironment())) {
                 websocketProvider = new Web3.providers.WebsocketProvider(
-                    'ws://localhost:4445/websocket'
+                    getWebSocketUrl()
                 );
             } else {
                 websocketProvider = new Web3.providers.WebsocketProvider(
@@ -1129,7 +1130,7 @@ contract('RelayProvider', function (accounts) {
 
             if (isRsk(await getTestingEnvironment())) {
                 websocketProvider = new Web3.providers.WebsocketProvider(
-                    'ws://localhost:4445/websocket'
+                    getWebSocketUrl()
                 );
             } else {
                 websocketProvider = new Web3.providers.WebsocketProvider(

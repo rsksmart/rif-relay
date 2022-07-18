@@ -13,6 +13,7 @@ import {
     createSmartWalletFactory,
     deployHub,
     getTestingEnvironment,
+    getWebSocketUrl,
     startRelay,
     stopRelay
 } from './TestUtils';
@@ -392,7 +393,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);
@@ -563,7 +564,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);
@@ -742,7 +743,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);
