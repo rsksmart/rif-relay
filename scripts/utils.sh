@@ -50,6 +50,34 @@ function run_batch() {
   fi
 }
 
+function run_batch_w_ci_network() {
+  TESTS=("$@")
+  unset TESTS[0]
+  BATCH_NAME=$1
+
+  echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
+  
+  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
+  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
+
+  echo "#################################################################################### START BATCH TESTS ####################################################################################"
+  
+  TEST_FAIL=0
+  docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
+  
+  echo "#################################################################################### END BATCH TESTS ####################################################################################"
+  
+  rm -rf contracts
+  rm -rf migrations
+  rm -rf contract-addresses.json
+  
+  echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
+
+  if [ "${TEST_FAIL}" == "1" ]; then
+    exit 1
+  fi
+}
+
 # It requires two env variables:
 # HARD_FORK = the RSKj node hard fork
 # RSKJ_VERSION = the RSKj node version
@@ -111,16 +139,9 @@ function run_batch_against_docker() {
 }
 
 function run_batch_against_ci_docker() {
-  docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
-      --network rif-relay-testing --name enveloping-rskj -it \
-      --entrypoint "" rsksmart/rskj:IRIS-3  java -cp rsk.jar \
-      -Dlogback.configurationFile=/cfg/project/docker/logback.xml \
-      -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
-      --regtest
-
   docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
   
-  run_batch $@
+  run_batch_w_ci_network $@
 }
 
 function run_test_suite_against_docker() {
