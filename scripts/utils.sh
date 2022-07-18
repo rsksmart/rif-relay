@@ -66,55 +66,6 @@ function run_batch_w_ci_network() {
   fi
 }
 
-# It requires two env variables:
-# HARD_FORK = the RSKj node hard fork
-# RSKJ_VERSION = the RSKj node version
-function run_batch_on_ci() {
-  rskj_hard_fork=${RSKJ_HARD_FORK:?"RSKj hardfork is required"}
-  rskj_version=${RSKJ_VERSION:?"RSKj version is required"}
-  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 $rskj_hard_fork -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-all.jar co.rsk.Start --regtest --reset nohup &
-  rskj_pid=$!
-
-  wait_rsk_node
-
-  run_batch $@
-
-  kill -TERM $rskj_pid
-  sleep 5
-}
-
-function run_test_suite_on_ci() {
-  TESTS=("$@")
-  unset TESTS[0]
-  TEST_TYPE=$1
-  unset TESTS[1]
-  TEST_NAME=$2
-  
-  TEST_FAIL=0
-  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
-  then
-    run_batch_on_ci "${TEST_NAME} ${TESTS[@]}"|| TEST_FAIL=1
-  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
-  then
-    for test_case in "${TESTS[@]}"
-    do
-      run_batch_on_ci "${TEST_NAME} ${test_case}" || TEST_FAIL=1
-      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
-        break
-      fi
-    done
-    
-  else
-    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
-    exit 1
-  fi
-
-  if [ "${TEST_FAIL}" == "1" ]; then
-    exit 1
-  fi
-}
-
-
 function run_batch_against_docker() {
   docker-compose -f docker/docker-compose.yml build
   docker-compose -f docker/docker-compose.yml up -d
