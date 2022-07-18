@@ -28,19 +28,13 @@ function run_batch() {
   BATCH_NAME=$1
 
   echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
-  
-  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
   TEST_FAIL=0
   npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   
   echo "#################################################################################### END BATCH TESTS ####################################################################################"
-  
-  rm -rf contracts
-  rm -rf migrations
+
   rm -rf contract-addresses.json
   
   echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
@@ -56,19 +50,13 @@ function run_batch_w_ci_network() {
   BATCH_NAME=$1
 
   echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
-  
-  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
   TEST_FAIL=0
   docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   
   echo "#################################################################################### END BATCH TESTS ####################################################################################"
-  
-  rm -rf contracts
-  rm -rf migrations
+
   rm -rf contract-addresses.json
   
   echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
