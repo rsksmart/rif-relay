@@ -22,7 +22,7 @@ commands:
                       chmod +x ~/docker-compose
                       sudo mv ~/docker-compose /usr/local/bin/docker-compose
 
-    prepare-container:
+    prepare_container:
         description: 'Preparing Rif Relay Container'
         steps:
             - checkout # special step to check out source code to working directory
@@ -52,7 +52,7 @@ commands:
                   name: Run RSKJ Container Image
                   command: |
                       docker network create rif-relay-testing
-                      docker create -v /cfg --name files node:14.15 /bin/true
+                      docker create -v /cfg --name files node:12.18.3 /bin/true
                       docker cp $PWD files:/cfg
                       docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
                           --network rif-relay-testing --name enveloping-rskj -it \
@@ -62,8 +62,8 @@ commands:
                           --regtest
                       docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
                       docker ps
-                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 echo $PWD
-                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npm install
+                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 echo $PWD
+                      docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:12.18.3 npm install
 
     run_rskj_test:
         description: Execute the parameter test against RSKj node
@@ -83,7 +83,7 @@ jobs:
         docker:
             - image: 'cimg/node:16.15'
         steps:
-            - prepare-container
+            - prepare_container
             - pre-checks
 
     # Test_Thread_1:
