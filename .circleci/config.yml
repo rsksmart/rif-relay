@@ -48,20 +48,14 @@ commands:
     run_rskj_node:
         description: Create network and Run RSKJ Container Image on Remote Docker
         steps:
-            - prepare-container
             - run:
                   name: Run RSKJ Container Image
                   command: |
                       docker network create rif-relay-testing
                       docker create -v /cfg --name files node:14.15 /bin/true
                       docker cp $PWD files:/cfg
-                      docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
-                          --network rif-relay-testing --name enveloping-rskj -it \
-                          --entrypoint "" << pipeline.parameters.repo >>:<< pipeline.parameters.tag >>  java -cp rsk.jar \
-                          -Dlogback.configurationFile=/cfg/project/docker/logback.xml \
-                          -Drsk.conf.file=/cfg/project/docker/node.conf co.rsk.Start \
-                          --regtest
-                      docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
+                      docker-compose up -d
+                      docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://rsk-node:4444 -timeout 1m
                       docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 echo $PWD
 
     run_rskj_test:
