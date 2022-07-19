@@ -132,7 +132,7 @@ workflows:
     commit:
         jobs:
             - CodeStyle Checks
-            - Test Thread 2
-            - Test Thread 3
-            - Test Thread 4
+            # - Test Thread 2
+            # - Test Thread 3
+            # - Test Thread 4
             - Test Thread 5

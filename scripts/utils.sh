@@ -81,6 +81,8 @@ function run_batch_against_ci_docker() {
   docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
   
   run_batch_w_ci_network $@
+
+  docker restart enveloping-rskj
 }
 
 function run_test_suite_against_docker() {
