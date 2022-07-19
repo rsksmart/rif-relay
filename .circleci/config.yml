@@ -53,7 +53,7 @@ commands:
                   name: Run RSKJ Container Image
                   command: |
                       docker network create rif-relay-testing
-                      docker create -v /cfg --name files node /bin/true
+                      docker create -v /cfg --name files node:14.15 /bin/true
                       docker cp $PWD files:/cfg
                       docker run --volumes-from files -d -p 4444:4444 -p 4445:4445 \
                           --network rif-relay-testing --name enveloping-rskj -it \
