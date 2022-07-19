@@ -53,7 +53,7 @@ function run_batch_w_ci_network() {
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
   TEST_FAIL=0
-  docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
+  docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:16.14 npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   
   echo "#################################################################################### END BATCH TESTS ####################################################################################"
 
