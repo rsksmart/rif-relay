@@ -21,16 +21,18 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 
 import {
-    DeployRequest,
     EnvelopingConfig,
     replaceErrors,
     EnvelopingTransactionDetails,
     PingResponse,
     Web3Provider,
     RelayTransactionRequest,
-    constants,
-    TypedDeployRequestData
+    constants
 } from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    TypedDeployRequestData
+} from '@rsksmart/rif-relay-contracts';
 import {
     _dumpRelayingResult,
     RelayClient,

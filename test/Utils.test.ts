@@ -4,12 +4,11 @@ import chaiAsPromised from 'chai-as-promised';
 import chai from 'chai';
 
 import {
-    RelayRequest,
-    TypedRequestData,
     constants,
     estimateMaxPossibleRelayCallWithLinearFit,
     getLocalEip712Signature
 } from '@rsksmart/rif-relay-common';
+import { RelayRequest, TypedRequestData } from '@rsksmart/rif-relay-contracts';
 import { expectEvent } from '@openzeppelin/test-helpers';
 import {
     SmartWalletInstance,

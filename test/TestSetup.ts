@@ -27,10 +27,10 @@ import {
     EnvelopingConfig,
     isSameAddress,
     sleep,
-    RelayHubConfiguration,
     string32,
     constants
 } from '@rsksmart/rif-relay-common';
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-contracts';
 import { HttpClient, HttpWrapper } from '@rsksmart/rif-relay-client';
 import { ether } from '@openzeppelin/test-helpers';
 

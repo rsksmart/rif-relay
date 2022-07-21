@@ -26,21 +26,23 @@ import { BN, bufferToHex, toBuffer, privateToAddress } from 'ethereumjs-util';
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet';
 import {
-    DeployRequest,
-    RelayRequest,
     constants,
     defaultEnvironment,
     Environment,
     environments,
     getLocalEip712Signature,
-    sleep,
+    sleep
+} from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    RelayRequest,
     RelayHubConfiguration,
     TypedRequestData,
     RequestType,
     TypedDeployRequestData,
     DeployRequestDataType,
     DEPLOY_PARAMS
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 
 //@ts-ignore
 import sourceMapSupport from 'source-map-support';

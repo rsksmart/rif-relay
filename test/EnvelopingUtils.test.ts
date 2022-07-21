@@ -19,11 +19,13 @@ import {
 import {
     EnvelopingConfig,
     constants,
-    isSameAddress,
+    isSameAddress
+} from '@rsksmart/rif-relay-common';
+import {
     TypedRequestData,
     DeployRequest,
     RelayRequest
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 import { randomHex, toChecksumAddress } from 'web3-utils';
 import { PrefixedHexString } from 'ethereumjs-tx';
 import sigUtil from 'eth-sig-util';

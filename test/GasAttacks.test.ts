@@ -2,11 +2,13 @@ import { ether } from '@openzeppelin/test-helpers';
 import chai from 'chai';
 import {
     getLocalEip712Signature,
+    Environment
+} from '@rsksmart/rif-relay-common';
+import {
     RelayRequest,
     cloneRelayRequest,
-    Environment,
     TypedRequestData
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
 import { IWalletFactory, IRelayHub } from '@rsksmart/rif-relay-contracts';

@@ -12,14 +12,14 @@ import {
 } from 'eth-sig-util';
 import { BN, bufferToHex, privateToAddress, toBuffer } from 'ethereumjs-util';
 import { bytes32, containsEvent, getTestingEnvironment } from '../TestUtils';
+import { constants } from '@rsksmart/rif-relay-common';
 import {
     TypedRequestData,
     ForwardRequestType,
-    constants,
     RelayRequest,
     ForwardRequest,
     RelayData
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 import { expectRevert } from '@openzeppelin/test-helpers';
 
 //@ts-ignore

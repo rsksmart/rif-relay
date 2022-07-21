@@ -1,11 +1,8 @@
 import Web3 from 'web3';
 import { HttpProvider } from 'web3-core';
 import { toBN } from 'web3-utils';
-import {
-    ContractInteractor,
-    constants,
-    RelayHubConfiguration
-} from '@rsksmart/rif-relay-common';
+import { ContractInteractor, constants } from '@rsksmart/rif-relay-common';
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-contracts';
 import {
     KeyManager,
     TxStoreManager,

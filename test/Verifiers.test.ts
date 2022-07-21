@@ -11,11 +11,8 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers';
 import { ethers } from 'ethers';
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util';
-import {
-    DeployRequest,
-    RelayRequest,
-    constants
-} from '@rsksmart/rif-relay-common';
+import { constants } from '@rsksmart/rif-relay-common';
+import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import {
     getTestingEnvironment,
     createSmartWalletFactory,

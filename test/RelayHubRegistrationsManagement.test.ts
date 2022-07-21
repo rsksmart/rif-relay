@@ -1,5 +1,5 @@
 import { ether, expectEvent, expectRevert } from '@openzeppelin/test-helpers';
-import { RelayHubConfiguration } from '@rsksmart/rif-relay-common';
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-contracts';
 
 import {
     PenalizerInstance,
