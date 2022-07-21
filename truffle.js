@@ -12,6 +12,9 @@ if (fs.existsSync(secretMnemonicFile)) {
 }
 
 module.exports = {
+    contracts_directory: 'node_modules/@rsksmart/rif-relay-contracts/contracts',
+    migrations_directory:
+        'node_modules/@rsksmart/rif-relay-contracts/migrations',
     networks: {
         development: {
             verbose: process.env.VERBOSE,
