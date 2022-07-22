@@ -20,6 +20,7 @@ import {
 } from '@rsksmart/rif-relay-client';
 import { PrefixedHexString } from 'ethereumjs-tx';
 import { soliditySha3Raw } from 'web3-utils';
+import { HttpProvider } from 'web3-core';
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util';
 import { BN, bufferToHex, toBuffer, privateToAddress } from 'ethereumjs-util';
@@ -678,3 +679,13 @@ function getEventsAbiByTopic(abi: any): Map<string, any> {
  */
 export const INCORRECT_ECDSA_SIGNATURE =
     '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c';
+
+export const getHostnameFromProvider = (): string => {
+    const underlyingProvider = web3.currentProvider as HttpProvider;
+    const providerUrl = new URL(underlyingProvider.host);
+    const hostname = providerUrl.hostname;
+    return hostname;
+};
+
+export const getWebSocketUrl = () =>
+    `ws://${getHostnameFromProvider()}:4445/websocket`;

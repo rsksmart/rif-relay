@@ -28,19 +28,13 @@ function run_batch() {
   BATCH_NAME=$1
 
   echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
-  
-  cp -r node_modules/@rsksmart/rif-relay-contracts/contracts .
-  cp -r node_modules/@rsksmart/rif-relay-contracts/migrations .
-
   echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
   TEST_FAIL=0
   npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
   
   echo "#################################################################################### END BATCH TESTS ####################################################################################"
-  
-  rm -rf contracts
-  rm -rf migrations
+
   rm -rf contract-addresses.json
   
   echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
@@ -50,54 +44,27 @@ function run_batch() {
   fi
 }
 
-# It requires two env variables:
-# HARD_FORK = the RSKj node hard fork
-# RSKJ_VERSION = the RSKj node version
-function run_batch_on_ci() {
-  rskj_hard_fork=${RSKJ_HARD_FORK:?"RSKj hardfork is required"}
-  rskj_version=${RSKJ_VERSION:?"RSKj version is required"}
-  java -Dminer.client.autoMine=true -Drpc.providers.web.ws.enabled=true -Drsk.conf.file=~/gls/rsknode/node.conf -Dminer.minGasPrice=1 $rskj_hard_fork -cp ~/rsksmart/rskj/rskj-core/build/libs/rskj-core-${rskj_version}-all.jar co.rsk.Start --regtest --reset nohup &
-  rskj_pid=$!
-
-  wait_rsk_node
-
-  run_batch $@
-
-  kill -TERM $rskj_pid
-  sleep 5
-}
-
-function run_test_suite_on_ci() {
+function run_batch_w_ci_network() {
   TESTS=("$@")
   unset TESTS[0]
-  TEST_TYPE=$1
-  unset TESTS[1]
-  TEST_NAME=$2
+  BATCH_NAME=$1
+
+  echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
+  echo "#################################################################################### START BATCH TESTS ####################################################################################"
   
   TEST_FAIL=0
-  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
-  then
-    run_batch_on_ci "${TEST_NAME} ${TESTS[@]}"|| TEST_FAIL=1
-  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
-  then
-    for test_case in "${TESTS[@]}"
-    do
-      run_batch_on_ci "${TEST_NAME} ${test_case}" || TEST_FAIL=1
-      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
-        break
-      fi
-    done
-    
-  else
-    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
-    exit 1
-  fi
+  docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npx truffle test --network regtest_ci "${TESTS[@]}" || TEST_FAIL=1
+  
+  echo "#################################################################################### END BATCH TESTS ####################################################################################"
+
+  rm -rf contract-addresses.json
+  
+  echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
 
   if [ "${TEST_FAIL}" == "1" ]; then
     exit 1
   fi
 }
-
 
 function run_batch_against_docker() {
   docker-compose -f docker/docker-compose.yml build
@@ -108,6 +75,14 @@ function run_batch_against_docker() {
   run_batch $@
 
   docker-compose -f docker/docker-compose.yml down
+}
+
+function run_batch_against_ci_docker() {
+  docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
+  
+  run_batch_w_ci_network $@
+
+  docker restart enveloping-rskj
 }
 
 function run_test_suite_against_docker() {
@@ -125,6 +100,31 @@ function run_test_suite_against_docker() {
     for test_case in "${TESTS[@]}"
     do
       run_batch_against_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
+      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
+        exit 1
+      fi
+    done
+  else
+    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
+    exit 1
+  fi
+}
+
+function run_test_suite_on_ci_docker() {
+  TESTS=("$@")
+  unset TESTS[0]
+  TEST_TYPE=$1
+  unset TESTS[1]
+  TEST_NAME=$2
+
+  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
+  then
+    run_batch_against_ci_docker "${TEST_NAME} ${TESTS[@]}"
+  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
+  then
+    for test_case in "${TESTS[@]}"
+    do
+      run_batch_against_ci_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
       if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
         exit 1
       fi
