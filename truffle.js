@@ -32,7 +32,7 @@ module.exports = {
             gas: 6300000,
             gasPrice: 60000000 // 0.06 gwei
         },
-        regtest: {
+        regtest_ci: {
             verbose: process.env.VERBOSE,
             host: 'enveloping-rskj',
             port: 4444,
