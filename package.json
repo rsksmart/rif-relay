@@ -41,7 +41,7 @@
     "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client#feature/PP-45",
     "@rsksmart/rif-relay-common": "0.0.2-alpha.4",
     "@rsksmart/rif-relay-contracts": "0.0.2-alpha.8",
-    "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server#feature/PP-45",
+    "@rsksmart/rif-relay-server": "rsksmart/rif-relay-server",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
     "@trufflesuite/web3-provider-engine": "^15.0.13-1",
