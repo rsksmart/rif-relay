@@ -18,6 +18,7 @@ import {
 import { toChecksumAddress } from 'web3-utils';
 import { constants } from '@rsksmart/rif-relay-common';
 import { WebsocketProvider } from 'web3-core';
+import { getWebSocketUrl } from '../TestUtils';
 
 const CustomSmartWallet = artifacts.require('CustomSmartWallet');
 const SmartWallet = artifacts.require('SmartWallet');
@@ -1984,7 +1985,7 @@ contract('SmartWalletDiscovery', function (accounts) {
 
     async function init(isCustom: boolean): Promise<void> {
         socketProvider = new Web3.providers.WebsocketProvider(
-            'ws://127.0.0.1:4445/websocket'
+            getWebSocketUrl()
         );
 
         CustomSmartWalletFactory.setProvider(socketProvider, undefined);

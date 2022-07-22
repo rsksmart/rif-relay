@@ -12,6 +12,9 @@ if (fs.existsSync(secretMnemonicFile)) {
 }
 
 module.exports = {
+    contracts_directory: 'node_modules/@rsksmart/rif-relay-contracts/contracts',
+    migrations_directory:
+        'node_modules/@rsksmart/rif-relay-contracts/migrations',
     networks: {
         development: {
             verbose: process.env.VERBOSE,
@@ -24,6 +27,14 @@ module.exports = {
         regtest: {
             verbose: process.env.VERBOSE,
             host: '127.0.0.1',
+            port: 4444,
+            network_id: 33,
+            gas: 6300000,
+            gasPrice: 60000000 // 0.06 gwei
+        },
+        regtest_ci: {
+            verbose: process.env.VERBOSE,
+            host: 'enveloping-rskj',
             port: 4444,
             network_id: 33,
             gas: 6300000,
@@ -56,6 +67,7 @@ module.exports = {
         slow: 1000,
         reporter: 'eth-gas-reporter',
         reporterOptions: {
+            src: 'node_modules/@rsksmart/rif-relay-contracts/contracts',
             currency: 'USD',
             onlyCalledMethods: true,
             showTimeSpent: true,
