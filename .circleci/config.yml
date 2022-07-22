@@ -30,7 +30,7 @@ commands:
                   key: dependency-cachev7-{{ checksum "package.json" }}-npm
             - run:
                   name: Installing Rif Relay
-                  command: npm install --verbose
+                  command: npm install
 
     pre-checks:
         description: 'Execute build and code style checks'
