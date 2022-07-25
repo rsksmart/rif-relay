@@ -40,6 +40,7 @@ import BadRelayClient from '../dummies/BadRelayClient';
 import {
     AccountKeypair,
     configure,
+    RelayingResult,
     RelayProvider
 } from '@rsksmart/rif-relay-client';
 
@@ -614,7 +615,11 @@ contract('RelayProvider', function (accounts) {
                 isSmartWalletDeploy: true
             };
 
-            const txHash = await rProvider.deploySmartWallet(trxData);
+            const relayingResult: RelayingResult =
+                await rProvider.deploySmartWallet(trxData);
+            const txHash: string = relayingResult.transaction
+                .hash(true)
+                .toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);
@@ -684,7 +689,11 @@ contract('RelayProvider', function (accounts) {
                 smartWalletAddress: swAddress // so the client knows how to estimate tokenGas
             };
 
-            const txHash = await rProvider.deploySmartWallet(trxData);
+            const relayingResult: RelayingResult =
+                await rProvider.deploySmartWallet(trxData);
+            const txHash: string = relayingResult.transaction
+                .hash(true)
+                .toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);
