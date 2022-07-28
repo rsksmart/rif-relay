@@ -617,9 +617,8 @@ contract('RelayProvider', function (accounts) {
 
             const relayingResult: RelayingResult =
                 await rProvider.deploySmartWallet(trxData);
-            const txHash: string = relayingResult.transaction
-                .hash(true)
-                .toString('hex');
+            const txHash: string =
+                '0x' + relayingResult.transaction.hash(true).toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);
@@ -691,9 +690,8 @@ contract('RelayProvider', function (accounts) {
 
             const relayingResult: RelayingResult =
                 await rProvider.deploySmartWallet(trxData);
-            const txHash: string = relayingResult.transaction
-                .hash(true)
-                .toString('hex');
+            const txHash: string =
+                '0x' + relayingResult.transaction.hash(true).toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);

@@ -180,7 +180,7 @@ TEST_SUITE_4="${TEST_SUITE_BATCH} \
   test/relayserver/RelayServer.test.ts"
 
 TEST_SUITE_5="${TEST_SUITE_SEQUENTIAL} \
-  RelayHub|VersionRegistry|RelayProvider|RelaySelectionManager \
+  RelayHub|VersionRegistry|RelayProvider \
   test/RelayHub.test.ts
   test/VersionRegistry.test.ts
   test/relayclient/RelayProvider.test.ts"
