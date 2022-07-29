@@ -27,11 +27,10 @@ import {
 import {
     constants,
     getRawTxOptions,
-    cloneRelayRequest,
-    RelayRequest,
     isRsk,
     Environment
 } from '@rsksmart/rif-relay-common';
+import { cloneRelayRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { AccountKeypair } from '@rsksmart/rif-relay-client';
 import TransactionResponse = Truffle.TransactionResponse;
 

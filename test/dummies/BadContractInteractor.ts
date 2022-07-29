@@ -1,9 +1,9 @@
 import {
     ContractInteractor,
     Web3Provider,
-    EnvelopingConfig,
-    RelayRequest
+    EnvelopingConfig
 } from '@rsksmart/rif-relay-common';
+import { RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { TransactionReceipt } from 'web3-core';
 
 export default class BadContractInteractor extends ContractInteractor {

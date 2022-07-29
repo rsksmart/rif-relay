@@ -5,17 +5,20 @@ import {
     decodeRevertReason,
     getLocalEip712Signature,
     removeHexPrefix,
+    constants
+} from '@rsksmart/rif-relay-common';
+// @ts-ignore
+import abiDecoder from 'abi-decoder';
+import {
+    IWalletFactory,
+    IRelayHub,
     RelayRequest,
     cloneRelayRequest,
     DeployRequest,
     cloneDeployRequest,
     TypedRequestData,
-    TypedDeployRequestData,
-    constants
-} from '@rsksmart/rif-relay-common';
-// @ts-ignore
-import abiDecoder from 'abi-decoder';
-import { IWalletFactory, IRelayHub } from '@rsksmart/rif-relay-contracts';
+    TypedDeployRequestData
+} from '@rsksmart/rif-relay-contracts';
 import {
     RelayHubInstance,
     PenalizerInstance,

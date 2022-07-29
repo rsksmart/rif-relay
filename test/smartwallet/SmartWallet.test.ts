@@ -28,12 +28,12 @@ import {
     createSmartWalletFactory,
     createSmartWallet
 } from '../TestUtils';
+import { constants } from '@rsksmart/rif-relay-common';
 import {
     TypedRequestData,
     ForwardRequestType,
-    constants,
     RelayRequest
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 
 //@ts-ignore
 import sourceMapSupport from 'source-map-support';
