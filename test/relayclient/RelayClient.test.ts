@@ -1,6 +1,7 @@
 import Transaction from 'ethereumjs-tx/dist/transaction';
 import Web3 from 'web3';
 import chai from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
 import { ChildProcessWithoutNullStreams } from 'child_process';
@@ -82,6 +83,7 @@ abiDecoder.addABI(SmartWalletFactory.abi);
 
 const expect = chai.expect;
 chai.use(sinonChai);
+chai.use(chaiAsPromised);
 
 const localhostOne = RIF_RELAY_URL;
 const cheapRelayerUrl = 'http://localhost:54321';
@@ -1475,9 +1477,6 @@ gasOptions.forEach((gasOption) => {
 
         describe('#validateSmartWallet', () => {
             it('should fail if is not the owner', async () => {
-                const error = new Error(
-                    'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
-                );
                 const notOwner = await getGaslessAccount();
                 relayClient.accountManager.addAccount(notOwner);
                 const txDetails: EnvelopingTransactionDetails = {
@@ -1486,20 +1485,13 @@ gasOptions.forEach((gasOption) => {
                     callForwarder: options.callForwarder,
                     data: '0x'
                 };
-                try {
-                    await relayClient.validateSmartWallet(txDetails);
-                } catch (e) {
-                    assert.equal(
-                        e.toString(),
-                        `${error.name}: ${error.message}`
-                    );
-                }
+                await chai.assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
+                );
             });
 
             it('should fail if smart wallet is not deployed', async () => {
-                const error = new Error(
-                    'Cannot create instance of IForwarder; no code at address'
-                );
                 const swAddress = await factory.getSmartWalletAddress(
                     gaslessAccount.address,
                     constants.ZERO_ADDRESS,
@@ -1511,14 +1503,10 @@ gasOptions.forEach((gasOption) => {
                     callForwarder: swAddress,
                     data: '0x'
                 };
-                try {
-                    await relayClient.validateSmartWallet(txDetails);
-                } catch (e) {
-                    assert.include(
-                        e.toString(),
-                        `${error.name}: ${error.message}`
-                    );
-                }
+                await chai.assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Cannot create instance of IForwarder; no code at address'
+                );
             });
 
             it('should succeed the validation and call once resolveForwarder', async () => {
