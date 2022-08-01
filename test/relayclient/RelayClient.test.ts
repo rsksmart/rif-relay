@@ -1472,5 +1472,66 @@ gasOptions.forEach((gasOption) => {
                 console.log(relayingResult);
             });
         });
+
+        describe('#validateSmartWallet', () => {
+            it('should fail if is not the owner', async () => {
+                const error = new Error(
+                    'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
+                );
+                const notOwner = await getGaslessAccount();
+                relayClient.accountManager.addAccount(notOwner);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: notOwner.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                try {
+                    await relayClient.validateSmartWallet(txDetails);
+                } catch (e) {
+                    assert.equal(
+                        e.toString(),
+                        `${error.name}: ${error.message}`
+                    );
+                }
+            });
+
+            it('should fail if smart wallet is not deployed', async () => {
+                const error = new Error(
+                    'Cannot create instance of IForwarder; no code at address'
+                );
+                const swAddress = await factory.getSmartWalletAddress(
+                    gaslessAccount.address,
+                    constants.ZERO_ADDRESS,
+                    '1'
+                );
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: swAddress,
+                    data: '0x'
+                };
+                try {
+                    await relayClient.validateSmartWallet(txDetails);
+                } catch (e) {
+                    assert.include(
+                        e.toString(),
+                        `${error.name}: ${error.message}`
+                    );
+                }
+            });
+
+            it('should succeed the validation and call once resolveForwarder', async () => {
+                const spy = sinon.spy(relayClient, 'resolveForwarder');
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await relayClient.validateSmartWallet(txDetails);
+                assert.isTrue(spy.calledOnce);
+            });
+        });
     });
 });
