@@ -1,6 +1,6 @@
 import Transaction from 'ethereumjs-tx/dist/transaction';
 import Web3 from 'web3';
-import chai from 'chai';
+import chai, { assert, expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
@@ -81,7 +81,6 @@ abiDecoder.addABI(RelayHub.abi);
 // @ts-ignore
 abiDecoder.addABI(SmartWalletFactory.abi);
 
-const expect = chai.expect;
 chai.use(sinonChai);
 chai.use(chaiAsPromised);
 
@@ -548,7 +547,7 @@ gasOptions.forEach((gasOption) => {
                 const expectedBalance = originalBalance.sub(
                     web3.utils.toBN('1')
                 );
-                chai.expect(
+                expect(
                     expectedBalance,
                     'Deployment not paid'
                 ).to.be.bignumber.equal(newBalance);
@@ -1485,7 +1484,7 @@ gasOptions.forEach((gasOption) => {
                     callForwarder: options.callForwarder,
                     data: '0x'
                 };
-                await chai.assert.isRejected(
+                await assert.isRejected(
                     relayClient.validateSmartWallet(txDetails),
                     'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
                 );
@@ -1503,7 +1502,7 @@ gasOptions.forEach((gasOption) => {
                     callForwarder: swAddress,
                     data: '0x'
                 };
-                await chai.assert.isRejected(
+                await assert.isRejected(
                     relayClient.validateSmartWallet(txDetails),
                     'Cannot create instance of IForwarder; no code at address'
                 );
