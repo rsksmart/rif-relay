@@ -28,7 +28,8 @@ import {
     PingResponse,
     Web3Provider,
     RelayTransactionRequest,
-    constants
+    constants,
+    ContractInteractor
 } from '@rsksmart/rif-relay-common';
 import {
     DeployRequest,
@@ -1505,6 +1506,33 @@ gasOptions.forEach((gasOption) => {
                 await assert.isRejected(
                     relayClient.validateSmartWallet(txDetails),
                     'Cannot create instance of IForwarder; no code at address'
+                );
+            });
+
+            it('should fail if nonce mismatch', async () => {
+                const contractInteractor = new ContractInteractor(
+                    web3.currentProvider as Web3Provider,
+                    configure(config)
+                );
+                sinon
+                    .stub(contractInteractor, 'getSenderNonce')
+                    .returns(Promise.resolve('500'));
+                const relayClient = new RelayClient(
+                    underlyingProvider,
+                    config,
+                    { contractInteractor: contractInteractor }
+                );
+                await relayClient._init();
+                relayClient.accountManager.addAccount(gaslessAccount);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert nonce mismatch'
                 );
             });
 
