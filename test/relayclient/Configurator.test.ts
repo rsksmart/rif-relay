@@ -13,12 +13,12 @@ contract('client-configuration', () => {
         const host = (web3.currentProvider as HttpProvider).host;
         await TestEnvironment.start(host, 0.6e18);
     });
-    describe('#resolveConfiguration', () => {
+    describe.only('#resolveConfiguration', () => {
         describe('failures', () => {
-            it('should fail with no params', async () => {
+            it.only('should fail with no params', async () => {
                 // @ts-ignore
                 await expect(resolveConfiguration()).to.eventually.rejectedWith(
-                    /Cannot read property/
+                    /First param is not a web3 provider/
                 );
             });
 
