@@ -13,9 +13,9 @@ contract('client-configuration', () => {
         const host = (web3.currentProvider as HttpProvider).host;
         await TestEnvironment.start(host, 0.6e18);
     });
-    describe.only('#resolveConfiguration', () => {
+    describe('#resolveConfiguration', () => {
         describe('failures', () => {
-            it.only('should fail with no params', async () => {
+            it('should fail with no params', async () => {
                 // @ts-ignore
                 await expect(resolveConfiguration()).to.eventually.rejectedWith(
                     /First param is not a web3 provider/
