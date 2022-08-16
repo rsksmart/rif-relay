@@ -1,6 +1,7 @@
 import Transaction from 'ethereumjs-tx/dist/transaction';
 import Web3 from 'web3';
-import chai from 'chai';
+import chai, { assert, expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
 import { ChildProcessWithoutNullStreams } from 'child_process';
@@ -27,7 +28,8 @@ import {
     PingResponse,
     Web3Provider,
     RelayTransactionRequest,
-    constants
+    constants,
+    ContractInteractor
 } from '@rsksmart/rif-relay-common';
 import {
     DeployRequest,
@@ -80,8 +82,8 @@ abiDecoder.addABI(RelayHub.abi);
 // @ts-ignore
 abiDecoder.addABI(SmartWalletFactory.abi);
 
-const expect = chai.expect;
 chai.use(sinonChai);
+chai.use(chaiAsPromised);
 
 const localhostOne = RIF_RELAY_URL;
 const cheapRelayerUrl = 'http://localhost:54321';
@@ -546,7 +548,7 @@ gasOptions.forEach((gasOption) => {
                 const expectedBalance = originalBalance.sub(
                     web3.utils.toBN('1')
                 );
-                chai.expect(
+                expect(
                     expectedBalance,
                     'Deployment not paid'
                 ).to.be.bignumber.equal(newBalance);
@@ -1470,6 +1472,80 @@ gasOptions.forEach((gasOption) => {
                 assert.equal(relayingResult.pingErrors.size, 0);
 
                 console.log(relayingResult);
+            });
+        });
+
+        describe('#validateSmartWallet', () => {
+            it('should fail if is not the owner', async () => {
+                const notOwner = await getGaslessAccount();
+                relayClient.accountManager.addAccount(notOwner);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: notOwner.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
+                );
+            });
+
+            it('should fail if smart wallet is not deployed', async () => {
+                const swAddress = await factory.getSmartWalletAddress(
+                    gaslessAccount.address,
+                    constants.ZERO_ADDRESS,
+                    '1'
+                );
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: swAddress,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Cannot create instance of IForwarder; no code at address'
+                );
+            });
+
+            it('should fail if nonce mismatch', async () => {
+                const contractInteractor = new ContractInteractor(
+                    web3.currentProvider as Web3Provider,
+                    configure(config)
+                );
+                sinon
+                    .stub(contractInteractor, 'getSenderNonce')
+                    .returns(Promise.resolve('500'));
+                const relayClient = new RelayClient(
+                    underlyingProvider,
+                    config,
+                    { contractInteractor: contractInteractor }
+                );
+                await relayClient._init();
+                relayClient.accountManager.addAccount(gaslessAccount);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert nonce mismatch'
+                );
+            });
+
+            it('should succeed the validation and call once resolveForwarder', async () => {
+                const spy = sinon.spy(relayClient, 'resolveForwarder');
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await relayClient.validateSmartWallet(txDetails);
+                assert.isTrue(spy.calledOnce);
             });
         });
     });
