@@ -83,7 +83,7 @@ jobs:
             - prepare-container
             - pre-checks
 
-    Test_Thread_1:
+    Test Thread 1:
         docker:
             - image: 'cimg/node:16.15'
         steps:
@@ -132,6 +132,7 @@ workflows:
     commit:
         jobs:
             - CodeStyle Checks
+            - Test Thread 1
             - Test Thread 2
             - Test Thread 3
             - Test Thread 4
