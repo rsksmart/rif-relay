@@ -40,7 +40,7 @@
     "@openzeppelin/contracts": "^3.2.0",
     "@rsksmart/rif-relay-contracts": "0.0.2-alpha.10",
     "@rsksmart/rif-relay-common": "0.0.2-alpha.10",
-    "@rsksmart/rif-relay-client": "0.0.2-alpha.8",
+    "@rsksmart/rif-relay-client": "0.0.2-alpha.9",
     "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
