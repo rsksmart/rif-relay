@@ -31,6 +31,8 @@
     "prepare": "scripts/prepare",
     "test": "scripts/test",
     "testOnly": "scripts/testOnly",
+    "test:gas": "scripts/testGas",
+    "prepare": "./scripts/prepare",
     "build": "./scripts/build",
     "prettier:fix": "npx prettier --write --ignore-unknown .",
     "prettier": "npx prettier --check ."
