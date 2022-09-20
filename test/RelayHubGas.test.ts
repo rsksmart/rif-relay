@@ -3,16 +3,20 @@ import chai from 'chai';
 import {
     Environment,
     getLocalEip712Signature,
-    RelayRequest,
-    cloneRelayRequest,
-    DeployRequest,
-    TypedRequestData,
-    getDomainSeparatorHash,
     constants
 } from '@rsksmart/rif-relay-common';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
-import { IWalletFactory, IRelayHub } from '@rsksmart/rif-relay-contracts';
+import {
+    IWalletFactory,
+    IRelayHub,
+    RelayRequest,
+    cloneRelayRequest,
+    DeployRequest,
+    cloneDeployRequest,
+    TypedRequestData,
+    TypedDeployRequestData
+} from '@rsksmart/rif-relay-contracts';
 import {
     RelayHubInstance,
     PenalizerInstance,
@@ -124,8 +128,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     gasPrice,
                     relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });
@@ -249,11 +252,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     completeReq.request.nonce = nonceBefore.toString();
                     completeReq.relayData.callForwarder =
                         sWalletInstance.address;
-                    completeReq.relayData.domainSeparator =
-                        getDomainSeparatorHash(
-                            sWalletInstance.address,
-                            chainId
-                        );
                     completeReq.request.tokenAmount = balanceToTransfer;
                     completeReq.request.tokenContract = token.address;
 
@@ -623,11 +621,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     completeReq.request.nonce = nonceBefore.toString();
                     completeReq.relayData.callForwarder =
                         sWalletInstance.address;
-                    completeReq.relayData.domainSeparator =
-                        getDomainSeparatorHash(
-                            sWalletInstance.address,
-                            chainId
-                        );
                     completeReq.request.tokenAmount = '0x00';
                     completeReq.request.tokenContract = constants.ZERO_ADDRESS;
                     completeReq.request.tokenGas = '0x00';
@@ -921,11 +914,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     completeReq.request.nonce = nonceBefore.toString();
                     completeReq.relayData.callForwarder =
                         sWalletInstance.address;
-                    completeReq.relayData.domainSeparator =
-                        getDomainSeparatorHash(
-                            sWalletInstance.address,
-                            chainId
-                        );
                     completeReq.request.tokenAmount = '0x00';
                     completeReq.request.tokenGas = '0';
 
@@ -1012,7 +1000,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     console.log(`Gas Used: ${txReceipt.gasUsed}`);
 
                     let previousGas: BigInt = BigInt(0);
-                    let previousStep = null;
+                    let previousStep: string | null = null;
                     for (let i = 0; i < txReceipt.logs.length; i++) {
                         const log = txReceipt.logs[i];
                         if (
@@ -1199,7 +1187,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     );
 
                     let previousGas: BigInt = BigInt(0);
-                    let previousStep = null;
+                    let previousStep: null | string = null;
                     for (let i = 0; i < txReceipt.logs.length; i++) {
                         const log = txReceipt.logs[i];
                         if (
@@ -1316,11 +1304,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     completeReq.request.nonce = nonceBefore.toString();
                     completeReq.relayData.callForwarder =
                         sWalletInstance.address;
-                    completeReq.relayData.domainSeparator =
-                        getDomainSeparatorHash(
-                            sWalletInstance.address,
-                            chainId
-                        );
                     completeReq.request.tokenAmount = fees;
                     completeReq.request.tokenContract = isSponsored
                         ? constants.ZERO_ADDRESS

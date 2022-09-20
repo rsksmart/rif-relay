@@ -33,5 +33,5 @@
     "sourceMap": true
   },
   "include": ["**/*.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "test"]
 }
