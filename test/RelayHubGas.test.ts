@@ -12,10 +12,7 @@ import {
     IRelayHub,
     RelayRequest,
     cloneRelayRequest,
-    DeployRequest,
-    cloneDeployRequest,
-    TypedRequestData,
-    TypedDeployRequestData
+    TypedRequestData
 } from '@rsksmart/rif-relay-contracts';
 import {
     RelayHubInstance,
@@ -26,8 +23,7 @@ import {
     TestVerifierConfigurableMisbehaviorInstance,
     SmartWalletInstance,
     SmartWalletFactoryInstance,
-    TestTokenInstance,
-    TestDeployVerifierEverythingAcceptedInstance
+    TestTokenInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
     deployHub,
@@ -46,9 +42,6 @@ const Penalizer = artifacts.require('Penalizer');
 const TestVerifierEverythingAccepted = artifacts.require(
     'TestVerifierEverythingAccepted'
 );
-const TestDeployVerifierEverythingAccepted = artifacts.require(
-    'TestDeployVerifierEverythingAccepted'
-);
 const TestRecipient = artifacts.require('TestRecipient');
 const TestVerifierConfigurableMisbehavior = artifacts.require(
     'TestVerifierConfigurableMisbehavior'
@@ -66,7 +59,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
     let relayHubInstance: RelayHubInstance;
     let recipientContract: TestRecipientInstance;
     let verifierContract: TestVerifierEverythingAcceptedInstance;
-    let deployVerifierContract: TestDeployVerifierEverythingAcceptedInstance;
     let forwarderInstance: IForwarderInstance;
     let target: string;
     let verifier: string;
@@ -87,8 +79,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
             penalizer = await Penalizer.new();
             relayHubInstance = await deployHub(penalizer.address);
             verifierContract = await TestVerifierEverythingAccepted.new();
-            deployVerifierContract =
-                await TestDeployVerifierEverythingAccepted.new();
             gaslessAccount = await getGaslessAccount();
 
             const smartWalletTemplate: SmartWalletInstance =
@@ -136,11 +126,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
         context('with staked and registered relay', function () {
             const url = 'http://relay.com';
             const message = 'Enveloping RelayHub';
-            const messageWithNoParams = 'Method with no parameters';
 
             let relayRequest: RelayRequest;
             let encodedFunction: string;
-            let signatureWithPermissiveVerifier: string;
 
             beforeEach(async function () {
                 await relayHubInstance.stakeForAddress(relayManager, 1000, {
@@ -161,24 +149,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                 });
                 relayRequest = cloneRelayRequest(sharedRelayRequestData);
                 relayRequest.request.data = encodedFunction;
-
-                const dataToSign = new TypedRequestData(
-                    chainId,
-                    forwarder,
-                    relayRequest
-                );
-                signatureWithPermissiveVerifier = getLocalEip712Signature(
-                    dataToSign,
-                    gaslessAccount.privateKey
-                );
             });
 
             context('with funded verifier', function () {
-                let signature;
-
                 let misbehavingVerifier: TestVerifierConfigurableMisbehaviorInstance;
-
-                let signatureWithMisbehavingVerifier: string;
                 let relayRequestMisbehavingVerifier: RelayRequest;
                 const gas = 4e6;
 
@@ -186,31 +160,10 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     misbehavingVerifier =
                         await TestVerifierConfigurableMisbehavior.new();
 
-                    let dataToSign = new TypedRequestData(
-                        chainId,
-                        forwarder,
-                        relayRequest
-                    );
-
-                    signature = getLocalEip712Signature(
-                        dataToSign,
-                        gaslessAccount.privateKey
-                    );
-
                     relayRequestMisbehavingVerifier =
                         cloneRelayRequest(relayRequest);
                     relayRequestMisbehavingVerifier.relayData.callVerifier =
                         misbehavingVerifier.address;
-
-                    dataToSign = new TypedRequestData(
-                        chainId,
-                        forwarder,
-                        relayRequestMisbehavingVerifier
-                    );
-                    signatureWithMisbehavingVerifier = getLocalEip712Signature(
-                        dataToSign,
-                        gaslessAccount.privateKey
-                    );
                 });
 
                 it('gas prediction tests - with token payment', async function () {
