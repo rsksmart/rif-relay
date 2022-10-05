@@ -184,3 +184,7 @@ TEST_SUITE_5="${TEST_SUITE_SEQUENTIAL} \
   test/RelayHub.test.ts
   test/VersionRegistry.test.ts
   test/relayclient/RelayProvider.test.ts"
+
+TEST_SUITE_6="${TEST_SUITE_BATCH} \
+  RelayHub|GasConsumption \
+  test/RelayHubGas.test.ts"
