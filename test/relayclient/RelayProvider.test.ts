@@ -134,7 +134,8 @@ contract('RelayProvider', function (accounts) {
                 chainId: env.chainId,
                 forwarderAddress: smartWallet.address,
                 relayVerifierAddress: verifierInstance.address,
-                deployVerifierAddress: deployVerifierInstance.address
+                deployVerifierAddress: deployVerifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
 
             let websocketProvider: WebsocketProvider;
@@ -516,7 +517,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 relayVerifierAddress: verifierInstance.address,
-                deployVerifierAddress: deployVerifierInstance.address
+                deployVerifierAddress: deployVerifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;
@@ -651,7 +653,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifierInstance.address,
-                relayVerifierAddress: verifierInstance.address
+                relayVerifierAddress: verifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;
@@ -724,7 +727,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifierInstance.address,
-                relayVerifierAddress: verifierInstance.address
+                relayVerifierAddress: verifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;

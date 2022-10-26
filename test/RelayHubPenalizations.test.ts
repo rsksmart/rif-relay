@@ -71,13 +71,12 @@ contract(
                 value: '0',
                 gas: '1000000',
                 tokenContract: constants.ZERO_ADDRESS,
-                collectorContract: constants.ZERO_ADDRESS,
                 tokenAmount: '0',
                 tokenGas: '0'
             },
             relayData: {
                 gasPrice: '50',
-                relayWorker,
+                feesReceiver: relayWorker,
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS
             }
@@ -473,7 +472,7 @@ contract(
                 const relayWorker =
                     '0x' + privateToAddress(privateKey).toString('hex');
 
-                relayRequest.relayData.relayWorker = relayWorker;
+                relayRequest.relayData.feesReceiver = relayWorker;
 
                 const encodedCall = relayHub.contract.methods
                     .relayCall(relayRequest, '0xabcdef123456')

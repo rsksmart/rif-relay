@@ -138,13 +138,12 @@ contract('AccountManager', function () {
                 value: '0',
                 gas: '1',
                 tokenContract: constants.ZERO_ADDRESS,
-                collectorContract: constants.ZERO_ADDRESS,
                 tokenAmount: '0',
                 tokenGas: '0'
             },
             relayData: {
                 gasPrice: '1',
-                relayWorker: constants.ZERO_ADDRESS,
+                feesReceiver: constants.ZERO_ADDRESS,
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS
             }

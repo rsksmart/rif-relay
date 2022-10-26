@@ -39,10 +39,8 @@ import {
     RelayRequest,
     RelayHubConfiguration,
     TypedRequestData,
-    RequestType,
     TypedDeployRequestData,
-    DeployRequestDataType,
-    DEPLOY_PARAMS
+    DeployRequestDataType
 } from '@rsksmart/rif-relay-contracts';
 
 //@ts-ignore
@@ -52,6 +50,15 @@ import { RIF_RELAY_URL } from './Utils';
 sourceMapSupport.install({ errorFormatterForce: true });
 
 const RelayHub = artifacts.require('RelayHub');
+
+const DEPLOY_PARAMS =
+    'address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data';
+
+const RequestType = {
+    typeName: 'RelayRequest',
+    typeSuffix:
+        'RelayData relayData)RelayData(uint256 gasPrice,address relayWorker,address callForwarder,address callVerifier)'
+};
 
 const localhostOne = RIF_RELAY_URL;
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`;
@@ -412,7 +419,7 @@ export async function createSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -435,6 +442,7 @@ export async function createSmartWallet(
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
         suffixData,
+        constants.ZERO_ADDRESS,
         deploySignature
     );
 
@@ -493,7 +501,7 @@ export async function createCustomSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -516,6 +524,7 @@ export async function createCustomSmartWallet(
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
         suffixData,
+        constants.ZERO_ADDRESS,
         deploySignature,
         { from: relayHub }
     );
@@ -622,13 +631,12 @@ export async function prepareTransaction(
             value: '0',
             gas: '200000',
             tokenContract: tokenContract,
-            collectorContract: collectorContract ?? constants.ZERO_ADDRESS,
             tokenAmount: tokenAmount,
             tokenGas: tokenGas
         },
         relayData: {
             gasPrice: '1',
-            relayWorker: relayWorker,
+            feesReceiver: collectorContract ?? relayWorker,
             callForwarder: swallet,
             callVerifier: verifier
         }

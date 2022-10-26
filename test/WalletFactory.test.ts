@@ -54,7 +54,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
         },
         relayData: {
             gasPrice: '1',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -507,6 +507,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
+                from,
                 sig
             );
 
@@ -560,14 +561,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
                 request: {
                     ...request.request,
                     tokenContract: token.address,
-                    tokenAmount: deployPrice
+                    tokenAmount: deployPrice,
+                    relayHub: from
                 },
                 relayData: {
                     ...request.relayData
                 }
             };
-
-            req.request.relayHub = from;
 
             const dataToSign = new TypedDeployRequestData(
                 env.chainId,
@@ -591,7 +591,11 @@ contract('CustomSmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
-                sig
+                from,
+                sig,
+                {
+                    from
+                }
             );
 
             const code = await web3.eth.getCode(
@@ -655,6 +659,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
                 factory.relayedUserSmartWalletCreation(
                     req.request,
                     suffixData,
+                    constants.ZERO_ADDRESS,
                     sig
                 ),
                 'Signature mismatch'
@@ -714,6 +719,7 @@ contract('CustomSmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
+                from,
                 sig
             );
 
@@ -869,7 +875,7 @@ contract('SmartWalletFactory', ([from]) => {
         },
         relayData: {
             gasPrice: '1',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -1262,6 +1268,7 @@ contract('SmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
+                from,
                 sig
             );
 
@@ -1335,6 +1342,7 @@ contract('SmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
+                from,
                 sig
             );
 
@@ -1395,9 +1403,10 @@ contract('SmartWalletFactory', ([from]) => {
                 factory.relayedUserSmartWalletCreation(
                     req.request,
                     suffixData,
+                    constants.ZERO_ADDRESS,
                     sig
                 ),
-                'signature mismatch'
+                'Signature mismatch'
             );
 
             const newBalance = await token.balanceOf(expectedAddress);
@@ -1449,6 +1458,7 @@ contract('SmartWalletFactory', ([from]) => {
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
                 suffixData,
+                from,
                 sig
             );
 

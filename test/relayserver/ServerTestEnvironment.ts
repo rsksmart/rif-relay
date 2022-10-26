@@ -273,7 +273,8 @@ export class ServerTestEnvironment {
     ): Promise<RelayTransactionRequest> {
         const pingResponse = {
             relayHubAddress: this.relayHub.address,
-            relayWorkerAddress: this.relayServer.workerAddress
+            relayWorkerAddress: this.relayServer.workerAddress,
+            feesReceiver: this.relayServer.workerAddress
         };
         const managerData: RelayManagerData = {
             manager: '',

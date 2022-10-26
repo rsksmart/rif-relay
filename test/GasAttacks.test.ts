@@ -2,8 +2,7 @@ import { ether } from '@openzeppelin/test-helpers';
 import chai from 'chai';
 import {
     getLocalEip712Signature,
-    Environment,
-    constants
+    Environment
 } from '@rsksmart/rif-relay-common';
 import {
     RelayRequest,
@@ -108,12 +107,11 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     gas: gasLimit,
                     tokenContract: token.address,
                     tokenAmount: '1',
-                    tokenGas: '50000',
-                    collectorContract: constants.ZERO_ADDRESS
+                    tokenGas: '50000'
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
                     callVerifier: verifier
                 }
