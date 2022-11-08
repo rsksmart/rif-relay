@@ -185,7 +185,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                     },
                     relayData: {
                         gasPrice: '1',
-                        relayWorker: constants.ZERO_ADDRESS,
+                        feesReceiver: constants.ZERO_ADDRESS,
                         callForwarder: constants.ZERO_ADDRESS,
                         callVerifier: constants.ZERO_ADDRESS
                     }
@@ -468,6 +468,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -540,6 +541,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         await smartWallet.execute(
                             suffixData,
                             req1.request,
+                            worker,
                             sig,
                             { from: worker }
                         );
@@ -639,6 +641,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const ret = await testfwd.callExecute(
                             smartWallet.address,
                             req1.request,
+                            worker,
                             suffixData,
                             sig,
                             { from: worker }
@@ -700,6 +703,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                         const ret = await testfwd.callExecute(
                             smartWallet.address,
                             req1.request,
+                            worker,
                             suffixData,
                             sig,
                             { from: worker }
@@ -721,6 +725,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker }
@@ -811,6 +816,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker, value: '0' }
@@ -872,6 +878,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -938,6 +945,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker, value }
@@ -1030,6 +1038,7 @@ TYPES_OF_WALLETS.forEach((element) => {
                             const ret = await testfwd.callExecute(
                                 smartWallet.address,
                                 req1.request,
+                                worker,
                                 suffixData,
                                 sig,
                                 { from: worker }

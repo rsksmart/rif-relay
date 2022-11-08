@@ -147,7 +147,7 @@ contract(
                     },
                     relayData: {
                         gasPrice,
-                        relayWorker,
+                        feesReceiver: relayWorker,
                         callForwarder: forwarder,
                         callVerifier: verifier
                     }
@@ -522,7 +522,7 @@ contract(
                     },
                     relayData: {
                         gasPrice,
-                        relayWorker,
+                        feesReceiver: relayWorker,
                         callForwarder: forwarder,
                         callVerifier: verifier
                     }
@@ -545,7 +545,7 @@ contract(
                 beforeEach(async function () {
                     relayRequest = cloneRelayRequest(sharedRelayRequestData);
                     relayRequest.request.data = '0xdeadbeef';
-                    relayRequest.relayData.relayWorker = unknownWorker;
+                    relayRequest.relayData.feesReceiver = unknownWorker;
 
                     const dataToSign = new TypedRequestData(
                         chainId,
@@ -1719,6 +1719,7 @@ contract(
                                     .encodeABI(),
                                 nonce: nonceBefore.toString(),
                                 tokenContract: tokenInstance.address,
+                                collectorContract: constants.ZERO_ADDRESS,
                                 tokenAmount: '0',
                                 tokenGas: '0'
                             },
@@ -2127,25 +2128,33 @@ contract(
                         );
                     });
 
-                    it('should not accept relay requests with incorrect relay worker', async function () {
+                    it('should accept relay requests with incorrect relay worker', async function () {
                         await relayHubInstance.addRelayWorkers(
                             [incorrectWorker],
                             {
                                 from: relayManager
                             }
                         );
-                        await expectRevert(
-                            relayHubInstance.relayCall(
-                                relayRequestMisbehavingVerifier,
-                                signatureWithMisbehavingVerifier,
-                                {
-                                    from: incorrectWorker,
-                                    gasPrice,
-                                    gas
-                                }
-                            ),
-                            'Not a right worker'
+                        const { tx } = await relayHubInstance.relayCall(
+                            relayRequestMisbehavingVerifier,
+                            signatureWithMisbehavingVerifier,
+                            {
+                                from: relayWorker,
+                                gas,
+                                gasPrice
+                            }
                         );
+
+                        const receipt = await web3.eth.getTransactionReceipt(
+                            tx
+                        );
+                        const logs = abiDecoder.decodeLogs(receipt.logs);
+                        const transactionRelayedEvent = logs.find(
+                            (e: any) =>
+                                e != null && e.name === 'TransactionRelayed'
+                        );
+
+                        assert.isNotNull(transactionRelayedEvent);
                     });
                 });
             });
@@ -2199,7 +2208,7 @@ contract(
                     },
                     relayData: {
                         gasPrice,
-                        relayWorker,
+                        feesReceiver: relayWorker,
                         callForwarder: factory.address,
                         callVerifier: deployVerifierContract.address
                     }
@@ -2215,7 +2224,7 @@ contract(
                 beforeEach(async function () {
                     deployRequest = cloneDeployRequest(sharedDeployRequestData);
                     deployRequest.request.index = nextWalletIndex.toString();
-                    deployRequest.relayData.relayWorker = unknownWorker;
+                    deployRequest.relayData.feesReceiver = unknownWorker;
 
                     const dataToSign = new TypedDeployRequestData(
                         chainId,
@@ -2578,24 +2587,43 @@ contract(
                         );
                     });
 
-                    it('should not accept deploy requests with incorrect relay worker', async function () {
+                    it('should accept deploy requests with incorrect relay worker', async function () {
                         await relayHubInstance.addRelayWorkers(
                             [incorrectWorker],
                             {
                                 from: relayManager
                             }
                         );
-                        await expectRevert(
-                            relayHubInstance.deployCall(
-                                relayRequestMisbehavingVerifier,
-                                signatureWithMisbehavingVerifier,
-                                {
-                                    from: incorrectWorker,
-                                    gasPrice,
-                                    gas
-                                }
-                            ),
-                            'Not a right worker'
+                        const calculatedAddr =
+                            await factory.getSmartWalletAddress(
+                                gaslessAccount.address,
+                                constants.ZERO_ADDRESS,
+                                relayRequestMisbehavingVerifier.request.index
+                            );
+                        await token.mint('1', calculatedAddr);
+
+                        const { tx } = await relayHubInstance.deployCall(
+                            relayRequestMisbehavingVerifier,
+                            signatureWithMisbehavingVerifier,
+                            {
+                                from: incorrectWorker,
+                                gasPrice,
+                                gas
+                            }
+                        );
+                        const txReceipt = await web3.eth.getTransactionReceipt(
+                            tx
+                        );
+                        const decodedLogs = abiDecoder.decodeLogs(
+                            txReceipt.logs
+                        );
+
+                        const deployedEvent = decodedLogs.find(
+                            (e: any) => e != null && e.name === 'Deployed'
+                        );
+                        assert.isTrue(
+                            deployedEvent !== undefined,
+                            'No Deployed event found'
                         );
                     });
                 });

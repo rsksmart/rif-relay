@@ -187,8 +187,7 @@ gasOptions.forEach((gasOption) => {
                 rskNodeUrl: underlyingProvider.host,
                 deployVerifierAddress: deployVerifier.address,
                 relayVerifierAddress: relayVerifier.address,
-                workerTargetBalance: 0.6e18 //,
-                // relaylog:true
+                workerTargetBalance: 0.6e18
             });
 
             relayWorker = accounts[2];
@@ -211,7 +210,8 @@ gasOptions.forEach((gasOption) => {
                 relayHubAddress: relayHub.address,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifier.address,
-                relayVerifierAddress: relayVerifier.address
+                relayVerifierAddress: relayVerifier.address,
+                preferredRelays: ['http://localhost:8095']
             };
 
             relayClient = new RelayClient(underlyingProvider, config);
@@ -454,18 +454,22 @@ gasOptions.forEach((gasOption) => {
                     smartWalletAddress: swAddress
                 };
 
+                const { feesReceiver } = await axios
+                    .get(`${RIF_RELAY_URL}/getaddr`)
+                    .then((res) => res.data);
+
                 const tokenPaymentEstimate =
-                    await relayClient.estimateTokenTransferGas(
-                        details,
-                        relayWorker
-                    );
+                    await relayClient.estimateTokenTransferGas(details);
                 const testRequest =
                     await relayClient._prepareFactoryGasEstimationRequest(
                         details,
-                        relayWorker
+                        feesReceiver
                     );
                 const estimatedGasResultWithoutTokenPayment =
-                    await relayClient.calculateDeployCallGas(testRequest);
+                    await relayClient.calculateDeployCallGas(
+                        testRequest,
+                        relayWorker
+                    );
 
                 const originalBalance = await token.balanceOf(swAddress);
                 const senderNonce = await factory.nonce(
@@ -489,7 +493,7 @@ gasOptions.forEach((gasOption) => {
                     },
                     relayData: {
                         gasPrice: '1',
-                        relayWorker: relayWorker,
+                        feesReceiver: feesReceiver,
                         callForwarder: factory.address,
                         callVerifier: deployVerifier.address
                     }
@@ -1208,6 +1212,7 @@ gasOptions.forEach((gasOption) => {
                     relayWorkerAddress: relayWorkerAddress,
                     relayManagerAddress: relayManager,
                     relayHubAddress: relayManager,
+                    feesReceiver: relayWorkerAddress,
                     minGasPrice: '',
                     ready: true,
                     version: ''
@@ -1287,26 +1292,14 @@ gasOptions.forEach((gasOption) => {
                 );
                 await relayClient._init();
 
-                const tokenGas = gasOption.estimateGas
-                    ? (
-                          await relayClient.estimateTokenTransferGas(
-                              options,
-                              relayWorkerAddress
-                          )
-                      ).toString()
-                    : options.tokenGas;
-
                 // register gasless account in RelayClient to avoid signing with RSKJ
                 relayClient.accountManager.addAccount(gaslessAccount);
 
                 // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
                 sinon.spy(dependencyTree.knownRelaysManager);
-                const attempt = await relayClient._attemptRelay(
-                    relayInfo,
-                    Object.assign({}, optionsWithGas, {
-                        tokenGas
-                    })
-                );
+                const attempt = await relayClient._attemptRelay(relayInfo, {
+                    ...optionsWithGas
+                });
                 assert.equal(
                     attempt.error?.message,
                     'some error describing how timeout occurred somewhere'
@@ -1391,9 +1384,17 @@ gasOptions.forEach((gasOption) => {
 
                 // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
                 sinon.spy(dependencyTree.knownRelaysManager);
+                const tokenGas = gasOption.estimateGas
+                    ? (
+                          await relayClient.estimateTokenTransferGas(options)
+                      ).toString()
+                    : options.tokenGas;
                 const { transaction, error } = await relayClient._attemptRelay(
                     relayInfo,
-                    optionsWithGas
+                    {
+                        ...optionsWithGas,
+                        tokenGas
+                    }
                 );
                 assert.isUndefined(transaction);
                 assert.equal(
@@ -1446,6 +1447,10 @@ gasOptions.forEach((gasOption) => {
             });
 
             it('should succeed to relay, but report ping error', async () => {
+                relayClient = new RelayClient(underlyingProvider, {
+                    ...config,
+                    preferredRelays: [RIF_RELAY_URL, cheapRelayerUrl]
+                });
                 const relayingResult = await relayClient.relayTransaction(
                     options
                 );

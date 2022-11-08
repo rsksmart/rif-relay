@@ -93,7 +93,7 @@ contract('Utils', function (accounts) {
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
                     callVerifier: verifier
                 }

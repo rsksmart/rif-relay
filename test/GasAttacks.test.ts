@@ -111,7 +111,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
                     callVerifier: verifier
                 }

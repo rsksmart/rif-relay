@@ -19,11 +19,16 @@ export default class BadRelayedTransactionValidator extends RelayedTransactionVa
 
     validateRelayResponse(
         transactionJsonRequest: RelayTransactionRequest,
-        returnedTx: string
+        returnedTx: string,
+        relayWorker: string
     ): boolean {
         if (this.failValidation) {
             return false;
         }
-        return super.validateRelayResponse(transactionJsonRequest, returnedTx);
+        return super.validateRelayResponse(
+            transactionJsonRequest,
+            returnedTx,
+            relayWorker
+        );
     }
 }

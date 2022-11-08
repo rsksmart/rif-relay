@@ -233,7 +233,12 @@ contract('Enveloping utils', function (accounts) {
             });
             relayproc = serverData.proc;
             workerAddress = serverData.worker;
-            enveloping = new Enveloping(config, web3, workerAddress);
+            enveloping = new Enveloping(
+                config,
+                web3,
+                workerAddress,
+                workerAddress
+            );
             await enveloping._init();
         });
 

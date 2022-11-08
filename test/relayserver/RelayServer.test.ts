@@ -138,14 +138,14 @@ contract('RelayServer', function (accounts) {
         describe('#validateInput()', function () {
             it('should fail to relay with wrong relay worker', async function () {
                 const req = await env.createRelayHttpRequest();
-                req.relayRequest.relayData.relayWorker = accounts[1];
+                req.relayRequest.relayData.feesReceiver = accounts[1];
                 try {
                     env.relayServer.validateInput(req);
                     assert.fail();
                 } catch (e) {
                     assert.include(
                         e.message,
-                        `Wrong worker address: ${accounts[1]}`
+                        `Wrong fees receiver address: ${accounts[1]}`
                     );
                 }
             });

@@ -23,7 +23,8 @@ export default class BadContractInteractor extends ContractInteractor {
 
     async validateAcceptRelayCall(
         relayRequest: RelayRequest,
-        signature: string
+        signature: string,
+        workerAddress: string
     ): Promise<{
         verifierAccepted: boolean;
         returnValue: string;
@@ -38,7 +39,11 @@ export default class BadContractInteractor extends ContractInteractor {
                 revertedInDestination: false
             };
         }
-        return await super.validateAcceptRelayCall(relayRequest, signature);
+        return await super.validateAcceptRelayCall(
+            relayRequest,
+            signature,
+            workerAddress
+        );
     }
 
     // eslint-disable-next-line @typescript-eslint/require-await

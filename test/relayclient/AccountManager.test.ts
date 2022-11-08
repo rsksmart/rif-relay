@@ -143,7 +143,7 @@ contract('AccountManager', function () {
             },
             relayData: {
                 gasPrice: '1',
-                relayWorker: constants.ZERO_ADDRESS,
+                feesReceiver: constants.ZERO_ADDRESS,
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS
             }
