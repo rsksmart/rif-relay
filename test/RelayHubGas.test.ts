@@ -1316,7 +1316,6 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     const bgMagenta = '\x1B[45m';
                     const fgWhite = '\x1B[37m';
                     const reset = '\x1b[0m';
-                    console.log(`Enveloping Overhead Gas: ${gasOverhead}`);
                     console.log(
                         bgMagenta,
                         fgWhite,
