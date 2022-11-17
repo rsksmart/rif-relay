@@ -36,6 +36,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { AccountKeypair } from '@rsksmart/rif-relay-client';
 import { keccak } from 'ethereumjs-util';
 import { toBN, toHex } from 'web3-utils';
+import { TransactionReceipt } from 'web3-core';
 const { assert } = chai.use(chaiAsPromised);
 const SmartWallet = artifacts.require('SmartWallet');
 const Penalizer = artifacts.require('Penalizer');
@@ -116,7 +117,7 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
                     callVerifier: verifier
                 }
@@ -1208,45 +1209,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     assert.isNotNull(transactionRelayedEvent);
                 });
 
-                it('gas estimation tests for token transfer - with token payment', async function () {
-                    const SmartWallet = artifacts.require('SmartWallet');
-                    const smartWalletTemplate: SmartWalletInstance =
-                        await SmartWallet.new();
-                    const smartWalletFactory: SmartWalletFactoryInstance =
-                        await createSmartWalletFactory(smartWalletTemplate);
-                    const sWalletInstance = await createSmartWallet(
-                        _,
-                        gaslessAccount.address,
-                        smartWalletFactory,
-                        gaslessAccount.privateKey,
-                        chainId
-                    );
-
-                    const nonceBefore = await sWalletInstance.nonce();
-                    await token.mint('10000', sWalletInstance.address);
-
-                    const swalletInitialBalance = await token.balanceOf(
-                        sWalletInstance.address
-                    );
-                    const relayWorkerInitialBalance = await token.balanceOf(
-                        relayWorker
-                    );
-
-                    const fees = toHex(
-                        swalletInitialBalance.toNumber() - 5_000
-                    );
-                    // to simulate a sponsored transaction, comment-out the next line
-                    // const fees = '0x00';
-                    const isSponsored = fees === '0x00';
-
-                    const accounts = await web3.eth.getAccounts();
-                    const firstAccount = accounts[0];
-                    // necessary to execute the transfer tx without relay
-                    await token.mint('10000', firstAccount);
-                    const transferReceiver = accounts[1];
-                    const balanceToTransfer = toHex(1_000);
-
-                    // forge the request
+                async function forgeRequest(
+                    transferReceiver: string,
+                    balanceToTransfer: string,
+                    sWalletInstance: SmartWalletInstance,
+                    fees: string
+                ) {
                     const completeReq: RelayRequest = cloneRelayRequest(
                         sharedRelayRequestData
                     );
@@ -1254,10 +1222,12 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                         .transfer(transferReceiver, balanceToTransfer)
                         .encodeABI();
                     completeReq.request.to = token.address;
+                    const nonceBefore = await sWalletInstance.nonce();
                     completeReq.request.nonce = nonceBefore.toString();
                     completeReq.relayData.callForwarder =
                         sWalletInstance.address;
                     completeReq.request.tokenAmount = fees;
+                    const isSponsored = fees === '0x0';
                     completeReq.request.tokenContract = isSponsored
                         ? constants.ZERO_ADDRESS
                         : token.address;
@@ -1308,16 +1278,100 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                             internalTokenCallCost
                         );
                     }
+                    return completeReq;
+                }
 
+                function signRequest(request: RelayRequest, sWalletAddress) {
                     const reqToSign = new TypedRequestData(
                         chainId,
-                        sWalletInstance.address,
-                        completeReq
+                        sWalletAddress,
+                        request
                     );
 
                     const sig = getLocalEip712Signature(
                         reqToSign,
                         gaslessAccount.privateKey
+                    );
+                    return sig;
+                }
+
+                async function createSmartWalletInstance() {
+                    const SmartWallet = artifacts.require('SmartWallet');
+                    const smartWalletTemplate: SmartWalletInstance =
+                        await SmartWallet.new();
+                    const smartWalletFactory: SmartWalletFactoryInstance =
+                        await createSmartWalletFactory(smartWalletTemplate);
+                    const sWalletInstance = await createSmartWallet(
+                        _,
+                        gaslessAccount.address,
+                        smartWalletFactory,
+                        gaslessAccount.privateKey,
+                        chainId
+                    );
+                    return sWalletInstance;
+                }
+
+                function logGasOverhead(gasOverhead: number) {
+                    // bg and fg colours taken from https://stackoverflow.com/questions/9781218/how-to-change-node-jss-console-font-color
+                    const bgMagenta = '\x1B[45m';
+                    const fgWhite = '\x1B[37m';
+                    const reset = '\x1b[0m';
+                    console.log(
+                        bgMagenta,
+                        fgWhite,
+                        `Enveloping Overhead Gas: ${gasOverhead}`,
+                        reset
+                    );
+                }
+
+                async function printGasStatus(txReceipt: TransactionReceipt) {
+                    const callWithoutRelay = await token.transfer(
+                        gaslessAccount.address,
+                        '1000'
+                    );
+                    const gasUsedWithoutRelay: number =
+                        callWithoutRelay.receipt.gasUsed;
+                    const gasOverhead = txReceipt.gasUsed - gasUsedWithoutRelay;
+                    console.log(
+                        `Destination Call Without enveloping - Gas Used: ${callWithoutRelay.receipt.gasUsed}`
+                    );
+                    console.log(
+                        `Destination Call with enveloping - Gas Used: ${txReceipt.gasUsed}`
+                    );
+                    logGasOverhead(gasOverhead);
+                }
+
+                async function estimateGasOverhead(fees: string) {
+                    const sWalletInstance = await createSmartWalletInstance();
+                    // refill SW balance
+                    await token.mint('10000', sWalletInstance.address);
+
+                    const swalletInitialBalance = await token.balanceOf(
+                        sWalletInstance.address
+                    );
+                    const relayWorkerInitialBalance = await token.balanceOf(
+                        relayWorker
+                    );
+
+                    const accounts = await web3.eth.getAccounts();
+                    const firstAccount = accounts[0];
+                    // necessary to execute the transfer tx without relay
+                    await token.mint('10000', firstAccount);
+                    const transferReceiver = accounts[1];
+                    const balanceToTransfer = toHex(1000);
+
+                    // forge the request
+                    const hexFees = toHex(fees);
+                    const completeReq: RelayRequest = await forgeRequest(
+                        transferReceiver,
+                        balanceToTransfer,
+                        sWalletInstance,
+                        hexFees
+                    );
+
+                    const sig = signRequest(
+                        completeReq,
+                        sWalletInstance.address
                     );
 
                     const { tx } = await relayHubInstance.relayCall(
@@ -1331,54 +1385,30 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                     );
                     const txReceipt = await web3.eth.getTransactionReceipt(tx);
 
+                    // assert the transaction has been relayed correctly
                     const sWalletFinalBalance = await token.balanceOf(
                         sWalletInstance.address
                     );
                     const relayWorkerFinalBalance = await token.balanceOf(
                         relayWorker
                     );
-
                     assert.isTrue(
                         swalletInitialBalance.eq(
                             sWalletFinalBalance
-                                .add(toBN(fees))
+                                .add(toBN(hexFees))
                                 .add(toBN(balanceToTransfer))
                         ),
                         'SW Payment did not occur'
                     );
                     assert.isTrue(
                         relayWorkerFinalBalance.eq(
-                            relayWorkerInitialBalance.add(toBN(fees))
+                            relayWorkerInitialBalance.add(toBN(hexFees))
                         ),
                         'Worker did not receive payment'
                     );
-
-                    const nonceAfter = await sWalletInstance.nonce();
-                    assert.equal(
-                        nonceBefore.addn(1).toNumber(),
-                        nonceAfter.toNumber(),
-                        'Incorrect nonce after execution'
-                    );
-
-                    console.log(
-                        `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed}`
-                    );
-
                     const logs = abiDecoder.decodeLogs(txReceipt.logs);
-
                     const findLog = (logs: any, name: string) =>
                         logs.find((e: any) => e != null && e.name === name);
-
-                    // necessary to reproduce a tx rejected by the recipient
-                    // const transactionRelayedButRevertedByRecipient = findLog(logs,'TransactionRelayedButRevertedByRecipient');
-                    // assert.isTrue(
-                    //     transactionRelayedButRevertedByRecipient !== undefined &&
-                    //     transactionRelayedButRevertedByRecipient !== null,
-                    //     'transactionRelayedButRevertedByRecipient not found'
-                    // );
-                    // console.log({transactionRelayedButRevertedByRecipient});
-                    // console.log('transactionRelayedButRevertedByRecipient', transactionRelayedButRevertedByRecipient.events);
-
                     const transactionRelayedEvent = findLog(
                         logs,
                         'TransactionRelayed'
@@ -1388,35 +1418,15 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                             transactionRelayedEvent !== null,
                         'TransactionRelayedEvent not found'
                     );
+                    await printGasStatus(txReceipt);
+                }
 
-                    const callWithoutRelay = await token.transfer(
-                        gaslessAccount.address,
-                        '1000'
-                    );
-                    const cumulativeGasUsedWithoutRelay: number =
-                        callWithoutRelay.receipt.cumulativeGasUsed;
-                    const gasOverhead =
-                        txReceipt.cumulativeGasUsed -
-                        cumulativeGasUsedWithoutRelay;
-                    console.log(
-                        '--------------- Destination Call Without enveloping------------------------'
-                    );
-                    console.log(
-                        `Gas Used: ${callWithoutRelay.receipt.gasUsed}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
-                    );
-                    console.log('---------------------------------------');
-                    console.log(
-                        '--------------- Destination Call with enveloping------------------------'
-                    );
-                    console.log(
-                        `Gas Used: ${txReceipt.gasUsed}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed}`
-                    );
-                    console.log('---------------------------------------');
-                    console.log(
-                        '--------------- Enveloping Overhead ------------------------'
-                    );
-                    console.log(`Overhead Gas: ${gasOverhead}`);
-                    console.log('---------------------------------------');
+                it.only('gas estimation tests for token transfer - with token payment', async function () {
+                    await estimateGasOverhead('5000');
+                });
+
+                it.only('gas estimation tests for token transfer - without token payment', async function () {
+                    await estimateGasOverhead('0');
                 });
             });
         });
