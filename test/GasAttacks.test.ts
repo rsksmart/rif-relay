@@ -2,12 +2,13 @@ import { ether } from '@openzeppelin/test-helpers';
 import chai from 'chai';
 import {
     getLocalEip712Signature,
+    Environment
+} from '@rsksmart/rif-relay-common';
+import {
     RelayRequest,
     cloneRelayRequest,
-    Environment,
-    TypedRequestData,
-    getDomainSeparatorHash
-} from '@rsksmart/rif-relay-common';
+    TypedRequestData
+} from '@rsksmart/rif-relay-contracts';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
 import { IWalletFactory, IRelayHub } from '@rsksmart/rif-relay-contracts';
@@ -110,10 +111,9 @@ contract('RelayHub', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });

@@ -20,28 +20,28 @@ import {
 } from '@rsksmart/rif-relay-client';
 import { PrefixedHexString } from 'ethereumjs-tx';
 import { soliditySha3Raw } from 'web3-utils';
+import { HttpProvider } from 'web3-core';
 // @ts-ignore
 import { TypedDataUtils, signTypedData_v4 } from 'eth-sig-util';
 import { BN, bufferToHex, toBuffer, privateToAddress } from 'ethereumjs-util';
 // @ts-ignore
 import ethWallet from 'ethereumjs-wallet';
 import {
-    DeployRequest,
-    RelayRequest,
     constants,
     defaultEnvironment,
     Environment,
     environments,
     getLocalEip712Signature,
-    sleep,
+    sleep
+} from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    RelayRequest,
     RelayHubConfiguration,
     TypedRequestData,
-    RequestType,
-    getDomainSeparatorHash,
     TypedDeployRequestData,
-    DeployRequestDataType,
-    DEPLOY_PARAMS
-} from '@rsksmart/rif-relay-common';
+    DeployRequestDataType
+} from '@rsksmart/rif-relay-contracts';
 
 //@ts-ignore
 import sourceMapSupport from 'source-map-support';
@@ -50,6 +50,15 @@ import { RIF_RELAY_URL } from './Utils';
 sourceMapSupport.install({ errorFormatterForce: true });
 
 const RelayHub = artifacts.require('RelayHub');
+
+const DEPLOY_PARAMS =
+    'address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data';
+
+const RequestType = {
+    typeName: 'RelayRequest',
+    typeSuffix:
+        'RelayData relayData)RelayData(uint256 gasPrice,address relayWorker,address callForwarder,address callVerifier)'
+};
 
 const localhostOne = RIF_RELAY_URL;
 export const deployTypeName = `${RequestType.typeName}(${DEPLOY_PARAMS},${RequestType.typeSuffix}`;
@@ -74,8 +83,18 @@ export async function startRelay(
     const args = [];
 
     const serverWorkDir = '/tmp/enveloping/test/server';
-
-    fs.rmdirSync(serverWorkDir, { recursive: true });
+    try {
+        /*
+         * It raises an error if the folder doesn't exist on macos.
+         * If we decide to drop the support for node version minor than v14.14.0
+         * we could use [fs.rmDir](https://nodejs.org/docs/latest-v16.x/api/fs.html#fsrmsyncpath-options).
+         */
+        fs.rmdirSync(serverWorkDir, { recursive: true });
+    } catch (error) {
+        console.log(
+            `startRelay: deletion of ${serverWorkDir} failed. Folder not found`
+        );
+    }
     args.push('--workdir', serverWorkDir);
     args.push('--devMode', true);
     args.push('--checkInterval', 10);
@@ -400,8 +419,7 @@ export async function createSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            domainSeparator: '0x',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -423,8 +441,8 @@ export async function createSmartWallet(
     const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)); // keccak256 of suffixData
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
-        getDomainSeparatorHash(factory.address, chainId),
         suffixData,
+        constants.ZERO_ADDRESS,
         deploySignature
     );
 
@@ -483,8 +501,7 @@ export async function createCustomSmartWallet(
         },
         relayData: {
             gasPrice: '10',
-            domainSeparator: '0x',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
             callVerifier: constants.ZERO_ADDRESS
         }
@@ -506,8 +523,8 @@ export async function createCustomSmartWallet(
     const suffixData = bufferToHex(encoded.slice((1 + countParams) * 32)); // keccak256 of suffixData
     const txResult = await factory.relayedUserSmartWalletCreation(
         rReq.request,
-        getDomainSeparatorHash(factory.address, chainId),
         suffixData,
+        constants.ZERO_ADDRESS,
         deploySignature,
         { from: relayHub }
     );
@@ -598,7 +615,8 @@ export async function prepareTransaction(
     swallet: string,
     tokenContract: string,
     tokenAmount: string,
-    tokenGas = '50000'
+    tokenGas = '50000',
+    collectorContract?: string
 ): Promise<{ relayRequest: RelayRequest; signature: string }> {
     const chainId = (await getTestingEnvironment()).chainId;
     const relayRequest: RelayRequest = {
@@ -618,8 +636,7 @@ export async function prepareTransaction(
         },
         relayData: {
             gasPrice: '1',
-            domainSeparator: getDomainSeparatorHash(swallet, chainId),
-            relayWorker: relayWorker,
+            feesReceiver: collectorContract ?? relayWorker,
             callForwarder: swallet,
             callVerifier: verifier
         }
@@ -672,3 +689,13 @@ function getEventsAbiByTopic(abi: any): Map<string, any> {
  */
 export const INCORRECT_ECDSA_SIGNATURE =
     '0xdeadface00000a58b757da7dea5678548be5ff9b16e9d1d87c6157aff6889c0f6a406289908add9ea6c3ef06d033a058de67d057e2c0ae5a02b36854be13b0731c';
+
+export const getHostnameFromProvider = (): string => {
+    const underlyingProvider = web3.currentProvider as HttpProvider;
+    const providerUrl = new URL(underlyingProvider.host);
+    const hostname = providerUrl.hostname;
+    return hostname;
+};
+
+export const getWebSocketUrl = () =>
+    `ws://${getHostnameFromProvider()}:4445/websocket`;

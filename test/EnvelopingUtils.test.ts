@@ -13,17 +13,20 @@ import {
     createSmartWalletFactory,
     deployHub,
     getTestingEnvironment,
+    getWebSocketUrl,
     startRelay,
     stopRelay
 } from './TestUtils';
 import {
     EnvelopingConfig,
     constants,
-    isSameAddress,
+    isSameAddress
+} from '@rsksmart/rif-relay-common';
+import {
     TypedRequestData,
     DeployRequest,
     RelayRequest
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 import { randomHex, toChecksumAddress } from 'web3-utils';
 import { PrefixedHexString } from 'ethereumjs-tx';
 import sigUtil from 'eth-sig-util';
@@ -230,7 +233,12 @@ contract('Enveloping utils', function (accounts) {
             });
             relayproc = serverData.proc;
             workerAddress = serverData.worker;
-            enveloping = new Enveloping(config, web3, workerAddress);
+            enveloping = new Enveloping(
+                config,
+                web3,
+                workerAddress,
+                workerAddress
+            );
             await enveloping._init();
         });
 
@@ -392,7 +400,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);
@@ -563,7 +571,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);
@@ -742,7 +750,7 @@ contract('Enveloping utils', function (accounts) {
         before(async function () {
             chainId = (await getTestingEnvironment()).chainId;
             socketProvider = new Web3.providers.WebsocketProvider(
-                'ws://127.0.0.1:4445/websocket'
+                getWebSocketUrl()
             );
 
             currentWeb3 = new Web3(socketProvider);

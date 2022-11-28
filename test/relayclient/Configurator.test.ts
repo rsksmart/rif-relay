@@ -18,7 +18,7 @@ contract('client-configuration', () => {
             it('should fail with no params', async () => {
                 // @ts-ignore
                 await expect(resolveConfiguration()).to.eventually.rejectedWith(
-                    /Cannot read property/
+                    /First param is not a web3 provider/
                 );
             });
 

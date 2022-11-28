@@ -1,6 +1,7 @@
 import Transaction from 'ethereumjs-tx/dist/transaction';
 import Web3 from 'web3';
-import chai from 'chai';
+import chai, { assert, expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import sinon from 'sinon';
 import sinonChai from 'sinon-chai';
 import { ChildProcessWithoutNullStreams } from 'child_process';
@@ -21,7 +22,6 @@ import {
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 
 import {
-    DeployRequest,
     EnvelopingConfig,
     replaceErrors,
     EnvelopingTransactionDetails,
@@ -29,9 +29,12 @@ import {
     Web3Provider,
     RelayTransactionRequest,
     constants,
-    getDomainSeparatorHash,
-    TypedDeployRequestData
+    ContractInteractor
 } from '@rsksmart/rif-relay-common';
+import {
+    DeployRequest,
+    TypedDeployRequestData
+} from '@rsksmart/rif-relay-contracts';
 import {
     _dumpRelayingResult,
     RelayClient,
@@ -79,8 +82,8 @@ abiDecoder.addABI(RelayHub.abi);
 // @ts-ignore
 abiDecoder.addABI(SmartWalletFactory.abi);
 
-const expect = chai.expect;
 chai.use(sinonChai);
+chai.use(chaiAsPromised);
 
 const localhostOne = RIF_RELAY_URL;
 const cheapRelayerUrl = 'http://localhost:54321';
@@ -184,8 +187,7 @@ gasOptions.forEach((gasOption) => {
                 rskNodeUrl: underlyingProvider.host,
                 deployVerifierAddress: deployVerifier.address,
                 relayVerifierAddress: relayVerifier.address,
-                workerTargetBalance: 0.6e18 //,
-                // relaylog:true
+                workerTargetBalance: 0.6e18
             });
 
             relayWorker = accounts[2];
@@ -208,7 +210,8 @@ gasOptions.forEach((gasOption) => {
                 relayHubAddress: relayHub.address,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifier.address,
-                relayVerifierAddress: relayVerifier.address
+                relayVerifierAddress: relayVerifier.address,
+                preferredRelays: ['http://localhost:8095']
             };
 
             relayClient = new RelayClient(underlyingProvider, config);
@@ -451,18 +454,22 @@ gasOptions.forEach((gasOption) => {
                     smartWalletAddress: swAddress
                 };
 
+                const { feesReceiver } = await axios
+                    .get(`${RIF_RELAY_URL}/getaddr`)
+                    .then((res) => res.data);
+
                 const tokenPaymentEstimate =
-                    await relayClient.estimateTokenTransferGas(
-                        details,
-                        relayWorker
-                    );
+                    await relayClient.estimateTokenTransferGas(details);
                 const testRequest =
                     await relayClient._prepareFactoryGasEstimationRequest(
                         details,
-                        relayWorker
+                        feesReceiver
                     );
                 const estimatedGasResultWithoutTokenPayment =
-                    await relayClient.calculateDeployCallGas(testRequest);
+                    await relayClient.calculateDeployCallGas(
+                        testRequest,
+                        relayWorker
+                    );
 
                 const originalBalance = await token.balanceOf(swAddress);
                 const senderNonce = await factory.nonce(
@@ -486,13 +493,9 @@ gasOptions.forEach((gasOption) => {
                     },
                     relayData: {
                         gasPrice: '1',
-                        relayWorker: relayWorker,
+                        feesReceiver: feesReceiver,
                         callForwarder: factory.address,
-                        callVerifier: deployVerifier.address,
-                        domainSeparator: getDomainSeparatorHash(
-                            factory.address,
-                            chainId
-                        )
+                        callVerifier: deployVerifier.address
                     }
                 };
                 const dataToSign = new TypedDeployRequestData(
@@ -549,7 +552,7 @@ gasOptions.forEach((gasOption) => {
                 const expectedBalance = originalBalance.sub(
                     web3.utils.toBN('1')
                 );
-                chai.expect(
+                expect(
                     expectedBalance,
                     'Deployment not paid'
                 ).to.be.bignumber.equal(newBalance);
@@ -1209,6 +1212,7 @@ gasOptions.forEach((gasOption) => {
                     relayWorkerAddress: relayWorkerAddress,
                     relayManagerAddress: relayManager,
                     relayHubAddress: relayManager,
+                    feesReceiver: relayWorkerAddress,
                     minGasPrice: '',
                     ready: true,
                     version: ''
@@ -1288,26 +1292,14 @@ gasOptions.forEach((gasOption) => {
                 );
                 await relayClient._init();
 
-                const tokenGas = gasOption.estimateGas
-                    ? (
-                          await relayClient.estimateTokenTransferGas(
-                              options,
-                              relayWorkerAddress
-                          )
-                      ).toString()
-                    : options.tokenGas;
-
                 // register gasless account in RelayClient to avoid signing with RSKJ
                 relayClient.accountManager.addAccount(gaslessAccount);
 
                 // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
                 sinon.spy(dependencyTree.knownRelaysManager);
-                const attempt = await relayClient._attemptRelay(
-                    relayInfo,
-                    Object.assign({}, optionsWithGas, {
-                        tokenGas
-                    })
-                );
+                const attempt = await relayClient._attemptRelay(relayInfo, {
+                    ...optionsWithGas
+                });
                 assert.equal(
                     attempt.error?.message,
                     'some error describing how timeout occurred somewhere'
@@ -1392,9 +1384,17 @@ gasOptions.forEach((gasOption) => {
 
                 // @ts-ignore (sinon allows spying on all methods of the object, but TypeScript does not seem to know that)
                 sinon.spy(dependencyTree.knownRelaysManager);
+                const tokenGas = gasOption.estimateGas
+                    ? (
+                          await relayClient.estimateTokenTransferGas(options)
+                      ).toString()
+                    : options.tokenGas;
                 const { transaction, error } = await relayClient._attemptRelay(
                     relayInfo,
-                    optionsWithGas
+                    {
+                        ...optionsWithGas,
+                        tokenGas
+                    }
                 );
                 assert.isUndefined(transaction);
                 assert.equal(
@@ -1447,6 +1447,10 @@ gasOptions.forEach((gasOption) => {
             });
 
             it('should succeed to relay, but report ping error', async () => {
+                relayClient = new RelayClient(underlyingProvider, {
+                    ...config,
+                    preferredRelays: [RIF_RELAY_URL, cheapRelayerUrl]
+                });
                 const relayingResult = await relayClient.relayTransaction(
                     options
                 );
@@ -1473,6 +1477,80 @@ gasOptions.forEach((gasOption) => {
                 assert.equal(relayingResult.pingErrors.size, 0);
 
                 console.log(relayingResult);
+            });
+        });
+
+        describe('#validateSmartWallet', () => {
+            it('should fail if is not the owner', async () => {
+                const notOwner = await getGaslessAccount();
+                relayClient.accountManager.addAccount(notOwner);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: notOwner.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert Not the owner of the SmartWallet'
+                );
+            });
+
+            it('should fail if smart wallet is not deployed', async () => {
+                const swAddress = await factory.getSmartWalletAddress(
+                    gaslessAccount.address,
+                    constants.ZERO_ADDRESS,
+                    '1'
+                );
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: swAddress,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Cannot create instance of IForwarder; no code at address'
+                );
+            });
+
+            it('should fail if nonce mismatch', async () => {
+                const contractInteractor = new ContractInteractor(
+                    web3.currentProvider as Web3Provider,
+                    configure(config)
+                );
+                sinon
+                    .stub(contractInteractor, 'getSenderNonce')
+                    .returns(Promise.resolve('500'));
+                const relayClient = new RelayClient(
+                    underlyingProvider,
+                    config,
+                    { contractInteractor: contractInteractor }
+                );
+                await relayClient._init();
+                relayClient.accountManager.addAccount(gaslessAccount);
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await assert.isRejected(
+                    relayClient.validateSmartWallet(txDetails),
+                    'Returned error: VM Exception while processing transaction: revert nonce mismatch'
+                );
+            });
+
+            it('should succeed the validation and call once resolveForwarder', async () => {
+                const spy = sinon.spy(relayClient, 'resolveForwarder');
+                const txDetails: EnvelopingTransactionDetails = {
+                    from: gaslessAccount.address,
+                    to: constants.ZERO_ADDRESS,
+                    callForwarder: options.callForwarder,
+                    data: '0x'
+                };
+                await relayClient.validateSmartWallet(txDetails);
+                assert.isTrue(spy.calledOnce);
             });
         });
     });

@@ -1,27 +1,14 @@
 /* global artifacts describe */
 // @ts-ignore
-import { HttpProvider } from 'web3-core';
-import { toBN, toHex } from 'web3-utils';
-import chai from 'chai';
-import sinon from 'sinon';
-import sinonChai from 'sinon-chai';
-import chaiAsPromised from 'chai-as-promised';
 import {
-    EnvelopingConfig,
-    defaultEnvironment,
-    isRsk,
-    sleep,
-    RelayTransactionRequest,
     constants,
+    defaultEnvironment,
+    EnvelopingConfig,
+    isRsk,
+    RelayTransactionRequest,
+    sleep,
     TokenResponse
 } from '@rsksmart/rif-relay-common';
-import {
-    RelayServer,
-    SendTransactionDetails,
-    SignedTransactionDetails,
-    ServerAction,
-    ServerConfigParams
-} from '@rsksmart/rif-relay-server';
 import {
     TestDeployVerifierConfigurableMisbehaviorInstance,
     TestRecipientInstance,
@@ -29,16 +16,32 @@ import {
     TestVerifierConfigurableMisbehaviorInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
+    RelayServer,
+    SendTransactionDetails,
+    ServerAction,
+    ServerConfigParams,
+    SignedTransactionDetails
+} from '@rsksmart/rif-relay-server';
+import chai from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+import { PrefixedHexString } from 'ethereumjs-tx';
+import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
+import { HttpProvider } from 'web3-core';
+import { toBN, toHex } from 'web3-utils';
+import {
     evmMineMany,
+    getTestingEnvironment,
     INCORRECT_ECDSA_SIGNATURE,
     revert,
-    snapshot,
-    getTestingEnvironment
+    snapshot
 } from '../TestUtils';
 import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment';
 import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils';
-import { PrefixedHexString } from 'ethereumjs-tx';
-const { expect, assert } = chai.use(chaiAsPromised).use(sinonChai);
+
+const expect = chai.expect;
+chai.use(chaiAsPromised).use(sinonChai);
+
 const TestToken = artifacts.require('TestToken');
 const TestVerifierConfigurableMisbehavior = artifacts.require(
     'TestVerifierConfigurableMisbehavior'
@@ -135,14 +138,14 @@ contract('RelayServer', function (accounts) {
         describe('#validateInput()', function () {
             it('should fail to relay with wrong relay worker', async function () {
                 const req = await env.createRelayHttpRequest();
-                req.relayRequest.relayData.relayWorker = accounts[1];
+                req.relayRequest.relayData.feesReceiver = accounts[1];
                 try {
                     env.relayServer.validateInput(req);
                     assert.fail();
                 } catch (e) {
                     assert.include(
                         e.message,
-                        `Wrong worker address: ${accounts[1]}`
+                        `Wrong fees receiver address: ${accounts[1]}`
                     );
                 }
             });
@@ -324,7 +327,7 @@ contract('RelayServer', function (accounts) {
                     assert.fail();
                 } catch (e) {
                     if (revertReasonSupported) {
-                        assert.include(e.message, 'signature mismatch');
+                        assert.include(e.message, 'Signature mismatch');
                     } else {
                         assert.include(
                             e.message,

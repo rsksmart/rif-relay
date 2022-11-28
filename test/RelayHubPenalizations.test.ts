@@ -27,12 +27,10 @@ import {
 import {
     constants,
     getRawTxOptions,
-    cloneRelayRequest,
-    RelayRequest,
-    getDomainSeparatorHash,
     isRsk,
     Environment
 } from '@rsksmart/rif-relay-common';
+import { cloneRelayRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import { AccountKeypair } from '@rsksmart/rif-relay-client';
 import TransactionResponse = Truffle.TransactionResponse;
 
@@ -78,8 +76,7 @@ contract(
             },
             relayData: {
                 gasPrice: '50',
-                relayWorker,
-                domainSeparator: '',
+                feesReceiver: relayWorker,
                 callForwarder: constants.ZERO_ADDRESS,
                 callVerifier: constants.ZERO_ADDRESS
             }
@@ -475,7 +472,7 @@ contract(
                 const relayWorker =
                     '0x' + privateToAddress(privateKey).toString('hex');
 
-                relayRequest.relayData.relayWorker = relayWorker;
+                relayRequest.relayData.feesReceiver = relayWorker;
 
                 const encodedCall = relayHub.contract.methods
                     .relayCall(relayRequest, '0xabcdef123456')
@@ -591,10 +588,6 @@ contract(
                 r.request.relayHub = relayHub.address;
                 r.relayData.callForwarder = smartWallet.address;
                 r.relayData.callVerifier = verifier.address;
-                r.relayData.domainSeparator = getDomainSeparatorHash(
-                    smartWallet.address,
-                    env.chainId
-                );
 
                 return r;
             }

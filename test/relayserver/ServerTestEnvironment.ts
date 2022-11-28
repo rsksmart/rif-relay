@@ -46,9 +46,9 @@ import {
     EnvelopingConfig,
     EnvelopingTransactionDetails,
     PingResponse,
-    RelayHubConfiguration,
     RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-contracts';
 import { ether } from '@openzeppelin/test-helpers';
 import { RIF_RELAY_URL } from '../Utils';
 const TestRecipient = artifacts.require('TestRecipient');
@@ -273,7 +273,8 @@ export class ServerTestEnvironment {
     ): Promise<RelayTransactionRequest> {
         const pingResponse = {
             relayHubAddress: this.relayHub.address,
-            relayWorkerAddress: this.relayServer.workerAddress
+            relayWorkerAddress: this.relayServer.workerAddress,
+            feesReceiver: this.relayServer.workerAddress
         };
         const managerData: RelayManagerData = {
             manager: '',

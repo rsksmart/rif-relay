@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "0.0.1-alpha-0",
   "description": "RIF Enveloping",
   "name": "@rsksmart/enveloping",
   "license": "MIT",
@@ -28,10 +28,10 @@
   "scripts": {
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
-    "postinstall": "scripts/postinstall",
+    "prepare": "scripts/prepare",
     "test": "scripts/test",
     "testOnly": "scripts/testOnly",
-    "prepare": "./scripts/prepare",
+    "test:gas": "scripts/testGas",
     "build": "./scripts/build",
     "prettier:fix": "npx prettier --write --ignore-unknown .",
     "prettier": "npx prettier --check ."
@@ -124,7 +124,7 @@
     "sinon": "9.0.2",
     "sinon-chai": "3.5.0",
     "solhint": "3.0.0",
-    "truffle": "5.1.53",
+    "truffle": "5.1.67",
     "ts-loader": "^9.2.3",
     "ts-node": "8.6.2",
     "typechain": "1.0.5",

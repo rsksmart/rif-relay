@@ -5,11 +5,10 @@ import {
 } from '@rsksmart/rif-relay-client';
 import {
     defaultEnvironment,
-    RelayRequest,
     isSameAddress,
-    TypedRequestData,
     constants
 } from '@rsksmart/rif-relay-common';
+import { RelayRequest, TypedRequestData } from '@rsksmart/rif-relay-contracts';
 import { HttpProvider } from 'web3-core';
 import sinon from 'sinon';
 import sigUtil from 'eth-sig-util';
@@ -144,10 +143,9 @@ contract('AccountManager', function () {
             },
             relayData: {
                 gasPrice: '1',
-                relayWorker: constants.ZERO_ADDRESS,
+                feesReceiver: constants.ZERO_ADDRESS,
                 callForwarder: constants.ZERO_ADDRESS,
-                callVerifier: constants.ZERO_ADDRESS,
-                domainSeparator: '0x'
+                callVerifier: constants.ZERO_ADDRESS
             }
         };
         beforeEach(async function () {

@@ -3,7 +3,7 @@ import commander, { CommanderStatic } from 'commander';
 import fs from 'fs';
 import path from 'path';
 import { DeploymentResult } from './TestSetup';
-import { RelayHubConfiguration } from '@rsksmart/rif-relay-common';
+import { RelayHubConfiguration } from '@rsksmart/rif-relay-contracts';
 import * as config from './server-config.json';
 
 export const RIF_RELAY_PORT = config.port;

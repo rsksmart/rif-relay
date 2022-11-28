@@ -52,13 +52,14 @@ contract('RelaySelectionManager', async function (accounts) {
         currentlyStaked: false,
         registered: false
     };
-    const pingResponse = {
+    const pingResponse: PingResponse = {
         relayWorkerAddress: '',
         relayManagerAddress: '',
         relayHubAddress: '',
         minGasPrice: '1',
         ready: true,
-        version: '1'
+        version: '1',
+        feesReceiver: ''
     };
     const winner = {
         pingResponse,
@@ -185,6 +186,7 @@ contract('RelaySelectionManager', async function (accounts) {
                     relayWorkerAddress: relayManager,
                     relayManagerAddress: relayManager,
                     relayHubAddress: relayManager,
+                    feesReceiver: relayManager,
                     minGasPrice: '1',
                     ready: true,
                     version: ''

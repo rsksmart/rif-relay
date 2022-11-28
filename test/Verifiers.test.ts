@@ -11,12 +11,8 @@ import {
 import { expectRevert, expectEvent } from '@openzeppelin/test-helpers';
 import { ethers } from 'ethers';
 import { toBuffer, bufferToHex, privateToAddress, BN } from 'ethereumjs-util';
-import {
-    DeployRequest,
-    RelayRequest,
-    constants,
-    getDomainSeparatorHash
-} from '@rsksmart/rif-relay-common';
+import { constants } from '@rsksmart/rif-relay-common';
+import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-contracts';
 import {
     getTestingEnvironment,
     createSmartWalletFactory,
@@ -90,11 +86,9 @@ contract(
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: factory.address,
-                    callVerifier: deployVerifier.address,
-                    domainSeparator:
-                        '0x0000000000000000000000000000000000000000000000000000000000000000'
+                    callVerifier: deployVerifier.address
                 }
             };
 
@@ -311,13 +305,9 @@ contract(
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address,
-                    domainSeparator: getDomainSeparatorHash(
-                        smartWallet,
-                        chainId
-                    )
+                    callVerifier: relayVerifier.address
                 }
             };
 
@@ -336,13 +326,9 @@ contract(
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: smartWallet,
-                    callVerifier: relayVerifier.address,
-                    domainSeparator: getDomainSeparatorHash(
-                        smartWallet,
-                        chainId
-                    )
+                    callVerifier: relayVerifier.address
                 }
             };
 

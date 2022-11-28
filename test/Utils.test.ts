@@ -4,13 +4,11 @@ import chaiAsPromised from 'chai-as-promised';
 import chai from 'chai';
 
 import {
-    RelayRequest,
-    TypedRequestData,
-    getDomainSeparatorHash,
     constants,
     estimateMaxPossibleRelayCallWithLinearFit,
     getLocalEip712Signature
 } from '@rsksmart/rif-relay-common';
+import { RelayRequest, TypedRequestData } from '@rsksmart/rif-relay-contracts';
 import { expectEvent } from '@openzeppelin/test-helpers';
 import {
     SmartWalletInstance,
@@ -95,10 +93,9 @@ contract('Utils', function (accounts) {
                 },
                 relayData: {
                     gasPrice,
-                    relayWorker,
+                    feesReceiver: relayWorker,
                     callForwarder: forwarder,
-                    callVerifier: verifier,
-                    domainSeparator: getDomainSeparatorHash(forwarder, chainId)
+                    callVerifier: verifier
                 }
             };
         });

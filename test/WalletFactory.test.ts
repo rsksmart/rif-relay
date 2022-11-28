@@ -13,14 +13,12 @@ import { toChecksumAddress, soliditySha3Raw } from 'web3-utils';
 import { ethers } from 'ethers';
 import chai from 'chai';
 import { bytes32, getTestingEnvironment, stripHex } from './TestUtils';
+import { Environment, constants } from '@rsksmart/rif-relay-common';
 import {
-    Environment,
-    constants,
     DeployRequest,
     DeployRequestDataType,
-    getDomainSeparatorHash,
     TypedDeployRequestData
-} from '@rsksmart/rif-relay-common';
+} from '@rsksmart/rif-relay-contracts';
 import { PERSONAL_SIGN_PREFIX } from './Utils';
 
 const keccak256 = web3.utils.keccak256;
@@ -35,7 +33,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
     let fwd: CustomSmartWalletInstance;
     let token: TestTokenInstance;
     let factory: CustomSmartWalletFactoryInstance;
-    let chainId: number;
     const ownerPrivateKey = toBuffer(bytes32(1));
     let ownerAddress: string;
     const recipientPrivateKey = toBuffer(bytes32(1));
@@ -58,15 +55,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
         },
         relayData: {
             gasPrice: '1',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
-            callVerifier: constants.ZERO_ADDRESS,
-            domainSeparator: '0x'
+            callVerifier: constants.ZERO_ADDRESS
         }
     };
 
     before(async () => {
-        chainId = (await getTestingEnvironment()).chainId;
         ownerAddress = bufferToHex(
             privateToAddress(ownerPrivateKey)
         ).toLowerCase();
@@ -82,10 +77,6 @@ contract('CustomSmartWalletFactory', ([from]) => {
         // A new factory for new create2 addresses each
         factory = await CustomSmartWalletFactory.new(fwd.address);
         request.relayData.callForwarder = factory.address;
-        request.relayData.domainSeparator = getDomainSeparatorHash(
-            factory.address,
-            chainId
-        );
     });
 
     describe('#getCreationBytecode', () => {
@@ -560,8 +551,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
+                from,
                 sig
             );
 
@@ -615,14 +606,13 @@ contract('CustomSmartWalletFactory', ([from]) => {
                 request: {
                     ...request.request,
                     tokenContract: token.address,
-                    tokenAmount: deployPrice
+                    tokenAmount: deployPrice,
+                    relayHub: from
                 },
                 relayData: {
                     ...request.relayData
                 }
             };
-
-            req.request.relayHub = from;
 
             const dataToSign = new TypedDeployRequestData(
                 env.chainId,
@@ -645,9 +635,12 @@ contract('CustomSmartWalletFactory', ([from]) => {
             );
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
-                sig
+                from,
+                sig,
+                {
+                    from
+                }
             );
 
             const code = await web3.eth.getCode(
@@ -710,11 +703,11 @@ contract('CustomSmartWalletFactory', ([from]) => {
             await expectRevert(
                 factory.relayedUserSmartWalletCreation(
                     req.request,
-                    getDomainSeparatorHash(factory.address, env.chainId),
                     suffixData,
+                    constants.ZERO_ADDRESS,
                     sig
                 ),
-                'signature mismatch'
+                'Signature mismatch'
             );
 
             const newBalance = await token.balanceOf(expectedAddress);
@@ -770,8 +763,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
+                from,
                 sig
             );
 
@@ -903,7 +896,6 @@ contract('SmartWalletFactory', ([from]) => {
     let fwd: SmartWalletInstance;
     let token: TestTokenInstance;
     let factory: SmartWalletFactoryInstance;
-    let chainId: number;
     const ownerPrivateKey = toBuffer(bytes32(1));
     let ownerAddress: string;
     const recipientPrivateKey = toBuffer(bytes32(1));
@@ -928,15 +920,13 @@ contract('SmartWalletFactory', ([from]) => {
         },
         relayData: {
             gasPrice: '1',
-            relayWorker: constants.ZERO_ADDRESS,
+            feesReceiver: constants.ZERO_ADDRESS,
             callForwarder: constants.ZERO_ADDRESS,
-            callVerifier: constants.ZERO_ADDRESS,
-            domainSeparator: '0x'
+            callVerifier: constants.ZERO_ADDRESS
         }
     };
 
     before(async () => {
-        chainId = (await getTestingEnvironment()).chainId;
         ownerAddress = bufferToHex(
             privateToAddress(ownerPrivateKey)
         ).toLowerCase();
@@ -952,10 +942,6 @@ contract('SmartWalletFactory', ([from]) => {
         // A new factory for new create2 addresses each
         factory = await SmartWalletFactory.new(fwd.address);
         request.relayData.callForwarder = factory.address;
-        request.relayData.domainSeparator = getDomainSeparatorHash(
-            factory.address,
-            chainId
-        );
     });
 
     describe('#getCreationBytecode', () => {
@@ -1370,8 +1356,8 @@ contract('SmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
+                from,
                 sig
             );
 
@@ -1444,8 +1430,8 @@ contract('SmartWalletFactory', ([from]) => {
             );
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
+                from,
                 sig
             );
 
@@ -1505,11 +1491,11 @@ contract('SmartWalletFactory', ([from]) => {
             await expectRevert(
                 factory.relayedUserSmartWalletCreation(
                     req.request,
-                    getDomainSeparatorHash(factory.address, env.chainId),
                     suffixData,
+                    constants.ZERO_ADDRESS,
                     sig
                 ),
-                'signature mismatch'
+                'Signature mismatch'
             );
 
             const newBalance = await token.balanceOf(expectedAddress);
@@ -1560,8 +1546,8 @@ contract('SmartWalletFactory', ([from]) => {
 
             const { logs } = await factory.relayedUserSmartWalletCreation(
                 req.request,
-                getDomainSeparatorHash(factory.address, env.chainId),
                 suffixData,
+                from,
                 sig
             );
 

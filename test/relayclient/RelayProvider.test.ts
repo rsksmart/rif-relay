@@ -30,6 +30,7 @@ import {
     deployHub,
     getGaslessAccount,
     getTestingEnvironment,
+    getWebSocketUrl,
     prepareTransaction,
     RelayServerData,
     startRelay,
@@ -39,6 +40,7 @@ import BadRelayClient from '../dummies/BadRelayClient';
 import {
     AccountKeypair,
     configure,
+    RelayingResult,
     RelayProvider
 } from '@rsksmart/rif-relay-client';
 
@@ -132,14 +134,15 @@ contract('RelayProvider', function (accounts) {
                 chainId: env.chainId,
                 forwarderAddress: smartWallet.address,
                 relayVerifierAddress: verifierInstance.address,
-                deployVerifierAddress: deployVerifierInstance.address
+                deployVerifierAddress: deployVerifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
 
             let websocketProvider: WebsocketProvider;
 
             if (isRsk(await getTestingEnvironment())) {
                 websocketProvider = new Web3.providers.WebsocketProvider(
-                    'ws://localhost:4445/websocket'
+                    getWebSocketUrl()
                 );
             } else {
                 websocketProvider = new Web3.providers.WebsocketProvider(
@@ -514,7 +517,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 relayVerifierAddress: verifierInstance.address,
-                deployVerifierAddress: deployVerifierInstance.address
+                deployVerifierAddress: deployVerifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;
@@ -613,7 +617,10 @@ contract('RelayProvider', function (accounts) {
                 isSmartWalletDeploy: true
             };
 
-            const txHash = await rProvider.deploySmartWallet(trxData);
+            const relayingResult: RelayingResult =
+                await rProvider.deploySmartWallet(trxData);
+            const txHash: string =
+                '0x' + relayingResult.transaction.hash(true).toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);
@@ -646,7 +653,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifierInstance.address,
-                relayVerifierAddress: verifierInstance.address
+                relayVerifierAddress: verifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;
@@ -683,7 +691,10 @@ contract('RelayProvider', function (accounts) {
                 smartWalletAddress: swAddress // so the client knows how to estimate tokenGas
             };
 
-            const txHash = await rProvider.deploySmartWallet(trxData);
+            const relayingResult: RelayingResult =
+                await rProvider.deploySmartWallet(trxData);
+            const txHash: string =
+                '0x' + relayingResult.transaction.hash(true).toString('hex');
             const trx = await web3.eth.getTransactionReceipt(txHash);
 
             const logs = abiDecoder.decodeLogs(trx.logs);
@@ -716,7 +727,8 @@ contract('RelayProvider', function (accounts) {
                 logLevel: 5,
                 chainId: env.chainId,
                 deployVerifierAddress: deployVerifierInstance.address,
-                relayVerifierAddress: verifierInstance.address
+                relayVerifierAddress: verifierInstance.address,
+                preferredRelays: ['http://localhost:8095']
             });
             assert.isTrue(relayProvider != null);
             config.forwarderAddress = constants.ZERO_ADDRESS;
@@ -1129,7 +1141,7 @@ contract('RelayProvider', function (accounts) {
 
             if (isRsk(await getTestingEnvironment())) {
                 websocketProvider = new Web3.providers.WebsocketProvider(
-                    'ws://localhost:4445/websocket'
+                    getWebSocketUrl()
                 );
             } else {
                 websocketProvider = new Web3.providers.WebsocketProvider(
