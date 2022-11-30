@@ -42,7 +42,7 @@
     "@rsksmart/rif-relay-client": "1.0.0-alpha.3",
     "@rsksmart/rif-relay-common": "1.0.0-alpha.2",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#PP-576/estimation-destination-contract-error",
-    "@rsksmart/rif-relay-server": "https://github.com/rsksmart/rif-relay-server",
+    "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server#PP-576/estimation-destination-contract-error",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
     "@trufflesuite/web3-provider-engine": "^15.0.13-1",

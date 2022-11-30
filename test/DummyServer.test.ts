@@ -1,21 +1,34 @@
-import { AccountKeypair } from '@rsksmart/rif-relay-client';
+import { ether } from '@openzeppelin/test-helpers';
+import { AccountKeypair, configure } from '@rsksmart/rif-relay-client';
 import {
     constants,
+    ContractInteractor,
     Environment,
-    getLocalEip712Signature
+    getLocalEip712Signature,
+    RelayMetadata,
+    RelayTransactionRequest
 } from '@rsksmart/rif-relay-common';
 import { RelayRequest, TypedRequestData } from '@rsksmart/rif-relay-contracts';
 import {
+    Dummy2Instance,
+    Dummy3Instance,
+    DummyInstance,
     IForwarderInstance,
     PenalizerInstance,
     RelayHubInstance,
+    RelayVerifierInstance,
     SmartWalletFactoryInstance,
     SmartWalletInstance,
-    DummyInstance,
-    TestTokenInstance,
-    Dummy2Instance,
-    Dummy3Instance
+    TestTokenInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
+import {
+    KeyManager,
+    RelayServer,
+    ServerConfigParams,
+    ServerDependencies,
+    TxStoreManager
+} from '@rsksmart/rif-relay-server';
+import Web3 from 'web3';
 import {
     createSmartWallet,
     createSmartWalletFactory,
@@ -23,10 +36,10 @@ import {
     getGaslessAccount,
     getTestingEnvironment
 } from './TestUtils';
-import { ether } from '@openzeppelin/test-helpers';
+import { hdkey as EthereumHDKey } from 'ethereumjs-wallet';
+import { AbiItem } from 'web3-utils';
 // @ts-ignore
 import abiDecoder from 'abi-decoder';
-import { TransactionReceipt } from 'web3-core';
 
 const Penalizer = artifacts.require('Penalizer');
 const Dummy = artifacts.require('Dummy');
@@ -34,6 +47,8 @@ const Dummy2 = artifacts.require('Dummy2');
 const Dummy3 = artifacts.require('Dummy3');
 const SmartWallet = artifacts.require('SmartWallet');
 const TestToken = artifacts.require('TestToken');
+const RelayVerifier = artifacts.require('RelayVerifier');
+const RelayHubContract = artifacts.require('RelayHub');
 
 // @ts-ignore
 abiDecoder.addABI(SmartWallet.abi);
@@ -44,15 +59,16 @@ type Result = {
     afterExecution: string;
     gasUsed: number;
     gas: number;
-    gasEstimated: string;
+    gasEstimated: number;
     cumulativeGasUsed: number;
 };
 
-contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
+contract('DummyServer', function ([_]) {
     let env: Environment;
     let chainId: number;
     let penalizer: PenalizerInstance;
     let relayHub: RelayHubInstance;
+    let relayVerifier: RelayVerifierInstance;
     let factory: SmartWalletFactoryInstance;
     let gaslessAccount: AccountKeypair;
     let forwarder: IForwarderInstance;
@@ -64,15 +80,20 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
 
     let nonce: string;
     let gasPrice: string;
+    let contractInteractor: ContractInteractor;
+    let relayServer: RelayServer;
+    let config: Partial<ServerConfigParams>;
 
     beforeEach(async function () {
         env = await getTestingEnvironment();
         chainId = env.chainId;
         penalizer = await Penalizer.new();
         relayHub = await deployHub(penalizer.address);
+
         const smartWalletTemplate: SmartWalletInstance =
             await SmartWallet.new();
         factory = await createSmartWalletFactory(smartWalletTemplate);
+        relayVerifier = await RelayVerifier.new(factory.address);
         gaslessAccount = await getGaslessAccount();
         forwarder = await createSmartWallet(
             _,
@@ -82,22 +103,81 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             chainId
         );
         token = await TestToken.new();
-        await token.mint(ether('10'), forwarder.address);
-        await relayHub.stakeForAddress(relayManager, 1000, {
-            value: ether('2'),
-            from: relayOwner
-        });
-
-        await relayHub.addRelayWorkers([relayWorker], {
-            from: relayManager
-        });
         nonce = (await forwarder.nonce()).toString();
         gasPrice = '60000000';
+        config = {
+            port: 9090,
+            trustedVerifiers: [relayVerifier.address],
+            checkInterval: 1000
+        };
+        const web3provider = new Web3.providers.HttpProvider(
+            'http://localhost:4444'
+        );
+        const randomSeed = Buffer.from('');
+        const managerKeyManager = new KeyManager(1, undefined, randomSeed);
+        const workersKeyManager = new KeyManager(1);
+        contractInteractor = new ContractInteractor(
+            web3provider,
+            configure({
+                relayHubAddress: relayHub.address,
+                deployVerifierAddress: constants.ZERO_ADDRESS,
+                relayVerifierAddress: constants.ZERO_ADDRESS
+            })
+        );
+        await contractInteractor.init();
+        const txStoreManager = new TxStoreManager({ inMemory: true });
+        const dependencies: ServerDependencies = {
+            managerKeyManager,
+            workersKeyManager,
+            contractInteractor,
+            txStoreManager
+        };
+        relayServer = new RelayServer(config, dependencies);
+
+        await web3.eth.sendTransaction({
+            from: _,
+            to: relayServer.managerAddress,
+            value: relayServer.config.managerTargetBalance
+        });
+
+        await web3.eth.sendTransaction({
+            from: _,
+            to: relayServer.workerAddress,
+            value: relayServer.config.workerTargetBalance
+        });
+        await relayVerifier.acceptToken(token.address);
+        await token.mint(ether('10'), forwarder.address);
+        await relayHub.stakeForAddress(relayServer.managerAddress, 1000, {
+            value: ether('2'),
+            from: _
+        });
+
+        const hdkey = EthereumHDKey.fromMasterSeed(randomSeed);
+        const account = hdkey.deriveChild(0).getWallet();
+
+        const web3Account = await web3.eth.accounts.privateKeyToAccount(
+            account.getPrivateKeyString()
+        );
+        web3.eth.accounts.wallet.add(web3Account);
+
+        const swContract = new web3.eth.Contract(
+            RelayHubContract.abi as AbiItem[],
+            relayHub.address
+        );
+
+        await swContract.methods
+            .addRelayWorkers([relayServer.workerAddress])
+            .send({
+                from: web3Account.address,
+                gas: '2000000'
+            });
+        await relayServer.init();
+        relayServer.setReadyState(true);
     });
 
     const estimateTokenGas = async (from: string, gasPrice: string) => {
         const estimation = await token.contract.methods
-            .transfer(relayWorker, ether('1'))
+            .transfer(relayServer.managerAddress, ether('1'))
             .estimateGas({
                 from,
                 gasPrice
@@ -149,8 +229,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
         });
 
         describe('callExternal(dummy2)', function () {
-            let encodedFunctionDummy2;
             const description = 'callExternal(dummy2)';
+            let encodedFunctionDummy2;
             beforeEach(function () {
                 encodedFunctionDummy2 = dummy2.contract.methods
                     .callExternal(dummy.address, encodedFunctionDummy1)
@@ -163,7 +243,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -188,8 +268,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -203,27 +283,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -244,7 +329,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -269,8 +354,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -284,27 +369,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -329,7 +419,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     )
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -354,8 +444,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -369,27 +459,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -420,7 +515,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -445,8 +540,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -460,27 +555,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -501,7 +601,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -526,8 +626,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -541,27 +641,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -586,7 +691,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     )
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -611,8 +716,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -626,27 +731,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -681,7 +791,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -706,8 +816,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -721,27 +831,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -762,7 +877,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -787,8 +902,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -802,27 +917,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -847,7 +967,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     )
                     .encodeABI();
                 const gas = await estimateInternallCall(
-                    forwarder.address,
+                    gaslessAccount.address,
                     dummy3.address,
                     gasPrice,
                     encodedFunction
@@ -872,8 +992,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
-                        feesReceiver: relayWorker,
+                        callVerifier: relayVerifier.address,
+                        feesReceiver: relayServer.workerAddress,
                         gasPrice
                     }
                 };
@@ -887,27 +1007,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     gaslessAccount.privateKey
                 );
 
-                const method = relayHub.contract.methods.relayCall(
-                    relayRequest,
+                const transactionCount =
+                    await contractInteractor.getTransactionCount(
+                        relayServer.managerAddress
+                    );
+                const relayMaxNonce = transactionCount + 3;
+
+                const metadata: RelayMetadata = {
+                    relayHubAddress: relayHub.address,
+                    relayMaxNonce,
                     signature
+                };
+
+                const request: RelayTransactionRequest = {
+                    relayRequest,
+                    metadata
+                };
+
+                console.log(transaction);
+                const { transactionHash, maxPossibleGas } =
+                    await relayServer.createRelayTransaction(request);
+
+                const result = await web3.eth.getTransactionReceipt(
+                    transactionHash
                 );
 
-                const maxPossibleGas = await method.estimateGas({
-                    gasPrice,
-                    from: relayWorker
-                });
-
-                const result = (await web3.eth.sendTransaction({
-                    from: relayWorker,
-                    to: relayHub.address,
-                    data: method.encodeABI(),
-                    value: '',
-                    gasPrice,
-                    gas: maxPossibleGas
-                })) as TransactionReceipt;
-
                 const logs = abiDecoder.decodeLogs(result.logs);
-
                 pushToResults(
                     {
                         transaction,
@@ -962,8 +1087,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
-                    feesReceiver: relayWorker,
+                    callVerifier: relayVerifier.address,
+                    feesReceiver: relayServer.workerAddress,
                     gasPrice
                 }
             };
@@ -977,27 +1102,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 gaslessAccount.privateKey
             );
 
-            const method = relayHub.contract.methods.relayCall(
-                relayRequest,
+            const transactionCount =
+                await contractInteractor.getTransactionCount(
+                    relayServer.managerAddress
+                );
+            const relayMaxNonce = transactionCount + 3;
+
+            const metadata: RelayMetadata = {
+                relayHubAddress: relayHub.address,
+                relayMaxNonce,
                 signature
+            };
+
+            const request: RelayTransactionRequest = {
+                relayRequest,
+                metadata
+            };
+
+            console.log(transaction);
+            const { transactionHash, maxPossibleGas } =
+                await relayServer.createRelayTransaction(request);
+
+            const result = await web3.eth.getTransactionReceipt(
+                transactionHash
             );
 
-            const maxPossibleGas = await method.estimateGas({
-                gasPrice,
-                from: relayWorker
-            });
-
-            const result = (await web3.eth.sendTransaction({
-                from: relayWorker,
-                to: relayHub.address,
-                data: method.encodeABI(),
-                value: '',
-                gasPrice,
-                gas: maxPossibleGas
-            })) as TransactionReceipt;
-
             const logs = abiDecoder.decodeLogs(result.logs);
-
             pushToResults(
                 {
                     transaction,
@@ -1043,8 +1173,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
-                    feesReceiver: relayWorker,
+                    callVerifier: relayVerifier.address,
+                    feesReceiver: relayServer.workerAddress,
                     gasPrice
                 }
             };
@@ -1058,27 +1188,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 gaslessAccount.privateKey
             );
 
-            const method = relayHub.contract.methods.relayCall(
-                relayRequest,
+            const transactionCount =
+                await contractInteractor.getTransactionCount(
+                    relayServer.managerAddress
+                );
+            const relayMaxNonce = transactionCount + 3;
+
+            const metadata: RelayMetadata = {
+                relayHubAddress: relayHub.address,
+                relayMaxNonce,
                 signature
+            };
+
+            const request: RelayTransactionRequest = {
+                relayRequest,
+                metadata
+            };
+
+            console.log(transaction);
+            const { transactionHash, maxPossibleGas } =
+                await relayServer.createRelayTransaction(request);
+
+            const result = await web3.eth.getTransactionReceipt(
+                transactionHash
             );
 
-            const maxPossibleGas = await method.estimateGas({
-                gasPrice,
-                from: relayWorker
-            });
-
-            const result = (await web3.eth.sendTransaction({
-                from: relayWorker,
-                to: relayHub.address,
-                data: method.encodeABI(),
-                value: '',
-                gasPrice,
-                gas: maxPossibleGas
-            })) as TransactionReceipt;
-
             const logs = abiDecoder.decodeLogs(result.logs);
-
             pushToResults(
                 {
                     transaction,
@@ -1124,8 +1259,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
-                    feesReceiver: relayWorker,
+                    callVerifier: relayVerifier.address,
+                    feesReceiver: relayServer.workerAddress,
                     gasPrice
                 }
             };
@@ -1139,27 +1274,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 gaslessAccount.privateKey
             );
 
-            const method = relayHub.contract.methods.relayCall(
-                relayRequest,
+            const transactionCount =
+                await contractInteractor.getTransactionCount(
+                    relayServer.managerAddress
+                );
+            const relayMaxNonce = transactionCount + 3;
+
+            const metadata: RelayMetadata = {
+                relayHubAddress: relayHub.address,
+                relayMaxNonce,
                 signature
+            };
+
+            const request: RelayTransactionRequest = {
+                relayRequest,
+                metadata
+            };
+
+            console.log(transaction);
+            const { transactionHash, maxPossibleGas } =
+                await relayServer.createRelayTransaction(request);
+
+            const result = await web3.eth.getTransactionReceipt(
+                transactionHash
             );
 
-            const maxPossibleGas = await method.estimateGas({
-                gasPrice,
-                from: relayWorker
-            });
-
-            const result = (await web3.eth.sendTransaction({
-                from: relayWorker,
-                to: relayHub.address,
-                data: method.encodeABI(),
-                value: '',
-                gasPrice,
-                gas: maxPossibleGas
-            })) as TransactionReceipt;
-
             const logs = abiDecoder.decodeLogs(result.logs);
-
             pushToResults(
                 {
                     transaction,
@@ -1211,8 +1351,8 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
-                    feesReceiver: relayWorker,
+                    callVerifier: relayVerifier.address,
+                    feesReceiver: relayServer.workerAddress,
                     gasPrice
                 }
             };
@@ -1226,27 +1366,32 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 gaslessAccount.privateKey
             );
 
-            const method = relayHub.contract.methods.relayCall(
-                relayRequest,
+            const transactionCount =
+                await contractInteractor.getTransactionCount(
+                    relayServer.managerAddress
+                );
+            const relayMaxNonce = transactionCount + 3;
+
+            const metadata: RelayMetadata = {
+                relayHubAddress: relayHub.address,
+                relayMaxNonce,
                 signature
+            };
+
+            const request: RelayTransactionRequest = {
+                relayRequest,
+                metadata
+            };
+
+            console.log(transaction);
+            const { transactionHash, maxPossibleGas } =
+                await relayServer.createRelayTransaction(request);
+
+            const result = await web3.eth.getTransactionReceipt(
+                transactionHash
             );
 
-            const maxPossibleGas = await method.estimateGas({
-                gasPrice,
-                from: relayWorker
-            });
-
-            const result = (await web3.eth.sendTransaction({
-                from: relayWorker,
-                to: relayHub.address,
-                data: method.encodeABI(),
-                value: '',
-                gasPrice,
-                gas: maxPossibleGas
-            })) as TransactionReceipt;
-
             const logs = abiDecoder.decodeLogs(result.logs);
-
             pushToResults(
                 {
                     transaction,
