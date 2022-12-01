@@ -238,7 +238,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -324,7 +324,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -410,7 +410,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,
@@ -510,7 +510,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -596,7 +596,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -682,7 +682,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,
@@ -786,7 +786,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -872,7 +872,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -958,7 +958,7 @@ contract('DummyServer', function ([_]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,

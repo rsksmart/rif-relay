@@ -14,7 +14,8 @@ import {
     DummyInstance,
     TestTokenInstance,
     Dummy2Instance,
-    Dummy3Instance
+    Dummy3Instance,
+    RelayVerifierInstance
 } from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
 import {
     createSmartWallet,
@@ -34,6 +35,7 @@ const Dummy2 = artifacts.require('Dummy2');
 const Dummy3 = artifacts.require('Dummy3');
 const SmartWallet = artifacts.require('SmartWallet');
 const TestToken = artifacts.require('TestToken');
+const RelayVerifier = artifacts.require('RelayVerifier');
 
 // @ts-ignore
 abiDecoder.addABI(SmartWallet.abi);
@@ -53,6 +55,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
     let chainId: number;
     let penalizer: PenalizerInstance;
     let relayHub: RelayHubInstance;
+    let relayVerifier: RelayVerifierInstance;
     let factory: SmartWalletFactoryInstance;
     let gaslessAccount: AccountKeypair;
     let forwarder: IForwarderInstance;
@@ -73,6 +76,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
         const smartWalletTemplate: SmartWalletInstance =
             await SmartWallet.new();
         factory = await createSmartWalletFactory(smartWalletTemplate);
+        relayVerifier = await RelayVerifier.new(factory.address);
         gaslessAccount = await getGaslessAccount();
         forwarder = await createSmartWallet(
             _,
@@ -158,7 +162,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -188,7 +192,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -239,7 +243,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -269,7 +273,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -320,7 +324,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,
@@ -354,7 +358,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -415,7 +419,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -445,7 +449,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -496,7 +500,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -526,7 +530,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -577,7 +581,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,
@@ -611,7 +615,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -676,7 +680,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternal', async function () {
-                const transaction = `${description}-callExternal`;
+                const transaction = `callExternal-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2)
                     .encodeABI();
@@ -706,7 +710,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -757,7 +761,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalPush', async function () {
-                const transaction = `${description}-callExternalPush`;
+                const transaction = `callExternalPush-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternal(dummy2.address, encodedFunctionDummy2, 20)
                     .encodeABI();
@@ -787,7 +791,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -838,7 +842,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
             });
 
             it('callExternalRefund', async function () {
-                const transaction = `${description}-callExternalRefund`;
+                const transaction = `callExternalRefund-${description}`;
                 const encodedFunction = dummy3.contract.methods
                     .callExternalRefund(
                         dummy2.address,
@@ -872,7 +876,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                     },
                     relayData: {
                         callForwarder: forwarder.address,
-                        callVerifier: constants.ZERO_ADDRESS,
+                        callVerifier: relayVerifier.address,
                         feesReceiver: relayWorker,
                         gasPrice
                     }
@@ -962,7 +966,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
+                    callVerifier: relayVerifier.address,
                     feesReceiver: relayWorker,
                     gasPrice
                 }
@@ -1043,7 +1047,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
+                    callVerifier: relayVerifier.address,
                     feesReceiver: relayWorker,
                     gasPrice
                 }
@@ -1124,7 +1128,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
+                    callVerifier: relayVerifier.address,
                     feesReceiver: relayWorker,
                     gasPrice
                 }
@@ -1211,7 +1215,7 @@ contract('Dummy', function ([_, relayOwner, relayManager, relayWorker]) {
                 },
                 relayData: {
                     callForwarder: forwarder.address,
-                    callVerifier: constants.ZERO_ADDRESS,
+                    callVerifier: relayVerifier.address,
                     feesReceiver: relayWorker,
                     gasPrice
                 }
