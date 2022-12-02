@@ -61,7 +61,7 @@ contract(
                             from: owner
                         }
                     ),
-                    'Insufficient intitial stake'
+                    'Insufficient initial stake'
                 );
             });
         }

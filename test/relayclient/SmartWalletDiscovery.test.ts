@@ -18,6 +18,7 @@ import {
 import { toChecksumAddress } from 'web3-utils';
 import { constants } from '@rsksmart/rif-relay-common';
 import { WebsocketProvider } from 'web3-core';
+import { PERSONAL_SIGN_PREFIX } from '../Utils';
 import { getWebSocketUrl } from '../TestUtils';
 
 const CustomSmartWallet = artifacts.require('CustomSmartWallet');
@@ -419,9 +420,9 @@ contract('SmartWalletDiscovery', function (accounts) {
 
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -429,11 +430,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
@@ -566,9 +578,9 @@ contract('SmartWalletDiscovery', function (accounts) {
                               );
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -576,11 +588,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
@@ -1056,9 +1079,9 @@ contract('SmartWalletDiscovery', function (accounts) {
 
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -1066,11 +1089,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
@@ -1206,9 +1240,9 @@ contract('SmartWalletDiscovery', function (accounts) {
                               );
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -1216,11 +1250,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
@@ -1706,9 +1751,9 @@ contract('SmartWalletDiscovery', function (accounts) {
 
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -1716,11 +1761,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
@@ -1859,9 +1915,9 @@ contract('SmartWalletDiscovery', function (accounts) {
                               );
                         discoverableAccounts.add(swAddress);
 
-                        const toSign: string = params.isCustom
+                        const message: string = params.isCustom
                             ? currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
@@ -1869,11 +1925,22 @@ contract('SmartWalletDiscovery', function (accounts) {
                                   { t: 'bytes', v: '0x' }
                               ) ?? ''
                             : currentWeb3.utils.soliditySha3(
-                                  { t: 'bytes2', v: '0x1910' },
+                                  { t: 'address', v: factory.address },
                                   { t: 'address', v: account },
                                   { t: 'address', v: constants.ZERO_ADDRESS },
                                   { t: 'uint256', v: j }
                               ) ?? '';
+
+                        const toSign: string =
+                            web3.utils.soliditySha3(
+                                {
+                                    t: 'string',
+                                    v:
+                                        PERSONAL_SIGN_PREFIX +
+                                        web3.utils.hexToBytes(message).length
+                                },
+                                { t: 'bytes32', v: message }
+                            ) ?? '';
 
                         const toSignAsBinaryArray =
                             ethers.utils.arrayify(toSign);
