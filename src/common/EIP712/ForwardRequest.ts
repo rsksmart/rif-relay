@@ -11,6 +11,7 @@ export interface ForwardRequest {
   nonce: IntString
   tokenAmount: IntString
   tokenGas: IntString
+  validUntilTime: IntString
   data: PrefixedHexString
 }
 
@@ -25,6 +26,7 @@ export interface DeployRequestStruct {
   tokenAmount: IntString
   tokenGas: IntString
   index: IntString
+  validUntilTime: IntString
   data: PrefixedHexString
 
 }

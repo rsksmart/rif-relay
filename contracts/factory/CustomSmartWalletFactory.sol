@@ -163,6 +163,8 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
         (sig);
         require(msg.sender == req.relayHub, "Invalid caller");
         _verifySig(req, domainSeparator, suffixData, sig);
+        // solhint-disable-next-line not-rely-on-time
+        require(req.validUntilTime == 0 || req.validUntilTime > block.timestamp, "SW: request expired");
         nonces[req.from]++;
 
         //e6ddc71a  =>  initialize(address owner,address logic,address tokenAddr,address tokenRecipient,uint256 tokenAmount,uint256 tokenGas,bytes initParams)
@@ -278,7 +280,7 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
         return
             abi.encodePacked(
                 keccak256(
-                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"
+                    "RelayRequest(address relayHub,address from,address to,address tokenContract,address recoverer,uint256 value,uint256 nonce,uint256 tokenAmount,uint256 tokenGas,uint256 validUntilTime,uint256 index,bytes data,RelayData relayData)RelayData(uint256 gasPrice,bytes32 domainSeparator,address relayWorker,address callForwarder,address callVerifier)"
                 ),
                 abi.encode(
                     req.relayHub,
@@ -290,6 +292,7 @@ contract CustomSmartWalletFactory is ICustomSmartWalletFactory {
                     req.nonce,
                     req.tokenAmount,
                     req.tokenGas,
+                    req.validUntilTime,
                     req.index,
                     keccak256(req.data)
                 ),

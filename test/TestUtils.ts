@@ -314,7 +314,8 @@ export async function createSmartWallet (relayHub: string, ownerEOA: string, fac
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
       recoverer: recoverer,
-      index: '0'
+      index: '0',
+      validUntilTime: '0'
     },
     relayData: {
       gasPrice: '10',
@@ -367,7 +368,8 @@ export async function createCustomSmartWallet (relayHub: string, ownerEOA: strin
       tokenAmount: tokenAmount,
       tokenGas: tokenGas,
       recoverer: recoverer,
-      index: '0'
+      index: '0',
+      validUntilTime: '0'
     },
     relayData: {
       gasPrice: '10',
@@ -464,7 +466,8 @@ export async function prepareTransaction (relayHub: Address, testRecipient: Test
       gas: '200000',
       tokenContract: tokenContract,
       tokenAmount: tokenAmount,
-      tokenGas: tokenGas
+      tokenGas: tokenGas,
+      validUntilTime: '0'
     },
     relayData: {
       gasPrice: '1',

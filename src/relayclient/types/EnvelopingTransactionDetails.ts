@@ -12,6 +12,7 @@ export default interface EnvelopingTransactionDetails {
   readonly recoverer?: Address
   readonly index?: IntString
   readonly value?: IntString
+  validUntilTime?: IntString
 
   /**
    * TODO: this is horrible. Think about it some more

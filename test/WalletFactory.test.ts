@@ -47,7 +47,8 @@ contract('CustomSmartWalletFactory', ([from]) => {
       tokenAmount: '0',
       tokenGas: '60000',
       recoverer: constants.ZERO_ADDRESS,
-      index: '0'
+      index: '0',
+      validUntilTime: '0'
     },
     relayData: {
       gasPrice: '1',
@@ -658,7 +659,8 @@ contract('SmartWalletFactory', ([from]) => {
       tokenAmount: '1',
       tokenGas: '50000',
       recoverer: constants.ZERO_ADDRESS,
-      index: '0'
+      index: '0',
+      validUntilTime: '0'
     },
     relayData: {
       gasPrice: '1',
