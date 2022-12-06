@@ -39,13 +39,13 @@ export const GasPricePingFilter: PingFilter = (pingResponse, transactionDetails)
 }
 
 export interface RelayingAttempt {
-  validUntilTime?: string;
+  validUntilTime?: string
   transaction?: Transaction
   error?: Error
 }
 
 export interface RelayingResult {
-  validUntilTime?: string;
+  validUntilTime?: string
   transaction?: Transaction
   pingErrors: Map<string, Error>
   relayingErrors: Map<string, Error>
@@ -521,10 +521,10 @@ export class RelayClient {
 
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = transactionDetails.value ?? '0'
-    const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
+    const secondsNow = Math.round(Date.now() / 1000)
+    const validUntilTime = (
+      secondsNow + this.config.requestValidSeconds
+    ).toString()
 
     const relayRequest: DeployRequest = {
       request: {
@@ -539,7 +539,7 @@ export class RelayClient {
         tokenContract: transactionDetails.tokenContract ?? constants.ZERO_ADDRESS,
         recoverer: transactionDetails.recoverer ?? constants.ZERO_ADDRESS,
         validUntilTime,
-        index: transactionDetails.index ?? '0',
+        index: transactionDetails.index ?? '0'
       },
       relayData: {
         gasPrice,
@@ -595,10 +595,10 @@ export class RelayClient {
     const gasPrice = parseInt(gasPriceHex, 16).toString()
     const value = transactionDetails.value ?? '0'
 
-    const secondsNow = Math.round(Date.now() / 1000);
+    const secondsNow = Math.round(Date.now() / 1000)
     const validUntilTime = (
-        secondsNow + this.config.requestValidSeconds
-    ).toString();
+      secondsNow + this.config.requestValidSeconds
+    ).toString()
 
     const relayRequest: RelayRequest = {
       request: {

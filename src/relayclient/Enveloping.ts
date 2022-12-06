@@ -59,10 +59,10 @@ export class Enveloping {
     * @return a deploy request structure.
     */
   async createDeployRequest (from: Address, tokenContract: Address, tokenAmount: IntString, tokenGas: IntString, gasPrice?: IntString, index? : IntString, recoverer? : IntString): Promise<DeployRequest> {
-    const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
+    const secondsNow = Math.round(Date.now() / 1000)
+    const validUntilTime = (
+      secondsNow + this.config.requestValidSeconds
+    ).toString()
     const deployRequest: DeployRequest = {
       request: {
         relayHub: this.config.relayHubAddress,
@@ -133,10 +133,10 @@ export class Enveloping {
       gasToSend = toHex(internalCallCost)
     }
 
-    const secondsNow = Math.round(Date.now() / 1000);
-        const validUntilTime = (
-            secondsNow + this.config.requestValidSeconds
-        ).toString();
+    const secondsNow = Math.round(Date.now() / 1000)
+    const validUntilTime = (
+      secondsNow + this.config.requestValidSeconds
+    ).toString()
 
     const relayRequest: RelayRequest = {
       request: {

@@ -179,18 +179,18 @@ export class RelayServer extends EventEmitter {
     }
 
     // validate the validUntil is not too close
-    const secondsNow = Math.round(Date.now() / 1000);
+    const secondsNow = Math.round(Date.now() / 1000)
     const expiredInSeconds =
-        parseInt(req.relayRequest.request.validUntilTime) - secondsNow;
+        parseInt(req.relayRequest.request.validUntilTime) - secondsNow
     if (expiredInSeconds < this.config.requestMinValidSeconds) {
-        const expirationDate = new Date(
-            parseInt(req.relayRequest.request.validUntilTime) * 1000
-        );
-        throw new Error(
+      const expirationDate = new Date(
+        parseInt(req.relayRequest.request.validUntilTime) * 1000
+      )
+      throw new Error(
             `Request expired (or too close): expired at (${expirationDate.toUTCString()}), we expect it to be valid until ${new Date(
                 secondsNow + this.config.requestMinValidSeconds
             ).toUTCString()} `
-        );
+      )
     }
   }
 
