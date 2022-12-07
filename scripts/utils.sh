@@ -1,0 +1,194 @@
+#! /bin/bash
+
+
+TEST_SUITE_BATCH="batch"
+TEST_SUITE_SEQUENTIAL="sequential"
+STOP_ON_FAIL=${FAIL_FAST:-1}
+
+function wait_rsk_node() {
+  _i=0
+  while [ $_i -lt 30 ]; do
+    curl -Ss -H "Content-type: application/json" \
+        -d '{"jsonrpc":"2.0","method":"eth_blockNumber","id":"boot-test"}' \
+        http://127.0.0.1:4444/ 2>/dev/null | grep -q result && break
+    sleep 1
+    _i=$((_i + 1))
+  done
+  if [ $_i -eq 30 ]; then
+    echo "No response from rskj after 30 seconds; aborting..." >&2
+    exit 1
+  fi
+
+  sleep 5
+}
+
+function run_batch() {
+  TESTS=("$@")
+  unset TESTS[0]
+  BATCH_NAME=$1
+
+  echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
+  echo "#################################################################################### START BATCH TESTS ####################################################################################"
+  
+  TEST_FAIL=0
+  npx truffle test --network regtest "${TESTS[@]}" || TEST_FAIL=1
+  
+  echo "#################################################################################### END BATCH TESTS ####################################################################################"
+
+  rm -rf contract-addresses.json
+  
+  echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
+
+  if [ "${TEST_FAIL}" == "1" ]; then
+    exit 1
+  fi
+}
+
+function run_batch_w_ci_network() {
+  TESTS=("$@")
+  unset TESTS[0]
+  BATCH_NAME=$1
+
+  echo "#################################################################################### Starting Batch ${BATCH_NAME} ####################################################################################"
+  echo "#################################################################################### START BATCH TESTS ####################################################################################"
+  
+  TEST_FAIL=0
+  docker run --volumes-from files --network rif-relay-testing -w /cfg/project node:14.15 npx truffle test --network regtest_ci "${TESTS[@]}" || TEST_FAIL=1
+  
+  echo "#################################################################################### END BATCH TESTS ####################################################################################"
+
+  rm -rf contract-addresses.json
+  
+  echo "#################################################################################### Ending Batch ${BATCH_NAME} ####################################################################################"
+
+  if [ "${TEST_FAIL}" == "1" ]; then
+    exit 1
+  fi
+}
+
+function run_batch_against_docker() {
+  docker-compose -f docker/docker-compose.yml build
+  docker-compose -f docker/docker-compose.yml up -d
+
+  wait_rsk_node
+  
+  run_batch $@
+
+  docker-compose -f docker/docker-compose.yml down
+}
+
+function run_batch_against_ci_docker() {
+  docker run --rm --network rif-relay-testing jwilder/dockerize -wait tcp://enveloping-rskj:4444 -timeout 1m
+  
+  run_batch_w_ci_network $@
+
+  docker restart enveloping-rskj
+}
+
+function run_test_suite_against_docker() {
+  TESTS=("$@")
+  unset TESTS[0]
+  TEST_TYPE=$1
+  unset TESTS[1]
+  TEST_NAME=$2
+
+  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
+  then
+    run_batch_against_docker "${TEST_NAME} ${TESTS[@]}"
+  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
+  then
+    for test_case in "${TESTS[@]}"
+    do
+      run_batch_against_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
+      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
+        exit 1
+      fi
+    done
+  else
+    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
+    exit 1
+  fi
+}
+
+function run_test_suite_on_ci_docker() {
+  TESTS=("$@")
+  unset TESTS[0]
+  TEST_TYPE=$1
+  unset TESTS[1]
+  TEST_NAME=$2
+
+  if [ "$TEST_TYPE" = "$TEST_SUITE_BATCH" ]
+  then
+    run_batch_against_ci_docker "${TEST_NAME} ${TESTS[@]}"
+  elif [ "$TEST_TYPE" = "$TEST_SUITE_SEQUENTIAL" ]
+  then
+    for test_case in "${TESTS[@]}"
+    do
+      run_batch_against_ci_docker "${TEST_NAME} ${test_case}" || TEST_FAIL=1
+      if [[ "${TEST_FAIL}" == "1" && "${STOP_ON_FAIL}" == "1" ]]; then
+        exit 1
+      fi
+    done
+  else
+    echo "Unsupported test type: accepted values are ${TEST_SUITE_BATCH} or ${TEST_SUITE_SEQUENTIAL}"
+    exit 1
+  fi
+}
+
+# Test suite format: "<sequential|batch> <test_name> test_file_1 test_file_2 ... test_file_n"
+TEST_SUITE_1="${TEST_SUITE_BATCH} \
+  Test_Group_1 \
+  test/Verifiers.test.ts \
+  test/RelayHubPenalizations.test.ts \
+  test/RelayHubRegistrationsManagement.test.ts \
+  test/TxStoreManager.test.ts \
+  test/Utils.test.ts \
+  test/common/VersionManager.test.ts \
+  test/regressions/PayableWithEmit.test.ts \
+  test/relayclient/AccountManager.test.ts \
+  test/relayclient/ContractInteractor.test.ts \
+  test/relayclient/Configurator.test.ts"
+
+TEST_SUITE_2="${TEST_SUITE_SEQUENTIAL} \
+  RelaySelectionManager|RelayServerRequestsProfiling|ServerConfigParams|TransactionManager|KnownRelaysManager|SmartWallet|SampleRecipient|StakeManagement|RSKAddressValidator|EnvelopingUtils|SmartWalletDiscovery|CustomSmartWallet \
+  test/relayclient/RelaySelectionManager.test.ts \
+  test/relayserver/RelayServerRequestsProfiling.test.ts \
+  test/relayserver/ServerConfigParams.test.ts \
+  test/relayserver/TransactionManager.test.ts \
+  test/relayclient/KnownRelaysManager.test.ts \
+  test/smartwallet/SmartWallet.test.ts \
+  test/SampleRecipient.test.ts \
+  test/StakeManagement.test.ts \
+  test/RSKAddressValidator.test.ts \
+  test/EnvelopingUtils.test.ts \
+  test/relayclient/SmartWalletDiscovery.test.ts \
+  test/smartwallet/CustomSmartWallet.test.ts"
+
+TEST_SUITE_3="${TEST_SUITE_BATCH} \
+  Test_Group_3 \
+  test/Flows.test.ts \
+  test/TestEnvironment.test.ts \
+  test/HttpWrapper.test.ts \
+  test/KeyManager.test.ts \
+  test/WalletFactory.test.ts"
+
+TEST_SUITE_4="${TEST_SUITE_BATCH} \
+  Test_Group_4 \
+  test/relayclient/RelayClient.test.ts \
+  test/relayserver/NetworkSimulation.test.ts \
+  test/relayserver/RegistrationManager.test.ts \
+  test/relayserver/RelayServer.test.ts"
+
+TEST_SUITE_5="${TEST_SUITE_SEQUENTIAL} \
+  RelayHub|VersionRegistry|RelayProvider \
+  test/RelayHub.test.ts
+  test/VersionRegistry.test.ts
+  test/relayclient/RelayProvider.test.ts"
+
+TEST_SUITE_6="${TEST_SUITE_BATCH} \
+  RelayHub|GasConsumption \
+  test/RelayHubGas.test.ts"
+
+# TEST_SUITE_6="${TEST_SUITE_BATCH} \
+#   RelayHub|GasConsumption \
+#   test/RelayHub.test.ts"

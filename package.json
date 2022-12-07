@@ -39,6 +39,7 @@
     "prepare": "./scripts/prepublish",
     "test": "yarn run lint && yarn generate && yarn tsc && ./run-tests.sh",
     "test-bail": "yarn run lint && yarn generate && yarn tsc && npx truffle test --network development --bail",
+    "test:gas": "scripts/testGas.sh",
     "tsc": "tsc --noEmit",
     "relay": "./scripts/startRelayServer",
     "registerRelay": "./scripts/registerRelayServer",
@@ -132,7 +133,7 @@
     "ts-node": "8.6.2",
     "typechain": "1.0.5",
     "typechain-target-trufflehotfix": "0.0.4-alpha",
-    "typescript": "3.8.3",
+    "typescript": "3.9.4",
     "web3-provider-engine": "16.0.1",
     "webpack": "4.37.0",
     "webpack-cli": "3.3.6"
