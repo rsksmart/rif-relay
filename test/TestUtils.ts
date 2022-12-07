@@ -415,7 +415,8 @@ export async function createSmartWallet(
             tokenAmount: tokenAmount,
             tokenGas: tokenGas,
             recoverer: recoverer,
-            index: '0'
+            index: '0',
+            validUntilTime: '0'
         },
         relayData: {
             gasPrice: '10',
@@ -497,7 +498,8 @@ export async function createCustomSmartWallet(
             tokenAmount: tokenAmount,
             tokenGas: tokenGas,
             recoverer: recoverer,
-            index: '0'
+            index: '0',
+            validUntilTime: '0'
         },
         relayData: {
             gasPrice: '10',
@@ -632,7 +634,8 @@ export async function prepareTransaction(
             gas: '200000',
             tokenContract: tokenContract,
             tokenAmount: tokenAmount,
-            tokenGas: tokenGas
+            tokenGas: tokenGas,
+            validUntilTime: '0'
         },
         relayData: {
             gasPrice: '1',
