@@ -307,7 +307,7 @@ contract('RelayServer', function (accounts) {
             });
         });
 
-        describe('#validateViewCallSucceeds()', function () {
+        describe('#findMaxPossibleGasWithViewCall()', function () {
             // RelayHub contract
             it('should fail to relay rejected transaction', async function () {
                 const req = await env.createRelayHttpRequest();
@@ -319,15 +319,16 @@ contract('RelayServer', function (accounts) {
                 );
 
                 try {
-                    await env.relayServer.validateViewCallSucceeds(
+                    await env.relayServer.findMaxPossibleGasWithViewCall(
                         method,
                         req,
-                        toBN(2000000)
+                        '2000000'
                     );
                     assert.fail();
                 } catch (e) {
                     if (revertReasonSupported) {
-                        assert.include(e.message, 'Signature mismatch');
+                        const message = e.message ?? e;
+                        assert.include(message, 'Signature mismatch');
                     } else {
                         assert.include(
                             e.message,

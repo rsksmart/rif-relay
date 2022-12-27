@@ -489,7 +489,8 @@ gasOptions.forEach((gasOption) => {
                         tokenAmount: '1',
                         tokenGas: tokenPaymentEstimate.toString(),
                         recoverer: constants.ZERO_ADDRESS,
-                        index: '0'
+                        index: '0',
+                        validUntilTime: '0'
                     },
                     relayData: {
                         gasPrice: '1',

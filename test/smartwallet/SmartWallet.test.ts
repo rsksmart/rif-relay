@@ -181,7 +181,8 @@ TYPES_OF_WALLETS.forEach((element) => {
                         data: '0x',
                         tokenContract: constants.ZERO_ADDRESS,
                         tokenAmount: '1',
-                        tokenGas: '50000'
+                        tokenGas: '50000',
+                        validUntilTime: '0'
                     },
                     relayData: {
                         gasPrice: '1',

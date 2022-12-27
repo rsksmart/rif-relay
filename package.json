@@ -39,9 +39,9 @@
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
     "@openzeppelin/contracts": "^3.2.0",
-    "@rsksmart/rif-relay-client": "1.0.0-alpha.4",
-    "@rsksmart/rif-relay-common": "1.0.0-alpha.3",
-    "@rsksmart/rif-relay-contracts": "1.0.0-alpha.4",
+    "@rsksmart/rif-relay-client": "1.0.0-alpha.5",
+    "@rsksmart/rif-relay-common": "1.0.0-alpha.4",
+    "@rsksmart/rif-relay-contracts": "1.0.0-alpha.5",
     "@rsksmart/rif-relay-server": "https://github.com/rsksmart/rif-relay-server",
     "@truffle/contract": "^4.2.23",
     "@truffle/hdwallet-provider": "1.2.4",
