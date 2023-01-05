@@ -38,6 +38,10 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
+    regtest_ci: {
+      url: 'http://enveloping-rskj:4444',
+      chainId: 33,
+    },
     regtest: {
       url: 'http://localhost:4444',
       chainId: 33,
