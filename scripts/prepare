@@ -1,7 +1,0 @@
-#!/bin/bash
-
-patch-package
-
-npx husky install
-
-npm run build

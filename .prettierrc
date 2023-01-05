@@ -1,0 +1,22 @@
+{
+  "overrides": [
+    {
+      "files": "*.ts",
+      "options": {
+        "semi": true,
+        "singleQuote": true,
+        "tabWidth": 2,
+        "trailingComma": "es5"
+      }
+    },
+    {
+      "files": "*.sol",
+      "options": {
+        "trailingComma": "none",
+        "tabWidth": 4,
+        "semi": true,
+        "singleQuote": false
+      }
+    }
+  ]
+}
