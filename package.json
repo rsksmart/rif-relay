@@ -64,6 +64,8 @@
     "test": "test"
   },
   "scripts": {
+    "clean": "rm -rf typechain-types cache bin dist artifacts contracts-exposed",
+    "postclean": "hardhat clean",
     "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\"",
     "format:fix": "npm run format -- --write",
     "lint": "npx eslint --cache \"{,test/**/}*.ts\"",
