@@ -100,8 +100,5 @@
     "husky": "^8.0.3",
     "lint-staged": "^13.1.0",
     "prettier": "^2.8.1"
-  },
-  "peerDependencies": {
-    "@openzeppelin/contracts": "^3.4.0"
   }
 }
