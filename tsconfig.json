@@ -1,37 +1,32 @@
 {
+  "extends": "@tsconfig/node16-strictest/tsconfig.json",
   "compilerOptions": {
-    "allowJs": true,
+    /*
+     * Overwrite `"importsNotUsedAsValues": "error"` set in 
+     * "@tsconfig/node16-strictest/tsconfig.json".
+     * Reset the default behaviour to avoid compilation errors
+     * due to import of types from typechain-types.
+    */
+    "importsNotUsedAsValues": "remove",
+
     "resolveJsonModule": true,
-    "esModuleInterop": true,
-    "target": "es2017",
-    "module": "commonjs",
-    "strict": true,
-    "strictNullChecks": false,
-    "strictPropertyInitialization": false,
-    "moduleResolution": "node",
-    "alwaysStrict": true,
+    "outDir": "dist",
     "declaration": true,
+    "baseUrl": "./",
+    "strictNullChecks": true,
+    "strictPropertyInitialization": true,
+    "exactOptionalPropertyTypes": false,
+    "alwaysStrict": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "forceConsistentCasingInFileNames": true,
-    "skipLibCheck": true,
-    "outDir": "dist",
-    "typeRoots": [
-      "./node_modules/@rsksmart/rif-relay-contracts/types",
-      "./node_modules/@types",
-      "./node_modules/@0x/typescript-typings/types",
-      "./types"
-    ],
-    "types": [
-      "node",
-      "truffle-contracts",
-      "openzeppelin__test-helpers",
-      "date-format",
-      "chai-bn"
-    ],
-    "lib": ["es2018", "dom", "esnext"],
-    "sourceMap": true
+    "extendedDiagnostics":true,
+    "noErrorTruncation": true,
+    "sourceMap": true,
+    // to avoid ts errors with chai and chai-as-promised
+    "esModuleInterop": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["dist", "node_modules", "test"]
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
