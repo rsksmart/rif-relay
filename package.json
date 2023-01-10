@@ -79,7 +79,7 @@
     "package.json": "npx sort-package-json"
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#PP-358/migrate-integration-tests"
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.4.0",
