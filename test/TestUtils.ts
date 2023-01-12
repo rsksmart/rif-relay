@@ -34,7 +34,7 @@ import {
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
-import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
+import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { EnvelopingEIP712Types, getTypedRequestData } from './EIP712utils';
