@@ -79,7 +79,10 @@
     "package.json": "npx sort-package-json"
   },
   "dependencies": {
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts"
+    "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client#PP-642/test-utils-server",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#feature/PP-278/PP-329/upgrade_contracts",
+    "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server#PP-642/test-utils-server",
+    "config": "^3.3.8"
   },
   "devDependencies": {
     "@commitlint/cli": "^17.4.0",
@@ -87,6 +90,7 @@
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@tsconfig/node16-strictest": "^1.0.4",
+    "@types/config": "^3.3.0",
     "@types/node": "^18.11.18",
     "@types/sinon": "^10.0.13",
     "@typescript-eslint/eslint-plugin": "^5.48.0",
@@ -95,10 +99,11 @@
     "eslint-config-prettier": "^8.6.0",
     "eslint-plugin-mocha": "^10.1.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "ethers": "^5.7.2",
+    "ethers": "5.7.0",
     "hardhat": "^2.12.5",
     "husky": "^8.0.3",
     "lint-staged": "^13.1.0",
-    "prettier": "^2.8.1"
+    "prettier": "^2.8.1",
+    "ts-node": "^10.9.1"
   }
 }
