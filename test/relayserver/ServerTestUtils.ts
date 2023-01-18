@@ -29,7 +29,7 @@ const resolveAllReceipts = async (
 const assertEventHub = async (
   event: ManagerEvent,
   transactionHashes: string[],
-  indexedAddress: string
+  indexedAddress?: string
 ) => {
   const relayHubInterface: RelayHubInterface =
     RelayHub__factory.createInterface();
@@ -47,7 +47,11 @@ const assertEventHub = async (
     throw new Error('Registered receipt not found');
   }
 
-  expect(parsedLog.args[indexedAddress]).to.be.equal(event);
+  expect(parsedLog.name).to.be.equal(event);
+
+  if (indexedAddress) {
+    expect(parsedLog.args[0]).to.be.equal(indexedAddress);
+  }
 };
 
 const getTotalTxCosts = async (

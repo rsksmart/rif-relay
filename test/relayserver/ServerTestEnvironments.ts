@@ -31,35 +31,39 @@ const provider = hardhat.provider;
 const dayInSec = 24 * 60 * 60;
 const weekInSec = dayInSec * 7;
 
-const newServerInstance = async (
-  relayOwner: Wallet,
-  template: IForwarder,
-  serverWorkdirs?: ServerWorkdirs
+type ServerInitParams = {
+  relayOwner: Wallet;
+  template: IForwarder;
+  serverWorkdirs?: ServerWorkdirs;
+  relayVerifierAddress: string;
+  deployVerifierAddress: string;
+  penalizerAddress?: string;
+};
+
+const initServer = async (
+  initParams: ServerInitParams,
+  getServer = getFundedServer
 ) => {
-  const relayServer = await newServerInstanceNoInit(
-    relayOwner,
-    template,
-    serverWorkdirs
-  );
+  const { relayOwner } = initParams;
+  const relayServer = await getServer(initParams);
   await relayServer.init();
   const latestBlock = await provider.getBlock('latest');
   const receipts = await relayServer._worker(latestBlock.number);
-  await assertEventHub('RelayServerRegistered', receipts, ''); // sanity check
+  await assertEventHub('RelayServerRegistered', receipts, relayOwner.address); // sanity check
+  await assertEventHub('RelayWorkersAdded', receipts, relayOwner.address); // sanity check
   await relayServer._worker(latestBlock.number + 1);
 
   return relayServer;
 };
 
-const newServerInstanceNoInit = async (
-  relayOwner: Wallet,
-  template: IForwarder,
-  serverWorkdirs?: ServerWorkdirs,
+const getFundedServer = async (
+  initParams: ServerInitParams,
+  getServer = getServerInstance,
   unstakeDelay = weekInSec
 ) => {
-  const relayServer = await newServerInstanceNoFunding(
-    template,
-    serverWorkdirs
-  );
+  const relayServer = await getServer(initParams);
+
+  const { relayOwner } = initParams;
 
   const { relayHubAddress, relayManagerAddress } = relayServer.pingHandler();
 
@@ -78,10 +82,13 @@ const newServerInstanceNoInit = async (
   return relayServer;
 };
 
-const newServerInstanceNoFunding = async (
-  template: IForwarder,
-  serverWorkdirs?: ServerWorkdirs
-) => {
+const getServerInstance = async ({
+  template,
+  serverWorkdirs,
+  deployVerifierAddress,
+  relayVerifierAddress,
+  penalizerAddress,
+}: ServerInitParams) => {
   const { workdir } = getTemporaryWorkdirs();
 
   const managerKeyManager = createKeyManager(serverWorkdirs?.managerWorkdir);
@@ -97,23 +104,15 @@ const newServerInstanceNoFunding = async (
   };
 
   const factory = await createSmartWalletFactory(template);
-  const relayHub = await deployRelayHub(undefined, {});
-  const deployVerifierFactory = await hardhat.getContractFactory(
-    'DeployVerifier'
-  );
-  const deployVerifier = await deployVerifierFactory.deploy(factory.address);
-  const relayVerifierFactory = await hardhat.getContractFactory(
-    'RelayVerifier'
-  );
-  const relayVerifier = await relayVerifierFactory.deploy(factory.address);
+  const relayHub = await deployRelayHub(penalizerAddress, {});
 
   const originalConfig = { ...config };
 
   config.util.extendDeep(originalConfig, {
     contracts: {
       relayHubAddress: relayHub.address,
-      deployVerifierAddress: deployVerifier.address,
-      relayVerifierAddress: relayVerifier.address,
+      deployVerifierAddress,
+      relayVerifierAddress,
       smartWalletFactoryAddress: factory.address,
     },
     app: {
@@ -224,9 +223,9 @@ const assertTransactionRelayed = async (
 };
 
 export {
-  newServerInstance,
-  newServerInstanceNoInit,
-  newServerInstanceNoFunding,
+  initServer,
+  getFundedServer,
+  getServerInstance,
   createRelayHttpRequest,
   relayTransaction,
   assertTransactionRelayed,

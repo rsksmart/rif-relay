@@ -10,6 +10,7 @@ import {
   SmartWalletFactory,
   CustomSmartWalletFactory,
   IForwarder,
+  RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
 import {
   defaultEnvironment,
@@ -40,12 +41,13 @@ type StartRelayParams = {
   delay?: number;
   stake?: BigNumberish;
   relayOwner: string;
+  relayHubAddress: string;
 };
 
 const provider = hardhat.provider;
 
-const startRelay = async (relayHub: RelayHub, options: StartRelayParams) => {
-  const { serverConfig, delay, stake, relayOwner } = options;
+const startRelay = async (options: StartRelayParams) => {
+  const { serverConfig, delay, stake, relayOwner, relayHubAddress } = options;
 
   fs.rmSync(SERVER_WORK_DIR, { recursive: true, force: true });
 
@@ -54,7 +56,7 @@ const startRelay = async (relayHub: RelayHub, options: StartRelayParams) => {
   config.util.extendDeep(originalConfig, {
     ...serverConfig,
     contracts: {
-      relayHubAddress: relayHub.address,
+      relayHubAddress,
     },
     app: {
       workdir: SERVER_WORK_DIR,
@@ -82,6 +84,8 @@ const startRelay = async (relayHub: RelayHub, options: StartRelayParams) => {
     to: relayManagerAddress,
     value: utils.parseEther('2'),
   });
+
+  const relayHub = RelayHub__factory.connect(relayHubAddress, provider);
 
   await relayHub.stakeForAddress(relayManagerAddress, delay || 2000, {
     from: relayOwner,
@@ -156,8 +160,6 @@ const verifyRelayServerStatus = async (
       /* empty */
     }
   }
-
-  expect(response, "can't ping server").to.be.ok;
 
   throw Error("can't ping server");
 };
