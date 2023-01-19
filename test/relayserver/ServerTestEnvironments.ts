@@ -18,13 +18,12 @@ import {
   ServerWorkdirs,
 } from './ServerTestUtils';
 import {
-  IForwarder,
   RelayHubInterface,
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { ethers as hardhat } from 'hardhat';
 import { expect } from 'chai';
-import { deployRelayHub, createSmartWalletFactory } from '../TestUtils';
+import { deployRelayHub } from '../TestUtils';
 import config from 'config';
 
 const provider = hardhat.provider;
@@ -33,7 +32,6 @@ const weekInSec = dayInSec * 7;
 
 type ServerInitParams = {
   relayOwner: Wallet;
-  template: IForwarder;
   serverWorkdirs?: ServerWorkdirs;
   relayVerifierAddress: string;
   deployVerifierAddress: string;
@@ -83,7 +81,6 @@ const getFundedServer = async (
 };
 
 const getServerInstance = async ({
-  template,
   serverWorkdirs,
   deployVerifierAddress,
   relayVerifierAddress,
@@ -103,7 +100,6 @@ const getServerInstance = async ({
     workersKeyManager,
   };
 
-  const factory = await createSmartWalletFactory(template);
   const relayHub = await deployRelayHub(penalizerAddress, {});
 
   const originalConfig = { ...config };
@@ -113,7 +109,6 @@ const getServerInstance = async ({
       relayHubAddress: relayHub.address,
       deployVerifierAddress,
       relayVerifierAddress,
-      smartWalletFactoryAddress: factory.address,
     },
     app: {
       devMode: true,
@@ -122,9 +117,7 @@ const getServerInstance = async ({
     },
   });
 
-  const relayServer = new RelayServer(dependencies);
-
-  return relayServer;
+  return new RelayServer(dependencies);
 };
 
 const createKeyManager = (workdir?: string): KeyManager => {
