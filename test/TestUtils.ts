@@ -2,7 +2,8 @@ import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { BigNumberish, constants, utils, Wallet } from 'ethers';
-import { expect } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
+import { expect, use } from 'chai';
 import config from 'config';
 
 import {
@@ -13,6 +14,7 @@ import {
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
 import {
+  AppConfig,
   defaultEnvironment,
   RelayHubConfiguration,
   ServerConfigParams,
@@ -30,8 +32,10 @@ import {
   RelayRequest,
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
-import { ethers as hardhat } from 'hardhat';
+import { ethers } from 'hardhat';
 import { _TypedDataEncoder } from 'ethers/lib/utils';
+
+use(chaiAsPromised);
 
 const SERVER_WORK_DIR = '/tmp/enveloping/test/server';
 const ONE_FIELD_IN_BYTES = 32;
@@ -44,7 +48,7 @@ type StartRelayParams = {
   relayHubAddress: string;
 };
 
-const provider = hardhat.provider;
+const provider = ethers.provider;
 
 const startRelay = async (options: StartRelayParams) => {
   const { serverConfig, delay, stake, relayOwner, relayHubAddress } = options;
@@ -66,7 +70,7 @@ const startRelay = async (options: StartRelayParams) => {
     },
   });
 
-  const url = config.get<string>('app.url');
+  const url = buildServerUrl();
 
   const runServerPath = path.resolve(
     __dirname,
@@ -76,7 +80,11 @@ const startRelay = async (options: StartRelayParams) => {
   const proc: ChildProcessWithoutNullStreams & { alreadyStarted?: number } =
     childProcess.spawn('node', [runServerPath]);
 
-  const { relayManagerAddress } = await verifyRelayServerStatus(url, 3);
+  const { relayManagerAddress } = await waitForFunction(
+    getServerStatus,
+    url,
+    3
+  );
 
   console.log('Relay Server Manager Address', relayManagerAddress);
 
@@ -92,11 +100,11 @@ const startRelay = async (options: StartRelayParams) => {
     value: stake || utils.parseEther('1'),
   });
 
-  const { ready, relayWorkerAddress } = await verifyRelayServerStatus(
+  const { ready, relayWorkerAddress } = await waitForFunction(
+    getServerReady,
     url,
     25,
-    500,
-    true
+    500
   );
 
   expect(ready, 'Timed out waiting for relay to get staked and registered').is
@@ -107,6 +115,54 @@ const startRelay = async (options: StartRelayParams) => {
     worker: relayWorkerAddress,
     manager: relayManagerAddress,
   };
+};
+
+const buildServerUrl = () => {
+  const app = config.get<AppConfig>('app');
+
+  const portFromUrl = app.url.match(/:(\d{0,5})$/);
+
+  return !portFromUrl && app.port ? `${app.url}:${app.port}` : app.url;
+};
+
+const getServerStatus = async (
+  url: string,
+  client = new HttpClient(new HttpWrapper(undefined, 'silent'))
+): Promise<HubInfo> => client.getChainInfo(url);
+
+const getServerReady = async (url: string): Promise<HubInfo | undefined> => {
+  const response = await getServerStatus(url);
+
+  if (response.ready) {
+    return response;
+  }
+
+  return undefined;
+};
+
+const waitForFunction = async (
+  functionToWait: (url: string) => Promise<HubInfo | undefined>,
+  url: string,
+  attempts: number,
+  interval = 1000
+): Promise<HubInfo> => {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      console.log('sleep before cont.');
+      await sleep(interval);
+      const response = await functionToWait(url);
+
+      if (!response) {
+        continue;
+      }
+
+      return response;
+    } catch (e) {
+      console.log('attempt to getChainInfo');
+    }
+  }
+
+  throw Error("can't ping server");
 };
 
 const stopRelay = (proc: ChildProcessWithoutNullStreams): void => {
@@ -134,34 +190,6 @@ const createSnapshot = async (): Promise<string> => {
 
 const revertSnapshot = async (snapshotId: string) => {
   return (await provider.send('evm_revert', [snapshotId])) as boolean;
-};
-
-const verifyRelayServerStatus = async (
-  url: string,
-  attempts: number,
-  interval = 1000,
-  isReady = false
-): Promise<HubInfo> => {
-  let response: HubInfo | undefined;
-  const httpClient = new HttpClient(new HttpWrapper(undefined, 'silent'));
-
-  for (let i = 0; i < attempts; i++) {
-    try {
-      console.log('sleep before cont.');
-      await sleep(interval);
-      response = await httpClient.getChainInfo(url);
-
-      if (isReady && !response.ready) {
-        continue;
-      }
-
-      return response;
-    } catch (e) {
-      /* empty */
-    }
-  }
-
-  throw Error("can't ping server");
 };
 
 // An existing account in RSKJ that have been depleted
@@ -198,7 +226,9 @@ const deployRelayHub = async (
     ...configOverride,
   };
 
-  const relayHubFactory = await hardhat.getContractFactory('RelayHub');
+  const relayHubFactory = (await ethers.getContractFactory(
+    'RelayHub'
+  )) as RelayHub__factory;
 
   const {
     maxWorkerCount,
@@ -221,8 +251,8 @@ const createSmartWalletFactory = async (
   isCustom = false
 ) => {
   const factory = isCustom
-    ? await hardhat.getContractFactory('CustomSmartWalletFactory')
-    : await hardhat.getContractFactory('SmartWalletFactory');
+    ? await ethers.getContractFactory('CustomSmartWalletFactory')
+    : await ethers.getContractFactory('SmartWalletFactory');
 
   return factory.deploy(template.address);
 };
@@ -297,8 +327,8 @@ const createSmartWallet = async (
       );
 
   return isCustom
-    ? hardhat.getContractAt('CustomSmartWallet', swAddress)
-    : hardhat.getContractAt('SmartWallet', swAddress);
+    ? ethers.getContractAt('CustomSmartWallet', swAddress)
+    : ethers.getContractAt('SmartWallet', swAddress);
 };
 
 const prepareRelayTransaction = async (

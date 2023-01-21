@@ -6,7 +6,7 @@ import {
 import { ManagerEvent } from '@rsksmart/rif-relay-server';
 import { BigNumberish, constants } from 'ethers';
 import { expect } from 'chai';
-import { ethers as hardhat } from 'hardhat';
+import { ethers } from 'hardhat';
 
 export type ServerWorkdirs = {
   workdir: string;
@@ -14,7 +14,7 @@ export type ServerWorkdirs = {
   workersWorkdir: string;
 };
 
-const provider = hardhat.provider;
+const provider = ethers.provider;
 
 const resolveAllReceipts = async (
   transactionHashes: string[]

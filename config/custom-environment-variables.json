@@ -1,0 +1,12 @@
+{
+  "register": {
+    "stake": "REGISTER_STAKE",
+    "funds": "REGISTER_FUNDS",
+    "mnemonic": "REGISTER_MNEMONIC",
+    "privateKey": "REGISTER_PRIVATE_KEY",
+    "hub": "REGISTER_HUB_ADDRESS",
+    "gasPrice": "REGISTER_GAS_PRICE",
+    "relayUrl": "REGISTER_RELAY_URL",
+    "unstakeDelay": "REGISTER_UNSTAKE_DELAY"
+  }
+}

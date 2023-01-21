@@ -1,0 +1,9 @@
+{
+    app: {
+      devMode: true,
+      logLevel: 3,
+    },
+    blockchain: {
+        rskNodeUrl: 'https://public-node.testnet.rsk.co',
+    }
+}

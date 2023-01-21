@@ -11,7 +11,8 @@ import {
   RelayClient,
   UserDefinedEnvelopingRequest,
 } from '@rsksmart/rif-relay-client';
-import { utils, Wallet } from 'ethers';
+import { utils, Wallet, ethers as ethersLibrary } from 'ethers';
+import { Log } from '@ethersproject/abstract-provider';
 import {
   assertEventHub,
   getTemporaryWorkdirs,
@@ -21,12 +22,15 @@ import {
   RelayHubInterface,
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { ethers as hardhat } from 'hardhat';
+import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import { deployRelayHub } from '../TestUtils';
 import config from 'config';
 
-const provider = hardhat.provider;
+import Sinon from 'sinon';
+import { LogDescription } from 'ethers/lib/utils';
+
+const provider = ethers.provider;
 const dayInSec = 24 * 60 * 60;
 const weekInSec = dayInSec * 7;
 
@@ -63,7 +67,7 @@ const getFundedServer = async (
 
   const { relayOwner } = initParams;
 
-  const { relayHubAddress, relayManagerAddress } = relayServer.pingHandler();
+  const { relayHubAddress, relayManagerAddress } = relayServer.getChainInfo();
 
   await relayOwner.sendTransaction({
     value: utils.parseEther('2'),
@@ -117,6 +121,8 @@ const getServerInstance = async ({
     },
   });
 
+  Sinon.stub(ethersLibrary, 'getDefaultProvider').returns(ethers.provider);
+
   return new RelayServer(dependencies);
 };
 
@@ -160,7 +166,7 @@ const relayTransaction = async (
   relayClient: RelayClient,
   assertRelayed = true
 ) => {
-  const hubInfo = relayServer.pingHandler();
+  const hubInfo = relayServer.getChainInfo();
   const envelopingTx = await createRelayHttpRequest(
     envelopingRequest,
     relayClient,
@@ -195,10 +201,12 @@ const assertTransactionRelayed = async (
   const relayHubInterface: RelayHubInterface =
     RelayHub__factory.createInterface();
 
-  const decodedLogs = receipt.logs.map((log) =>
+  const decodedLogs = receipt.logs.map((log: Log) =>
     relayHubInterface.parseLog(log)
   );
-  const event = decodedLogs.find((e) => e.name === 'TransactionRelayed');
+  const event = decodedLogs.find(
+    (e: LogDescription) => e.name === 'TransactionRelayed'
+  );
 
   if (!event) {
     throw new Error(
