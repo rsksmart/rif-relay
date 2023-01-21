@@ -83,6 +83,7 @@ const startRelay = async (options: StartRelayParams) => {
   const { relayManagerAddress } = await waitForFunction(
     getServerStatus,
     url,
+    "can't ping server",
     3
   );
 
@@ -100,15 +101,13 @@ const startRelay = async (options: StartRelayParams) => {
     value: stake || utils.parseEther('1'),
   });
 
-  const { ready, relayWorkerAddress } = await waitForFunction(
+  const { relayWorkerAddress } = await waitForFunction(
     getServerReady,
     url,
+    'timed out waiting for relay to get staked and registered',
     25,
     500
   );
-
-  expect(ready, 'Timed out waiting for relay to get staked and registered').is
-    .ok;
 
   return {
     proc,
@@ -143,6 +142,7 @@ const getServerReady = async (url: string): Promise<HubInfo | undefined> => {
 const waitForFunction = async (
   functionToWait: (url: string) => Promise<HubInfo | undefined>,
   url: string,
+  errorMessage: string,
   attempts: number,
   interval = 1000
 ): Promise<HubInfo> => {
@@ -158,11 +158,11 @@ const waitForFunction = async (
 
       return response;
     } catch (e) {
-      console.log('attempt to getChainInfo');
+      console.log('getChainInfo failed');
     }
   }
 
-  throw Error("can't ping server");
+  throw Error(errorMessage);
 };
 
 const stopRelay = (proc: ChildProcessWithoutNullStreams): void => {
