@@ -12,6 +12,7 @@ import {
   CustomSmartWalletFactory,
   IForwarder,
   RelayHub__factory,
+  SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   AppConfig,
@@ -21,24 +22,33 @@ import {
   sleep,
 } from '@rsksmart/rif-relay-server';
 import {
-  DeployRequest,
+  DeployRequestBody,
   deployRequestType,
   EnvelopingRequest,
+  EnvelopingRequestData,
   getEnvelopingRequestDataV4Field,
   HttpClient,
   HttpWrapper,
   HubInfo,
   isDeployRequest,
-  RelayRequest,
+  RelayRequestBody,
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
 import { _TypedDataEncoder } from 'ethers/lib/utils';
+import { CustomSmartWallet } from 'typechain-types';
 
 use(chaiAsPromised);
 
 const SERVER_WORK_DIR = '/tmp/enveloping/test/server';
-const ONE_FIELD_IN_BYTES = 32;
+const ATTEMPTS_GET_SERVER_STATUS = 3;
+const ATTEMPTS_GET_SERVER_READY = 25;
+const CHARS_PER_FIELD = 64;
+const PREFIX_HEX = '0x';
+
+type RifSmartWallet = SmartWallet | CustomSmartWallet;
+
+type RifSmartWalletFactory = SmartWalletFactory | CustomSmartWalletFactory;
 
 type StartRelayParams = {
   serverConfig: ServerConfigParams;
@@ -48,7 +58,37 @@ type StartRelayParams = {
   relayHubAddress: string;
 };
 
-const provider = ethers.provider;
+type CreateSmartWalletParams = {
+  relayHub: string;
+  owner: string;
+  factory: RifSmartWalletFactory;
+  wallet: Wallet;
+  tokenContract?: string;
+  tokenAmount?: BigNumberish;
+  tokenGas?: BigNumberish;
+  recoverer?: string;
+  index?: number;
+  validUntilTime?: number;
+  logicAddr?: string;
+  initParams?: string;
+  isCustomSmartWallet?: boolean;
+};
+
+type PrepareRelayTransactionParams = {
+  relayHub: string;
+  owner: string;
+  wallet: Wallet;
+  tokenContract: string;
+  tokenAmount: BigNumberish;
+  tokenGas: BigNumberish;
+  validUntilTime: number;
+  logicAddr: string;
+  initParams: string;
+  gas: BigNumberish;
+  swAddress: string;
+};
+
+const { provider } = ethers;
 
 const startRelay = async (options: StartRelayParams) => {
   const { serverConfig, delay, stake, relayOwner, relayHubAddress } = options;
@@ -80,11 +120,12 @@ const startRelay = async (options: StartRelayParams) => {
   const proc: ChildProcessWithoutNullStreams & { alreadyStarted?: number } =
     childProcess.spawn('node', [runServerPath]);
 
-  const { relayManagerAddress } = await waitForFunction(
-    getServerStatus,
-    url,
-    "can't ping server",
-    3
+  const client = new HttpClient(new HttpWrapper(undefined, 'silent'));
+
+  const { relayManagerAddress } = await doUntilDefined(
+    () => getServerStatus(url, client),
+    ATTEMPTS_GET_SERVER_STATUS,
+    "can't ping server"
   );
 
   console.log('Relay Server Manager Address', relayManagerAddress);
@@ -101,12 +142,10 @@ const startRelay = async (options: StartRelayParams) => {
     value: stake || utils.parseEther('1'),
   });
 
-  const { relayWorkerAddress } = await waitForFunction(
-    getServerReady,
-    url,
-    'timed out waiting for relay to get staked and registered',
-    25,
-    500
+  const { relayWorkerAddress } = await doUntilDefined(
+    () => getServerReady(url, client),
+    ATTEMPTS_GET_SERVER_READY,
+    'timed out waiting for relay to get staked and registered'
   );
 
   return {
@@ -129,8 +168,11 @@ const getServerStatus = async (
   client = new HttpClient(new HttpWrapper(undefined, 'silent'))
 ): Promise<HubInfo> => client.getChainInfo(url);
 
-const getServerReady = async (url: string): Promise<HubInfo | undefined> => {
-  const response = await getServerStatus(url);
+const getServerReady = async (
+  url: string,
+  client = new HttpClient(new HttpWrapper(undefined, 'silent'))
+): Promise<HubInfo | undefined> => {
+  const response = await getServerStatus(url, client);
 
   if (response.ready) {
     return response;
@@ -139,18 +181,17 @@ const getServerReady = async (url: string): Promise<HubInfo | undefined> => {
   return undefined;
 };
 
-const waitForFunction = async (
-  functionToWait: (url: string) => Promise<HubInfo | undefined>,
-  url: string,
-  errorMessage: string,
+const doUntilDefined = async (
+  functionToWait: () => Promise<HubInfo | undefined>,
   attempts: number,
+  customErrorMessage?: string,
   interval = 1000
 ): Promise<HubInfo> => {
   for (let i = 0; i < attempts; i++) {
     try {
       console.log('sleep before cont.');
       await sleep(interval);
-      const response = await functionToWait(url);
+      const response = await functionToWait();
 
       if (!response) {
         continue;
@@ -162,7 +203,7 @@ const waitForFunction = async (
     }
   }
 
-  throw Error(errorMessage);
+  throw Error(customErrorMessage);
 };
 
 const stopRelay = (proc: ChildProcessWithoutNullStreams): void => {
@@ -184,11 +225,11 @@ const increaseBlockchainTime = async (time: number): Promise<void> => {
   await evmMine();
 };
 
-const createSnapshot = async (): Promise<string> => {
+const createEvmSnapshot = async (): Promise<string> => {
   return (await provider.send('evm_snapshot', [])) as string;
 };
 
-const revertSnapshot = async (snapshotId: string) => {
+const revertEvmSnapshot = async (snapshotId: string) => {
   return (await provider.send('evm_revert', [snapshotId])) as boolean;
 };
 
@@ -257,42 +298,39 @@ const createSmartWalletFactory = async (
   return factory.deploy(template.address);
 };
 
-const createSmartWallet = async (
-  relayHub: string,
-  owner: string,
-  factory: SmartWalletFactory | CustomSmartWalletFactory,
-  wallet: Wallet,
+const createSmartWallet = async ({
+  relayHub,
+  owner,
+  factory,
+  wallet,
   tokenContract = constants.AddressZero,
   tokenAmount = 0,
   tokenGas = 0,
   recoverer = constants.AddressZero,
-  index: 0,
-  validUntilTime: 0,
+  index = 0,
+  validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = '0x00'
-) => {
-  const envelopingRequest: DeployRequest = {
-    request: {
+  initParams = '0x00',
+  isCustomSmartWallet,
+}: CreateSmartWalletParams): Promise<RifSmartWallet> => {
+  const envelopingRequest = createEnvelopingRequest(
+    true,
+    {
       relayHub,
-      from: owner,
+      from: wallet.address,
       to: logicAddr,
-      value: 0,
-      nonce: 0,
-      data: initParams,
       tokenContract,
+      recoverer,
       tokenAmount,
       tokenGas,
-      recoverer,
-      index,
       validUntilTime,
+      index,
+      data: initParams,
     },
-    relayData: {
-      gasPrice: 1,
-      feesReceiver: constants.AddressZero,
+    {
       callForwarder: factory.address,
-      callVerifier: constants.AddressZero,
-    },
-  };
+    }
+  );
 
   const { signature, suffixData } = await signEnvelopingRequest(
     envelopingRequest,
@@ -300,7 +338,7 @@ const createSmartWallet = async (
   );
 
   const transaction = await factory.relayedUserSmartWalletCreation(
-    envelopingRequest.request,
+    envelopingRequest.request as DeployRequestBody,
     suffixData,
     constants.AddressZero,
     signature
@@ -310,7 +348,8 @@ const createSmartWallet = async (
 
   console.log('Cost of deploying SmartWallet: ', receipt.cumulativeGasUsed);
 
-  const isCustom = !!logicAddr && logicAddr !== constants.AddressZero;
+  const isCustom =
+    isCustomSmartWallet ?? (!!logicAddr && logicAddr !== constants.AddressZero);
 
   const swAddress = isCustom
     ? await (factory as CustomSmartWalletFactory).getSmartWalletAddress(
@@ -331,26 +370,25 @@ const createSmartWallet = async (
     : ethers.getContractAt('SmartWallet', swAddress);
 };
 
-const prepareRelayTransaction = async (
-  relayHub: string,
-  owner: string,
-  wallet: Wallet,
+const prepareRelayTransaction = async ({
+  relayHub,
+  owner,
+  wallet,
   tokenContract = constants.AddressZero,
   tokenAmount = 0,
   tokenGas = 0,
-  validUntilTime: 0,
+  validUntilTime = 0,
   logicAddr = constants.AddressZero,
   initParams = '0x00',
   gas = 0,
-  swAddress: string
-) => {
-  const envelopingRequest: RelayRequest = {
-    request: {
+  swAddress,
+}: PrepareRelayTransactionParams) => {
+  const envelopingRequest = createEnvelopingRequest(
+    true,
+    {
       relayHub,
       from: owner,
       to: logicAddr,
-      value: 0,
-      nonce: 0,
       data: initParams,
       tokenContract,
       tokenAmount,
@@ -358,13 +396,10 @@ const prepareRelayTransaction = async (
       validUntilTime,
       gas,
     },
-    relayData: {
-      gasPrice: 1,
-      feesReceiver: constants.AddressZero,
+    {
       callForwarder: swAddress,
-      callVerifier: constants.AddressZero,
-    },
-  };
+    }
+  );
 
   const { signature } = await signEnvelopingRequest(envelopingRequest, wallet);
 
@@ -382,31 +417,99 @@ const signEnvelopingRequest = async (
     relayData: { callForwarder },
   } = envelopingRequest;
 
-  const isDeploy = isDeployRequest(envelopingRequest);
-
   const { chainId } = await provider.getNetwork();
+
+  const requestTypes = isDeployRequest(envelopingRequest)
+    ? deployRequestType
+    : relayRequestType;
 
   const data = getEnvelopingRequestDataV4Field({
     chainId,
     verifier: callForwarder.toString(),
-    requestTypes: isDeploy ? deployRequestType : relayRequestType,
+    requestTypes,
     envelopingRequest,
   });
 
-  const { domain, types, value } = data;
+  const { domain, types, value, primaryType } = data;
 
   const signature = await wallet._signTypedData(domain, types, value);
 
-  const messageSize = Object.keys(value).length;
+  const messageSize = Object.keys(requestTypes).length;
 
-  const enconded = _TypedDataEncoder.encode(domain, types, value);
+  const enconded = _TypedDataEncoder.from(types).encodeData(primaryType, value);
 
-  const suffixData = enconded.slice((1 + messageSize) * ONE_FIELD_IN_BYTES);
+  const suffixData =
+    PREFIX_HEX +
+    enconded.slice(messageSize * CHARS_PER_FIELD + PREFIX_HEX.length);
 
   return {
     signature,
     suffixData,
   };
+};
+
+const baseRelayData: EnvelopingRequestData = {
+  gasPrice: '1',
+  feesReceiver: constants.AddressZero,
+  callForwarder: constants.AddressZero,
+  callVerifier: constants.AddressZero,
+};
+
+const baseDeployRequest: DeployRequestBody = {
+  relayHub: constants.AddressZero,
+  from: constants.AddressZero,
+  to: constants.AddressZero,
+  tokenContract: constants.AddressZero,
+  recoverer: constants.AddressZero,
+  value: '0',
+  nonce: '0',
+  tokenAmount: '0',
+  tokenGas: '0',
+  validUntilTime: '0',
+  index: '0',
+  data: '0x00',
+};
+
+const baseRelayRequest: RelayRequestBody = {
+  relayHub: constants.AddressZero,
+  from: constants.AddressZero,
+  to: constants.AddressZero,
+  value: '0',
+  gas: '0',
+  nonce: '0',
+  data: '0x00',
+  tokenContract: constants.AddressZero,
+  tokenAmount: '0',
+  validUntilTime: '0',
+  tokenGas: '0',
+};
+
+const createEnvelopingRequest = (
+  isDeploy: boolean,
+  request?: Partial<RelayRequestBody> | Partial<DeployRequestBody>,
+  relayData?: Partial<EnvelopingRequestData>
+): EnvelopingRequest => {
+  return isDeploy
+    ? {
+        request: {
+          ...baseDeployRequest,
+          ...request,
+        } as DeployRequestBody,
+        relayData: {
+          ...baseRelayData,
+          ...relayData,
+        },
+      }
+    : {
+        request: {
+          ...baseRelayRequest,
+          ...request,
+        } as RelayRequestBody,
+        relayData: {
+          ...baseRelayData,
+          ...relayData,
+        },
+      };
 };
 
 export {
@@ -415,12 +518,21 @@ export {
   evmMine,
   evmMineMany,
   increaseBlockchainTime,
-  createSnapshot,
-  revertSnapshot,
+  createEvmSnapshot,
+  revertEvmSnapshot,
   getExistingGaslessAccount,
   createSmartWalletFactory,
   createSmartWallet,
   prepareRelayTransaction,
   signEnvelopingRequest,
   deployRelayHub,
+  createEnvelopingRequest,
+};
+
+export type {
+  RifSmartWallet,
+  RifSmartWalletFactory,
+  StartRelayParams,
+  CreateSmartWalletParams,
+  PrepareRelayTransactionParams,
 };
