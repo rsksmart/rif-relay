@@ -64,13 +64,13 @@
     "test": "test"
   },
   "scripts": {
-    "clean": "rm -rf typechain-types cache bin dist artifacts contracts-exposed",
-    "postclean": "hardhat clean",
+    "prebuild": "hardhat clean",
+    "build": "hardhat compile --force",
     "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\"",
     "format:fix": "npm run format -- --write",
     "lint": "npx eslint --cache \"{,test/**/}*.ts\"",
     "lint:fix": "npm run lint -- --fix",
-    "prepare": "utils/prepare",
+    "prepare": "utils/prepare.npm",
     "test": "TEST=true REPORT_GAS=true hardhat test --typecheck",
     "test:docker": "utils/test"
   },
