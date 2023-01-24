@@ -4,7 +4,6 @@ import path from 'path';
 import { BigNumberish, constants, utils, Wallet } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
-import config from 'config';
 
 import {
   RelayHub,
@@ -15,8 +14,8 @@ import {
   SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
-  AppConfig,
   defaultEnvironment,
+  getServerConfig,
   RelayHubConfiguration,
   ServerConfigParams,
   sleep,
@@ -40,7 +39,6 @@ import { CustomSmartWallet } from 'typechain-types';
 
 use(chaiAsPromised);
 
-const SERVER_WORK_DIR = '/tmp/enveloping/test/server';
 const ATTEMPTS_GET_SERVER_STATUS = 3;
 const ATTEMPTS_GET_SERVER_READY = 25;
 const CHARS_PER_FIELD = 64;
@@ -89,24 +87,13 @@ type PrepareRelayTransactionParams = {
 const { provider } = ethers;
 
 const startRelay = async (options: StartRelayParams) => {
-  const { serverConfig, delay, stake, relayOwner, relayHubAddress } = options;
+  const { delay, stake, relayOwner } = options;
 
-  fs.rmSync(SERVER_WORK_DIR, { recursive: true, force: true });
+  const {
+    app: { workdir },
+  } = getServerConfig();
 
-  const originalConfig = { ...config };
-
-  config.util.extendDeep(originalConfig, {
-    ...serverConfig,
-    contracts: {
-      relayHubAddress,
-    },
-    app: {
-      workdir: SERVER_WORK_DIR,
-      devMode: true,
-      checkInterval: 10,
-      logLevel: 5,
-    },
-  });
+  fs.rmSync(workdir, { recursive: true, force: true });
 
   const url = buildServerUrl();
 
@@ -120,10 +107,9 @@ const startRelay = async (options: StartRelayParams) => {
 
   const client = new HttpClient(new HttpWrapper(undefined, 'silent'));
 
-  const { relayManagerAddress } = await doUntilDefined(
-    () => getServerStatus(url, client),
-    ATTEMPTS_GET_SERVER_STATUS,
-    "can't ping server"
+  const { relayManagerAddress, relayHubAddress } = await doUntilDefined(
+    () => client.getChainInfo(url),
+    ATTEMPTS_GET_SERVER_STATUS
   );
 
   console.log('Relay Server Manager Address', relayManagerAddress);
@@ -143,7 +129,7 @@ const startRelay = async (options: StartRelayParams) => {
   const { relayWorkerAddress } = await doUntilDefined(
     () => getServerReady(url, client),
     ATTEMPTS_GET_SERVER_READY,
-    'timed out waiting for relay to get staked and registered'
+    'Server is not ready to relay transactions'
   );
 
   return {
@@ -154,23 +140,18 @@ const startRelay = async (options: StartRelayParams) => {
 };
 
 const buildServerUrl = () => {
-  const app = config.get<AppConfig>('app');
+  const { app } = getServerConfig();
 
   const portFromUrl = app.url.match(/:(\d{0,5})$/);
 
   return !portFromUrl && app.port ? `${app.url}:${app.port}` : app.url;
 };
 
-const getServerStatus = async (
-  url: string,
-  client = new HttpClient(new HttpWrapper(undefined, 'silent'))
-): Promise<HubInfo> => client.getChainInfo(url);
-
 const getServerReady = async (
   url: string,
   client = new HttpClient(new HttpWrapper(undefined, 'silent'))
 ): Promise<HubInfo | undefined> => {
-  const response = await getServerStatus(url, client);
+  const response = await client.getChainInfo(url);
 
   if (response.ready) {
     return response;
@@ -201,7 +182,9 @@ const doUntilDefined = async (
     }
   }
 
-  throw Error(customErrorMessage);
+  throw Error(
+    `HubInfo poll expired: (${customErrorMessage ?? 'Server is not reachable'})`
+  );
 };
 
 const stopRelay = (proc: ChildProcessWithoutNullStreams): void => {

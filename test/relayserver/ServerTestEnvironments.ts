@@ -11,7 +11,7 @@ import {
   RelayClient,
   UserDefinedEnvelopingRequest,
 } from '@rsksmart/rif-relay-client';
-import { utils, Wallet, ethers as ethersLibrary } from 'ethers';
+import { utils, Wallet } from 'ethers';
 import { Log } from '@ethersproject/abstract-provider';
 import {
   assertEventHub,
@@ -24,10 +24,7 @@ import {
 } from '@rsksmart/rif-relay-contracts';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-import { deployRelayHub } from '../TestUtils';
-import config from 'config';
 
-import Sinon from 'sinon';
 import { LogDescription } from 'ethers/lib/utils';
 
 const provider = ethers.provider;
@@ -37,9 +34,6 @@ const weekInSec = dayInSec * 7;
 type ServerInitParams = {
   relayOwner: Wallet;
   serverWorkdirs?: ServerWorkdirs;
-  relayVerifierAddress: string;
-  deployVerifierAddress: string;
-  penalizerAddress?: string;
 };
 
 const initServer = async (
@@ -63,7 +57,7 @@ const getFundedServer = async (
   getServer = getServerInstance,
   unstakeDelay = weekInSec
 ) => {
-  const relayServer = await getServer(initParams);
+  const relayServer = getServer(initParams);
 
   const { relayOwner } = initParams;
 
@@ -84,12 +78,7 @@ const getFundedServer = async (
   return relayServer;
 };
 
-const getServerInstance = async ({
-  serverWorkdirs,
-  deployVerifierAddress,
-  relayVerifierAddress,
-  penalizerAddress,
-}: ServerInitParams) => {
+const getServerInstance = ({ serverWorkdirs }: ServerInitParams) => {
   const { workdir } = getTemporaryWorkdirs();
 
   const managerKeyManager = createKeyManager(serverWorkdirs?.managerWorkdir);
@@ -103,25 +92,6 @@ const getServerInstance = async ({
     managerKeyManager,
     workersKeyManager,
   };
-
-  const relayHub = await deployRelayHub(penalizerAddress, {});
-
-  const originalConfig = { ...config };
-
-  config.util.extendDeep(originalConfig, {
-    contracts: {
-      relayHubAddress: relayHub.address,
-      deployVerifierAddress,
-      relayVerifierAddress,
-    },
-    app: {
-      devMode: true,
-      checkInterval: 10,
-      logLevel: 5,
-    },
-  });
-
-  Sinon.stub(ethersLibrary, 'getDefaultProvider').returns(ethers.provider);
 
   return new RelayServer(dependencies);
 };
