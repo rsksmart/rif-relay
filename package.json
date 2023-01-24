@@ -66,7 +66,7 @@
   "scripts": {
     "prebuild": "hardhat clean",
     "build": "hardhat compile --force",
-    "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\"",
+    "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\" \"**/*.yml\"",
     "format:fix": "npm run format -- --write",
     "lint": "npx eslint --cache \"{,test/**/}*.ts\"",
     "lint:fix": "npm run lint -- --fix",
