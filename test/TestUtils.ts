@@ -60,9 +60,8 @@ type StartRelayParams = {
 
 type CreateSmartWalletParams = {
   relayHub: string;
-  owner: string;
+  owner: Wallet;
   factory: RifSmartWalletFactory;
-  wallet: Wallet;
   tokenContract?: string;
   tokenAmount?: BigNumberish;
   tokenGas?: BigNumberish;
@@ -76,8 +75,7 @@ type CreateSmartWalletParams = {
 
 type PrepareRelayTransactionParams = {
   relayHub: string;
-  owner: string;
-  wallet: Wallet;
+  owner: Wallet;
   tokenContract: string;
   tokenAmount: BigNumberish;
   tokenGas: BigNumberish;
@@ -302,7 +300,6 @@ const createSmartWallet = async ({
   relayHub,
   owner,
   factory,
-  wallet,
   tokenContract = constants.AddressZero,
   tokenAmount = 0,
   tokenGas = 0,
@@ -317,7 +314,7 @@ const createSmartWallet = async ({
     true,
     {
       relayHub,
-      from: wallet.address,
+      from: owner.address,
       to: logicAddr,
       tokenContract,
       recoverer,
@@ -334,7 +331,7 @@ const createSmartWallet = async ({
 
   const { signature, suffixData } = await signEnvelopingRequest(
     envelopingRequest,
-    wallet
+    owner
   );
 
   const transaction = await factory.relayedUserSmartWalletCreation(
@@ -353,14 +350,14 @@ const createSmartWallet = async ({
 
   const swAddress = isCustom
     ? await (factory as CustomSmartWalletFactory).getSmartWalletAddress(
-        owner,
+        owner.address,
         recoverer,
         logicAddr,
         initParams,
         index
       )
     : await (factory as SmartWalletFactory).getSmartWalletAddress(
-        owner,
+        owner.address,
         recoverer,
         index
       );
@@ -373,7 +370,6 @@ const createSmartWallet = async ({
 const prepareRelayTransaction = async ({
   relayHub,
   owner,
-  wallet,
   tokenContract = constants.AddressZero,
   tokenAmount = 0,
   tokenGas = 0,
@@ -387,7 +383,7 @@ const prepareRelayTransaction = async ({
     true,
     {
       relayHub,
-      from: owner,
+      from: owner.address,
       to: logicAddr,
       data: initParams,
       tokenContract,
@@ -401,7 +397,7 @@ const prepareRelayTransaction = async ({
     }
   );
 
-  const { signature } = await signEnvelopingRequest(envelopingRequest, wallet);
+  const { signature } = await signEnvelopingRequest(envelopingRequest, owner);
 
   return {
     envelopingRequest,
