@@ -1,7 +1,7 @@
-name: CI for RIF-Relay-Contract
+name: RIF Relay integration/e2e tests
 on: [push]
 jobs:
-  lint_and_test:
+  format_lint_and_test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -19,12 +19,8 @@ jobs:
       - name: Check Linter bugs for Typescript
         run: npm run lint
 
-      - name: Download rif-relay node configuration
-        run: |
-          wget https://raw.githubusercontent.com/rsksmart/rif-relay/main/docker/node.conf
-          wget https://raw.githubusercontent.com/rsksmart/rif-relay/main/docker/logback.xml
       - name: Run docker image
-        run: docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 --name enveloping-rskj -it -v $PWD/logback.xml:/etc/rsk/logback.xml -v $PWD/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3 --regtest
+        run: docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 --name enveloping-rskj -it -v $PWD/docker/logback.xml:/etc/rsk/logback.xml -v $PWD/docker/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3 --regtest
 
       - name: Run tests
         run: npm run test -- --network regtest
