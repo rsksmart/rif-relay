@@ -20,7 +20,7 @@ jobs:
         run: npm run lint
 
       - name: Run docker image
-        run: docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 --name enveloping-rskj -it -v $PWD/docker/logback.xml:/etc/rsk/logback.xml -v $PWD/docker/node.conf:/etc/rsk/node.conf rsksmart/rskj:HOP-4 --regtest
+        run: docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 --name enveloping-rskj -it -v $PWD/docker/logback.xml:/etc/rsk/logback.xml -v $PWD/docker/node.conf:/etc/rsk/node.conf rsksmart/rskj:HOP-4.1.1 --regtest
 
       - name: Run tests
         run: npm run test -- --network regtest
