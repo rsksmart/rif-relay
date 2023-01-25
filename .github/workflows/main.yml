@@ -1,0 +1,26 @@
+name: RIF Relay integration/e2e tests
+on: [push]
+jobs:
+  format_lint_and_test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: "16.x"
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: Check Codestyles errors
+        run: npm run format
+
+      - name: Check Linter bugs for Typescript
+        run: npm run lint
+
+      - name: Run docker image
+        run: docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445 --name enveloping-rskj -it -v $PWD/docker/logback.xml:/etc/rsk/logback.xml -v $PWD/docker/node.conf:/etc/rsk/node.conf rsksmart/rskj:HOP-4.1.1 --regtest
+
+      - name: Run tests
+        run: npm run test -- --network regtest
