@@ -1,7 +1,7 @@
 import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { BigNumberish, constants, utils, Wallet } from 'ethers';
+import { BigNumberish, constants, Wallet, utils } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
 
@@ -36,6 +36,7 @@ import {
 import { ethers } from 'hardhat';
 import { _TypedDataEncoder } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 use(chaiAsPromised);
 
@@ -58,7 +59,8 @@ type StartRelayParams = {
 
 type CreateSmartWalletParams = {
   relayHub: string;
-  owner: Wallet;
+  sender: SignerWithAddress;
+  owner: SignerWithAddress;
   factory: RifSmartWalletFactory;
   tokenContract?: string;
   tokenAmount?: BigNumberish;
@@ -73,7 +75,7 @@ type CreateSmartWalletParams = {
 
 type PrepareRelayTransactionParams = {
   relayHub: string;
-  owner: Wallet;
+  owner: SignerWithAddress;
   tokenContract: string;
   tokenAmount: BigNumberish;
   tokenGas: BigNumberish;
@@ -241,7 +243,7 @@ const getExistingGaslessAccount = async (): Promise<Wallet> => {
 
 const deployRelayHub = async (
   penalizer: string = constants.AddressZero,
-  configOverride: Partial<RelayHubConfiguration>
+  configOverride?: Partial<RelayHubConfiguration>
 ): Promise<RelayHub> => {
   const relayHubConfiguration: RelayHubConfiguration = {
     ...defaultEnvironment!.relayHubConfiguration,
@@ -281,6 +283,7 @@ const createSmartWalletFactory = async (
 
 const createSmartWallet = async ({
   relayHub,
+  sender,
   owner,
   factory,
   tokenContract = constants.AddressZero,
@@ -290,7 +293,7 @@ const createSmartWallet = async ({
   index = 0,
   validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = '0x00',
+  initParams = constants.HashZero,
   isCustomSmartWallet,
 }: CreateSmartWalletParams): Promise<RifSmartWallet> => {
   const envelopingRequest = createEnvelopingRequest(
@@ -317,12 +320,14 @@ const createSmartWallet = async ({
     owner
   );
 
-  const transaction = await factory.relayedUserSmartWalletCreation(
-    envelopingRequest.request as DeployRequestBody,
-    suffixData,
-    constants.AddressZero,
-    signature
-  );
+  const transaction = await factory
+    .connect(sender)
+    .relayedUserSmartWalletCreation(
+      envelopingRequest.request as DeployRequestBody,
+      suffixData,
+      constants.AddressZero,
+      signature
+    );
 
   const receipt = await transaction.wait();
 
@@ -358,7 +363,7 @@ const prepareRelayTransaction = async ({
   tokenGas = 0,
   validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = '0x00',
+  initParams = constants.HashZero,
   gas = 0,
   swAddress,
 }: PrepareRelayTransactionParams) => {
@@ -390,7 +395,7 @@ const prepareRelayTransaction = async ({
 
 const signEnvelopingRequest = async (
   envelopingRequest: EnvelopingRequest,
-  wallet: Wallet
+  signer: SignerWithAddress
 ) => {
   const {
     relayData: { callForwarder },
@@ -411,7 +416,7 @@ const signEnvelopingRequest = async (
 
   const { domain, types, value, primaryType } = data;
 
-  const signature = await wallet._signTypedData(domain, types, value);
+  const signature = await signer._signTypedData(domain, types, value);
 
   const messageSize = Object.keys(requestTypes).length;
 

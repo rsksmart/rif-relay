@@ -11,7 +11,7 @@ import {
   RelayClient,
   UserDefinedEnvelopingRequest,
 } from '@rsksmart/rif-relay-client';
-import { utils, Wallet } from 'ethers';
+import { utils } from 'ethers';
 import { Log } from '@ethersproject/abstract-provider';
 import {
   assertEventHub,
@@ -24,15 +24,15 @@ import {
 } from '@rsksmart/rif-relay-contracts';
 import { ethers } from 'hardhat';
 import { expect } from 'chai';
-
 import { LogDescription } from 'ethers/lib/utils';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
 const provider = ethers.provider;
 const dayInSec = 24 * 60 * 60;
 const weekInSec = dayInSec * 7;
 
 type ServerInitParams = {
-  relayOwner: Wallet;
+  relayOwner: SignerWithAddress;
   serverWorkdirs?: ServerWorkdirs;
 };
 
