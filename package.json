@@ -71,7 +71,7 @@
     "lint": "npx eslint --cache \"{,test/**/}*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "prepare": "utils/prepare.npm",
-    "test": "TEST=true REPORT_GAS=true hardhat test --typecheck",
+    "test": "NODE_CONFIG_DIR='node_modules/@rsksmart/rif-relay-server/config:config' TEST=true REPORT_GAS=true hardhat test --typecheck",
     "test:docker": "utils/test"
   },
   "lint-staged": {

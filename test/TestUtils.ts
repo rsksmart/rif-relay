@@ -1,10 +1,9 @@
 import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { BigNumberish, constants, Wallet, utils } from 'ethers';
+import { BigNumberish, constants, utils } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
-
 import {
   RelayHub,
   SmartWalletFactory,
@@ -44,6 +43,7 @@ const ATTEMPTS_GET_SERVER_STATUS = 3;
 const ATTEMPTS_GET_SERVER_READY = 25;
 const CHARS_PER_FIELD = 64;
 const PREFIX_HEX = '0x';
+const SHA3_NULL_S = utils.keccak256('0x');
 
 type RifSmartWallet = SmartWallet | CustomSmartWallet;
 
@@ -217,15 +217,13 @@ const revertEvmSnapshot = async (snapshotId: string) => {
 };
 
 // An existing account in RSKJ that have been depleted
-const getExistingGaslessAccount = async (): Promise<Wallet> => {
-  const gaslessAccount = new Wallet(
-    '0x082f57b8084286a079aeb9f2d0e17e565ced44a2cb9ce4844e6d4b9d89f3f595',
-    provider
-  );
+const getExistingGaslessAccount = async (): Promise<SignerWithAddress> => {
+  const signers = await ethers.getSigners();
+  const accountToBeDepleted = signers.at(9)!;
 
-  const balance = await gaslessAccount.getBalance();
+  const balance = await accountToBeDepleted.getBalance();
   if (!balance.gte(0)) {
-    await gaslessAccount.sendTransaction({
+    await accountToBeDepleted.sendTransaction({
       to: constants.AddressZero,
       gasPrice: 1,
       gasLimit: 21000,
@@ -234,11 +232,11 @@ const getExistingGaslessAccount = async (): Promise<Wallet> => {
   }
 
   await expect(
-    gaslessAccount.getBalance(),
+    accountToBeDepleted.getBalance(),
     'Gassless account should have no funds'
   ).to.be.eventually.eql(constants.Zero);
 
-  return gaslessAccount;
+  return accountToBeDepleted;
 };
 
 const deployRelayHub = async (
@@ -293,7 +291,7 @@ const createSmartWallet = async ({
   index = 0,
   validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = constants.HashZero,
+  initParams = SHA3_NULL_S,
   isCustomSmartWallet,
 }: CreateSmartWalletParams): Promise<RifSmartWallet> => {
   const envelopingRequest = createEnvelopingRequest(
@@ -363,7 +361,7 @@ const prepareRelayTransaction = async ({
   tokenGas = 0,
   validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = constants.HashZero,
+  initParams = '0x00',
   gas = 0,
   swAddress,
 }: PrepareRelayTransactionParams) => {

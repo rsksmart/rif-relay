@@ -27,7 +27,8 @@ import { expect } from 'chai';
 import { LogDescription } from 'ethers/lib/utils';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
-const provider = ethers.provider;
+const { provider } = ethers;
+
 const dayInSec = 24 * 60 * 60;
 const weekInSec = dayInSec * 7;
 
@@ -84,7 +85,7 @@ const getServerInstance = ({ serverWorkdirs }: ServerInitParams) => {
   const managerKeyManager = createKeyManager(serverWorkdirs?.managerWorkdir);
   const workersKeyManager = createKeyManager(serverWorkdirs?.workersWorkdir);
   const txStoreManager = new TxStoreManager({
-    workdir: serverWorkdirs?.workdir ?? workdir,
+    workdir: serverWorkdirs?.workdir || workdir,
   });
 
   const dependencies: ServerDependencies = {

@@ -40,4 +40,3 @@ typechain-types
 txstore.db
 manager/keystore
 workers/keystore
-config/local.json5
