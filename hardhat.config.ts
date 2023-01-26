@@ -1,19 +1,13 @@
 import { HardhatUserConfig } from 'hardhat/config';
 import '@nomicfoundation/hardhat-toolbox';
-import { HttpNetworkUserConfig } from 'hardhat/types';
 import '@nomiclabs/hardhat-ethers';
+import nodeConfig from 'config';
 
-const DEFAULT_MNEMONIC =
-  'stuff slice staff easily soup parent arm payment cotton trade scatter struggle';
-const { PK, MNEMONIC } = process.env;
-const sharedNetworkConfig: HttpNetworkUserConfig = {};
-if (PK) {
-  sharedNetworkConfig.accounts = [PK];
-} else {
-  sharedNetworkConfig.accounts = {
-    mnemonic: MNEMONIC || DEFAULT_MNEMONIC,
-  };
-}
+const CONFIG_BLOCKCHAIN = 'blockchain';
+const CONFIG_RSK_URL = 'rskNodeUrl';
+
+const getRskNodeUrl = () =>
+  nodeConfig.get<string>(`${CONFIG_BLOCKCHAIN}.${CONFIG_RSK_URL}`);
 
 const config: HardhatUserConfig = {
   // paths: {
@@ -39,13 +33,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     regtest: {
-      url: 'http://localhost:4444',
+      url: getRskNodeUrl(),
       chainId: 33,
-    },
-    testnet: {
-      ...sharedNetworkConfig,
-      url: 'https://public-node.testnet.rsk.co',
-      chainId: 31,
     },
   },
   typechain: {
