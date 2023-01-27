@@ -112,15 +112,16 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true)
 
-      const [otherAccount, worker] = (await ethers.getSigners()) as [
+      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const wallet = ethers.Wallet.createRandom()
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
-        owner: wallet,
+        relayHub: relayHub.address,
+        owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
@@ -148,25 +149,25 @@ describe('Custom Smart Wallet using TestToken', function () {
           data: recipientFunction,
           to: recipient.address,
           nonce: initialNonce.toString(),
-          relayHub: worker.address,
+          relayHub: relayHub.address,
           tokenContract: token.address,
-          from: wallet.address,
+          from: owner.address,
         },
         relayData,
       )
       const { signature, suffixData } = await signEnvelopingRequest(
         relayRequest,
-        wallet,
+        owner,
       )
 
       await smartWallet
-        .connect(worker)
+        .connect(relayHub)
         .execute(suffixData, relayRequest.request, worker?.address, signature)
 
       const eventFilter = customLogic.filters.LogicCalled()
-      const successLogicLogs = await smartWallet.queryFilter(eventFilter)
+      const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
-      expect(successLogicLogs.length, 'Should call custom logic').equal(1)
+      expect(successLogicLogs.length, 'Should call custom logic').equal(1);
 
       const tknBalance = await getTokenBalance(token, worker.address)
       const swTknBalance = await getTokenBalance(token, smartWallet.address)
@@ -192,15 +193,16 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true)
 
-      const [otherAccount, worker] = (await ethers.getSigners()) as [
+      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const wallet = ethers.Wallet.createRandom()
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
-        owner: wallet,
+        relayHub: relayHub.address,
+        owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
@@ -230,13 +232,13 @@ describe('Custom Smart Wallet using TestToken', function () {
           nonce: initialNonce.toString(),
           relayHub: worker.address,
           tokenContract: token.address,
-          from: wallet.address,
+          from: owner.address,
         },
         relayData,
       )
       const { signature, suffixData } = await signEnvelopingRequest(
         relayRequest,
-        wallet,
+        owner,
       )
 
       await smartWallet
@@ -287,15 +289,16 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true)
 
-      const [otherAccount, worker] = (await ethers.getSigners()) as [
+      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const wallet = ethers.Wallet.createRandom()
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
-        owner: wallet,
+        relayHub: relayHub.address,
+        owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
@@ -330,13 +333,13 @@ describe('Custom Smart Wallet using TestToken', function () {
           nonce: initialNonce.toString(),
           relayHub: caller.address,
           tokenContract: token.address,
-          from: wallet.address,
+          from: owner.address,
         },
         relayData,
       )
       const { signature, suffixData } = await signEnvelopingRequest(
         relayRequest,
-        wallet,
+        owner,
       )
 
       await caller
@@ -379,15 +382,16 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true)
 
-      const [otherAccount, worker] = (await ethers.getSigners()) as [
+      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const wallet = ethers.Wallet.createRandom()
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
-        owner: wallet,
+        relayHub: relayHub.address,
+        owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
@@ -423,13 +427,13 @@ describe('Custom Smart Wallet using TestToken', function () {
           nonce: initialNonce.toString(),
           relayHub: caller.address,
           tokenContract: token.address,
-          from: wallet.address,
+          from: owner.address,
         },
         relayData,
       )
       const { signature, suffixData } = await signEnvelopingRequest(
         relayRequest,
-        wallet,
+        owner,
       )
 
       await caller
@@ -491,43 +495,24 @@ describe('Custom Smart Wallet using TestToken', function () {
   })
 
   describe('verifyAndCallByOwner', function () {
-    let recipient: TestForwarderTarget
-    let recipientFunction: string
-
-    beforeEach(async function () {
-      const testForwarderTargetFactory = await ethers.getContractFactory(
-        'TestForwarderTarget',
-      )
-      recipient = await testForwarderTargetFactory.deploy()
-      recipientFunction = recipient.interface.encodeFunctionData(
-        'emitMessage',
-        ['hello'],
-      )
-    })
 
     it('should call function with custom logic', async function () {
-      const successCustomLogicFactory = await ethers.getContractFactory(
-        'SuccessCustomLogic',
-      )
-      const customLogic = await successCustomLogicFactory.deploy()
+      const customLogic = await successCustomLogicFactory.deploy();
+      const template = await customSmartWalletFactory.deploy();
 
-      const customSmartWalletFactory = await ethers.getContractFactory(
-        'CustomSmartWallet',
-      )
-      const template = await customSmartWalletFactory.deploy()
-
-      const factory = await createSmartWalletFactory(template, true)
+      const factory = await createSmartWalletFactory(template, true);
 
       const [
-        otherAccount,
+        relayHub,
         worker,
         fundedAccount,
+        owner
       ] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const owner = ethers.Wallet.createRandom().connect(ethers.provider)
 
       //Fund the owner
       await fundedAccount.sendTransaction({
@@ -536,14 +521,14 @@ describe('Custom Smart Wallet using TestToken', function () {
       })
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
+        relayHub: relayHub.address,
         owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
       })
 
-      const utilTokenFactory = await ethers.getContractFactory('UtilToken')
       const token = await utilTokenFactory.deploy()
 
       await fillTokens(token, smartWallet.address, '1000')
@@ -586,23 +571,16 @@ describe('Custom Smart Wallet using TestToken', function () {
     })
 
     it('should revert if logic revert', async function () {
-      const failureCustomLogicFactory = await ethers.getContractFactory(
-        'FailureCustomLogic',
-      )
-      const customLogic = await failureCustomLogicFactory.deploy()
-
-      const customSmartWalletFactory = await ethers.getContractFactory(
-        'CustomSmartWallet',
-      )
-      const template = await customSmartWalletFactory.deploy()
+      const customLogic = await failureCustomLogicFactory.deploy();
+      const template = await customSmartWalletFactory.deploy();
 
       const factory = await createSmartWalletFactory(template, true)
 
-      const [otherAccount, fundedAccount] = (await ethers.getSigners()) as [
+      const [relayHub, fundedAccount, owner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const owner = ethers.Wallet.createRandom().connect(ethers.provider)
 
       //Fund the owner
       await fundedAccount.sendTransaction({
@@ -611,51 +589,48 @@ describe('Custom Smart Wallet using TestToken', function () {
       })
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
+        relayHub: relayHub.address,
         owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
       })
 
-      const utilTokenFactory = await ethers.getContractFactory('UtilToken')
       const token = await utilTokenFactory.deploy()
 
       await fillTokens(token, smartWallet.address, '1000')
 
       await smartWallet
         .connect(owner)
-        .directExecute(recipient.address, recipientFunction)
+        .directExecute(recipient.address, recipientFunction);
 
       const result = await smartWallet
         .connect(owner)
-        .callStatic.directExecute(recipient.address, recipientFunction)
-      expect(result.success, 'should revert').to.be.false
+        .directExecute.call(this, recipient.address, recipientFunction);
+
+      const receipt = await result.wait();
+      
+      expect(receipt.logs[0], 'should revert').to.be.undefined;
     })
 
     it("should call function from custom logic with wallet's address", async function () {
-      const successCustomLogicFactory = await ethers.getContractFactory(
-        'ProxyCustomLogic',
-      )
-      const customLogic = await successCustomLogicFactory.deploy()
+      const customLogic = await proxyCustomLogicFactory.deploy();
+      const template = await customSmartWalletFactory.deploy();
 
-      const customSmartWalletFactory = await ethers.getContractFactory(
-        'CustomSmartWallet',
-      )
-      const template = await customSmartWalletFactory.deploy()
-
-      const factory = await createSmartWalletFactory(template, true)
+      const factory = await createSmartWalletFactory(template, true);
 
       const [
-        otherAccount,
+        relayHub,
         worker,
         fundedAccount,
+        owner
       ] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
         SignerWithAddress,
+        SignerWithAddress
       ]
-      const owner = ethers.Wallet.createRandom().connect(ethers.provider)
 
       //Fund the owner
       await fundedAccount.sendTransaction({
@@ -664,15 +639,15 @@ describe('Custom Smart Wallet using TestToken', function () {
       })
 
       const smartWallet = await createSmartWallet({
-        relayHub: otherAccount.address,
+        relayHub: relayHub.address,
         owner,
+        sender: relayHub,
         factory,
         logicAddr: customLogic.address,
         isCustomSmartWallet: true,
       })
 
-      const utilTokenFactory = await ethers.getContractFactory('UtilToken')
-      const token = await utilTokenFactory.deploy()
+      const token = await utilTokenFactory.deploy();
 
       await fillTokens(token, smartWallet.address, '1000')
 
