@@ -2,7 +2,7 @@
 pragma solidity ^0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@rsksmart/rif-relay-contracts/dist/contracts/interfaces/IForwarder.sol";
+import "@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol";
 
 /**
  * Interface defining the methods that should be implemented

@@ -4,7 +4,6 @@ pragma experimental ABIEncoderV2;
 
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "@rsksmart/rif-relay-contracts/dist/contracts/interfaces/IForwarder.sol";
 import "../interfaces/IWalletCustomLogic.sol";
 import "../utils/RSKAddrValidator.sol";
 
