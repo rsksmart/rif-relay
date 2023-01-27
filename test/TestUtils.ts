@@ -361,7 +361,7 @@ const prepareRelayTransaction = async ({
   tokenGas = 0,
   validUntilTime = 0,
   logicAddr = constants.AddressZero,
-  initParams = constants.HashZero,
+  initParams = '0x00',
   gas = 0,
   swAddress,
 }: PrepareRelayTransactionParams) => {
