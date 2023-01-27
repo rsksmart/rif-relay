@@ -11,5 +11,4 @@ import '@rsksmart/rif-relay-contracts/contracts/RelayHub.sol';
 import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 
 import '@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol';
-import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 
