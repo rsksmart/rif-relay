@@ -1,0 +1,5 @@
+{
+    blockchain: {
+        rskNodeUrl: 'https://public-node.rsk.co',
+    }
+}
