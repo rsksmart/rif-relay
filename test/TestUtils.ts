@@ -13,7 +13,6 @@ import {
   SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
-  AppConfig,
   defaultEnvironment,
   getServerConfig,
   RelayHubConfiguration,
