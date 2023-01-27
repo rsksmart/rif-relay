@@ -33,7 +33,7 @@ import {
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
-import { _TypedDataEncoder } from 'ethers/lib/utils';
+import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 
@@ -339,7 +339,7 @@ const createSmartWallet = async ({
         owner.address,
         recoverer,
         logicAddr,
-        initParams,
+        keccak256(initParams),
         index
       )
     : await (factory as SmartWalletFactory).getSmartWalletAddress(
