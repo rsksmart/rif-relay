@@ -8,6 +8,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { TestForwarder, TestTarget } from 'typechain-types';
+import { Wallet } from 'ethers';
 import {
   TEST_TOKEN_NAME,
   NON_REVERT_TEST_TOKEN_NAME,
@@ -21,25 +22,22 @@ import {
 } from './rifSmartWalletUtils';
 import {
   createSmartWalletFactory,
-  createSmartWallet,
+  createRifSmartWallet,
   createEnvelopingRequest,
-  signEnvelopingRequest,
-} from '../TestUtils';
+  getSuffixDataAndSignature,
+  getSuffixData,
+} from '../utils/TestUtils';
+import { RelayRequest } from '@rsksmart/rif-relay-client';
 import {
-  RelayRequest,
-  relayRequestType,
-  getEnvelopingRequestDataV4Field,
-} from '@rsksmart/rif-relay-client';
-import { _TypedDataEncoder } from 'ethers/lib/utils';
+  getLocalEip712Signature,
+  TypedRequestData,
+} from '../utils/EIP712Utils';
 
 chai.use(chaiAsPromised);
 
 const INITIAL_SMART_WALLET_RBTC_AMOUNT = 50;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
-
-const CHARS_PER_FIELD = 64;
-const PREFIX_HEX = '0x';
 
 const CUSTOM_SMART_WALLET_TYPE: TypeOfWallet = 'CustomSmartWallet';
 const SMART_WALLET_TYPE: TypeOfWallet = 'SmartWallet';
@@ -62,13 +60,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
   describe(`RIF SmartWallet tests using ${typeOfWallet}`, function () {
     let provider: BaseProvider;
-    let owner: SignerWithAddress;
+    let owner: Wallet;
     let rifSmartWallet: RifSmartWallet;
     let rifSmartWalletTemplate: RifSmartWallet;
     let relayHub: SignerWithAddress;
 
     before(async function () {
-      //Create the RIF SmartWallet template
+      //Create the RIFSmartWallet template
       if (isCustom) {
         const customSmartWalletFactory = (await hardhat.getContractFactory(
           `${typeOfWallet}`
@@ -85,10 +83,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
     });
 
     beforeEach(async function () {
-      const [localOwner, fundedAccount, localRelayHub] =
-        await hardhat.getSigners();
-      owner = localOwner as SignerWithAddress;
+      const [, fundedAccount, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
+
+      owner = hardhat.Wallet.createRandom().connect(provider);
 
       //Fund the owner
       await fundedAccount?.sendTransaction({
@@ -98,23 +96,23 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
       const rifSmartWalletFactory = await createSmartWalletFactory(
         rifSmartWalletTemplate,
-        isCustom
+        isCustom,
+        owner
       );
 
-      rifSmartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
+      rifSmartWallet = await createRifSmartWallet(
+        isCustom,
         owner,
-        factory: rifSmartWalletFactory,
-        isCustomSmartWallet: isCustom,
-        sender: relayHub,
-      });
+        0,
+        rifSmartWalletFactory
+      );
     });
 
     describe('Verify', function () {
       describe('Verify success', function () {
         it('Should verify valid signature', async function () {
           const relayRequest = createEnvelopingRequest(
-            false,
+            IS_DEPLOY_REQUEST,
             {
               from: owner.address,
               relayHub: relayHub.address,
@@ -124,7 +122,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -134,6 +133,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             relayRequest.request,
             signature
           );
+
           await expect(
             rifSmartWallet.verify(suffixData, relayRequest.request, signature)
           ).not.to.be.rejected;
@@ -157,29 +157,24 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
           const { chainId } = await provider.getNetwork();
 
-          const requestTypes = relayRequestType;
-
-          const data = getEnvelopingRequestDataV4Field({
+          const typedRequestData = new TypedRequestData(
             chainId,
-            verifier: rifSmartWallet.address,
-            requestTypes,
-            envelopingRequest: relayRequest,
-          });
+            rifSmartWallet.address,
+            relayRequest
+          );
 
-          const { domain, types, value, primaryType } = data;
-          domain.name = 'Wrong domain separator name';
+          typedRequestData.domain.name = 'Wrong domain separator';
 
-          const signature = await owner._signTypedData(domain, types, value);
+          const privateKey = Buffer.from(
+            owner.privateKey.substring(2, 66),
+            'hex'
+          );
 
-          const messageSize = Object.keys(requestTypes).length;
-
-          const enconded = _TypedDataEncoder
-            .from(types)
-            .encodeData(primaryType, value);
-
-          const suffixData =
-            PREFIX_HEX +
-            enconded.slice(messageSize * CHARS_PER_FIELD + PREFIX_HEX.length);
+          const suffixData = getSuffixData(typedRequestData);
+          const signature = getLocalEip712Signature(
+            typedRequestData,
+            privateKey
+          );
 
           await expect(
             rifSmartWallet.verify(suffixData, relayRequest.request, signature)
@@ -201,7 +196,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -223,7 +219,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData } = await signEnvelopingRequest(
+          const { suffixData } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -305,7 +302,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           const initialNonce = await rifSmartWallet.nonce();
 
           const relayRequest = createEnvelopingRequest(
-            false,
+            IS_DEPLOY_REQUEST,
             {
               data: targetFunction,
               to: target.address,
@@ -322,7 +319,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -383,7 +381,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           const relayRequest = createEnvelopingRequest(
-            false,
+            IS_DEPLOY_REQUEST,
             {
               data: targetFunction,
               to: target.address,
@@ -400,7 +398,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -446,7 +445,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           const relayRequest = createEnvelopingRequest(
-            false,
+            IS_DEPLOY_REQUEST,
             {
               data: targetFunction,
               to: target.address,
@@ -463,7 +462,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -525,7 +525,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           const relayRequest = createEnvelopingRequest(
-            false,
+            IS_DEPLOY_REQUEST,
             {
               data: targetFunction,
               to: target.address,
@@ -542,7 +542,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }
           ) as RelayRequest;
 
-          const { suffixData, signature } = await signEnvelopingRequest(
+          const { suffixData, signature } = await getSuffixDataAndSignature(
+            rifSmartWallet,
             relayRequest,
             owner
           );
@@ -637,7 +638,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const relayRequest = createEnvelopingRequest(
-              false,
+              IS_DEPLOY_REQUEST,
               {
                 data: targetFunction,
                 to: target.address,
@@ -655,7 +656,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               }
             ) as RelayRequest;
 
-            const { suffixData, signature } = await signEnvelopingRequest(
+            const { suffixData, signature } = await getSuffixDataAndSignature(
+              rifSmartWallet,
               relayRequest,
               owner
             );
@@ -720,7 +722,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const relayRequest = createEnvelopingRequest(
-              false,
+              IS_DEPLOY_REQUEST,
               {
                 data: targetFunction,
                 to: target.address,
@@ -738,7 +740,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               }
             ) as RelayRequest;
 
-            const { suffixData, signature } = await signEnvelopingRequest(
+            const { suffixData, signature } = await getSuffixDataAndSignature(
+              rifSmartWallet,
               relayRequest,
               owner
             );
@@ -788,7 +791,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const relayRequest = createEnvelopingRequest(
-              false,
+              IS_DEPLOY_REQUEST,
               {
                 data: targetFunction,
                 to: target.address,
@@ -806,7 +809,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               }
             ) as RelayRequest;
 
-            const { suffixData, signature } = await signEnvelopingRequest(
+            const { suffixData, signature } = await getSuffixDataAndSignature(
+              rifSmartWallet,
               relayRequest,
               owner
             );
