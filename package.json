@@ -81,6 +81,7 @@
   "dependencies": {
     "@commitlint/cli": "^17.4.0",
     "@commitlint/config-conventional": "^17.4.0",
+    "@metamask/eth-sig-util": "^5.0.2",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client#PP-642/test-utils-server",

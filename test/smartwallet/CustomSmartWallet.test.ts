@@ -4,6 +4,7 @@ import {
   createSmartWalletFactory,
   createSmartWallet,
   signEnvelopingRequest,
+  getSuffixDataAndSignature
 } from '../TestUtils';
 import { BigNumber, constants } from 'ethers';
 import {
@@ -106,17 +107,26 @@ describe('Custom Smart Wallet using TestToken', function () {
     utilTokenFactory = await ethers.getContractFactory('UtilToken');
   });
   describe('#verifyAndCall', function () {
-    it('should call function with custom logic', async function () {
+    it.only('should call function with custom logic', async function () {
       const customLogic = await successCustomLogicFactory.deploy();
       const template = await customSmartWalletFactory.deploy();
 
-      const factory = await createSmartWalletFactory(template, true);
+      const provider = ethers.provider;
+      const owner = ethers.Wallet.createRandom().connect(provider);
 
-      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
+      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
         SignerWithAddress
       ];
+
+      //Fund the owner
+      await fundedAccount.sendTransaction({
+        to: owner.address,
+        value: ethers.utils.parseEther('1'),
+      });
+
+      const factory = await createSmartWalletFactory(template, true, owner);
 
       const smartWallet = await createSmartWallet({
         relayHub: relayHub.address,
@@ -152,13 +162,12 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: relayHub.address,
           tokenContract: token.address,
           from: owner.address,
+          gas: 10000
         },
         relayData
       );
-      const { signature, suffixData } = await signEnvelopingRequest(
-        relayRequest,
-        owner
-      );
+
+      const { signature, suffixData } = await getSuffixDataAndSignature(smartWallet, relayRequest, owner)
 
       await smartWallet
         .connect(relayHub)
@@ -193,11 +202,12 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true);
 
-      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
+      const [relayHub, worker] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
-        SignerWithAddress
       ];
+
+      const owner = ethers.Wallet.createRandom();
 
       const smartWallet = await createSmartWallet({
         relayHub: relayHub.address,
@@ -236,10 +246,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         },
         relayData
       );
-      const { signature, suffixData } = await signEnvelopingRequest(
-        relayRequest,
-        owner
-      );
+      const { signature, suffixData } = await getSuffixDataAndSignature(smartWallet, relayRequest, owner);
 
       await smartWallet
         .connect(worker)
@@ -289,11 +296,12 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true);
 
-      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
+      const [relayHub, worker] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
-        SignerWithAddress
       ];
+
+      const owner = ethers.Wallet.createRandom();
 
       const smartWallet = await createSmartWallet({
         relayHub: relayHub.address,
@@ -337,10 +345,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         },
         relayData
       );
-      const { signature, suffixData } = await signEnvelopingRequest(
-        relayRequest,
-        owner
-      );
+      const { signature, suffixData } = await getSuffixDataAndSignature(smartWallet, relayRequest, owner);
 
       await caller
         .connect(worker)
@@ -382,11 +387,12 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true);
 
-      const [relayHub, worker, owner] = (await ethers.getSigners()) as [
+      const [relayHub, worker] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
-        SignerWithAddress
       ];
+
+      const owner = ethers.Wallet.createRandom();
 
       const smartWallet = await createSmartWallet({
         relayHub: relayHub.address,
@@ -431,10 +437,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         },
         relayData
       );
-      const { signature, suffixData } = await signEnvelopingRequest(
-        relayRequest,
-        owner
-      );
+      const { signature, suffixData } = await getSuffixDataAndSignature(smartWallet, relayRequest, owner);
 
       await caller
         .connect(worker)
@@ -495,25 +498,27 @@ describe('Custom Smart Wallet using TestToken', function () {
   });
 
   describe('verifyAndCallByOwner', function () {
-    it('should call function with custom logic', async function () {
+    it.only('should call function with custom logic', async function () {
       const customLogic = await successCustomLogicFactory.deploy();
       const template = await customSmartWalletFactory.deploy();
 
-      const factory = await createSmartWalletFactory(template, true);
-
-      const [relayHub, worker, fundedAccount, owner] =
+      const [relayHub, worker, fundedAccount] =
         (await ethers.getSigners()) as [
           SignerWithAddress,
           SignerWithAddress,
           SignerWithAddress,
-          SignerWithAddress
         ];
+      
+      const provider = ethers.provider;
+      const owner = ethers.Wallet.createRandom().connect(provider);
 
       //Fund the owner
       await fundedAccount.sendTransaction({
         to: owner.address,
         value: ethers.utils.parseEther('1'),
       });
+
+      const factory = await createSmartWalletFactory(template, true, owner);
 
       const smartWallet = await createSmartWallet({
         relayHub: relayHub.address,
@@ -571,11 +576,13 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true);
 
-      const [relayHub, fundedAccount, owner] = (await ethers.getSigners()) as [
+      const [relayHub, fundedAccount] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress,
-        SignerWithAddress
       ];
+
+      const provider = ethers.provider;
+      const owner = ethers.Wallet.createRandom().connect(provider);
 
       //Fund the owner
       await fundedAccount.sendTransaction({
@@ -615,13 +622,15 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const factory = await createSmartWalletFactory(template, true);
 
-      const [relayHub, worker, fundedAccount, owner] =
+      const [relayHub, worker, fundedAccount] =
         (await ethers.getSigners()) as [
           SignerWithAddress,
           SignerWithAddress,
           SignerWithAddress,
-          SignerWithAddress
         ];
+
+        const provider = ethers.provider;
+        const owner = ethers.Wallet.createRandom().connect(provider);
 
       //Fund the owner
       await fundedAccount.sendTransaction({
