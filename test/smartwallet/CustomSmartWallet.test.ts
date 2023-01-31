@@ -408,7 +408,7 @@ describe('Custom Smart Wallet using TestToken', function () {
       ).to.equal(initialNonce.add(BigNumber.from(1)));
     });
 
-    it.skip('should not be able to re-submit after revert', async function () {
+    it('should not be able to re-submit after revert', async function () {
       const customLogic = await failureCustomLogicFactory.deploy();
       const template = await customSmartWalletFactory.deploy();
 
@@ -515,7 +515,7 @@ describe('Custom Smart Wallet using TestToken', function () {
             suffixData,
             signature
           )
-      ).to.be.revertedWith('nonce mismatch');
+      ).to.be.rejectedWith('nonce mismatch');
 
       const tknBalance2 = await getTokenBalance(token, worker.address);
       const swTknBalance2 = await getTokenBalance(token, smartWallet.address);
