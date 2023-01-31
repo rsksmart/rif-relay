@@ -35,6 +35,8 @@ const config: HardhatUserConfig = {
     regtest: {
       url: getRskNodeUrl(),
       chainId: 33,
+      gas: 6300000,
+      gasPrice: 60000000,
     },
   },
   typechain: {
@@ -48,7 +50,7 @@ const config: HardhatUserConfig = {
     strict: false,
   }*/
   mocha: {
-    timeout: 20000,
+    timeout: 50000,
   },
 };
 

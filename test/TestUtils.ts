@@ -20,7 +20,6 @@ import {
   sleep,
 } from '@rsksmart/rif-relay-server';
 import {
-  DeployRequest,
   DeployRequestBody,
   deployRequestType,
   EnvelopingRequest,
@@ -38,7 +37,7 @@ import { ethers } from 'hardhat';
 import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { TypedDeployRequestData, TypedRequestData, getLocalEip712DeploySignature, getLocalEip712Signature } from './EIP712utils';
+import { TypedRequestData, getLocalEip712Signature } from './EIP712utils';
 import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 
 use(chaiAsPromised);
@@ -323,8 +322,6 @@ const createSmartWallet = async ({
     owner
   );
 
-  //const { signature, suffixData } = await getSuffixDataAndSignatureForDeploy(factory, envelopingRequest as DeployRequest, owner)
-
   const transaction = await factory
     .connect(sender)
     .relayedUserSmartWalletCreation(
@@ -435,27 +432,6 @@ const signEnvelopingRequest = async (
     signature,
     suffixData,
   };
-};
-
-const getSuffixDataAndSignatureForDeploy = async (
-  rifSmartWalletFactory: RifSmartWalletFactory,
-  deployRequest: DeployRequest,
-  owner: Wallet
-) => {
-  const { chainId } = await provider.getNetwork();
-
-  const typedRequestData = new TypedDeployRequestData(
-    chainId,
-    rifSmartWalletFactory.address,
-    deployRequest
-  );
-
-  const privateKey = Buffer.from(owner.privateKey.substring(2, 66), 'hex');
-
-  const suffixData = getSuffixData(typedRequestData);
-  const signature = getLocalEip712DeploySignature(typedRequestData, privateKey);
-
-  return { suffixData, signature };
 };
 
 const getSuffixDataAndSignature = async (
@@ -571,7 +547,7 @@ export {
   signEnvelopingRequest,
   deployRelayHub,
   createEnvelopingRequest,
-  getSuffixDataAndSignature
+  getSuffixDataAndSignature,
 };
 
 export type {
