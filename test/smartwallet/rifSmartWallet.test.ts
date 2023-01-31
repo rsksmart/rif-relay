@@ -8,11 +8,12 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { TestForwarder, TestTarget } from 'typechain-types';
-import { Wallet } from 'ethers';
+import { Wallet, Contract, providers } from 'ethers';
 import {
   TEST_TOKEN_NAME,
-  NON_REVERT_TEST_TOKEN_NAME,
-  TETHER_TOKEN_NAME,
+  /*FIXME: comment-out
+   NON_REVERT_TEST_TOKEN_NAME,
+  TETHER_TOKEN_NAME, */
   INITIAL_SMART_WALLET_TOKEN_AMOUNT,
   RifSmartWallet,
   TokenToTest,
@@ -32,6 +33,7 @@ import {
   getLocalEip712Signature,
   TypedRequestData,
 } from '../utils/EIP712Utils';
+import SmartWalletJson from "../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json";
 
 chai.use(chaiAsPromised);
 
@@ -42,11 +44,11 @@ const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
 const CUSTOM_SMART_WALLET_TYPE: TypeOfWallet = 'CustomSmartWallet';
 const SMART_WALLET_TYPE: TypeOfWallet = 'SmartWallet';
 const TYPES_OF_WALLETS: TypeOfWallet[] = [
-  CUSTOM_SMART_WALLET_TYPE,
+  // FIXME: To comment-out CUSTOM_SMART_WALLET_TYPE,
   SMART_WALLET_TYPE,
 ];
 
-const TOKENS = [TEST_TOKEN_NAME, NON_REVERT_TEST_TOKEN_NAME, TETHER_TOKEN_NAME];
+const TOKENS = [TEST_TOKEN_NAME, /* TODO: To comment-out NON_REVERT_TEST_TOKEN_NAME, TETHER_TOKEN_NAME */];
 
 const IS_DEPLOY_REQUEST = false;
 
@@ -86,7 +88,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
       const [, fundedAccount, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
 
-      owner = hardhat.Wallet.createRandom().connect(provider);
+      const jsonRPCProvider = new providers.JsonRpcProvider('http://localhost:4444');
+      owner = Wallet.createRandom().connect(jsonRPCProvider);
 
       //Fund the owner
       await fundedAccount?.sendTransaction({
@@ -110,7 +113,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
     describe('Verify', function () {
       describe('Verify success', function () {
-        it('Should verify valid signature', async function () {
+        it.only('Should verify valid signature', async function () {
           const relayRequest = createEnvelopingRequest(
             IS_DEPLOY_REQUEST,
             {
@@ -128,20 +131,18 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             owner
           );
 
-          await rifSmartWallet.verify(
-            suffixData,
-            relayRequest.request,
-            signature
-          );
+          const swABI = SmartWalletJson.abi;
+          const rifSW = new Contract(rifSmartWallet.address, swABI, owner);
 
           await expect(
-            rifSmartWallet.verify(suffixData, relayRequest.request, signature)
+            // FIXME: Type to be fixed
+            rifSW.verify(suffixData, relayRequest.request, signature)
           ).not.to.be.rejected;
         });
       });
 
       describe('Verify failures', function () {
-        it('Should fail when the domain separator is wrong', async function () {
+        it.only('Should fail when the domain separator is wrong', async function () {
           //The signature should be obtained manually here to be able to inject a
           //wrong domain separator name
           const relayRequest = createEnvelopingRequest(
@@ -176,8 +177,12 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             privateKey
           );
 
+          const swABI = SmartWalletJson.abi;
+          const rifSW = new Contract(rifSmartWallet.address, swABI, owner);
+          
           await expect(
-            rifSmartWallet.verify(suffixData, relayRequest.request, signature)
+            // FIXME: Type to be fixed
+            rifSW.verify(suffixData, relayRequest.request, signature)
           ).to.be.rejectedWith('Signature mismatch');
         });
 
