@@ -38,7 +38,12 @@ import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { EnvelopingEIP712Types, getTypedRequestData } from './EIP712utils';
-import { SignTypedDataVersion, TypedDataUtils, TypedMessage, signTypedData } from '@metamask/eth-sig-util';
+import {
+  SignTypedDataVersion,
+  TypedDataUtils,
+  TypedMessage,
+  signTypedData,
+} from '@metamask/eth-sig-util';
 
 use(chaiAsPromised);
 
@@ -460,7 +465,9 @@ const getSuffixDataAndSignature = async (
   return { suffixData, signature };
 };
 
-const getSuffixData = (typedRequestData: TypedMessage<EnvelopingEIP712Types>): string => {
+const getSuffixData = (
+  typedRequestData: TypedMessage<EnvelopingEIP712Types>
+): string => {
   const encoded = TypedDataUtils.encodeData(
     typedRequestData.primaryType as string,
     typedRequestData.message,

@@ -105,7 +105,7 @@ describe('Custom Smart Wallet using TestToken', function () {
     );
     utilTokenFactory = await ethers.getContractFactory('UtilToken');
   });
-  describe('#verifyAndCall', function () {
+  describe('#verifyAndCallByRelayHub', function () {
     it('should call function with custom logic', async function () {
       const customLogic = await successCustomLogicFactory.deploy();
       const template = await customSmartWalletFactory.deploy();
@@ -179,24 +179,24 @@ describe('Custom Smart Wallet using TestToken', function () {
       const eventFilter = customLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
-      expect(successLogicLogs.length, 'Should call custom logic').equal(1);
+      expect(successLogicLogs.length).equal(1, 'Should call custom logic');
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(1),
         'Incorrect new worker token balance'
-      ).to.equal(BigNumber.from(1));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(1),
         'Incorrect new smart wallet token balance'
-      ).to.equal(BigNumber.from(1));
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce.add(BigNumber.from(1)),
         'verifyAndCall should increment nonce'
-      ).to.equal(initialNonce.add(BigNumber.from(1)));
+      );
     });
 
     it("should call function from custom logic with wallet's address", async function () {
@@ -272,37 +272,37 @@ describe('Custom Smart Wallet using TestToken', function () {
         logicCalledEventFilter
       );
 
-      expect(proxyLogicLogs.length, 'Should call custom logic').equal(1);
+      expect(proxyLogicLogs.length).equal(1, 'Should call custom logic');
 
       const eventFilter = recipient.filters.TestForwarderMessage();
       const logs = await recipient.queryFilter(eventFilter);
 
-      expect(logs.length, 'TestRecipient should emit').to.equal(1);
-      expect(
-        logs[0]?.args.origin,
+      expect(logs.length).to.equal(1, 'TestRecipient should emit');
+      expect(logs[0]?.args.origin).to.equal(
+        worker.address,
         'test "from" account is the tx.origin'
-      ).to.equal(worker.address);
-      expect(
-        logs[0]?.args.msgSender,
+      );
+      expect(logs[0]?.args.msgSender).to.equal(
+        smartWallet.address,
         'msg.sender must be the smart wallet address'
-      ).to.equal(smartWallet.address);
+      );
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(1),
         'Incorrect new worker token balance'
-      ).to.equal(BigNumber.from(1));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(1),
         'Incorrect new smart wallet token balance'
-      ).to.equal(BigNumber.from(1));
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce.add(BigNumber.from(1)),
         'verifyAndCall should increment nonce'
-      ).to.equal(initialNonce.add(BigNumber.from(1)));
+      );
     });
 
     it('should revert if logic revert', async function () {
@@ -387,25 +387,25 @@ describe('Custom Smart Wallet using TestToken', function () {
       const resultFilter = caller.filters.Result();
       const logs = await caller.queryFilter(resultFilter);
 
-      expect(logs[0]?.args.error, 'Incorrect message').to.equal('always fail');
-      expect(logs[0]?.args.success, 'Should have failed').to.be.false;
+      expect(logs[0]?.args.error).to.equal('always fail', 'Incorrect message');
+      expect(logs[0]?.args.success).to.be.equal(false, 'Incorrect message');
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(1),
         'Incorrect new worker token balance'
-      ).to.equal(BigNumber.from(1));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(1),
         'Incorrect new smart wallet token balance'
-      ).to.equal(BigNumber.from(1));
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce.add(BigNumber.from(1)),
         'verifyAndCall should increment nonce'
-      ).to.equal(initialNonce.add(BigNumber.from(1)));
+      );
     });
 
     it('should not be able to re-submit after revert', async function () {
@@ -490,20 +490,20 @@ describe('Custom Smart Wallet using TestToken', function () {
       const resultFilter = caller.filters.Result();
       const logs = await caller.queryFilter(resultFilter);
 
-      expect(logs[0]?.args.error, 'Incorrect message').to.equal('always fail');
-      expect(logs[0]?.args.success, 'Should have failed').to.be.false;
+      expect(logs[0]?.args.error).to.equal('always fail', 'Incorrect message');
+      expect(logs[0]?.args.success).to.equal(false, 'Should have failed');
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(1),
         'Incorrect new worker token balance'
-      ).to.equal(BigNumber.from(1));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(1),
         'Incorrect new smart wallet token balance'
-      ).to.equal(BigNumber.from(1));
+      );
 
       await expect(
         caller
@@ -520,18 +520,19 @@ describe('Custom Smart Wallet using TestToken', function () {
       const tknBalance2 = await getTokenBalance(token, worker.address);
       const swTknBalance2 = await getTokenBalance(token, smartWallet.address);
 
-      expect(tknBalance2, 'Incorrect new worker token balance').to.equal(
-        tknBalance
+      expect(tknBalance2).to.equal(
+        tknBalance,
+        'Incorrect new worker token balance'
       );
-      expect(
-        swTknBalance2,
+      expect(swTknBalance2).to.equal(
+        swTknBalance,
         'Incorrect new smart wallet token balance'
-      ).to.equal(swTknBalance);
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce.add(BigNumber.from(1)),
         'verifyAndCall should increment nonce'
-      ).to.equal(initialNonce.add(BigNumber.from(1)));
+      );
     });
   });
 
@@ -587,24 +588,24 @@ describe('Custom Smart Wallet using TestToken', function () {
       const eventFilter = customLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
-      expect(successLogicLogs.length, 'Should call custom logic').equal(1);
+      expect(successLogicLogs.length).equal(1, 'Should call custom logic');
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(0),
         'worker token balance should not change'
-      ).to.equal(BigNumber.from(0));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(0),
         'smart wallet token balance should not change'
-      ).to.equal(BigNumber.from(0));
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce,
         'direct execute should NOT increment nonce'
-      ).to.equal(initialNonce);
+      );
     });
 
     it('should revert if logic revert', async function () {
@@ -651,7 +652,7 @@ describe('Custom Smart Wallet using TestToken', function () {
 
       const receipt = await result.wait();
 
-      expect(receipt.logs[0], 'should revert').to.be.undefined;
+      expect(receipt.logs[0]).to.equal(undefined, 'should revert');
     });
 
     it("should call function from custom logic with wallet's address", async function () {
@@ -705,38 +706,38 @@ describe('Custom Smart Wallet using TestToken', function () {
       const eventFilter = customLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
-      expect(successLogicLogs.length, 'Should call custom logic').equal(1);
+      expect(successLogicLogs.length).equal(1, 'Should call custom logic');
 
       const testForwarderMessageFilter =
         recipient.filters.TestForwarderMessage();
       const logs = await recipient.queryFilter(testForwarderMessageFilter);
 
-      expect(logs.length, 'TestRecipient should emit').to.equal(1);
-      expect(
-        logs[0]?.args.origin,
+      expect(logs.length).to.equal(1, 'TestRecipient should emit');
+      expect(logs[0]?.args.origin).to.equal(
+        owner.address,
         'test "from" account is the tx.origin'
-      ).to.equal(owner.address);
-      expect(
-        logs[0]?.args.msgSender,
+      );
+      expect(logs[0]?.args.msgSender).to.equal(
+        smartWallet.address,
         'msg.sender must be the smart wallet address'
-      ).to.equal(smartWallet.address);
+      );
 
       const tknBalance = await getTokenBalance(token, worker.address);
       const swTknBalance = await getTokenBalance(token, smartWallet.address);
 
-      expect(
-        tknBalance.sub(initialWorkerTokenBalance),
+      expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
+        BigNumber.from(0),
         'worker token balance should not change'
-      ).to.equal(BigNumber.from(0));
-      expect(
-        initialSWalletTokenBalance.sub(swTknBalance).toString(),
+      );
+      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+        BigNumber.from(0),
         'smart wallet token balance should not change'
-      ).to.equal(BigNumber.from(0));
+      );
 
-      expect(
-        await smartWallet.nonce(),
+      expect(await smartWallet.nonce()).to.equal(
+        initialNonce,
         'direct execute should NOT increment nonce'
-      ).to.equal(initialNonce);
+      );
     });
   });
 });

@@ -1,10 +1,10 @@
 import { TypedMessage, MessageTypeProperty } from '@metamask/eth-sig-util';
 import {
-  relayDataType, 
+  relayDataType,
   relayRequestType,
   getDomainSeparator,
   EnvelopingMessageTypes,
-  RelayRequest
+  RelayRequest,
 } from '@rsksmart/rif-relay-client';
 
 const eIP712DomainType: MessageTypeProperty[] = [
@@ -16,9 +16,13 @@ const eIP712DomainType: MessageTypeProperty[] = [
 
 export type EnvelopingEIP712Types = {
   EIP712Domain: MessageTypeProperty[];
-} & EnvelopingMessageTypes
+} & EnvelopingMessageTypes;
 
-export const getTypedRequestData = (chainId: number, verifier: string, relayRequest: RelayRequest): TypedMessage<EnvelopingEIP712Types> => {
+export const getTypedRequestData = (
+  chainId: number,
+  verifier: string,
+  relayRequest: RelayRequest
+): TypedMessage<EnvelopingEIP712Types> => {
   return {
     types: {
       EIP712Domain: eIP712DomainType,
@@ -30,7 +34,6 @@ export const getTypedRequestData = (chainId: number, verifier: string, relayRequ
     message: {
       ...relayRequest.request,
       relayData: relayRequest.relayData,
-    }
-  } as TypedMessage<EnvelopingEIP712Types>
-}
-
+    },
+  } as TypedMessage<EnvelopingEIP712Types>;
+};
