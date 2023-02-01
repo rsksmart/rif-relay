@@ -1,7 +1,7 @@
 import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { BigNumberish, constants, utils } from 'ethers';
+import { BigNumberish, Wallet, constants, utils } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
 import {
@@ -29,13 +29,21 @@ import {
   HttpWrapper,
   HubInfo,
   isDeployRequest,
+  RelayRequest,
   RelayRequestBody,
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
-import { _TypedDataEncoder } from 'ethers/lib/utils';
+import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { EnvelopingEIP712Types, getTypedRequestData } from './EIP712utils';
+import {
+  SignTypedDataVersion,
+  TypedDataUtils,
+  TypedMessage,
+  signTypedData,
+} from '@metamask/eth-sig-util';
 
 use(chaiAsPromised);
 
@@ -60,7 +68,7 @@ type StartRelayParams = {
 type CreateSmartWalletParams = {
   relayHub: string;
   sender: SignerWithAddress;
-  owner: SignerWithAddress;
+  owner: Wallet;
   factory: RifSmartWalletFactory;
   tokenContract?: string;
   tokenAmount?: BigNumberish;
@@ -75,7 +83,7 @@ type CreateSmartWalletParams = {
 
 type PrepareRelayTransactionParams = {
   relayHub: string;
-  owner: SignerWithAddress;
+  owner: Wallet;
   tokenContract: string;
   tokenAmount: BigNumberish;
   tokenGas: BigNumberish;
@@ -270,13 +278,14 @@ const deployRelayHub = async (
 
 const createSmartWalletFactory = async (
   template: IForwarder,
-  isCustom = false
+  isCustom = false,
+  owner: Wallet
 ) => {
   const factory = isCustom
     ? await ethers.getContractFactory('CustomSmartWalletFactory')
     : await ethers.getContractFactory('SmartWalletFactory');
 
-  return factory.deploy(template.address);
+  return factory.connect(owner).deploy(template.address);
 };
 
 const createSmartWallet = async ({
@@ -339,7 +348,7 @@ const createSmartWallet = async ({
         owner.address,
         recoverer,
         logicAddr,
-        initParams,
+        keccak256(initParams),
         index
       )
     : await (factory as SmartWalletFactory).getSmartWalletAddress(
@@ -393,7 +402,7 @@ const prepareRelayTransaction = async ({
 
 const signEnvelopingRequest = async (
   envelopingRequest: EnvelopingRequest,
-  signer: SignerWithAddress
+  signer: Wallet
 ) => {
   const {
     relayData: { callForwarder },
@@ -428,6 +437,47 @@ const signEnvelopingRequest = async (
     signature,
     suffixData,
   };
+};
+
+const getSuffixDataAndSignature = async (
+  rifSmartWallet: RifSmartWallet,
+  relayRequest: RelayRequest,
+  owner: Wallet
+) => {
+  const { chainId } = await provider.getNetwork();
+
+  const typedRequestData = getTypedRequestData(
+    chainId,
+    rifSmartWallet.address,
+    relayRequest
+  );
+
+  const privateKey = Buffer.from(owner.privateKey.substring(2, 66), 'hex');
+
+  const suffixData = getSuffixData(typedRequestData);
+
+  const signature = signTypedData({
+    privateKey: privateKey,
+    data: typedRequestData,
+    version: SignTypedDataVersion.V4,
+  });
+
+  return { suffixData, signature };
+};
+
+const getSuffixData = (
+  typedRequestData: TypedMessage<EnvelopingEIP712Types>
+): string => {
+  const encoded = TypedDataUtils.encodeData(
+    typedRequestData.primaryType as string,
+    typedRequestData.message,
+    typedRequestData.types,
+    SignTypedDataVersion.V4
+  );
+
+  const messageSize = Object.keys(typedRequestData.message).length;
+
+  return '0x' + encoded.slice(messageSize * 32).toString('hex');
 };
 
 const baseRelayData: EnvelopingRequestData = {
@@ -509,6 +559,7 @@ export {
   signEnvelopingRequest,
   deployRelayHub,
   createEnvelopingRequest,
+  getSuffixDataAndSignature,
 };
 
 export type {
