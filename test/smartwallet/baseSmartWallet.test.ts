@@ -26,6 +26,7 @@ import {
   getSuffixDataAndSignature,
   getSuffixData,
   SupportedSmartWallet,
+  RSK_URL,
 } from '../utils/TestUtils';
 import {
   RelayRequest,
@@ -35,7 +36,6 @@ import {
   getLocalEip712Signature,
   TypedRequestData,
 } from '../utils/EIP712Utils';
-import nodeConfig from 'config';
 
 chai.use(chaiAsPromised);
 
@@ -53,13 +53,6 @@ const TYPES_OF_WALLETS: TypeOfWallet[] = [
 const TOKENS = [TEST_TOKEN_NAME, NON_REVERT_TEST_TOKEN_NAME, TETHER_TOKEN_NAME];
 
 const IS_DEPLOY_REQUEST = false;
-
-const CONFIG_BLOCKCHAIN = 'blockchain';
-const CONFIG_RSK_URL = 'rskNodeUrl';
-
-const RSK_URL = nodeConfig.get<string>(
-  `${CONFIG_BLOCKCHAIN}.${CONFIG_RSK_URL}`
-);
 
 const isCustomSmartWallet = (smartWalletType: string) =>
   smartWalletType === CUSTOM_SMART_WALLET_TYPE;
@@ -111,12 +104,14 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         owner
       );
 
-      supportedSmartWallet = await createSupportedSmartWallet(
-        isCustom,
+      supportedSmartWallet = await createSupportedSmartWallet({
+        isCustomSmartWallet: isCustom,
         owner,
-        0,
-        supportedSmartWalletFactory
-      );
+        index: 0,
+        factory: supportedSmartWalletFactory,
+        relayHub: relayHub.address,
+        sender: relayHub,
+      });
     });
 
     describe('Verify', function () {

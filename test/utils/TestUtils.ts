@@ -21,34 +21,33 @@ import {
 } from '@rsksmart/rif-relay-server';
 import {
   DeployRequestBody,
+  deployRequestType,
   EnvelopingRequest,
   EnvelopingRequestData,
+  getEnvelopingRequestDataV4Field,
   HttpClient,
   HttpWrapper,
   HubInfo,
   isDeployRequest,
   RelayRequest,
   RelayRequestBody,
+  relayRequestType,
+  SHA3_NULL_S,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
-import { keccak256 } from 'ethers/lib/utils';
+import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
   SignTypedDataVersion,
   TypedDataUtils,
-  TypedMessage,
-  signTypedData,
 } from '@metamask/eth-sig-util';
 import {
   getLocalEip712Signature,
-  TypedRequestData,
-  TypedDeployRequestData,
-  getLocalEip712DeploySignature,
-  EnvelopingEIP712Types,
-  getTypedRequestData,
+  TypedRequestData
 } from '../utils/EIP712Utils';
 import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
+import nodeConfig from 'config';
 
 import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
@@ -58,6 +57,8 @@ use(chaiAsPromised);
 const ATTEMPTS_GET_SERVER_STATUS = 3;
 const ATTEMPTS_GET_SERVER_READY = 25;
 const ONE_FIELD_IN_BYTES = 32;
+const CHARS_PER_FIELD = 64;
+const PREFIX_HEX = '0x';
 
 type SupportedSmartWallet = CustomSmartWallet | SmartWallet;
 type SupportedSmartWalletFactory = CustomSmartWalletFactory | SmartWalletFactory;
@@ -100,6 +101,14 @@ type PrepareRelayTransactionParams = {
   gas: BigNumberish;
   swAddress: string;
 };
+
+const CONFIG_BLOCKCHAIN = 'blockchain';
+const CONFIG_RSK_URL = 'rskNodeUrl';
+
+const RSK_URL = nodeConfig.get<string>(
+  `${CONFIG_BLOCKCHAIN}.${CONFIG_RSK_URL}`
+);
+
 
 const { provider } = ethers;
 
@@ -295,125 +304,165 @@ const createSmartWalletFactory = async (
   return factory.connect(owner).deploy(template.address);
 };
 
-const createSupportedSmartWallet = async (
-  isCustom: boolean,
-  owner: Wallet,
-  index: number,
-  factory: SupportedSmartWalletFactory
-) => {
-  if (isCustom) {
-    const dataTypesToSign = [
-      'bytes2',
-      'address',
-      'address',
-      'address',
-      'uint256',
-      'bytes',
-    ];
-    const valuesToSign = [
-      '0x1910',
-      owner.address,
-      constants.AddressZero,
-      constants.AddressZero,
+const createSupportedSmartWallet = async ({
+  relayHub,
+  sender,
+  owner,
+  factory,
+  tokenContract = constants.AddressZero,
+  tokenAmount = 0,
+  tokenGas = 0,
+  recoverer = constants.AddressZero,
+  index = 0,
+  validUntilTime = 0,
+  logicAddr = constants.AddressZero,
+  initParams = SHA3_NULL_S,
+  isCustomSmartWallet,
+}: CreateSmartWalletParams): Promise<SupportedSmartWallet> => {
+  const envelopingRequest = createEnvelopingRequest(
+    true,
+    {
+      relayHub,
+      from: owner.address,
+      to: logicAddr,
+      tokenContract,
+      recoverer,
+      tokenAmount,
+      tokenGas,
+      validUntilTime,
       index,
-      '0x',
-    ];
+      data: initParams,
+    },
+    {
+      callForwarder: factory.address,
+    }
+  );
 
-    const signature = signData(dataTypesToSign, valuesToSign, owner);
-    await (factory as CustomSmartWalletFactory).createUserSmartWallet(
-      owner.address,
+  const { signature, suffixData } = await signEnvelopingRequest(
+    envelopingRequest,
+    owner
+  );
+
+  await factory
+    .connect(sender)
+    .relayedUserSmartWalletCreation(
+      envelopingRequest.request as DeployRequestBody,
+      suffixData,
       constants.AddressZero,
-      constants.AddressZero,
-      index,
-      '0x',
       signature
     );
 
-    const customSmartWalletAddress = await (
-      factory as CustomSmartWalletFactory
-    ).getSmartWalletAddress(
-      owner.address,
-      constants.AddressZero,
-      constants.AddressZero,
-      keccak256('0x'),
-      index
-    );
+  const isCustom =
+    isCustomSmartWallet ?? (!!logicAddr && logicAddr !== constants.AddressZero);
 
-    // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
-    return new Contract(
-      customSmartWalletAddress,
+  const swAddress = isCustom
+    ? await (factory as CustomSmartWalletFactory).getSmartWalletAddress(
+        owner.address,
+        recoverer,
+        logicAddr,
+        keccak256(initParams),
+        index
+      )
+    : await (factory as SmartWalletFactory).getSmartWalletAddress(
+        owner.address,
+        recoverer,
+        index
+      );
+
+  // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
+  return isCustom
+    ? new Contract(
+      swAddress,
       CustomSmartWalletJson.abi,
       owner
-    ) as CustomSmartWallet;
-  } else {
-    const dataTypesToSign = ['bytes2', 'address', 'address', 'uint256'];
-    const valuesToSign = [
-      '0x1910',
-      owner.address,
-      constants.AddressZero,
-      index,
-    ];
-
-    const signature = signData(dataTypesToSign, valuesToSign, owner);
-    await (factory as SmartWalletFactory).createUserSmartWallet(
-      owner.address,
-      constants.AddressZero,
-      index,
-      signature
-    );
-
-    const smartWalletAddress = await (
-      factory as SmartWalletFactory
-    ).getSmartWalletAddress(owner.address, constants.AddressZero, index);
-
-    // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
-    return new Contract(
-      smartWalletAddress,
+    ) as CustomSmartWallet
+    : new Contract(
+      swAddress,
       SmartWalletJson.abi,
       owner
     ) as SmartWallet;
-  }
+  // return isCustom
+  //   ? ethers.getContractAt('CustomSmartWallet', swAddress)
+  //   : ethers.getContractAt('SmartWallet', swAddress);
 };
 
-//TODO: Replace new signature function here
-// const prepareRelayTransaction = async ({
-//   relayHub,
-//   owner,
-//   tokenContract = constants.AddressZero,
-//   tokenAmount = 0,
-//   tokenGas = 0,
-//   validUntilTime = 0,
-//   logicAddr = constants.AddressZero,
-//   initParams = '0x00',
-//   gas = 0,
-//   swAddress,
-// }: PrepareRelayTransactionParams) => {
-//   const envelopingRequest = createEnvelopingRequest(
-//     true,
-//     {
-//       relayHub,
-//       from: owner.address,
-//       to: logicAddr,
-//       data: initParams,
-//       tokenContract,
-//       tokenAmount,
-//       tokenGas,
-//       validUntilTime,
-//       gas,
-//     },
-//     {
-//       callForwarder: swAddress,
-//     }
-//   );
 
-//   // const { signature } = await signEnvelopingRequest(envelopingRequest, owner);
-//   const { signature } = await getSuffixDataAndSignature(envelopingRequest, owner);
+const prepareRelayTransaction = async ({
+  relayHub,
+  owner,
+  tokenContract = constants.AddressZero,
+  tokenAmount = 0,
+  tokenGas = 0,
+  validUntilTime = 0,
+  logicAddr = constants.AddressZero,
+  initParams = '0x00',
+  gas = 0,
+  swAddress,
+}: PrepareRelayTransactionParams) => {
+  const envelopingRequest = createEnvelopingRequest(
+    true,
+    {
+      relayHub,
+      from: owner.address,
+      to: logicAddr,
+      data: initParams,
+      tokenContract,
+      tokenAmount,
+      tokenGas,
+      validUntilTime,
+      gas,
+    },
+    {
+      callForwarder: swAddress,
+    }
+  );
 
-//   return {
-//     envelopingRequest,
-//     signature,
-//   };
-// };
+  const { signature } = await signEnvelopingRequest(envelopingRequest, owner);
+
+  return {
+    envelopingRequest,
+    signature,
+  };
+};
+
+const signEnvelopingRequest = async (
+  envelopingRequest: EnvelopingRequest,
+  signer: Wallet
+) => {
+  const {
+    relayData: { callForwarder },
+  } = envelopingRequest;
+
+  const { chainId } = await provider.getNetwork();
+
+  const requestTypes = isDeployRequest(envelopingRequest)
+    ? deployRequestType
+    : relayRequestType;
+
+  const data = getEnvelopingRequestDataV4Field({
+    chainId,
+    verifier: callForwarder.toString(),
+    requestTypes,
+    envelopingRequest,
+  });
+
+  const { domain, types, value, primaryType } = data;
+
+  const signature = await signer._signTypedData(domain, types, value);
+
+  const messageSize = Object.keys(requestTypes).length;
+
+  const enconded = _TypedDataEncoder.from(types).encodeData(primaryType, value);
+
+  const suffixData =
+    PREFIX_HEX +
+    enconded.slice(messageSize * CHARS_PER_FIELD + PREFIX_HEX.length);
+
+  return {
+    signature,
+    suffixData,
+  };
+};
 
 const getSuffixDataAndSignature = async (
   smartWallet: SupportedSmartWallet,
@@ -463,7 +512,7 @@ const signData = (
   return ethers.utils.joinSignature(signature);
 };
 
-const getSuffixDataAndSignature = async (
+/* const getSuffixDataAndSignature = async (
   rifSmartWallet: RifSmartWallet,
   relayRequest: RelayRequest,
   owner: Wallet
@@ -487,22 +536,8 @@ const getSuffixDataAndSignature = async (
   });
 
   return { suffixData, signature };
-};
+}; */
 
-const getSuffixData = (
-  typedRequestData: TypedMessage<EnvelopingEIP712Types>
-): string => {
-  const encoded = TypedDataUtils.encodeData(
-    typedRequestData.primaryType as string,
-    typedRequestData.message,
-    typedRequestData.types,
-    SignTypedDataVersion.V4
-  );
-
-  const messageSize = Object.keys(typedRequestData.message).length;
-
-  return '0x' + encoded.slice(messageSize * 32).toString('hex');
-};
 
 const baseRelayData: EnvelopingRequestData = {
   gasPrice: '1',
@@ -578,13 +613,14 @@ export {
   revertEvmSnapshot,
   getExistingGaslessAccount,
   createSmartWalletFactory,
-  // prepareRelayTransaction,
+  prepareRelayTransaction,
   deployRelayHub,
   createEnvelopingRequest,
   getSuffixData,
   signData,
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
+  RSK_URL
 };
 
 export type {
@@ -592,5 +628,5 @@ export type {
   CreateSmartWalletParams,
   PrepareRelayTransactionParams,
   SupportedSmartWallet,
-  SupportedSmartWalletFactory
+  SupportedSmartWalletFactory,
 };

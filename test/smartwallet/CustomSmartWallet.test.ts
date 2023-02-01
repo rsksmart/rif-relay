@@ -2,10 +2,11 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import {
   createSmartWalletFactory,
-  createSmartWallet,
+  createSupportedSmartWallet,
   getSuffixDataAndSignature,
-} from '../TestUtils';
-import { BigNumber, Wallet, constants } from 'ethers';
+  RSK_URL,
+} from '../utils/TestUtils';
+import { BigNumber, Wallet, constants, providers } from 'ethers';
 import {
   EnvelopingTypes,
   UtilToken,
@@ -27,6 +28,7 @@ import {
   TestForwarderTarget,
 } from '../../typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { INTERNAL_TRANSACTION_ESTIMATED_CORRECTION } from '@rsksmart/rif-relay-client';
 
 async function fillTokens(
   token: UtilToken,
@@ -84,6 +86,7 @@ function createRequest(
 describe('Custom Smart Wallet using TestToken', function () {
   let recipient: TestForwarderTarget;
   let recipientFunction: string;
+  let recipientEstimatedGas: BigNumber;
   let successCustomLogicFactory: SuccessCustomLogic__factory;
   let proxyCustomLogicFactory: ProxyCustomLogic__factory;
   let failureCustomLogicFactory: FailureCustomLogic__factory;
@@ -108,6 +111,9 @@ describe('Custom Smart Wallet using TestToken', function () {
     recipientFunction = recipient.interface.encodeFunctionData('emitMessage', [
       'hello',
     ]);
+    recipientEstimatedGas = (
+      await recipient.estimateGas.emitMessage('hello')
+    ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
     successCustomLogicFactory = await ethers.getContractFactory(
       'SuccessCustomLogic'
     );
@@ -127,8 +133,8 @@ describe('Custom Smart Wallet using TestToken', function () {
     failureCustomLogic = await failureCustomLogicFactory.deploy();
     proxyCustomLogic = await proxyCustomLogicFactory.deploy();
 
-    const provider = ethers.provider;
-    owner = ethers.Wallet.createRandom().connect(provider);
+    const provider = new providers.JsonRpcProvider(RSK_URL);
+    owner = Wallet.createRandom().connect(provider);
 
     [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
       SignerWithAddress,
@@ -147,7 +153,7 @@ describe('Custom Smart Wallet using TestToken', function () {
   });
 
   async function createCustomSmartWallet(customLogic: IWalletCustomLogic) {
-    const smartWallet = (await createSmartWallet({
+    const smartWallet = (await createSupportedSmartWallet({
       relayHub: relayHub.address,
       owner,
       sender: relayHub,
@@ -200,6 +206,7 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: relayHub.address,
           tokenContract: token.address,
           from: owner.address,
+          gas: recipientEstimatedGas.toString()
         },
         relayData
       );
@@ -210,9 +217,11 @@ describe('Custom Smart Wallet using TestToken', function () {
         owner
       );
 
-      await smartWallet
-        .connect(relayHub)
-        .execute(suffixData, relayRequest.request, worker?.address, signature);
+      const connectedSmartWallet = smartWallet.connect(relayHub);
+      const estimatedGas = await connectedSmartWallet.estimateGas.execute(suffixData, relayRequest.request, worker?.address, signature);
+      // We need to add more gas than estimated otherwise the tx fails
+      const gasLimit =  estimatedGas.add(2000);
+      await connectedSmartWallet.execute(suffixData, relayRequest.request, worker?.address, signature, {gasLimit});
 
       const eventFilter = successCustomLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
@@ -258,6 +267,7 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: worker.address,
           tokenContract: token.address,
           from: owner.address,
+          gas: recipientEstimatedGas.toString()
         },
         relayData
       );
@@ -335,6 +345,7 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: caller.address,
           tokenContract: token.address,
           from: owner.address,
+          gas: recipientEstimatedGas.toString()
         },
         relayData
       );
@@ -404,6 +415,7 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: caller.address,
           tokenContract: token.address,
           from: owner.address,
+          gas: recipientEstimatedGas.toString()
         },
         relayData
       );
