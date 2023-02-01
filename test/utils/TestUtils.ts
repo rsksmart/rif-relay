@@ -38,13 +38,10 @@ import { ethers } from 'hardhat';
 import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import {
-  SignTypedDataVersion,
-  TypedDataUtils,
-} from '@metamask/eth-sig-util';
+import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 import {
   getLocalEip712Signature,
-  TypedRequestData
+  TypedRequestData,
 } from '../utils/EIP712Utils';
 import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
 import nodeConfig from 'config';
@@ -61,7 +58,9 @@ const CHARS_PER_FIELD = 64;
 const PREFIX_HEX = '0x';
 
 type SupportedSmartWallet = CustomSmartWallet | SmartWallet;
-type SupportedSmartWalletFactory = CustomSmartWalletFactory | SmartWalletFactory;
+type SupportedSmartWalletFactory =
+  | CustomSmartWalletFactory
+  | SmartWalletFactory;
 
 type RelayRequest = EnvelopingTypes.RelayRequestStruct;
 
@@ -108,7 +107,6 @@ const CONFIG_RSK_URL = 'rskNodeUrl';
 const RSK_URL = nodeConfig.get<string>(
   `${CONFIG_BLOCKCHAIN}.${CONFIG_RSK_URL}`
 );
-
 
 const { provider } = ethers;
 
@@ -371,21 +369,16 @@ const createSupportedSmartWallet = async ({
 
   // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
   return isCustom
-    ? new Contract(
-      swAddress,
-      CustomSmartWalletJson.abi,
-      owner
-    ) as CustomSmartWallet
-    : new Contract(
-      swAddress,
-      SmartWalletJson.abi,
-      owner
-    ) as SmartWallet;
+    ? (new Contract(
+        swAddress,
+        CustomSmartWalletJson.abi,
+        owner
+      ) as CustomSmartWallet)
+    : (new Contract(swAddress, SmartWalletJson.abi, owner) as SmartWallet);
   // return isCustom
   //   ? ethers.getContractAt('CustomSmartWallet', swAddress)
   //   : ethers.getContractAt('SmartWallet', swAddress);
 };
-
 
 const prepareRelayTransaction = async ({
   relayHub,
@@ -538,7 +531,6 @@ const signData = (
   return { suffixData, signature };
 }; */
 
-
 const baseRelayData: EnvelopingRequestData = {
   gasPrice: '1',
   feesReceiver: constants.AddressZero,
@@ -620,7 +612,7 @@ export {
   signData,
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
-  RSK_URL
+  RSK_URL,
 };
 
 export type {

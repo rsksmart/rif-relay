@@ -141,13 +141,16 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           await expect(
-            supportedSmartWallet.verify(suffixData, relayRequest.request, signature)
+            supportedSmartWallet.verify(
+              suffixData,
+              relayRequest.request,
+              signature
+            )
           ).not.to.be.rejected;
         });
       });
 
       describe('Verify failures', function () {
-
         it('Should fail when the domain separator is wrong', async function () {
           //The signature should be obtained manually here to be able to inject a
           //wrong domain separator name
@@ -229,11 +232,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           await expect(
-            supportedSmartWallet.verify(
-              suffixData,
-              relayRequest.request,
-              '0x'
-            ),
+            supportedSmartWallet.verify(suffixData, relayRequest.request, '0x'),
             'Signature as 0x'
           ).to.be.rejectedWith('ECDSA: invalid signature length');
 
@@ -344,7 +343,11 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               )
           )
             .to.emit(target, 'TestForwarderMessage')
-            .withArgs(TEST_MESSAGE, supportedSmartWallet.address, relayHub.address);
+            .withArgs(
+              TEST_MESSAGE,
+              supportedSmartWallet.address,
+              relayHub.address
+            );
 
           const finalSmartWalletTokenBalance = await token.balanceOf(
             supportedSmartWallet.address
@@ -371,9 +374,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               .toString()
           );
 
-          expect(await supportedSmartWallet.nonce(), 'Wrong final nonce').to.be.equal(
-            initialNonce.add(1)
-          );
+          expect(
+            await supportedSmartWallet.nonce(),
+            'Wrong final nonce'
+          ).to.be.equal(initialNonce.add(1));
         });
 
         it('Should revert when token amount is not provided', async function () {
