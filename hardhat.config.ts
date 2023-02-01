@@ -35,21 +35,14 @@ const config: HardhatUserConfig = {
     regtest: {
       url: getRskNodeUrl(),
       chainId: 33,
+      gas: 6300000,
+      gasPrice: 60000000,
     },
   },
   typechain: {
     target: 'ethers-v5',
     outDir: 'typechain-types',
-  },
-  /* contractSizer: {
-    alphaSort: true,
-    disambiguatePaths: false,
-    runOnCompile: true,
-    strict: false,
-  }*/
-  mocha: {
-    timeout: 20000,
-  },
+  }
 };
 
 export default config;
