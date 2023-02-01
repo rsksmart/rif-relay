@@ -5,17 +5,24 @@ import {
   createSmartWallet,
   getSuffixDataAndSignature,
 } from '../TestUtils';
-import { BigNumber, constants } from 'ethers';
+import { BigNumber, Wallet, constants } from 'ethers';
 import {
   EnvelopingTypes,
   UtilToken,
   IForwarder,
   CustomSmartWallet__factory,
   UtilToken__factory,
+  CustomSmartWallet,
+  CustomSmartWalletFactory,
+  SmartWalletFactory,
+  IWalletCustomLogic,
 } from '@rsksmart/rif-relay-contracts';
 import {
+  FailureCustomLogic,
   FailureCustomLogic__factory,
+  ProxyCustomLogic,
   ProxyCustomLogic__factory,
+  SuccessCustomLogic,
   SuccessCustomLogic__factory,
   TestForwarderTarget,
 } from '../../typechain-types';
@@ -81,7 +88,17 @@ describe('Custom Smart Wallet using TestToken', function () {
   let proxyCustomLogicFactory: ProxyCustomLogic__factory;
   let failureCustomLogicFactory: FailureCustomLogic__factory;
   let customSmartWalletFactory: CustomSmartWallet__factory;
+  let template: CustomSmartWallet;
+  let successCustomLogic: SuccessCustomLogic;
+  let failureCustomLogic: FailureCustomLogic;
+  let proxyCustomLogic: ProxyCustomLogic;
+  let factory: CustomSmartWalletFactory | SmartWalletFactory;
   let utilTokenFactory: UtilToken__factory;
+  let token: UtilToken;
+  let owner: Wallet;
+  let fundedAccount: SignerWithAddress;
+  let relayHub: SignerWithAddress;
+  let worker: SignerWithAddress;
 
   beforeEach(async function () {
     const testForwarderTargetFactory = await ethers.getContractFactory(
@@ -104,54 +121,76 @@ describe('Custom Smart Wallet using TestToken', function () {
       'CustomSmartWallet'
     );
     utilTokenFactory = await ethers.getContractFactory('UtilToken');
+
+    template = await customSmartWalletFactory.deploy();
+    successCustomLogic = await successCustomLogicFactory.deploy();
+    failureCustomLogic = await failureCustomLogicFactory.deploy();
+    proxyCustomLogic = await proxyCustomLogicFactory.deploy();
+
+    const provider = ethers.provider;
+    owner = ethers.Wallet.createRandom().connect(provider);
+
+    [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
+      SignerWithAddress,
+      SignerWithAddress,
+      SignerWithAddress
+    ];
+
+    //Fund the owner
+    await fundedAccount.sendTransaction({
+      to: owner.address,
+      value: ethers.utils.parseEther('1'),
+    });
+
+    factory = await createSmartWalletFactory(template, true, owner);
+    token = await utilTokenFactory.deploy();
   });
+
+  async function createCustomSmartWallet(customLogic: IWalletCustomLogic) {
+    const smartWallet = (await createSmartWallet({
+      relayHub: relayHub.address,
+      owner,
+      sender: relayHub,
+      factory,
+      logicAddr: customLogic.address,
+      isCustomSmartWallet: true,
+    })) as CustomSmartWallet;
+
+    await fillTokens(token, smartWallet.address, '1000');
+
+    const relayData = {
+      callForwarder: smartWallet.address,
+    };
+
+    return { smartWallet, relayData };
+  }
+
+  async function getTokenBalancesAndNonce(smartWallet: CustomSmartWallet) {
+    const workerTokenBalance = await getTokenBalance(token, worker.address);
+    const smartWalletTokenBalance = await getTokenBalance(
+      token,
+      smartWallet.address
+    );
+    const nonce = await smartWallet.nonce();
+
+    return {
+      workerTokenBalance,
+      smartWalletTokenBalance,
+      nonce,
+    };
+  }
+
   describe('#verifyAndCallByRelayHub', function () {
     it('should call function with custom logic', async function () {
-      const customLogic = await successCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-      const relayData = {
-        callForwarder: smartWallet.address,
-      };
-
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker.address
+      const { smartWallet, relayData } = await createCustomSmartWallet(
+        successCustomLogic
       );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       const relayRequest = createRequest(
         {
@@ -161,7 +200,6 @@ describe('Custom Smart Wallet using TestToken', function () {
           relayHub: relayHub.address,
           tokenContract: token.address,
           from: owner.address,
-          gas: 10000,
         },
         relayData
       );
@@ -176,13 +214,15 @@ describe('Custom Smart Wallet using TestToken', function () {
         .connect(relayHub)
         .execute(suffixData, relayRequest.request, worker?.address, signature);
 
-      const eventFilter = customLogic.filters.LogicCalled();
+      const eventFilter = successCustomLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
       expect(successLogicLogs.length).equal(1, 'Should call custom logic');
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(1),
@@ -200,51 +240,15 @@ describe('Custom Smart Wallet using TestToken', function () {
     });
 
     it("should call function from custom logic with wallet's address", async function () {
-      const customLogic = await proxyCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
-
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-      const relayData = {
-        callForwarder: smartWallet.address,
-      };
-
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker?.address
+      const { smartWallet, relayData } = await createCustomSmartWallet(
+        proxyCustomLogic
       );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       const relayRequest = createRequest(
         {
@@ -267,7 +271,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         .connect(worker)
         .execute(suffixData, relayRequest.request, worker.address, signature);
 
-      const logicCalledEventFilter = customLogic.filters.LogicCalled();
+      const logicCalledEventFilter = proxyCustomLogic.filters.LogicCalled();
       const proxyLogicLogs = await smartWallet.queryFilter(
         logicCalledEventFilter
       );
@@ -287,8 +291,10 @@ describe('Custom Smart Wallet using TestToken', function () {
         'msg.sender must be the smart wallet address'
       );
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(1),
@@ -306,56 +312,20 @@ describe('Custom Smart Wallet using TestToken', function () {
     });
 
     it('should revert if logic revert', async function () {
-      const customLogic = await failureCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
-
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-      const relayData = {
-        callForwarder: smartWallet.address,
-      };
+      const { smartWallet, relayData } = await createCustomSmartWallet(
+        failureCustomLogic
+      );
 
       const testSmartWalletFactory = await ethers.getContractFactory(
         'TestSmartWallet'
       );
       const caller = await testSmartWalletFactory.deploy();
 
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker.address
-      );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       const relayRequest = createRequest(
         {
@@ -390,8 +360,10 @@ describe('Custom Smart Wallet using TestToken', function () {
       expect(logs[0]?.args.error).to.equal('always fail', 'Incorrect message');
       expect(logs[0]?.args.success).to.be.equal(false, 'Incorrect message');
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(1),
@@ -409,56 +381,20 @@ describe('Custom Smart Wallet using TestToken', function () {
     });
 
     it('should not be able to re-submit after revert', async function () {
-      const customLogic = await failureCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
-
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-      const relayData = {
-        callForwarder: smartWallet.address,
-      };
+      const { smartWallet, relayData } = await createCustomSmartWallet(
+        failureCustomLogic
+      );
 
       const testSmartWalletFactory = await ethers.getContractFactory(
         'TestSmartWallet'
       );
       const caller = await testSmartWalletFactory.deploy();
 
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker.address
-      );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       const relayRequest = createRequest(
         {
@@ -493,8 +429,10 @@ describe('Custom Smart Wallet using TestToken', function () {
       expect(logs[0]?.args.error).to.equal('always fail', 'Incorrect message');
       expect(logs[0]?.args.success).to.equal(false, 'Should have failed');
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(1),
@@ -538,60 +476,27 @@ describe('Custom Smart Wallet using TestToken', function () {
 
   describe('verifyAndCallByOwner', function () {
     it('should call function with custom logic', async function () {
-      const customLogic = await successCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
+      const { smartWallet } = await createCustomSmartWallet(successCustomLogic);
 
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker.address
-      );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       await smartWallet
         .connect(owner)
         .directExecute(recipient.address, recipientFunction);
 
-      const eventFilter = customLogic.filters.LogicCalled();
+      const eventFilter = successCustomLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
       expect(successLogicLogs.length).equal(1, 'Should call custom logic');
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(0),
@@ -609,38 +514,7 @@ describe('Custom Smart Wallet using TestToken', function () {
     });
 
     it('should revert if logic revert', async function () {
-      const customLogic = await failureCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
-
-      const [relayHub, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
+      const { smartWallet } = await createCustomSmartWallet(failureCustomLogic);
 
       await smartWallet
         .connect(owner)
@@ -656,54 +530,19 @@ describe('Custom Smart Wallet using TestToken', function () {
     });
 
     it("should call function from custom logic with wallet's address", async function () {
-      const customLogic = await proxyCustomLogicFactory.deploy();
-      const template = await customSmartWalletFactory.deploy();
+      const { smartWallet } = await createCustomSmartWallet(proxyCustomLogic);
 
-      const [relayHub, worker, fundedAccount] = (await ethers.getSigners()) as [
-        SignerWithAddress,
-        SignerWithAddress,
-        SignerWithAddress
-      ];
-
-      const provider = ethers.provider;
-      const owner = ethers.Wallet.createRandom().connect(provider);
-
-      //Fund the owner
-      await fundedAccount.sendTransaction({
-        to: owner.address,
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const factory = await createSmartWalletFactory(template, true, owner);
-
-      const smartWallet = await createSmartWallet({
-        relayHub: relayHub.address,
-        owner,
-        sender: relayHub,
-        factory,
-        logicAddr: customLogic.address,
-        isCustomSmartWallet: true,
-      });
-
-      const token = await utilTokenFactory.deploy();
-
-      await fillTokens(token, smartWallet.address, '1000');
-
-      const initialWorkerTokenBalance = await getTokenBalance(
-        token,
-        worker.address
-      );
-      const initialSWalletTokenBalance = await getTokenBalance(
-        token,
-        smartWallet.address
-      );
-      const initialNonce = await smartWallet.nonce();
+      const {
+        workerTokenBalance: initialWorkerTokenBalance,
+        smartWalletTokenBalance: initialSWalletTokenBalance,
+        nonce: initialNonce,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       await smartWallet
         .connect(owner)
         .directExecute(recipient.address, recipientFunction);
 
-      const eventFilter = customLogic.filters.LogicCalled();
+      const eventFilter = proxyCustomLogic.filters.LogicCalled();
       const successLogicLogs = await smartWallet.queryFilter(eventFilter);
 
       expect(successLogicLogs.length).equal(1, 'Should call custom logic');
@@ -722,8 +561,10 @@ describe('Custom Smart Wallet using TestToken', function () {
         'msg.sender must be the smart wallet address'
       );
 
-      const tknBalance = await getTokenBalance(token, worker.address);
-      const swTknBalance = await getTokenBalance(token, smartWallet.address);
+      const {
+        workerTokenBalance: tknBalance,
+        smartWalletTokenBalance: swTknBalance,
+      } = await getTokenBalancesAndNonce(smartWallet);
 
       expect(tknBalance.sub(initialWorkerTokenBalance)).to.equal(
         BigNumber.from(0),
