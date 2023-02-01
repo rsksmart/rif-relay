@@ -43,7 +43,6 @@ import {
   getLocalEip712Signature,
   TypedRequestData,
 } from '../utils/EIP712Utils';
-import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
 import nodeConfig from 'config';
 
 import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
@@ -61,8 +60,6 @@ type SupportedSmartWallet = CustomSmartWallet | SmartWallet;
 type SupportedSmartWalletFactory =
   | CustomSmartWalletFactory
   | SmartWalletFactory;
-
-type RelayRequest = EnvelopingTypes.RelayRequestStruct;
 
 type StartRelayParams = {
   serverConfig: ServerConfigParams;
@@ -504,32 +501,6 @@ const signData = (
 
   return ethers.utils.joinSignature(signature);
 };
-
-/* const getSuffixDataAndSignature = async (
-  rifSmartWallet: RifSmartWallet,
-  relayRequest: RelayRequest,
-  owner: Wallet
-) => {
-  const { chainId } = await provider.getNetwork();
-
-  const typedRequestData = getTypedRequestData(
-    chainId,
-    rifSmartWallet.address,
-    relayRequest
-  );
-
-  const privateKey = Buffer.from(owner.privateKey.substring(2, 66), 'hex');
-
-  const suffixData = getSuffixData(typedRequestData);
-
-  const signature = signTypedData({
-    privateKey: privateKey,
-    data: typedRequestData,
-    version: SignTypedDataVersion.V4,
-  });
-
-  return { suffixData, signature };
-}; */
 
 const baseRelayData: EnvelopingRequestData = {
   gasPrice: '1',
