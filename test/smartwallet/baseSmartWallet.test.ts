@@ -8,24 +8,24 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { TestForwarder, TestTarget } from 'typechain-types';
-import { Wallet, providers, Contract } from 'ethers';
+import { Wallet, providers } from 'ethers';
 import {
   TEST_TOKEN_NAME,
   NON_REVERT_TEST_TOKEN_NAME,
   TETHER_TOKEN_NAME,
   INITIAL_SMART_WALLET_TOKEN_AMOUNT,
-  RifSmartWallet,
   TokenToTest,
   prepareToken,
   mintTokens,
   getLogArguments,
-} from './rifSmartWalletUtils';
+} from './utils';
 import {
   createSmartWalletFactory,
-  createRifSmartWallet,
+  createSupportedSmartWallet,
   createEnvelopingRequest,
   getSuffixDataAndSignature,
   getSuffixData,
+  SupportedSmartWallet,
 } from '../utils/TestUtils';
 import {
   RelayRequest,
@@ -35,9 +35,6 @@ import {
   getLocalEip712Signature,
   TypedRequestData,
 } from '../utils/EIP712Utils';
-import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
-import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
-import { CustomSmartWallet, SmartWallet } from '@rsksmart/rif-relay-contracts';
 import nodeConfig from 'config';
 
 chai.use(chaiAsPromised);
@@ -69,55 +66,31 @@ const isCustomSmartWallet = (smartWalletType: string) =>
 
 type TypeOfWallet = 'CustomSmartWallet' | 'SmartWallet';
 
-function createRifSmartWalletFromABI(
-  isCustom: boolean,
-  rifSmartWallet: RifSmartWallet,
-  owner: Wallet
-) {
-  if (isCustom) {
-    const smartWalletABI = SmartWalletJson.abi;
-
-    return new Contract(
-      rifSmartWallet.address,
-      smartWalletABI,
-      owner
-    ) as SmartWallet;
-  } else {
-    const customSmartWalletABI = CustomSmartWalletJson.abi;
-
-    return new Contract(
-      rifSmartWallet.address,
-      customSmartWalletABI,
-      owner
-    ) as CustomSmartWallet;
-  }
-}
-
 TYPES_OF_WALLETS.forEach((typeOfWallet) => {
   const isCustom = isCustomSmartWallet(typeOfWallet);
 
-  describe(`RIF SmartWallet tests using ${typeOfWallet}`, function () {
+  describe(`Base SmartWallet tests using ${typeOfWallet}`, function () {
     let provider: BaseProvider;
     let owner: Wallet;
-    let rifSmartWallet: RifSmartWallet;
-    let rifSmartWalletTemplate: RifSmartWallet;
+    let supportedSmartWallet: SupportedSmartWallet;
+    let supportedSmartWalletTemplate: SupportedSmartWallet;
     let relayHub: SignerWithAddress;
 
     before(async function () {
-      //Create the RIFSmartWallet template
+      //Create the any of the supported smart wallet templates
       if (isCustom) {
         const customSmartWalletFactory = (await hardhat.getContractFactory(
           `${typeOfWallet}`
         )) as CustomSmartWallet__factory;
-        rifSmartWalletTemplate = await customSmartWalletFactory.deploy();
+        supportedSmartWalletTemplate = await customSmartWalletFactory.deploy();
       } else {
         const smartWalletFactory = (await hardhat.getContractFactory(
           `${typeOfWallet}`
         )) as SmartWallet__factory;
-        rifSmartWalletTemplate = await smartWalletFactory.deploy();
+        supportedSmartWalletTemplate = await smartWalletFactory.deploy();
       }
-
-      provider = hardhat.provider;
+      // We couldn't use hardhat.provider, because we couldn't retrieve the revert reason.
+      provider = new providers.JsonRpcProvider(RSK_URL);
     });
 
     beforeEach(async function () {
@@ -132,17 +105,17 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         value: hardhat.utils.parseEther('10'),
       });
 
-      const rifSmartWalletFactory = await createSmartWalletFactory(
-        rifSmartWalletTemplate,
+      const supportedSmartWalletFactory = await createSmartWalletFactory(
+        supportedSmartWalletTemplate,
         isCustom,
         owner
       );
 
-      rifSmartWallet = await createRifSmartWallet(
+      supportedSmartWallet = await createSupportedSmartWallet(
         isCustom,
         owner,
         0,
-        rifSmartWalletFactory
+        supportedSmartWalletFactory
       );
     });
 
@@ -156,43 +129,33 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               relayHub: relayHub.address,
             },
             {
-              callForwarder: rifSmartWallet.address,
+              callForwarder: supportedSmartWallet.address,
             }
           ) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
-          await rifSmartWallet.verify(
+          await supportedSmartWallet.verify(
             suffixData,
             relayRequest.request,
             signature
           );
 
           await expect(
-            rifSmartWallet.verify(suffixData, relayRequest.request, signature)
+            supportedSmartWallet.verify(suffixData, relayRequest.request, signature)
           ).not.to.be.rejected;
         });
       });
 
-      /*For unknown reasons, when the verify method fails, the string attached to the revert is 
-      not returned. In order to fix that and be able to assert that message, the tests in this 
-      Describe block use an alternative mechanism to create the RIFSmartWallet and also the provider.*/
       describe('Verify failures', function () {
-        let alternativeProvider: providers.JsonRpcProvider;
-        let alternativeRifSmartWallet: RifSmartWallet;
-
-        before(function () {
-          alternativeProvider = new providers.JsonRpcProvider(RSK_URL);
-        });
 
         it('Should fail when the domain separator is wrong', async function () {
           //The signature should be obtained manually here to be able to inject a
           //wrong domain separator name
-          // owner = Wallet.createRandom().connect(alternativeProvider);
           const relayRequest = createEnvelopingRequest(
             IS_DEPLOY_REQUEST,
             {
@@ -200,7 +163,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               relayHub: relayHub.address,
             },
             {
-              callForwarder: rifSmartWallet.address,
+              callForwarder: supportedSmartWallet.address,
             }
           ) as RelayRequest;
 
@@ -208,7 +171,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
           const typedRequestData = new TypedRequestData(
             chainId,
-            rifSmartWallet.address,
+            supportedSmartWallet.address,
             relayRequest
           );
 
@@ -225,15 +188,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             privateKey
           );
 
-          owner = Wallet.createRandom().connect(alternativeProvider);
-          alternativeRifSmartWallet = createRifSmartWalletFromABI(
-            isCustom,
-            rifSmartWallet,
-            owner
-          );
-
           await expect(
-            alternativeRifSmartWallet.verify(
+            supportedSmartWallet.verify(
               suffixData,
               relayRequest.request,
               signature
@@ -251,20 +207,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
-          owner = Wallet.createRandom().connect(alternativeProvider);
-          alternativeRifSmartWallet = createRifSmartWalletFromABI(
-            isCustom,
-            rifSmartWallet,
-            owner
-          );
-
           await expect(
-            alternativeRifSmartWallet.verify(
+            supportedSmartWallet.verify(
               suffixData,
               relayRequest.request,
               signature
@@ -279,20 +228,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
-          owner = Wallet.createRandom().connect(alternativeProvider);
-          alternativeRifSmartWallet = createRifSmartWalletFromABI(
-            isCustom,
-            rifSmartWallet,
-            owner
-          );
-
           await expect(
-            alternativeRifSmartWallet.verify(
+            supportedSmartWallet.verify(
               suffixData,
               relayRequest.request,
               '0x'
@@ -301,7 +243,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           ).to.be.rejectedWith('ECDSA: invalid signature length');
 
           await expect(
-            alternativeRifSmartWallet.verify(
+            supportedSmartWallet.verify(
               suffixData,
               relayRequest.request,
               '0x123456'
@@ -310,7 +252,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           ).to.be.rejectedWith('ECDSA: invalid signature length');
 
           await expect(
-            alternativeRifSmartWallet.verify(
+            supportedSmartWallet.verify(
               suffixData,
               relayRequest.request,
               '0x' + '1b'.repeat(65)
@@ -335,7 +277,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           feesReceiver = localFeesReceiver as SignerWithAddress;
 
           await fundedAccount?.sendTransaction({
-            to: rifSmartWallet.address,
+            to: supportedSmartWallet.address,
             value: hardhat.utils.parseEther(
               INITIAL_SMART_WALLET_RBTC_AMOUNT.toString()
             ),
@@ -354,7 +296,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             token,
             tokenName,
             INITIAL_SMART_WALLET_TOKEN_AMOUNT,
-            rifSmartWallet.address
+            supportedSmartWallet.address
           );
         });
 
@@ -366,14 +308,14 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             [TEST_MESSAGE]
           );
 
-          const initialRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const initialSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const initialFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
           );
 
-          const initialNonce = await rifSmartWallet.nonce();
+          const initialNonce = await supportedSmartWallet.nonce();
           const estimatedGas = (
             await target.estimateGas.emitMessage(TEST_MESSAGE)
           ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
@@ -391,13 +333,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
           await expect(
-            rifSmartWallet
+            supportedSmartWallet
               .connect(relayHub)
               .execute(
                 suffixData,
@@ -407,10 +349,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               )
           )
             .to.emit(target, 'TestForwarderMessage')
-            .withArgs(TEST_MESSAGE, rifSmartWallet.address, relayHub.address);
+            .withArgs(TEST_MESSAGE, supportedSmartWallet.address, relayHub.address);
 
-          const finalRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const finalSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const finalFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -426,26 +368,26 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           expect(
-            initialRifSmartWalletTokenBalance.toString(),
+            initialSmartWalletTokenBalance.toString(),
             'Wrong final smart wallet balance'
           ).to.be.equal(
-            finalRifSmartWalletTokenBalance
+            finalSmartWalletTokenBalance
               .add(TOKEN_AMOUNT_TO_TRANSFER)
               .toString()
           );
 
-          expect(await rifSmartWallet.nonce(), 'Wrong final nonce').to.be.equal(
+          expect(await supportedSmartWallet.nonce(), 'Wrong final nonce').to.be.equal(
             initialNonce.add(1)
           );
         });
 
         it('Should revert when token amount is not provided', async function () {
           //Any function can be used since the goal is to make revert the operation before
-          //it reaches the 'call' in the RifSmartWallet
+          //it reaches the 'call' in one of the supported smart wallets
           const targetFunction = '0x';
 
-          const initialRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const initialSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const initialFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -454,7 +396,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
             data: targetFunction,
             to: target.address,
-            nonce: (await rifSmartWallet.nonce()).toString(),
+            nonce: (await supportedSmartWallet.nonce()).toString(),
             tokenAmount: INITIAL_SMART_WALLET_TOKEN_AMOUNT + 1,
             tokenGas: 50000,
             relayHub: forwarder.address,
@@ -464,14 +406,14 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
           await expect(
             forwarder.callExecute(
-              rifSmartWallet.address,
+              supportedSmartWallet.address,
               relayRequest.request,
               suffixData,
               feesReceiver.address,
@@ -480,8 +422,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             'Operation not reverted'
           ).to.be.rejectedWith('Unable to pay for relay');
 
-          const finalRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const finalSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const finalFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -493,17 +435,17 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           ).to.be.equal(finalFeesReceiverTokenBalance.toString());
 
           expect(
-            initialRifSmartWalletTokenBalance.toString(),
+            initialSmartWalletTokenBalance.toString(),
             'Wrong final smart wallet balance'
-          ).to.be.equal(finalRifSmartWalletTokenBalance.toString());
+          ).to.be.equal(finalSmartWalletTokenBalance.toString());
         });
 
         it('Should transfer tokens even when the target operation fails', async function () {
           const targetFunction =
             target.interface.encodeFunctionData('testRevert');
 
-          const initialRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const initialSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const initialFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -516,7 +458,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
             data: targetFunction,
             to: target.address,
-            nonce: (await rifSmartWallet.nonce()).toString(),
+            nonce: (await supportedSmartWallet.nonce()).toString(),
             tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
             tokenGas: 50000,
             relayHub: forwarder.address,
@@ -526,13 +468,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
           const contractTransaction = await forwarder.callExecute(
-            rifSmartWallet.address,
+            supportedSmartWallet.address,
             relayRequest.request,
             suffixData,
             feesReceiver.address,
@@ -550,8 +492,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             'always fail'
           );
 
-          const finalRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const finalSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const finalFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -567,10 +509,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           expect(
-            initialRifSmartWalletTokenBalance.toString(),
+            initialSmartWalletTokenBalance.toString(),
             'Wrong final smart wallet balance'
           ).to.be.equal(
-            finalRifSmartWalletTokenBalance
+            finalSmartWalletTokenBalance
               .add(TOKEN_AMOUNT_TO_TRANSFER)
               .toString()
           );
@@ -580,8 +522,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           const targetFunction =
             target.interface.encodeFunctionData('testRevert');
 
-          const initialRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const initialSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const initialFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -594,7 +536,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
             data: targetFunction,
             to: target.address,
-            nonce: (await rifSmartWallet.nonce()).toString(),
+            nonce: (await supportedSmartWallet.nonce()).toString(),
             tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
             tokenGas: 50000,
             relayHub: forwarder.address,
@@ -604,13 +546,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
-            rifSmartWallet,
+            supportedSmartWallet,
             relayRequest,
             owner
           );
 
           const contractTransaction = await forwarder.callExecute(
-            rifSmartWallet.address,
+            supportedSmartWallet.address,
             relayRequest.request,
             suffixData,
             feesReceiver.address,
@@ -628,8 +570,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             'always fail'
           );
 
-          const currentRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const currentSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const currentFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -645,17 +587,17 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           );
 
           expect(
-            initialRifSmartWalletTokenBalance.toString(),
+            initialSmartWalletTokenBalance.toString(),
             'Wrong final smart wallet balance'
           ).to.be.equal(
-            currentRifSmartWalletTokenBalance
+            currentSmartWalletTokenBalance
               .add(TOKEN_AMOUNT_TO_TRANSFER)
               .toString()
           );
 
           await expect(
             forwarder.callExecute(
-              rifSmartWallet.address,
+              supportedSmartWallet.address,
               relayRequest.request,
               suffixData,
               feesReceiver.address,
@@ -663,8 +605,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             )
           ).to.be.rejectedWith('nonce mismatch');
 
-          const finalRifSmartWalletTokenBalance = await token.balanceOf(
-            rifSmartWallet.address
+          const finalSmartWalletTokenBalance = await token.balanceOf(
+            supportedSmartWallet.address
           );
           const finalFeesReceiverTokenBalance = await token.balanceOf(
             feesReceiver.address
@@ -676,9 +618,9 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
           ).to.be.equal(finalFeesReceiverTokenBalance.toString());
 
           expect(
-            currentRifSmartWalletTokenBalance.toString(),
+            currentSmartWalletTokenBalance.toString(),
             'Wrong final smart wallet balance'
-          ).to.be.equal(finalRifSmartWalletTokenBalance.toString());
+          ).to.be.equal(finalSmartWalletTokenBalance.toString());
         });
 
         describe('Value transfer', function () {
@@ -688,8 +630,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               [RBTC_AMOUNT_TO_TRANSFER.toString()]
             );
 
-            const initialRifSmartWalletTokenBalance = await token.balanceOf(
-              rifSmartWallet.address
+            const initialSmartWalletTokenBalance = await token.balanceOf(
+              supportedSmartWallet.address
             );
             const initialFeesReceiverTokenBalance = await token.balanceOf(
               feesReceiver.address
@@ -705,7 +647,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
               data: targetFunction,
               to: target.address,
-              nonce: (await rifSmartWallet.nonce()).toString(),
+              nonce: (await supportedSmartWallet.nonce()).toString(),
               tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
               tokenGas: 50000,
               relayHub: forwarder.address,
@@ -716,13 +658,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }) as RelayRequest;
 
             const { suffixData, signature } = await getSuffixDataAndSignature(
-              rifSmartWallet,
+              supportedSmartWallet,
               relayRequest,
               owner
             );
 
             const contractTransaction = await forwarder.callExecute(
-              rifSmartWallet.address,
+              supportedSmartWallet.address,
               relayRequest.request,
               suffixData,
               feesReceiver.address,
@@ -734,8 +676,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
             expect(successArgument, 'The execute failed').to.be.equal(true);
 
-            const finalRifSmartWalletTokenBalance = await token.balanceOf(
-              rifSmartWallet.address
+            const finalSmartWalletTokenBalance = await token.balanceOf(
+              supportedSmartWallet.address
             );
             const finalFeesReceiverTokenBalance = await token.balanceOf(
               feesReceiver.address
@@ -754,10 +696,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             expect(
-              initialRifSmartWalletTokenBalance.toString(),
+              initialSmartWalletTokenBalance.toString(),
               'Wrong final token smart wallet balance'
             ).to.be.equal(
-              finalRifSmartWalletTokenBalance
+              finalSmartWalletTokenBalance
                 .add(TOKEN_AMOUNT_TO_TRANSFER)
                 .toString()
             );
@@ -787,7 +729,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
               data: targetFunction,
               to: target.address,
-              nonce: (await rifSmartWallet.nonce()).toString(),
+              nonce: (await supportedSmartWallet.nonce()).toString(),
               tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
               tokenGas: 50000,
               relayHub: forwarder.address,
@@ -798,13 +740,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }) as RelayRequest;
 
             const { suffixData, signature } = await getSuffixDataAndSignature(
-              rifSmartWallet,
+              supportedSmartWallet,
               relayRequest,
               owner
             );
 
             const contractTransaction = await forwarder.callExecute(
-              rifSmartWallet.address,
+              supportedSmartWallet.address,
               relayRequest.request,
               suffixData,
               feesReceiver.address,
@@ -816,15 +758,15 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
             expect(successArgument, 'The execute failed').to.be.equal(true);
 
-            const finalRifSmartWalletRbtcBalance = await provider.getBalance(
-              rifSmartWallet.address
+            const finalSmartWalletRbtcBalance = await provider.getBalance(
+              supportedSmartWallet.address
             );
             const finalOwnerRbtcBalance = await provider.getBalance(
               owner.address
             );
 
             expect(
-              finalRifSmartWalletRbtcBalance.toString(),
+              finalSmartWalletRbtcBalance.toString(),
               'Wrong final smart wallet balance'
             ).to.be.equal('0');
 
@@ -840,8 +782,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               [RBTC_AMOUNT_TO_TRANSFER.toString()]
             );
 
-            const initialRifSmartWalletTokenBalance = await token.balanceOf(
-              rifSmartWallet.address
+            const initialSmartWalletTokenBalance = await token.balanceOf(
+              supportedSmartWallet.address
             );
             const initialFeesReceiverTokenBalance = await token.balanceOf(
               feesReceiver.address
@@ -854,7 +796,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
               data: targetFunction,
               to: target.address,
-              nonce: (await rifSmartWallet.nonce()).toString(),
+              nonce: (await supportedSmartWallet.nonce()).toString(),
               tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
               tokenGas: 50000,
               relayHub: forwarder.address,
@@ -865,13 +807,13 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             }) as RelayRequest;
 
             const { suffixData, signature } = await getSuffixDataAndSignature(
-              rifSmartWallet,
+              supportedSmartWallet,
               relayRequest,
               owner
             );
 
             const contractTransaction = await forwarder.callExecute(
-              rifSmartWallet.address,
+              supportedSmartWallet.address,
               relayRequest.request,
               suffixData,
               feesReceiver.address,
@@ -888,8 +830,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               'Not enough balance'
             );
 
-            const finalRifSmartWalletTokenBalance = await token.balanceOf(
-              rifSmartWallet.address
+            const finalSmartWalletTokenBalance = await token.balanceOf(
+              supportedSmartWallet.address
             );
             const finalFeesReceiverTokenBalance = await token.balanceOf(
               feesReceiver.address
@@ -905,10 +847,10 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             expect(
-              initialRifSmartWalletTokenBalance.toString(),
+              initialSmartWalletTokenBalance.toString(),
               'Wrong final smart wallet balance'
             ).to.be.equal(
-              finalRifSmartWalletTokenBalance
+              finalSmartWalletTokenBalance
                 .add(TOKEN_AMOUNT_TO_TRANSFER)
                 .toString()
             );

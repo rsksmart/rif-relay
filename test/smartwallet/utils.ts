@@ -1,9 +1,3 @@
-import {
-  CustomSmartWallet,
-  CustomSmartWalletFactory,
-  SmartWallet,
-  SmartWalletFactory,
-} from '@rsksmart/rif-relay-contracts';
 import { Event as SolidityEvent, ContractTransaction } from 'ethers';
 import { Result as SolidityEventArg } from '@ethersproject/abi';
 import { ethers as hardhat } from 'hardhat';
@@ -14,9 +8,6 @@ const INITIAL_SMART_WALLET_TOKEN_AMOUNT = 100;
 const TEST_TOKEN_NAME = 'TestToken';
 const NON_REVERT_TEST_TOKEN_NAME = 'NonRevertTestToken';
 const TETHER_TOKEN_NAME = 'TetherToken';
-
-type RifSmartWallet = CustomSmartWallet | SmartWallet;
-type RifSmartWalletFactory = CustomSmartWalletFactory | SmartWalletFactory;
 
 type TokenToTest = TestToken | NonRevertTestToken | TetherToken;
 
@@ -89,4 +80,4 @@ export {
   INITIAL_SMART_WALLET_TOKEN_AMOUNT,
 };
 
-export type { RifSmartWallet, RifSmartWalletFactory, TokenToTest };
+export type { TokenToTest };

@@ -1,7 +1,7 @@
 import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
 import fs from 'fs';
 import path from 'path';
-import { BigNumberish, constants, utils, Wallet } from 'ethers';
+import { BigNumberish, constants, Contract, utils, Wallet } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
 import {
@@ -50,15 +50,17 @@ import {
 } from '../utils/EIP712Utils';
 import type { EnvelopingTypes } from '@rsksmart/rif-relay-contracts';
 
+import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
+import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
+
 use(chaiAsPromised);
 
 const ATTEMPTS_GET_SERVER_STATUS = 3;
 const ATTEMPTS_GET_SERVER_READY = 25;
 const ONE_FIELD_IN_BYTES = 32;
 
-type RifSmartWallet = SmartWallet | CustomSmartWallet;
-
-type RifSmartWalletFactory = SmartWalletFactory | CustomSmartWalletFactory;
+type SupportedSmartWallet = CustomSmartWallet | SmartWallet;
+type SupportedSmartWalletFactory = CustomSmartWalletFactory | SmartWalletFactory;
 
 type RelayRequest = EnvelopingTypes.RelayRequestStruct;
 
@@ -74,7 +76,7 @@ type CreateSmartWalletParams = {
   relayHub: string;
   sender: SignerWithAddress;
   owner: Wallet;
-  factory: RifSmartWalletFactory;
+  factory: SupportedSmartWalletFactory;
   tokenContract?: string;
   tokenAmount?: BigNumberish;
   tokenGas?: BigNumberish;
@@ -293,11 +295,11 @@ const createSmartWalletFactory = async (
   return factory.connect(owner).deploy(template.address);
 };
 
-const createRifSmartWallet = async (
+const createSupportedSmartWallet = async (
   isCustom: boolean,
   owner: Wallet,
   index: number,
-  factory: RifSmartWalletFactory
+  factory: SupportedSmartWalletFactory
 ) => {
   if (isCustom) {
     const dataTypesToSign = [
@@ -337,10 +339,12 @@ const createRifSmartWallet = async (
       index
     );
 
-    return await ethers.getContractAt(
-      'CustomSmartWallet',
-      customSmartWalletAddress
-    );
+    // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
+    return new Contract(
+      customSmartWalletAddress,
+      CustomSmartWalletJson.abi,
+      owner
+    ) as CustomSmartWallet;
   } else {
     const dataTypesToSign = ['bytes2', 'address', 'address', 'uint256'];
     const valuesToSign = [
@@ -362,7 +366,12 @@ const createRifSmartWallet = async (
       factory as SmartWalletFactory
     ).getSmartWalletAddress(owner.address, constants.AddressZero, index);
 
-    return await ethers.getContractAt('SmartWallet', smartWalletAddress);
+    // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
+    return new Contract(
+      smartWalletAddress,
+      SmartWalletJson.abi,
+      owner
+    ) as SmartWallet;
   }
 };
 
@@ -407,7 +416,7 @@ const createRifSmartWallet = async (
 // };
 
 const getSuffixDataAndSignature = async (
-  rifSmartWallet: RifSmartWallet,
+  smartWallet: SupportedSmartWallet,
   relayRequest: RelayRequest,
   owner: Wallet
 ) => {
@@ -415,7 +424,7 @@ const getSuffixDataAndSignature = async (
 
   const typedRequestData = new TypedRequestData(
     chainId,
-    rifSmartWallet.address,
+    smartWallet.address,
     relayRequest
   );
 
@@ -575,13 +584,13 @@ export {
   getSuffixData,
   signData,
   getSuffixDataAndSignature,
-  createRifSmartWallet,
+  createSupportedSmartWallet,
 };
 
 export type {
-  RifSmartWallet,
-  RifSmartWalletFactory,
   StartRelayParams,
   CreateSmartWalletParams,
   PrepareRelayTransactionParams,
+  SupportedSmartWallet,
+  SupportedSmartWalletFactory
 };
