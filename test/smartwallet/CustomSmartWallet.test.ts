@@ -300,7 +300,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         BigNumber.from(1),
         'Incorrect new worker token balance'
       );
-      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+      expect(initialSWalletTokenBalance.sub(swTknBalance)).to.equal(
         BigNumber.from(1),
         'Incorrect new smart wallet token balance'
       );
@@ -369,7 +369,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         BigNumber.from(1),
         'Incorrect new worker token balance'
       );
-      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+      expect(initialSWalletTokenBalance.sub(swTknBalance)).to.equal(
         BigNumber.from(1),
         'Incorrect new smart wallet token balance'
       );
@@ -502,7 +502,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         BigNumber.from(0),
         'worker token balance should not change'
       );
-      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+      expect(initialSWalletTokenBalance.sub(swTknBalance)).to.equal(
         BigNumber.from(0),
         'smart wallet token balance should not change'
       );
@@ -570,7 +570,7 @@ describe('Custom Smart Wallet using TestToken', function () {
         BigNumber.from(0),
         'worker token balance should not change'
       );
-      expect(initialSWalletTokenBalance.sub(swTknBalance).toString()).to.equal(
+      expect(initialSWalletTokenBalance.sub(swTknBalance)).to.equal(
         BigNumber.from(0),
         'smart wallet token balance should not change'
       );
