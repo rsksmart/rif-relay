@@ -279,16 +279,48 @@ const deployRelayHub = async (
   return relayHubFactory.deploy(
     penalizer,
     maxWorkerCount,
+    minimumEntryDepositValue,
     minimumUnstakeDelay,
-    minimumStake,
-    minimumEntryDepositValue
+    minimumStake
   );
+};
+
+const deploySmartWalletContracts = async (
+  owner: Wallet | SignerWithAddress,
+  template?: IForwarder
+) => {
+  const smartWalletDeployer = await ethers.getContractFactory('SmartWallet');
+  const deployVerifierFactory = await ethers.getContractFactory(
+    'DeployVerifier'
+  );
+  const relayVerifierFactory = await ethers.getContractFactory('RelayVerifier');
+
+  const smartWalletTemplate = template ?? (await smartWalletDeployer.deploy());
+
+  const smartWalletFactory = await createSmartWalletFactory(
+    smartWalletTemplate,
+    false,
+    owner
+  );
+
+  const deployVerifier = await deployVerifierFactory.deploy(
+    smartWalletFactory.address
+  );
+  const relayVerifier = await relayVerifierFactory.deploy(
+    smartWalletFactory.address
+  );
+
+  return {
+    smartWalletFactory,
+    deployVerifier,
+    relayVerifier,
+  };
 };
 
 const createSmartWalletFactory = async (
   template: IForwarder,
   isCustom = false,
-  owner: Wallet
+  owner: Wallet | SignerWithAddress
 ) => {
   const factory = isCustom
     ? await ethers.getContractFactory('CustomSmartWalletFactory')
@@ -564,6 +596,7 @@ const createEnvelopingRequest = (
 export {
   startRelay,
   stopRelay,
+  buildServerUrl,
   evmMine,
   evmMineMany,
   increaseBlockchainTime,
@@ -573,6 +606,7 @@ export {
   createSmartWalletFactory,
   prepareRelayTransaction,
   deployRelayHub,
+  deploySmartWalletContracts,
   createEnvelopingRequest,
   getSuffixData,
   signData,

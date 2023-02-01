@@ -11,7 +11,7 @@ import {
   RelayClient,
   UserDefinedEnvelopingRequest,
 } from '@rsksmart/rif-relay-client';
-import { utils } from 'ethers';
+import { utils, Wallet } from 'ethers';
 import { Log } from '@ethersproject/abstract-provider';
 import {
   assertEventHub,
@@ -37,17 +37,20 @@ type ServerInitParams = {
   serverWorkdirs?: ServerWorkdirs;
 };
 
-const initServer = async (
+const getInitiatedServer = async (
   initParams: ServerInitParams,
   getServer = getFundedServer
 ) => {
-  const { relayOwner } = initParams;
   const relayServer = await getServer(initParams);
   await relayServer.init();
   const latestBlock = await provider.getBlock('latest');
-  const receipts = await relayServer._worker(latestBlock.number);
-  await assertEventHub('RelayServerRegistered', receipts, relayOwner.address); // sanity check
-  await assertEventHub('RelayWorkersAdded', receipts, relayOwner.address); // sanity check
+  const hashes = await relayServer._worker(latestBlock.number);
+
+  const { relayManagerAddress } = relayServer.getChainInfo();
+
+  await assertEventHub('RelayServerRegistered', hashes, relayManagerAddress); // sanity check
+  await assertEventHub('RelayWorkersAdded', hashes, relayManagerAddress); // sanity check
+
   await relayServer._worker(latestBlock.number + 1);
 
   return relayServer;
@@ -65,6 +68,7 @@ const getFundedServer = async (
   const { relayHubAddress, relayManagerAddress } = relayServer.getChainInfo();
 
   await relayOwner.sendTransaction({
+    to: relayManagerAddress,
     value: utils.parseEther('2'),
   });
 
@@ -101,12 +105,27 @@ const createKeyManager = (workdir?: string): KeyManager => {
   if (workdir != null) {
     return new KeyManager(1, workdir);
   } else {
-    return new KeyManager(1, undefined, utils.randomBytes(32).toString());
+    return new KeyManager(1, undefined, Wallet.createRandom().privateKey);
   }
 };
 
-const createRelayHttpRequest = async (
-  envelopingRequest: UserDefinedEnvelopingRequest,
+const createEnvelopingRequest = async (
+  userDefined: UserDefinedEnvelopingRequest,
+  relayClient: RelayClient
+): Promise<EnvelopingRequest> => {
+  type RelayClientExposed = {
+    _getEnvelopingRequestDetails: (
+      envelopingRequest: UserDefinedEnvelopingRequest
+    ) => Promise<EnvelopingRequest>;
+  };
+
+  const localClient = relayClient as unknown as RelayClientExposed;
+
+  return await localClient._getEnvelopingRequestDetails(userDefined);
+};
+
+const createEnvelopingTxRequest = async (
+  envelopingRequest: EnvelopingRequest,
   relayClient: RelayClient,
   hubInfo: HubInfo
 ): Promise<EnvelopingTxRequest> => {
@@ -115,15 +134,14 @@ const createRelayHttpRequest = async (
       hubInfo: HubInfo,
       envelopingRequest: EnvelopingRequest
     ) => Promise<EnvelopingTxRequest>;
-    _getEnvelopingRequestDetails: (
-      envelopingRequest: UserDefinedEnvelopingRequest
-    ) => Promise<EnvelopingRequest>;
   };
 
   const localClient = relayClient as unknown as RelayClientExposed;
 
-  const envelopingRequestDetails =
-    await localClient._getEnvelopingRequestDetails(envelopingRequest);
+  const envelopingRequestDetails = await createEnvelopingRequest(
+    envelopingRequest,
+    relayClient
+  );
 
   return await localClient._prepareHttpRequest(
     hubInfo,
@@ -132,13 +150,19 @@ const createRelayHttpRequest = async (
 };
 
 const relayTransaction = async (
-  envelopingRequest: UserDefinedEnvelopingRequest,
+  userDefined: UserDefinedEnvelopingRequest,
   relayServer: RelayServer,
   relayClient: RelayClient,
   assertRelayed = true
 ) => {
   const hubInfo = relayServer.getChainInfo();
-  const envelopingTx = await createRelayHttpRequest(
+
+  const envelopingRequest = await createEnvelopingRequest(
+    userDefined,
+    relayClient
+  );
+
+  const envelopingTx = await createEnvelopingTxRequest(
     envelopingRequest,
     relayClient,
     hubInfo
@@ -195,10 +219,11 @@ const assertTransactionRelayed = async (
 };
 
 export {
-  initServer,
+  getInitiatedServer,
   getFundedServer,
   getServerInstance,
-  createRelayHttpRequest,
+  createEnvelopingTxRequest,
+  createEnvelopingRequest,
   relayTransaction,
   assertTransactionRelayed,
 };

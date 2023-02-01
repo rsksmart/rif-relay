@@ -14,6 +14,7 @@ contract TestVerifierEverythingAccepted is IRelayVerifier, TokenHandler {
     }
 
     function verifyRelayedCall(
+        /* solhint-disable-next-line no-unused-vars */
         EnvelopingTypes.RelayRequest calldata relayRequest,
         bytes calldata signature
     )
@@ -25,4 +26,5 @@ contract TestVerifierEverythingAccepted is IRelayVerifier, TokenHandler {
         emit SampleRecipientPreCall();
         return ("no revert here");
     }
+
 }
