@@ -372,9 +372,6 @@ const createSupportedSmartWallet = async ({
         owner
       ) as CustomSmartWallet)
     : (new Contract(swAddress, SmartWalletJson.abi, owner) as SmartWallet);
-  // return isCustom
-  //   ? ethers.getContractAt('CustomSmartWallet', swAddress)
-  //   : ethers.getContractAt('SmartWallet', swAddress);
 };
 
 const prepareRelayTransaction = async ({

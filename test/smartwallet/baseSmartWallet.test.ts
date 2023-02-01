@@ -18,6 +18,7 @@ import {
   prepareToken,
   mintTokens,
   getLogArguments,
+  TokenName,
 } from './utils';
 import {
   createSmartWalletFactory,
@@ -50,7 +51,11 @@ const TYPES_OF_WALLETS: TypeOfWallet[] = [
   SMART_WALLET_TYPE,
 ];
 
-const TOKENS = [TEST_TOKEN_NAME, NON_REVERT_TEST_TOKEN_NAME, TETHER_TOKEN_NAME];
+const TOKENS: TokenName[] = [
+  TEST_TOKEN_NAME,
+  NON_REVERT_TEST_TOKEN_NAME,
+  TETHER_TOKEN_NAME,
+];
 
 const IS_DEPLOY_REQUEST = false;
 

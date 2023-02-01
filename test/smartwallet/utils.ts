@@ -9,6 +9,10 @@ const TEST_TOKEN_NAME = 'TestToken';
 const NON_REVERT_TEST_TOKEN_NAME = 'NonRevertTestToken';
 const TETHER_TOKEN_NAME = 'TetherToken';
 
+type TokenName =
+  | typeof TEST_TOKEN_NAME
+  | typeof NON_REVERT_TEST_TOKEN_NAME
+  | typeof TETHER_TOKEN_NAME;
 type TokenToTest = TestToken | NonRevertTestToken | TetherToken;
 
 async function getLogArguments(contractTransaction: ContractTransaction) {
@@ -29,7 +33,7 @@ async function getLogArguments(contractTransaction: ContractTransaction) {
 
 async function mintTokens(
   token: TokenToTest,
-  tokenName: string,
+  tokenName: TokenName,
   amount: number,
   recipient: string
 ) {
@@ -44,7 +48,7 @@ async function mintTokens(
   }
 }
 
-async function prepareToken(tokenName: string) {
+async function prepareToken(tokenName: TokenName) {
   let token: TokenToTest;
   const tokenFactory = await hardhat.getContractFactory(`${tokenName}`);
 
@@ -80,4 +84,4 @@ export {
   INITIAL_SMART_WALLET_TOKEN_AMOUNT,
 };
 
-export type { TokenToTest };
+export type { TokenToTest, TokenName };

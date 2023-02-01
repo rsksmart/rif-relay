@@ -35,8 +35,6 @@ const config: HardhatUserConfig = {
     regtest: {
       url: getRskNodeUrl(),
       chainId: 33,
-      /* gas: 6300000,
-      gasPrice: 60000000, */
     },
   },
   typechain: {
