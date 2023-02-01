@@ -3,7 +3,7 @@
     devMode: true,
     checkInterval: 10,
     logLevel: 5,
-    workdir: './tmp/server'
+    workdir: '/tmp/server'
   },
   blockchain: {
     rskNodeUrl: 'http://enveloping-rskj:4444',

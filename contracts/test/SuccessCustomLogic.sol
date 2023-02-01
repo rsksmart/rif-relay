@@ -4,8 +4,8 @@ pragma experimental ABIEncoderV2;
 
 
 import "@openzeppelin/contracts/cryptography/ECDSA.sol";
-import "../interfaces/IWalletCustomLogic.sol";
-import "../utils/RSKAddrValidator.sol";
+import "@rsksmart/rif-relay-contracts/contracts/interfaces/IWalletCustomLogic.sol";
+import "@rsksmart/rif-relay-contracts/contracts/utils/RSKAddrValidator.sol";
 
 /* solhint-disable avoid-low-level-calls, no-unused-vars */
 /**

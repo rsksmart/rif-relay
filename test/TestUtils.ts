@@ -37,8 +37,8 @@ import { ethers } from 'hardhat';
 import { _TypedDataEncoder, keccak256 } from 'ethers/lib/utils';
 import { CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { TypedRequestData, getLocalEip712Signature } from './EIP712utils';
-import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
+import { EnvelopingEIP712Types, getTypedRequestData } from './EIP712utils';
+import { SignTypedDataVersion, TypedDataUtils, TypedMessage, signTypedData } from '@metamask/eth-sig-util';
 
 use(chaiAsPromised);
 
@@ -441,7 +441,7 @@ const getSuffixDataAndSignature = async (
 ) => {
   const { chainId } = await provider.getNetwork();
 
-  const typedRequestData = new TypedRequestData(
+  const typedRequestData = getTypedRequestData(
     chainId,
     rifSmartWallet.address,
     relayRequest
@@ -450,14 +450,19 @@ const getSuffixDataAndSignature = async (
   const privateKey = Buffer.from(owner.privateKey.substring(2, 66), 'hex');
 
   const suffixData = getSuffixData(typedRequestData);
-  const signature = getLocalEip712Signature(typedRequestData, privateKey);
+
+  const signature = signTypedData({
+    privateKey: privateKey,
+    data: typedRequestData,
+    version: SignTypedDataVersion.V4,
+  });
 
   return { suffixData, signature };
 };
 
-const getSuffixData = (typedRequestData: TypedRequestData): string => {
+const getSuffixData = (typedRequestData: TypedMessage<EnvelopingEIP712Types>): string => {
   const encoded = TypedDataUtils.encodeData(
-    typedRequestData.primaryType,
+    typedRequestData.primaryType as string,
     typedRequestData.message,
     typedRequestData.types,
     SignTypedDataVersion.V4

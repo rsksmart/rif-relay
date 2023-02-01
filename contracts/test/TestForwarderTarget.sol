@@ -5,7 +5,6 @@ contract TestForwarderTarget {
 
     string public  versionRecipient = "2.0.1+enveloping.test.recipient";
 
-
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
 
