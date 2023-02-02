@@ -5,16 +5,11 @@ import {
   SignTypedDataVersion,
   TypedMessage,
 } from '@metamask/eth-sig-util';
-import { relayDataType, relayRequestType } from '@rsksmart/rif-relay-client';
-
 import {
-  EnvelopingTypes,
-  IForwarder,
-} from '../../typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
-
-export type ForwardRequest = IForwarder.ForwardRequestStruct;
-export type RelayData = EnvelopingTypes.RelayDataStruct;
-export type RelayRequest = EnvelopingTypes.RelayRequestStruct;
+  relayDataType,
+  RelayRequest,
+  relayRequestType,
+} from '@rsksmart/rif-relay-client';
 
 const eIP712DomainType: MessageTypeProperty[] = [
   { name: 'name', type: 'string' },
