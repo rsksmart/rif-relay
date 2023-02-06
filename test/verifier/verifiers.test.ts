@@ -1,95 +1,66 @@
 import { BaseProvider } from '@ethersproject/providers';
-import { DeployVerifier } from '@rsksmart/rif-relay-contracts';
+import { DeployVerifier, RelayVerifier } from '@rsksmart/rif-relay-contracts';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-// import { TestForwarder, TestTarget } from 'typechain-types';
 import { Wallet, providers, constants } from 'ethers';
+import { prepareToken } from '../smartwallet/utils';
 import {
-  //   TEST_TOKEN_NAME,
-  //   NON_REVERT_TEST_TOKEN_NAME,
-  //   TETHER_TOKEN_NAME,
-  //   INITIAL_SMART_WALLET_TOKEN_AMOUNT,
-  //   TokenToTest,
-  prepareToken,
-  //   mintTokens,
-  //   getLogArguments,
-  //   TokenName,
-} from '../smartwallet/utils';
-import {
-  //   createSmartWalletFactory,
-  //   createSupportedSmartWallet,
   createEnvelopingRequest,
-  //   getSuffixDataAndSignature,
-  //   getSuffixData,
-  //   SupportedSmartWallet,
+  createSupportedSmartWallet,
   RSK_URL,
 } from '../utils/TestUtils';
-import {
-  // RelayRequest,
-  DeployRequest,
-  //   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
-} from '@rsksmart/rif-relay-client';
-// import {
-//   getLocalEip712Signature,
-//   TypedRequestData,
-// } from '../utils/EIP712Utils';
-import { SmartWalletFactory, TestToken } from 'typechain-types';
+import { RelayRequest, DeployRequest } from '@rsksmart/rif-relay-client';
+import { SmartWallet, SmartWalletFactory, TestToken } from 'typechain-types';
 
-// const IS_DEPLOY_REQUEST = false;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
+const SMART_WALLET_INDEX = '0';
 
 chai.use(chaiAsPromised);
 
-describe.only('Verifiers tests', function () {
+describe('Verifiers tests', function () {
+  let rskProvider: BaseProvider;
+
+  before(function () {
+    rskProvider = new providers.JsonRpcProvider(RSK_URL);
+  });
+
   describe('Deploy verifier', function () {
-    let provider: BaseProvider;
     let deployVerifier: DeployVerifier;
     let owner: Wallet;
     let testToken: TestToken;
     let relayHub: SignerWithAddress;
     let smartWalletFactory: SmartWalletFactory;
 
-    before(function () {
-      provider = new providers.JsonRpcProvider(RSK_URL);
-    });
-
     beforeEach(async function () {
-      console.log('test60');
-      const [, /*fundedAccount,*/ localRelayHub] = await hardhat.getSigners();
+      const [, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
 
-      owner = Wallet.createRandom().connect(provider);
+      owner = Wallet.createRandom().connect(rskProvider);
 
       const hardHatSmartWalletFactory = await hardhat.getContractFactory(
         'SmartWallet'
       );
       const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
-      console.log('test69');
       const hardHatWalletFactory = await hardhat.getContractFactory(
         'SmartWalletFactory'
       );
-      console.log('test75');
 
-      smartWalletFactory = await hardHatWalletFactory
-        // .connect(owner)
-        .deploy(smartWalletTemplate.address);
+      smartWalletFactory = await hardHatWalletFactory.deploy(
+        smartWalletTemplate.address
+      );
 
-      console.log('test81');
       testToken = (await prepareToken('TestToken')) as TestToken;
 
-      console.log('test84');
       const expectedAddress = await smartWalletFactory.getSmartWalletAddress(
         owner.address,
         constants.AddressZero,
-        '0'
+        SMART_WALLET_INDEX
       );
-      console.log('test85');
-      await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, expectedAddress);
 
-      console.log('test88');
+      await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, expectedAddress);
 
       const deployVerifierFactory = await hardhat.getContractFactory(
         'DeployVerifier'
@@ -117,17 +88,13 @@ describe.only('Verifiers tests', function () {
         }
       ) as DeployRequest;
 
-      console.log('deployRequest: ', deployRequest);
-
       const signature = '0x00';
-
-      // await deployVerifier.verifyRelayedCall(deployRequest, signature);
 
       await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
         .not.to.be.rejected;
     });
 
-    it.skip('Should fail if there is an  smartWallet already deployed at that address', async function () {
+    it('Should fail if there is an  smartWallet already deployed at that address', async function () {
       const deployRequest = createEnvelopingRequest(
         true,
         {
@@ -142,16 +109,20 @@ describe.only('Verifiers tests', function () {
         }
       ) as DeployRequest;
 
-      console.log('deployRequest: ', deployRequest);
-
       const signature = '0x00';
 
-      // await deployVerifier.verifyRelayedCall(deployRequest, signature);
+      await createSupportedSmartWallet({
+        relayHub: relayHub.address,
+        sender: relayHub,
+        owner,
+        factory: smartWalletFactory,
+        tokenContract: testToken.address,
+        isCustomSmartWallet: false,
+      });
 
-      // await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
-      //   .not.to.be.rejected;
-      await deployVerifier.verifyRelayedCall(deployRequest, signature);
-      await deployVerifier.verifyRelayedCall(deployRequest, signature);
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Address already created');
     });
 
     it('Should fail if the balance is too low', async function () {
@@ -170,11 +141,7 @@ describe.only('Verifiers tests', function () {
         }
       ) as DeployRequest;
 
-      console.log('deployRequest: ', deployRequest);
-
       const signature = '0x00';
-
-      // await deployVerifier.verifyRelayedCall(deployRequest, signature);
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
@@ -199,11 +166,7 @@ describe.only('Verifiers tests', function () {
         }
       ) as DeployRequest;
 
-      console.log('deployRequest: ', deployRequest);
-
       const signature = '0x00';
-
-      // await deployVerifier.verifyRelayedCall(deployRequest, signature);
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
@@ -228,15 +191,162 @@ describe.only('Verifiers tests', function () {
         }
       ) as DeployRequest;
 
-      console.log('deployRequest: ', deployRequest);
-
       const signature = '0x00';
-
-      // await deployVerifier.verifyRelayedCall(deployRequest, signature);
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
       ).to.be.rejectedWith('Invalid factory');
+    });
+  });
+
+  describe('Relay verifier', function () {
+    let relayVerifier: RelayVerifier;
+    let owner: Wallet;
+    let testToken: TestToken;
+    let relayHub: SignerWithAddress;
+    let smartWalletFactory: SmartWalletFactory;
+    let smartWallet: SmartWallet;
+
+    async function prepareSmartWallet(testToken: TestToken) {
+      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+        'SmartWallet'
+      );
+      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
+
+      const hardHatSmartWalletFactoryFactory = await hardhat.getContractFactory(
+        'SmartWalletFactory'
+      );
+      smartWalletFactory = await hardHatSmartWalletFactoryFactory.deploy(
+        smartWalletTemplate.address
+      );
+
+      smartWallet = (await createSupportedSmartWallet({
+        relayHub: relayHub.address,
+        sender: relayHub,
+        owner,
+        factory: smartWalletFactory,
+        tokenContract: testToken.address,
+        isCustomSmartWallet: false,
+      })) as SmartWallet;
+
+      await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, smartWallet.address);
+
+      return smartWallet;
+    }
+
+    beforeEach(async function () {
+      const [, localRelayHub] = await hardhat.getSigners();
+      relayHub = localRelayHub as SignerWithAddress;
+
+      owner = Wallet.createRandom().connect(rskProvider);
+
+      testToken = (await prepareToken('TestToken')) as TestToken;
+
+      smartWallet = await prepareSmartWallet(testToken);
+
+      const relayVerifierFactory = await hardhat.getContractFactory(
+        'RelayVerifier'
+      );
+      relayVerifier = await relayVerifierFactory.deploy(
+        smartWalletFactory.address
+      );
+
+      await relayVerifier.acceptToken(testToken.address);
+    });
+
+    it('Should succeed when the relay is correct', async function () {
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+          tokenContract: testToken.address,
+          tokenGas: 50000,
+        },
+        {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(relayVerifier.verifyRelayedCall(relayRequest, signature)).not
+        .to.be.rejected;
+    });
+
+    it('Should fail if the balance is too low', async function () {
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER + 100,
+          tokenContract: testToken.address,
+          tokenGas: 50000,
+        },
+        {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        relayVerifier.verifyRelayedCall(relayRequest, signature)
+      ).to.be.rejectedWith('revert balance too low');
+    });
+
+    it('Should fail if the token is not allowed', async function () {
+      await relayVerifier.removeToken(testToken.address, 0);
+
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+          tokenContract: testToken.address,
+          tokenGas: 50000,
+        },
+        {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        relayVerifier.verifyRelayedCall(relayRequest, signature)
+      ).to.be.rejectedWith('revert Token contract not allowed');
+    });
+
+    it('Should fail if the factory is incorrect', async function () {
+      const wrongSmartWallet = await prepareSmartWallet(testToken);
+
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+          tokenContract: testToken.address,
+          tokenGas: 50000,
+        },
+        {
+          callForwarder: wrongSmartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        relayVerifier.verifyRelayedCall(relayRequest, signature)
+      ).to.be.rejectedWith('revert SW different to template');
     });
   });
 });
