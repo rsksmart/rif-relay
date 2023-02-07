@@ -16,6 +16,7 @@ import { SmartWallet, SmartWalletFactory, TestToken } from 'typechain-types';
 
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const SMART_WALLET_INDEX = '0';
+const TOKEN_GAS = 50000;
 
 chai.use(chaiAsPromised);
 
@@ -80,7 +81,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWalletFactory.address,
@@ -94,23 +95,7 @@ describe('Verifiers tests', function () {
         .not.to.be.rejected;
     });
 
-    it('Should fail if there is an  smartWallet already deployed at that address', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
-        {
-          relayHub: relayHub.address,
-          from: owner.address,
-          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
-          tokenContract: testToken.address,
-          tokenGas: 50000,
-        },
-        {
-          callForwarder: smartWalletFactory.address,
-        }
-      ) as DeployRequest;
-
-      const signature = '0x00';
-
+    it('Should fail if there is a smartWallet already deployed at that address', async function () {
       await createSupportedSmartWallet({
         relayHub: relayHub.address,
         sender: relayHub,
@@ -119,6 +104,23 @@ describe('Verifiers tests', function () {
         tokenContract: testToken.address,
         isCustomSmartWallet: false,
       });
+
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+          tokenContract: testToken.address,
+          tokenGas: TOKEN_GAS,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
@@ -133,7 +135,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER + 100,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWalletFactory.address,
@@ -158,7 +160,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWalletFactory.address,
@@ -183,7 +185,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: wrongFactory,
@@ -262,7 +264,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWallet.address,
@@ -284,7 +286,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER + 100,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWallet.address,
@@ -309,7 +311,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: smartWallet.address,
@@ -334,7 +336,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
           tokenContract: testToken.address,
-          tokenGas: 50000,
+          tokenGas: TOKEN_GAS,
         },
         {
           callForwarder: wrongSmartWallet.address,
