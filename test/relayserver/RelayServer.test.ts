@@ -2,7 +2,6 @@ import { ethers } from 'hardhat';
 import { expect } from 'chai';
 import {
   createEnvelopingTxRequest,
-  createEnvelopingRequest,
   getServerInstance,
   getInitiatedServer,
 } from './ServerTestEnvironments';
@@ -33,7 +32,6 @@ import {
 import {
   AccountManager,
   estimateInternalCallGas,
-  estimateTokenTransferGas,
   HubInfo,
   RelayClient,
   RelayRequest,
@@ -163,13 +161,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -199,13 +192,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -231,13 +219,8 @@ describe('RelayServer', function () {
 
         hubInfo.feesReceiver = ethers.Wallet.createRandom().address;
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -261,13 +244,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -294,13 +272,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -341,13 +314,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -384,13 +352,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -508,22 +471,17 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
 
         const wrongEnvelopingTxRequest = await createEnvelopingTxRequest(
           {
-            ...envelopingRequest,
+            ...userDefinedRelayRequestBody,
             request: {
-              ...envelopingRequest.request,
+              ...userDefinedRelayRequestBody.request,
               gas: constants.Two,
             } as RelayRequestBody,
           },
@@ -578,13 +536,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -633,29 +586,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
-        const tokenGas = await estimateTokenTransferGas({
-          relayRequest: {
-            ...envelopingRequest,
-            relayData: {
-              ...envelopingRequest.relayData,
-              feesReceiver: hubInfo.feesReceiver,
-            },
-          },
-        });
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          {
-            ...envelopingRequest,
-            request: {
-              ...envelopingRequest.request,
-              tokenGas,
-            },
-          },
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -690,13 +622,8 @@ describe('RelayServer', function () {
           },
         };
 
-        const envelopingRequest = await createEnvelopingRequest(
-          userDefinedRelayRequestBody,
-          relayClient
-        );
-
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          envelopingRequest,
+          userDefinedRelayRequestBody,
           relayClient,
           hubInfo
         );
@@ -1054,15 +981,10 @@ describe('RelayServer', function () {
         },
       };
 
-      const envelopingRequest = await createEnvelopingRequest(
-        userDefinedRelayRequestBody,
-        relayClient
-      );
-
       const hubInfo = server.getChainInfo();
 
       const envelopingTxRequest = await createEnvelopingTxRequest(
-        envelopingRequest,
+        userDefinedRelayRequestBody,
         relayClient,
         hubInfo
       );
@@ -1095,15 +1017,10 @@ describe('RelayServer', function () {
         },
       };
 
-      const envelopingRequest = await createEnvelopingRequest(
-        userDefinedRelayRequestBody,
-        relayClient
-      );
-
       const hubInfo = relayServer.getChainInfo();
 
       const envelopingTxRequest = await createEnvelopingTxRequest(
-        envelopingRequest,
+        userDefinedRelayRequestBody,
         relayClient,
         hubInfo
       );

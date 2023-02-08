@@ -109,27 +109,15 @@ const createKeyManager = (workdir?: string): KeyManager => {
   }
 };
 
-const createEnvelopingRequest = async (
-  userDefined: UserDefinedEnvelopingRequest,
-  relayClient: RelayClient
-): Promise<EnvelopingRequest> => {
-  type RelayClientExposed = {
-    _getEnvelopingRequestDetails: (
-      envelopingRequest: UserDefinedEnvelopingRequest
-    ) => Promise<EnvelopingRequest>;
-  };
-
-  const localClient = relayClient as unknown as RelayClientExposed;
-
-  return await localClient._getEnvelopingRequestDetails(userDefined);
-};
-
 const createEnvelopingTxRequest = async (
-  envelopingRequest: EnvelopingRequest,
+  userDefined: UserDefinedEnvelopingRequest,
   relayClient: RelayClient,
   hubInfo: HubInfo
 ): Promise<EnvelopingTxRequest> => {
   type RelayClientExposed = {
+    _getEnvelopingRequestDetails: (
+      envelopingRequest: UserDefinedEnvelopingRequest
+    ) => Promise<EnvelopingRequest>;
     _prepareHttpRequest: (
       hubInfo: HubInfo,
       envelopingRequest: EnvelopingRequest
@@ -138,10 +126,8 @@ const createEnvelopingTxRequest = async (
 
   const localClient = relayClient as unknown as RelayClientExposed;
 
-  const envelopingRequestDetails = await createEnvelopingRequest(
-    envelopingRequest,
-    relayClient
-  );
+  const envelopingRequestDetails =
+    await localClient._getEnvelopingRequestDetails(userDefined);
 
   return await localClient._prepareHttpRequest(
     hubInfo,
@@ -157,13 +143,8 @@ const relayTransaction = async (
 ) => {
   const hubInfo = relayServer.getChainInfo();
 
-  const envelopingRequest = await createEnvelopingRequest(
-    userDefined,
-    relayClient
-  );
-
   const envelopingTx = await createEnvelopingTxRequest(
-    envelopingRequest,
+    userDefined,
     relayClient,
     hubInfo
   );
@@ -223,7 +204,6 @@ export {
   getFundedServer,
   getServerInstance,
   createEnvelopingTxRequest,
-  createEnvelopingRequest,
   relayTransaction,
   assertTransactionRelayed,
 };
