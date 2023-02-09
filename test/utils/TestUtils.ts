@@ -13,6 +13,7 @@ import {
   SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
+  buildServerUrl,
   defaultEnvironment,
   getServerConfig,
   RelayHubConfiguration,
@@ -158,14 +159,6 @@ const startRelay = async (options: StartRelayParams) => {
     worker: relayWorkerAddress,
     manager: relayManagerAddress,
   };
-};
-
-const buildServerUrl = () => {
-  const { app } = getServerConfig();
-
-  const portFromUrl = app.url.match(/:(\d{0,5})$/);
-
-  return !portFromUrl && app.port ? `${app.url}:${app.port}` : app.url;
 };
 
 const getServerReady = async (
@@ -596,7 +589,6 @@ const createEnvelopingRequest = (
 export {
   startRelay,
   stopRelay,
-  buildServerUrl,
   evmMine,
   evmMineMany,
   increaseBlockchainTime,

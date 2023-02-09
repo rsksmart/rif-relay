@@ -11,7 +11,6 @@ import {
   RelayVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import {
-  buildServerUrl,
   createSupportedSmartWallet,
   deployRelayHub,
   SupportedSmartWallet,
@@ -22,6 +21,7 @@ import config from 'config';
 import {
   AppConfig,
   BlockchainConfig,
+  buildServerUrl,
   defaultEnvironment,
   RelayServer,
   SendTransactionDetails,
