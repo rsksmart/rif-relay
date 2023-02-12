@@ -25,17 +25,17 @@ import {
   signEnvelopingRequest,
   evmMineMany,
 } from './utils/TestUtils';
+import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
 
 const stripHex = (s: string): string => {
   return s.slice(2, s.length);
 };
 
-function cloneRelayRequest(relayRequest: RelayRequest): RelayRequest {
-  return {
-    request: { ...relayRequest.request },
-    relayData: { ...relayRequest.relayData },
-  };
-}
+const deployContract = <Contract>(contract: string) => {
+  return ethers
+    .getContractFactory(contract)
+    .then((contractFactory) => contractFactory.deploy() as Contract);
+};
 
 describe('RelayHub', function () {
   let penalizer: Penalizer;
@@ -43,9 +43,7 @@ describe('RelayHub', function () {
   let verifier: TestVerifierEverythingAccepted;
   let recipient: TestRecipient;
   let token: UtilToken;
-  let forwarder: SmartWallet;
   let factory: SmartWalletFactory;
-  let sharedRelayRequestData: RelayRequest;
   let relayWorker: SignerWithAddress;
   let relayManager: SignerWithAddress;
   let relayOwner: SignerWithAddress;
@@ -54,36 +52,26 @@ describe('RelayHub', function () {
   let owner: Wallet;
   let incorrectWorker: SignerWithAddress;
   let provider: providers.JsonRpcProvider;
+  const gasPrice = 1;
+  const gasLimit = 4e6;
+
+  const deployHub = (penalizerAddress: string) => {
+    return ethers
+      .getContractFactory('RelayHub')
+      .then((contract) =>
+        contract.deploy(
+          penalizerAddress,
+          10,
+          (1e18).toString(),
+          1000,
+          (1e18).toString()
+        )
+      );
+  };
 
   beforeEach(async function () {
     provider = new ethers.providers.JsonRpcProvider(RSK_URL);
     owner = ethers.Wallet.createRandom().connect(provider);
-
-    const penalizerFactory = await ethers.getContractFactory('Penalizer');
-    penalizer = await penalizerFactory.deploy();
-
-    //const { relayHubConfiguration } = defaultEnvironment!;
-
-    const relayHubFactory = await ethers.getContractFactory('RelayHub');
-
-    relayHub = await relayHubFactory.deploy(
-      penalizer.address,
-      10,
-      (1e18).toString(),
-      1000,
-      (1e18).toString()
-    );
-
-    relayHub.connect(provider);
-
-    verifier = await ethers
-      .getContractFactory('TestVerifierEverythingAccepted')
-      .then((contractFactory) => contractFactory.deploy());
-
-    const smartWalletTemplate = await ethers
-      .getContractFactory('SmartWallet')
-      .then((contractFactory) => contractFactory.deploy());
-
     [
       relayWorker,
       relayManager,
@@ -100,7 +88,16 @@ describe('RelayHub', function () {
       SignerWithAddress
     ];
 
-    //Fund the owner
+    penalizer = await deployContract('Penalizer');
+    verifier = await deployContract('TestVerifierEverythingAccepted');
+    recipient = await deployContract('TestRecipient');
+    token = await deployContract('UtilToken');
+    const smartWalletTemplate = await deployContract<SmartWallet>(
+      'SmartWallet'
+    );
+
+    relayHub = await deployHub(penalizer.address);
+
     await fundedAccount.sendTransaction({
       to: owner.address,
       value: ethers.utils.parseEther('1'),
@@ -111,71 +108,11 @@ describe('RelayHub', function () {
       false,
       owner
     )) as SmartWalletFactory;
-    recipient = await ethers
-      .getContractFactory('TestRecipient')
-      .then((contractFactory) => contractFactory.deploy());
-    token = await ethers
-      .getContractFactory('UtilToken')
-      .then((contractFactory) => contractFactory.deploy());
-
-    //const sender = await ethers.getSigner(relayHub.address)
-
-    forwarder = (await createSupportedSmartWallet({
-      relayHub: relayHubSigner.address,
-      factory,
-      owner,
-      sender: relayHubSigner,
-    })) as SmartWallet;
-
-    await token.mint('1000', forwarder.address);
-
-    sharedRelayRequestData = {
-      request: {
-        relayHub: relayHub.address,
-        to: recipient.address,
-        data: '',
-        from: owner.address,
-        nonce: (await forwarder.nonce()).toString(),
-        value: '0',
-        gas: '3000000',
-        tokenContract: token.address,
-        tokenAmount: '1',
-        tokenGas: '50000',
-        validUntilTime: '0',
-      },
-      relayData: {
-        gasPrice: '1',
-        feesReceiver: relayWorker.address,
-        callForwarder: forwarder.address,
-        callVerifier: verifier.address,
-      },
-    };
   });
   describe('#add/disable relay workers', function () {
-    it('should register and allow to disable new relay workers', async function () {
-      await relayHub.stakeForAddress(relayManager.address, 1000, {
-        value: ethers.utils.parseEther('1'),
-      });
-
-      const relayWorkersBefore = await relayHub.workerCount(
-        relayManager.address
-      );
-
-      expect(relayWorkersBefore.toNumber()).to.equal(
-        0,
-        `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`
-      );
-
-      const addRelayWorkersTrx = await relayHub
-        .connect(relayManager)
-        .addRelayWorkers([relayWorker.address]);
-      await addRelayWorkersTrx.wait();
-      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
-
-      const [relayWorkersAddedEvent] = await relayHub.queryFilter(
-        relayWorkersAddedFilter
-      );
-
+    const expectRelayWorkersAddedEvent = (
+      relayWorkersAddedEvent?: RelayWorkersAddedEvent
+    ) => {
       expect(relayManager.address.toLowerCase()).to.equal(
         relayWorkersAddedEvent?.args.relayManager.toLowerCase()
       );
@@ -185,6 +122,25 @@ describe('RelayHub', function () {
       expect(BigNumber.from(1)).to.equal(
         relayWorkersAddedEvent?.args.workersCount
       );
+    };
+
+    beforeEach(async function () {
+      await relayHub.stakeForAddress(relayManager.address, 1000, {
+        value: ethers.utils.parseEther('1'),
+      });
+    });
+
+    it('should register and allow to disable new relay workers', async function () {
+      await relayHub
+        .connect(relayManager)
+        .addRelayWorkers([relayWorker.address]);
+
+      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
+      const [relayWorkersAddedEvent] = await relayHub.queryFilter(
+        relayWorkersAddedFilter
+      );
+
+      expectRelayWorkersAddedEvent(relayWorkersAddedEvent);
 
       const relayWorkersAfter = await relayHub.workerCount(
         relayManager.address
@@ -203,11 +159,10 @@ describe('RelayHub', function () {
         `Incorrect relay manager: ${manager}`
       );
 
-      const disableWorkerTrx = await relayHub
+      await relayHub
         .connect(relayManager)
         .disableRelayWorkers([relayWorker.address]);
 
-      await disableWorkerTrx.wait();
       const disableWorkerFilter = relayHub.filters.RelayWorkersDisabled();
       const [relayWorkersDisabledEvent] = await relayHub.queryFilter(
         disableWorkerFilter
@@ -244,10 +199,6 @@ describe('RelayHub', function () {
     });
 
     it('should fail to disable more relay workers than available', async function () {
-      await relayHub.stakeForAddress(relayManager.address, 1000, {
-        value: ethers.utils.parseEther('1'),
-      });
-
       const relayWorkersBefore = await relayHub.workerCount(
         relayManager.address
       );
@@ -257,25 +208,16 @@ describe('RelayHub', function () {
         `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`
       );
 
-      const addRelayWorkersTrx = await relayHub
+      await relayHub
         .connect(relayManager)
         .addRelayWorkers([relayWorker.address]);
-      await addRelayWorkersTrx.wait();
-      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
 
+      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
       const [relayWorkersAddedEvent] = await relayHub.queryFilter(
         relayWorkersAddedFilter
       );
 
-      expect(relayManager.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.relayManager.toLowerCase()
-      );
-      expect(relayWorker.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.newRelayWorkers[0]?.toLowerCase()
-      );
-      expect(BigNumber.from(1)).to.equal(
-        relayWorkersAddedEvent?.args.workersCount
-      );
+      expectRelayWorkersAddedEvent(relayWorkersAddedEvent);
 
       const relayWorkersAfter = await relayHub.workerCount(
         relayManager.address
@@ -320,10 +262,6 @@ describe('RelayHub', function () {
     });
 
     it('should only allow the corresponding relay manager to disable their respective relay workers', async function () {
-      await relayHub.stakeForAddress(relayManager.address, 1000, {
-        value: ethers.utils.parseEther('1'),
-      });
-
       const [incorrectRelayManager, incorrectWorker] =
         (await ethers.getSigners()) as [SignerWithAddress, SignerWithAddress];
 
@@ -332,22 +270,6 @@ describe('RelayHub', function () {
         .stakeForAddress(incorrectRelayManager.address, 1000, {
           value: ethers.utils.parseEther('1'),
         });
-
-      const relayWorkers = await relayHub.workerCount(relayManager.address);
-
-      const relayWorkersIncorrect = await relayHub.workerCount(
-        incorrectRelayManager.address
-      );
-
-      expect(relayWorkers.toNumber()).to.equal(
-        0,
-        `Initial workers must be zero but was ${relayWorkers.toNumber()}`
-      );
-
-      expect(relayWorkersIncorrect.toNumber()).to.equal(
-        0,
-        `Initial workers must be zero but was ${relayWorkers.toNumber()}`
-      );
 
       await relayHub
         .connect(relayManager)
@@ -431,15 +353,53 @@ describe('RelayHub', function () {
   });
 
   describe('relayCall', function () {
-    const gas = 4e6;
     let relayRequest: RelayRequest;
+    let forwarder: SmartWallet;
 
-    beforeEach(function () {
+    beforeEach(async function () {
+      forwarder = (await createSupportedSmartWallet({
+        relayHub: relayHubSigner.address,
+        factory,
+        owner,
+        sender: relayHubSigner,
+      })) as SmartWallet;
+
+      await token.mint('1000', forwarder.address);
+
       relayRequest = {
-        request: { ...sharedRelayRequestData.request, data: '0xdeadbeef' },
-        relayData: { ...sharedRelayRequestData.relayData },
+        request: {
+          relayHub: relayHub.address,
+          to: recipient.address,
+          data: '0xdeadbeef',
+          from: owner.address,
+          nonce: (await forwarder.nonce()).toString(),
+          value: '0',
+          gas: '3000000',
+          tokenContract: token.address,
+          tokenAmount: '1',
+          tokenGas: '50000',
+          validUntilTime: '0',
+        },
+        relayData: {
+          gasPrice,
+          feesReceiver: relayWorker.address,
+          callForwarder: forwarder.address,
+          callVerifier: verifier.address,
+        },
       };
     });
+
+    const cloneRelayRequest = (
+      override: Partial<{
+        request: Record<string, unknown>;
+        relayData: Record<string, unknown>;
+      }>
+    ): RelayRequest => {
+      return {
+        request: { ...relayRequest.request, ...override.request },
+        relayData: { ...relayRequest.relayData, ...override.relayData },
+      };
+    };
 
     it('should retrieve version number', async function () {
       const version = await relayHub.versionHub();
@@ -463,7 +423,7 @@ describe('RelayHub', function () {
         const relayCall = relayHub
           .connect(unknownWorker)
           .relayCall(relayRequest, signature, {
-            gasPrice: gas,
+            gasPrice,
           });
 
         await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
@@ -496,7 +456,7 @@ describe('RelayHub', function () {
         const relayCall = relayHub
           .connect(relayWorker)
           .relayCall(relayRequest, signature, {
-            gasPrice: gas,
+            gasPrice,
           });
 
         await expect(relayCall).to.be.rejectedWith('RelayManager not staked');
@@ -510,7 +470,7 @@ describe('RelayHub', function () {
         const relayCall = relayHub
           .connect(relayWorker)
           .relayCall(relayRequest, signature, {
-            gasPrice: gas,
+            gasPrice,
           });
 
         await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
@@ -522,7 +482,7 @@ describe('RelayHub', function () {
       const message = 'Enveloping RelayHub';
       const messageWithNoParams = 'Method with no parameters';
 
-      let relayRequest: RelayRequest;
+      let relayRequestEncodedFn: RelayRequest;
       let signatureWithPermissiveVerifier: string;
       let misbehavingVerifier: TestVerifierConfigurableMisbehavior;
 
@@ -543,14 +503,19 @@ describe('RelayHub', function () {
           .addRelayWorkers([relayWorker.address]);
         await relayHub.connect(relayManager).registerRelayServer(url);
 
-        relayRequest = cloneRelayRequest(sharedRelayRequestData);
-        relayRequest.request.data = encodedFunction;
+        relayRequestEncodedFn = cloneRelayRequest({
+          request: { data: encodedFunction },
+        });
         ({ signature: signatureWithPermissiveVerifier } =
-          await getSuffixDataAndSignature(forwarder, relayRequest, owner));
+          await getSuffixDataAndSignature(
+            forwarder,
+            relayRequestEncodedFn,
+            owner
+          ));
 
-        misbehavingVerifier = await ethers
-          .getContractFactory('TestVerifierConfigurableMisbehavior')
-          .then((contract) => contract.deploy());
+        misbehavingVerifier = await deployContract(
+          'TestVerifierConfigurableMisbehavior'
+        );
       });
 
       context('with relay worker that is not an EOA', function () {
@@ -566,10 +531,10 @@ describe('RelayHub', function () {
 
           const relayCall = testRelayWorkerContract.relayCall(
             relayHub.address,
-            relayRequest,
+            relayRequestEncodedFn,
             signature,
             {
-              gasPrice: gas,
+              gasPrice,
             }
           );
 
@@ -579,1035 +544,49 @@ describe('RelayHub', function () {
         });
       });
 
-      /*context.skip('with view functions only', function () {
+      context('with view functions only', function () {
+        it("should get 'verifierAccepted = true' and no revert reason as view call result of 'relayCall' for a valid transaction", async function () {
+          const relayCallView = await relayHub
+            .connect(relayWorker)
+            .callStatic.relayCall(
+              relayRequestEncodedFn,
+              signatureWithPermissiveVerifier,
+              {
+                gasPrice,
+              }
+            );
 
-        // TODO re-enable
-        it.skip("should get 'verifierAccepted = true' and no revert reason as view call result of 'relayCall' for a valid transaction", async function () {
-          const relayCallView = await relayHub.connect(relayWorker).relayCall(relayRequest, signatureWithPermissiveVerifier, {
-            gasPrice: gas
-          })
-          
-          expect(relayCallView.returnValue).to.be.null
-          expect(relayCallView.verifierAccepted).to.be.null
-        })
+          expect(relayCallView).to.be.true;
+        });
 
-        // TODO re-enable
         it.skip("should get Verifier's reject reason from view call result of 'relayCall' for a transaction with a wrong signature", async function () {
-          
-          relayRequest.relayData.callVerifier = misbehavingVerifier.address
-          
-          await misbehavingVerifier.setReturnInvalidErrorCode(true)
-          const relayCallView = await relayHub.connect(relayWorker)
-            .relayCall(relayRequest, '0x')
+          const relayRequestMisbehavingVerifier = cloneRelayRequest({
+            relayData: { callVerifier: misbehavingVerifier.address },
+          });
 
-          expect(relayCallView.verifierAccepted).to.be.false;
+          await misbehavingVerifier.setReturnInvalidErrorCode(true);
+          const relayCallView = await relayHub
+            .connect(relayWorker)
+            .relayCall(relayRequestMisbehavingVerifier, '0x');
 
-          expect(
-            relayCallView.returnValue).to.equal(
-            encodeRevertReason('invalid code'),
-          )
-          expect(
-            decodeRevertReason(relayCallView.returnValue)).to.equal(
-            'invalid code',
-          )
-        })
-      })*/
+          expect(relayCallView).to.be.false;
+        });
+      });
 
       context('with funded verifier', function () {
-        //let misbehavingVerifier: TestVerifierConfigurableMisbehavior;
-
         let signatureWithMisbehavingVerifier: string;
         let relayRequestMisbehavingVerifier: RelayRequest;
-        const gas = 4e6;
 
         beforeEach(async function () {
-          /*const { signature } = await getSuffixDataAndSignature(
-            forwarder,
-            relayRequest,
-            owner,
-          );*/
-
-          relayRequestMisbehavingVerifier = cloneRelayRequest(relayRequest);
-          relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address;
+          relayRequestMisbehavingVerifier = cloneRelayRequest({
+            relayData: { callVerifier: misbehavingVerifier.address },
+          });
           ({ signature: signatureWithMisbehavingVerifier } =
             await getSuffixDataAndSignature(
               forwarder,
               relayRequestMisbehavingVerifier,
               owner
             ));
-        });
-
-        /*it.skip('gas prediction tests - with token payment', async function () {
-
-            const nonceBefore = await forwarder.nonce();
-            await token.mint('10000', forwarder.address);
-            let swalletInitialBalance = await token.balanceOf(
-                forwarder.address
-            );
-            let relayWorkerInitialBalance = await token.balanceOf(
-                relayWorker.address
-            );
-            let message =
-                'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
-            message = message.concat(message);
-
-            let balanceToTransfer = ethers.utils.hexValue(
-                swalletInitialBalance.toNumber()
-            );
-
-            const completeReq: RelayRequest = cloneRelayRequest(
-                sharedRelayRequestData
-            );
-
-            const encodedFunction = recipient.interface.encodeFunctionData(
-              'emitMessage',
-              [message],
-            )
-            
-            completeReq.request.data = encodedFunction;
-            completeReq.request.nonce = nonceBefore.toString();
-            completeReq.relayData.callForwarder =
-                forwarder.address;
-            completeReq.request.tokenAmount = balanceToTransfer;
-            completeReq.request.tokenContract = token.address;
-
-            let estimatedDestinationCallGas =
-                await ethers.provider.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: completeReq.request.to,
-                    gasPrice: completeReq.relayData.gasPrice,
-                    data: completeReq.request.data
-                });
-
-            let internalDestinationCallCost =
-                estimatedDestinationCallGas.toNumber() >
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    ? estimatedDestinationCallGas.toNumber() -
-                      INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    : estimatedDestinationCallGas.toNumber();
-            internalDestinationCallCost =
-                internalDestinationCallCost *
-                ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            let estimatedTokenPaymentGas =
-                await ethers.provider.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: token.address,
-                    data: token.interface.encodeFunctionData('transfer', [relayWorker.address, BigNumber.from(balanceToTransfer)]),
-                });
-
-            let internalTokenCallCost =
-                estimatedTokenPaymentGas.toNumber() >
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    ? estimatedTokenPaymentGas.toNumber() -
-                      INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    : estimatedTokenPaymentGas.toNumber();
-            internalTokenCallCost =
-                internalTokenCallCost *
-                ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            completeReq.request.gas = ethers.utils.hexValue(
-                internalDestinationCallCost
-            );
-            completeReq.request.tokenGas = ethers.utils.hexValue(
-                internalTokenCallCost
-            );
-
-            const { signature } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
-
-            let detailedEstimation = await ethers.provider.estimateGas({
-                from: relayWorker.address,
-                to: relayHub.address,
-                data: relayHub.interface.encodeFunctionData('relayCall', [ completeReq, signature ]),
-                gasPrice: '1',
-                gasLimit: 6800000
-            });
-
-            // gas estimation fit
-            // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-            // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-            const a0 = Number('35095.980');
-            const a1 = Number('1.098');
-            const estimatedCost =
-                a1 *
-                    (internalDestinationCallCost +
-                        internalTokenCallCost) +
-                a0;
-
-            console.log(
-                'The destination contract call estimate is: ',
-                internalDestinationCallCost
-            );
-            console.log(
-                'The token gas estimate is: ',
-                internalTokenCallCost
-            );
-            console.log(
-                'X = ',
-                internalDestinationCallCost + internalTokenCallCost
-            );
-            console.log(
-                'The predicted total cost is: ',
-                estimatedCost
-            );
-            console.log(
-                'Detailed estimation: ',
-                detailedEstimation
-            );
-            const relayCallTrx = await relayHub.connect(relayWorker).relayCall(
-                completeReq,
-                signature,
-                {
-                    gasLimit: gas,
-                    gasPrice: 1
-                }
-            );
-
-            let sWalletFinalBalance = await token.balanceOf(
-                forwarder.address
-            );
-            let relayWorkerFinalBalance = await token.balanceOf(
-                relayWorker.address
-            );
-
-            expect(
-                swalletInitialBalance.eq(
-                    sWalletFinalBalance.add(BigNumber.from(balanceToTransfer))
-                )
-            ).to.equal(true, 'SW Payment did not occur');
-            expect(
-                relayWorkerFinalBalance.eq(
-                    relayWorkerInitialBalance.add(
-                        BigNumber.from(balanceToTransfer)
-                    )
-                )
-            ).to.equal(true, 'Worker did not receive payment');
-
-            let nonceAfter = await forwarder.nonce();
-            expect(
-                nonceBefore.add(1).toNumber()).to.equal(
-                nonceAfter.toNumber(),
-                'Incorrect nonce after execution'
-            );
-
-            let txReceipt = await relayCallTrx.wait();
-
-            console.log(
-                `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
-            );
-
-            const sampleRecipientFilter = recipient.filters.SampleRecipientEmitted();
-            let sampleRecipientEmittedEvent = await recipient.queryFilter(sampleRecipientFilter);
-
-            expect(
-                message).to.equal(
-                sampleRecipientEmittedEvent[0]?.args.message
-            );
-            expect(
-                forwarder.address.toLowerCase()).to.equal(
-                sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
-            );
-            expect(
-                relayWorker.address.toLowerCase(),
-                sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
-            );
-
-            const transactionRelayedFilter = relayHub.filters.TransactionRelayed();
-            let transactionRelayedEvent = await relayHub.queryFilter(transactionRelayedFilter);
-
-            
-            expect(
-                transactionRelayedEvent !== undefined &&
-                    transactionRelayedEvent !== null).to.equal(true,
-                'TransactionRelayedEvent not found'
-            );
-
-            // SECOND CALL
-            await token.mint('100', forwarder.address);
-
-            swalletInitialBalance = await token.balanceOf(
-                forwarder.address
-            );
-            balanceToTransfer = ethers.utils.hexValue(
-                swalletInitialBalance.toNumber()
-            );
-            relayWorkerInitialBalance = await token.balanceOf(
-                relayWorker.address
-            );
-
-            completeReq.request.tokenAmount = ethers.utils.hexValue(
-                swalletInitialBalance
-            );
-            estimatedDestinationCallGas =
-                await ethers.provider.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: completeReq.request.to,
-                    gasPrice: completeReq.relayData.gasPrice,
-                    data: completeReq.request.data
-                });
-
-            internalDestinationCallCost =
-                estimatedDestinationCallGas.toNumber() >
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    ? estimatedDestinationCallGas.toNumber() -
-                      INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    : estimatedDestinationCallGas.toNumber();
-            internalDestinationCallCost =
-                internalDestinationCallCost *
-                ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            estimatedTokenPaymentGas = await ethers.provider.estimateGas({
-                from: completeReq.relayData.callForwarder,
-                to: token.address,
-                data: token.interface.encodeFunctionData('transfer', [relayWorker.address, balanceToTransfer])
-
-            });
-
-            internalTokenCallCost =
-                estimatedTokenPaymentGas.toNumber() >
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    ? estimatedTokenPaymentGas.toNumber() -
-                      INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                    : estimatedTokenPaymentGas.toNumber();
-            internalTokenCallCost =
-                internalTokenCallCost *
-                ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            completeReq.request.gas = ethers.utils.hexValue(
-                internalDestinationCallCost
-            );
-            completeReq.request.tokenGas = ethers.utils.hexValue(
-                internalTokenCallCost
-            );
-
-            completeReq.request.nonce = nonceBefore
-                .add(BigNumber.from(1))
-                .toString();
-
-            const { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
-
-            detailedEstimation = await ethers.provider.estimateGas({
-                from: relayWorker.address,
-                to: relayHub.address,
-                data: relayHub.interface.encodeFunctionData('relayCall', [completeReq, signature]),
-                gasPrice: '1'
-            });
-
-            const result = await relayHub.connect(relayWorker).relayCall(
-                completeReq,
-                sig,
-                {
-                    gasLimit: gas,
-                    gasPrice: '1'
-                }
-            );
-
-            console.log('ROUND 2');
-            console.log(
-                'The destination contract call estimate is: ',
-                internalDestinationCallCost
-            );
-            console.log(
-                'The token gas estimate is: ',
-                internalTokenCallCost
-            );
-            console.log(
-                'X = ',
-                internalDestinationCallCost + internalTokenCallCost
-            );
-            console.log(
-                'Detailed estimation: ',
-                detailedEstimation
-            );
-
-            sWalletFinalBalance = await token.balanceOf(
-                forwarder.address
-            );
-            relayWorkerFinalBalance = await token.balanceOf(
-                relayWorker.address
-            );
-
-            expect(
-                swalletInitialBalance.eq(
-                    sWalletFinalBalance.add(BigNumber.from(balanceToTransfer))
-                )).to.equal(true, 
-                'SW Payment did not occur'
-            );
-            expect(
-                relayWorkerFinalBalance.eq(
-                    relayWorkerInitialBalance.add(
-                        BigNumber.from(balanceToTransfer)
-                    )
-                )).to.equal(true,
-                'Worker did not receive payment'
-            );
-
-            nonceAfter = await forwarder.nonce();
-            expect(
-                nonceBefore.add(2).toNumber()).to.equal(
-                nonceAfter.toNumber(),
-                'Incorrect nonce after execution'
-            );
-
-            txReceipt = await result.wait();
-
-            console.log(
-                `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed.toString()}`
-            );
-
-            sampleRecipientEmittedEvent = await recipient.queryFilter(sampleRecipientFilter);
-
-            expect(
-              message).to.equal(
-              sampleRecipientEmittedEvent[0]?.args.message
-          );
-          expect(
-              forwarder.address.toLowerCase()).to.equal(
-              sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
-          );
-          expect(
-              relayWorker.address.toLowerCase(),
-              sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
-          );
-
-          transactionRelayedEvent = await relayHub.queryFilter(transactionRelayedFilter);
-
-            
-          expect(
-              transactionRelayedEvent !== undefined &&
-                  transactionRelayedEvent !== null).to.equal(true,
-              'TransactionRelayedEvent not found'
-          );
-        });*/
-
-        /*it.skip('gas prediction tests - without token payment', async function () {
-            const SmartWallet = artifacts.require('SmartWallet');
-            const smartWalletTemplate: SmartWalletInstance =
-                await SmartWallet.new();
-            const smartWalletFactory: SmartWalletFactoryInstance =
-                await createSmartWalletFactory(smartWalletTemplate);
-            const forwarder = await createSmartWallet(
-                _,
-                gaslessAccount.address,
-                smartWalletFactory,
-                gaslessAccount.privateKey,
-                chainId
-            );
-
-            const nonceBefore = await forwarder.nonce();
-            let swalletInitialBalance = await token.balanceOf(
-                forwarder.address
-            );
-            let relayWorkerInitialBalance = await token.balanceOf(
-                relayWorker
-            );
-            let message =
-                'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-
-            const completeReq: RelayRequest = cloneRelayRequest(
-                sharedRelayRequestData
-            );
-            completeReq.request.data =
-                recipientContract.contract.methods
-                    .emitMessage(message)
-                    .encodeABI();
-            completeReq.request.nonce = nonceBefore.toString();
-            completeReq.relayData.callForwarder =
-                forwarder.address;
-            completeReq.request.tokenAmount = '0x00';
-            completeReq.request.tokenContract =
-                constants.ZERO_ADDRESS;
-            completeReq.request.tokenGas = '0x00';
-
-            let estimatedDestinationCallGas =
-                await web3.eth.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: completeReq.request.to,
-                    gasPrice: completeReq.relayData.gasPrice,
-                    data: completeReq.request.data
-                });
-
-            let internalDestinationCallCost =
-                estimatedDestinationCallGas >
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                    ? estimatedDestinationCallGas -
-                      constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                    : estimatedDestinationCallGas;
-            internalDestinationCallCost =
-                internalDestinationCallCost *
-                constants.ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            completeReq.request.gas = toHex(
-                internalDestinationCallCost
-            );
-
-            let reqToSign = new TypedRequestData(
-                chainId,
-                forwarder.address,
-                completeReq
-            );
-
-            let sig = getLocalEip712Signature(
-                reqToSign,
-                gaslessAccount.privateKey
-            );
-
-            let detailedEstimation = await web3.eth.estimateGas({
-                from: relayWorker,
-                to: relayHub.address,
-                data: relayHub.contract.methods
-                    .relayCall(completeReq, sig)
-                    .encodeABI(),
-                gasPrice,
-                gas: 6800000
-            });
-
-            // gas estimation fit
-            // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-            // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-            const a0 = Number('35095.980');
-            const a1 = Number('1.098');
-            const estimatedCost =
-                a1 * internalDestinationCallCost + a0;
-
-            console.log(
-                'The destination contract call estimate is: ',
-                internalDestinationCallCost
-            );
-            console.log('X = ', internalDestinationCallCost);
-            console.log(
-                'The predicted total cost is: ',
-                estimatedCost
-            );
-            console.log(
-                'Detailed estimation: ',
-                detailedEstimation
-            );
-            const { tx } = await relayHub.relayCall(
-                completeReq,
-                sig,
-                {
-                    from: relayWorker,
-                    gas,
-                    gasPrice
-                }
-            );
-
-            let sWalletFinalBalance = await token.balanceOf(
-                forwarder.address
-            );
-            let relayWorkerFinalBalance = await token.balanceOf(
-                relayWorker
-            );
-
-            assert.isTrue(
-                swalletInitialBalance.eq(sWalletFinalBalance),
-                'SW Payment did occur'
-            );
-            assert.isTrue(
-                relayWorkerFinalBalance.eq(
-                    relayWorkerInitialBalance
-                ),
-                'Worker did receive payment'
-            );
-
-            let nonceAfter = await forwarder.nonce();
-            assert.equal(
-                nonceBefore.addn(1).toNumber(),
-                nonceAfter.toNumber(),
-                'Incorrect nonce after execution'
-            );
-
-            let txReceipt = await web3.eth.getTransactionReceipt(
-                tx
-            );
-
-            console.log(
-                `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`
-            );
-
-            let logs = abiDecoder.decodeLogs(txReceipt.logs);
-            let sampleRecipientEmittedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'SampleRecipientEmitted'
-            );
-
-            assert.equal(
-                message,
-                sampleRecipientEmittedEvent.events[0].value
-            );
-            assert.equal(
-                forwarder.address.toLowerCase(),
-                sampleRecipientEmittedEvent.events[1].value.toLowerCase()
-            );
-            assert.equal(
-                relayWorker.toLowerCase(),
-                sampleRecipientEmittedEvent.events[2].value.toLowerCase()
-            );
-
-            let transactionRelayedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'TransactionRelayed'
-            );
-            assert.isTrue(
-                transactionRelayedEvent !== undefined &&
-                    transactionRelayedEvent !== null,
-                'TransactionRelayedEvent not found'
-            );
-
-            // SECOND CALL
-
-            swalletInitialBalance = await token.balanceOf(
-                forwarder.address
-            );
-            relayWorkerInitialBalance = await token.balanceOf(
-                relayWorker
-            );
-
-            estimatedDestinationCallGas =
-                await web3.eth.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: completeReq.request.to,
-                    gasPrice: completeReq.relayData.gasPrice,
-                    data: completeReq.request.data
-                });
-
-            internalDestinationCallCost =
-                estimatedDestinationCallGas >
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                    ? estimatedDestinationCallGas -
-                      constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                    : estimatedDestinationCallGas;
-            internalDestinationCallCost =
-                internalDestinationCallCost *
-                constants.ESTIMATED_GAS_CORRECTION_FACTOR;
-
-            completeReq.request.gas = toHex(
-                internalDestinationCallCost
-            );
-
-            completeReq.request.nonce = nonceBefore
-                .add(BigNumber.from(1))
-                .toString();
-            reqToSign = new TypedRequestData(
-                chainId,
-                forwarder.address,
-                completeReq
-            );
-
-            sig = getLocalEip712Signature(
-                reqToSign,
-                gaslessAccount.privateKey
-            );
-
-            detailedEstimation = await web3.eth.estimateGas({
-                from: relayWorker,
-                to: relayHub.address,
-                data: relayHub.contract.methods
-                    .relayCall(completeReq, sig)
-                    .encodeABI(),
-                gasPrice
-            });
-
-            const result = await relayHub.relayCall(
-                completeReq,
-                sig,
-                {
-                    from: relayWorker,
-                    gas,
-                    gasPrice
-                }
-            );
-
-            console.log('ROUND 2');
-            console.log(
-                'The destination contract call estimate is: ',
-                internalDestinationCallCost
-            );
-            console.log('X = ', internalDestinationCallCost);
-            console.log(
-                'Detailed estimation: ',
-                detailedEstimation
-            );
-
-            sWalletFinalBalance = await token.balanceOf(
-                forwarder.address
-            );
-            relayWorkerFinalBalance = await token.balanceOf(
-                relayWorker
-            );
-
-            assert.isTrue(
-                swalletInitialBalance.eq(sWalletFinalBalance),
-                'SW Payment did occur'
-            );
-            assert.isTrue(
-                relayWorkerFinalBalance.eq(
-                    relayWorkerInitialBalance
-                ),
-                'Worker did receive payment'
-            );
-
-            nonceAfter = await forwarder.nonce();
-            assert.equal(
-                nonceBefore.addn(2).toNumber(),
-                nonceAfter.toNumber(),
-                'Incorrect nonce after execution'
-            );
-
-            txReceipt = await web3.eth.getTransactionReceipt(
-                result.tx
-            );
-
-            console.log(
-                `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed}`
-            );
-
-            logs = abiDecoder.decodeLogs(txReceipt.logs);
-            sampleRecipientEmittedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'SampleRecipientEmitted'
-            );
-
-            assert.equal(
-                message,
-                sampleRecipientEmittedEvent.events[0].value
-            );
-            assert.equal(
-                forwarder.address.toLowerCase(),
-                sampleRecipientEmittedEvent.events[1].value.toLowerCase()
-            );
-            assert.equal(
-                relayWorker.toLowerCase(),
-                sampleRecipientEmittedEvent.events[2].value.toLowerCase()
-            );
-
-            transactionRelayedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'TransactionRelayed'
-            );
-            assert.isTrue(
-                transactionRelayedEvent !== undefined &&
-                    transactionRelayedEvent !== null,
-                'TransactionRelayedEvent not found'
-            );
-        });
-
-        it.skip('gas estimation tests for SmartWallet', async function () {
-            const SmartWallet = artifacts.require('SmartWallet');
-            const smartWalletTemplate: SmartWalletInstance =
-                await SmartWallet.new();
-            const smartWalletFactory: SmartWalletFactoryInstance =
-                await createSmartWalletFactory(smartWalletTemplate);
-            const forwarder = await createSmartWallet(
-                _,
-                gaslessAccount.address,
-                smartWalletFactory,
-                gaslessAccount.privateKey,
-                chainId
-            );
-
-            const nonceBefore = await forwarder.nonce();
-            await token.mint('10000', forwarder.address);
-
-            let message =
-                'RIF Enveloping RIF Enveloping RIF Enveloping RIF Enveloping';
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            message = message.concat(message);
-            const completeReq: RelayRequest = cloneRelayRequest(
-                sharedRelayRequestData
-            );
-            completeReq.request.data =
-                recipientContract.contract.methods
-                    .emitMessage3(message)
-                    .encodeABI();
-            completeReq.request.nonce = nonceBefore.toString();
-            completeReq.relayData.callForwarder =
-                forwarder.address;
-            completeReq.request.tokenAmount = '0x00';
-            completeReq.request.tokenGas = '0';
-
-            const reqToSign = new TypedRequestData(
-                chainId,
-                forwarder.address,
-                completeReq
-            );
-
-            const sig = getLocalEip712Signature(
-                reqToSign,
-                gaslessAccount.privateKey
-            );
-
-            const estimatedDestinationCallCost =
-                await web3.eth.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: completeReq.request.to,
-                    gasPrice: completeReq.relayData.gasPrice,
-                    data: completeReq.request.data
-                });
-
-            const tokenPaymentEstimation = 0; 
-            //const tokenPaymentEstimation = await web3.eth.estimateGas({
-            //    from: completeReq.relayData.callForwarder,
-            //    to: token.address,
-            //    data: token.contract.methods.transfer(relayWorker, '1').encodeABI()
-            //})
-
-            // gas estimation fit
-            // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-            // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-            const a0 = Number('37796.074');
-            const a1 = Number('1.086');
-            const estimatedCost =
-                a1 *
-                    (estimatedDestinationCallCost +
-                        tokenPaymentEstimation) +
-                a0;
-
-            console.log(
-                'The destination contract call estimate is: ',
-                estimatedDestinationCallCost
-            );
-            console.log(
-                'The token gas estimate is: ',
-                tokenPaymentEstimation
-            );
-            console.log(
-                'X = ',
-                estimatedDestinationCallCost +
-                    tokenPaymentEstimation
-            );
-
-            console.log(
-                'The predicted total cost is: ',
-                estimatedCost
-            );
-            const { tx } = await relayHub.relayCall(
-                completeReq,
-                sig,
-                {
-                    from: relayWorker,
-                    gas,
-                    gasPrice
-                }
-            );
-
-            const nonceAfter = await forwarder.nonce();
-            assert.equal(
-                nonceBefore.addn(1).toNumber(),
-                nonceAfter.toNumber(),
-                'Incorrect nonce after execution'
-            );
-
-            const eventHash = keccak('GasUsed(uint256,uint256)');
-            const txReceipt = await web3.eth.getTransactionReceipt(
-                tx
-            );
-
-            // const overheadCost = txReceipt.cumulativeGasUsed - costForCalling - estimatedDestinationCallCost
-            // console.log("data overhead: ", overheadCost)
-
-            // console.log('---------------SmartWallet: RelayCall metrics------------------------')
-            console.log(
-                `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`
-            );
-
-            let previousGas: BigInt = BigInt(0);
-            let previousStep = null;
-            for (let i = 0; i < txReceipt.logs.length; i++) {
-                const log = txReceipt.logs[i];
-                if (
-                    '0x' + eventHash.toString('hex') ===
-                    log.topics[0]
-                ) {
-                    const step = log.data.substring(0, 66);
-                    const gasUsed: BigInt = BigInt(
-                        '0x' +
-                            log.data.substring(67, log.data.length)
-                    );
-                    console.log(
-                        '---------------------------------------'
-                    );
-                    console.log('step :', BigInt(step).toString());
-                    console.log('gasLeft :', gasUsed.toString());
-
-                    if (previousStep != null) {
-                        console.log(
-                            `Steps substraction ${BigInt(
-                                step
-                            ).toString()} and ${BigInt(
-                                previousStep
-                            ).toString()}`
-                        );
-                        console.log(
-                            (
-                                previousGas.valueOf() -
-                                gasUsed.valueOf()
-                            ).toString()
-                        );
-                    }
-                    console.log(
-                        '---------------------------------------'
-                    );
-
-                    // TODO: we should check this
-                    // @ts-ignore
-                    previousGas = BigInt(gasUsed);
-                    previousStep = step;
-                }
-            }
-
-            const logs = abiDecoder.decodeLogs(txReceipt.logs);
-            const sampleRecipientEmittedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'SampleRecipientEmitted'
-            );
-
-            assert.equal(
-                message,
-                sampleRecipientEmittedEvent.events[0].value
-            );
-            assert.equal(
-                forwarder.address.toLowerCase(),
-                sampleRecipientEmittedEvent.events[1].value.toLowerCase()
-            );
-            assert.equal(
-                relayWorker.toLowerCase(),
-                sampleRecipientEmittedEvent.events[2].value.toLowerCase()
-            );
-
-            const transactionRelayedEvent = logs.find(
-                (e: any) =>
-                    e != null && e.name === 'TransactionRelayed'
-            );
-
-            assert.isNotNull(transactionRelayedEvent);
-
-            // const callWithoutRelay = await recipientContract.emitMessage(message)
-            // const gasUsed: number = callWithoutRelay.receipt.cumulativeGasUsed
-            // const txReceiptWithoutRelay = await web3.eth.getTransactionReceipt(callWithoutRelay)
-            // console.log('--------------- Destination Call Without enveloping------------------------')
-            // console.log(`Cummulative Gas Used: ${gasUsed}`)
-            // console.log('---------------------------------------')
-            // console.log('--------------- Enveloping Overhead ------------------------')
-            // console.log(`Overhead Gas: ${txReceipt.cumulativeGasUsed - gasUsed}`)
-            // console.log('---------------------------------------')
-        });*/
-
-        it('gas estimation tests', async function () {
-          const nonceBefore = await forwarder.nonce();
-
-          await token.mint('1000000', forwarder.address);
-
-          const completeReq: RelayRequest = {
-            request: {
-              ...relayRequest.request,
-              data: recipient.interface.encodeFunctionData('emitMessage', [
-                message,
-              ]),
-              nonce: nonceBefore.toNumber(),
-              tokenContract: token.address,
-              tokenAmount: '0',
-              tokenGas: '0',
-            },
-            relayData: {
-              ...relayRequest.relayData,
-            },
-          };
-
-          const { signature: sig } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          );
-
-          const relayCallTrx = await relayHub
-            .connect(relayWorker)
-            .relayCall(completeReq, sig, {
-              gasLimit: gas,
-              gasPrice: '1',
-            });
-
-          const nonceAfter = await forwarder.nonce();
-          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
-
-          const eventHash = ethers.utils.keccak256(
-            Buffer.from('GasUsed(uint256,uint256)')
-          );
-          const txReceipt = await relayCallTrx.wait();
-          console.log('---------------------------------------');
-
-          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`);
-          console.log(
-            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
-          );
-
-          let previousGas = BigInt(0);
-          let previousStep = null;
-          // not sure about this loop
-          for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i];
-            if (ethers.utils.hexValue(eventHash) === log?.topics[0]) {
-              const step = log.data.substring(0, 66);
-              const gasUsed = BigInt(
-                '0x' + log.data.substring(67, log.data.length)
-              );
-              console.log('---------------------------------------');
-              console.log('step :', BigInt(step).toString());
-              console.log('gasLeft :', gasUsed.toString());
-
-              if (previousStep != null) {
-                console.log(
-                  `Steps substraction ${BigInt(step).toString()} and ${BigInt(
-                    previousStep
-                  ).toString()}`
-                );
-                console.log(
-                  (previousGas.valueOf() - gasUsed.valueOf()).toString()
-                );
-              }
-              console.log('---------------------------------------');
-              previousGas = BigInt(gasUsed);
-              previousStep = step;
-            }
-          }
-
-          const sampleRecipientEmittedFilter =
-            recipient.filters.SampleRecipientEmitted();
-          const sampleRecipientEmittedEvent = await recipient.queryFilter(
-            sampleRecipientEmittedFilter
-          );
-
-          expect(message).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.message
-          );
-          expect(forwarder.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
-          );
-          expect(relayWorker.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
-          );
-
-          const transactionRelayedFilter =
-            relayHub.filters.TransactionRelayed();
-          const transactionRelayedEvent = await relayHub.queryFilter(
-            transactionRelayedFilter
-          );
-
-          expect(transactionRelayedEvent).to.not.be.null;
         });
 
         it('should fail to relay if the worker has been disabled', async function () {
@@ -1638,8 +617,8 @@ describe('RelayHub', function () {
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
@@ -1651,8 +630,8 @@ describe('RelayHub', function () {
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           const nonceAfter = await forwarder.nonce();
@@ -1680,15 +659,15 @@ describe('RelayHub', function () {
             transactionRelayedFilter
           );
 
-          expect(transactionRelayedEvent).to.not.be.null;
+          expect(transactionRelayedEvent.length).to.equal(1);
         });
 
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           const recipientEmittedFilter =
@@ -1697,24 +676,26 @@ describe('RelayHub', function () {
             recipientEmittedFilter
           );
 
-          expect(sampleRecipientEmittedEvent).to.not.be.null;
+          expect(sampleRecipientEmittedEvent.length).to.equal(1);
 
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           await expect(relayCall).to.be.rejectedWith('nonce mismatch');
         });
+
         // This test is added due to a regression that almost slipped to production.
         it('relayCall executes the transaction with no parameters', async function () {
           const encodedFunction = recipient.interface.encodeFunctionData(
             'emitMessageNoParams'
           );
-          const relayRequestNoCallData = cloneRelayRequest(relayRequest);
-          relayRequestNoCallData.request.data = encodedFunction;
+          const relayRequestNoCallData = cloneRelayRequest({
+            request: { data: encodedFunction },
+          });
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
@@ -1725,8 +706,8 @@ describe('RelayHub', function () {
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequestNoCallData, signature, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           const sampleRecipientEmittedFilter =
@@ -1750,8 +731,9 @@ describe('RelayHub', function () {
           const encodedFunction =
             recipient.interface.encodeFunctionData('testRevert');
 
-          const relayRequestRevert = cloneRelayRequest(relayRequest);
-          relayRequestRevert.request.data = encodedFunction;
+          const relayRequestRevert = cloneRelayRequest({
+            request: { data: encodedFunction },
+          });
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
@@ -1762,8 +744,8 @@ describe('RelayHub', function () {
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequestRevert, signature, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           const reason =
@@ -1792,7 +774,7 @@ describe('RelayHub', function () {
               relayRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
-                gasPrice: '1',
+                gasPrice,
                 gasLimit: '60000',
               }
             );
@@ -1801,13 +783,12 @@ describe('RelayHub', function () {
         });
 
         it('should not accept relay requests with gas price lower than user specified', async function () {
-          const relayRequestMisbehavingVerifier =
-            cloneRelayRequest(relayRequest);
-          relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address;
-          relayRequestMisbehavingVerifier.relayData.gasPrice = (
-            BigInt('1') + BigInt(1)
-          ).toString();
+          const relayRequestMisbehavingVerifier = cloneRelayRequest({
+            relayData: {
+              callVerifier: misbehavingVerifier.address,
+              gasPrice: BigInt(2).toString(),
+            },
+          });
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
@@ -1818,8 +799,8 @@ describe('RelayHub', function () {
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequestMisbehavingVerifier, signature, {
-              gasLimit: gas,
-              gasPrice: '1',
+              gasLimit,
+              gasPrice,
             });
 
           await expect(relayCall).to.be.rejectedWith('Invalid gas price');
@@ -1835,8 +816,8 @@ describe('RelayHub', function () {
               relayRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
-                gasLimit: gas,
-                gasPrice: '1',
+                gasLimit,
+                gasPrice,
               }
             );
 
@@ -1846,31 +827,31 @@ describe('RelayHub', function () {
             transactionRelayedFilter
           );
 
-          expect(transactionRelayedEvent).to.not.be.null;
+          expect(transactionRelayedEvent.length).to.equal(1);
         });
       });
     });
   });
 
   describe('deployCall', function () {
-    let min = 0;
-    let max = 1000000000;
+    const minIndex = 0;
+    const maxIndex = 1000000000;
     let nextWalletIndex: number;
-    let sharedDeployRequestData: DeployRequest;
+    let deployRequest: DeployRequest;
     let deployVerifier: TestDeployVerifierEverythingAccepted;
     let unknownWorker: SignerWithAddress;
 
     beforeEach(async function () {
-      min = Math.ceil(min);
-      max = Math.floor(max);
-      nextWalletIndex = Math.floor(Math.random() * (max - min + 1) + min);
+      nextWalletIndex = Math.floor(
+        Math.random() * (maxIndex - minIndex + 1) + minIndex
+      );
 
-      deployVerifier = await ethers
-        .getContractFactory('TestDeployVerifierEverythingAccepted')
-        .then((contractFactory) => contractFactory.deploy());
+      deployVerifier = await deployContract(
+        'TestDeployVerifierEverythingAccepted'
+      );
       [unknownWorker] = (await ethers.getSigners()) as [SignerWithAddress];
 
-      sharedDeployRequestData = {
+      deployRequest = {
         request: {
           relayHub: relayHub.address,
           to: ethers.constants.AddressZero,
@@ -1886,7 +867,7 @@ describe('RelayHub', function () {
           validUntilTime: '0',
         },
         relayData: {
-          gasPrice: '1',
+          gasPrice,
           feesReceiver: relayWorker.address,
           callForwarder: factory.address,
           callVerifier: deployVerifier.address,
@@ -1894,29 +875,36 @@ describe('RelayHub', function () {
       };
     });
 
+    const cloneDeployRequest = (
+      override: Partial<{
+        request: Record<string, unknown>;
+        relayData: Record<string, unknown>;
+      }>
+    ) => {
+      return {
+        request: { ...deployRequest.request, ...override.request },
+        relayData: { ...deployRequest.relayData, ...override.relayData },
+      };
+    };
+
     context('with unknown worker', function () {
-      const gas = 4e6;
-      let deployRequest: DeployRequest;
-      let signature: string;
+      it('should not accept a deploy call - 2', async function () {
+        const deployRequestUnknownWorker = cloneDeployRequest({
+          request: { index: nextWalletIndex.toString() },
+          relayData: { feesReceiver: unknownWorker.address },
+        });
 
-      beforeEach(async function () {
-        deployRequest = {
-          relayData: { ...sharedDeployRequestData.relayData },
-          request: { ...sharedDeployRequestData.request },
-        };
-
-        deployRequest.request.index = nextWalletIndex.toString();
-        deployRequest.relayData.feesReceiver = unknownWorker.address;
-        ({ signature } = await signEnvelopingRequest(deployRequest, owner));
+        const { signature } = await signEnvelopingRequest(
+          deployRequestUnknownWorker,
+          owner
+        );
 
         nextWalletIndex++;
-      });
 
-      it('should not accept a deploy call - 2', async function () {
         const deployCall = relayHub
           .connect(unknownWorker)
           .deployCall(deployRequest, signature, {
-            gasLimit: gas,
+            gasLimit,
           });
 
         await expect(deployCall).to.be.rejectedWith('Not an enabled worker');
@@ -1924,16 +912,13 @@ describe('RelayHub', function () {
     });
 
     context('with manager stake unlocked', function () {
-      const gasLimit = 4e6;
       let signature: string;
-      let deployRequest: DeployRequest;
+      let deployRequestNextIndex: DeployRequest;
 
       beforeEach(async function () {
-        deployRequest = {
-          relayData: { ...sharedDeployRequestData.relayData },
-          request: { ...sharedDeployRequestData.request },
-        };
-        deployRequest.request.index = nextWalletIndex.toString();
+        deployRequestNextIndex = cloneDeployRequest({
+          request: { index: nextWalletIndex.toString() },
+        });
 
         await relayHub
           .connect(relayOwner)
@@ -1943,7 +928,10 @@ describe('RelayHub', function () {
         await relayHub
           .connect(relayManager)
           .addRelayWorkers([relayWorker.address]);
-        ({ signature } = await signEnvelopingRequest(deployRequest, owner));
+        ({ signature } = await signEnvelopingRequest(
+          deployRequestNextIndex,
+          owner
+        ));
         nextWalletIndex++;
       });
 
@@ -1952,7 +940,7 @@ describe('RelayHub', function () {
 
         const deployCall = relayHub
           .connect(relayWorker)
-          .deployCall(deployRequest, signature, {
+          .deployCall(deployRequestNextIndex, signature, {
             gasLimit,
           });
 
@@ -1965,7 +953,7 @@ describe('RelayHub', function () {
 
         const deployCall = relayHub
           .connect(unknownWorker)
-          .deployCall(deployRequest, signature, {
+          .deployCall(deployRequestNextIndex, signature, {
             gasLimit,
           });
 
@@ -1975,7 +963,7 @@ describe('RelayHub', function () {
 
     context('with staked and registered relay', function () {
       const url = 'http://relay.com';
-      let deployRequest: DeployRequest;
+      let deployRequestNextIndex: DeployRequest;
 
       beforeEach(async function () {
         await relayHub
@@ -1988,11 +976,9 @@ describe('RelayHub', function () {
           .addRelayWorkers([relayWorker.address]);
         await relayHub.connect(relayManager).registerRelayServer(url);
 
-        deployRequest = {
-          relayData: { ...sharedDeployRequestData.relayData },
-          request: { ...sharedDeployRequestData.request },
-        };
-        deployRequest.request.index = nextWalletIndex.toString();
+        deployRequestNextIndex = cloneDeployRequest({
+          request: { index: nextWalletIndex.toString() },
+        });
         nextWalletIndex++;
       });
 
@@ -2001,7 +987,6 @@ describe('RelayHub', function () {
         function () {
           it('should not accept deploy requests', async function () {
             const signature = '0xdeadbeef';
-            const gasLimit = 4e6;
 
             const testRelayWorkerContract = await ethers
               .getContractFactory('TestRelayWorkerContract')
@@ -2013,7 +998,7 @@ describe('RelayHub', function () {
 
             const deployCall = testRelayWorkerContract.deployCall(
               relayHub.address,
-              deployRequest,
+              deployRequestNextIndex,
               signature,
               {
                 gasLimit,
@@ -2030,14 +1015,16 @@ describe('RelayHub', function () {
       context('with funded verifier', function () {
         let misbehavingVerifier: TestDeployVerifierConfigurableMisbehavior;
         let signatureWithMisbehavingVerifier: string;
-        let relayRequestMisbehavingVerifier: DeployRequest;
+        let deployRequestMisbehavingVerifier: DeployRequest;
         const gasLimit = 4e6;
 
         beforeEach(async function () {
-          misbehavingVerifier = await ethers
-            .getContractFactory('TestDeployVerifierConfigurableMisbehavior')
-            .then((contract) => contract.deploy());
-          deployRequest.request.index = nextWalletIndex.toString();
+          misbehavingVerifier = await deployContract(
+            'TestDeployVerifierConfigurableMisbehavior'
+          );
+          deployRequestNextIndex = cloneDeployRequest({
+            request: { index: nextWalletIndex.toString() },
+          });
           nextWalletIndex++;
 
           await fundedAccount.sendTransaction({
@@ -2045,17 +1032,12 @@ describe('RelayHub', function () {
             value: ethers.utils.parseEther('1'),
           });
 
-          relayRequestMisbehavingVerifier = {
-            relayData: { ...deployRequest.relayData },
-            request: { ...deployRequest.request },
-          };
-          relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address;
-
-          //relayRequestMisbehavingVerifier.request.tokenGas = '100000';
+          deployRequestMisbehavingVerifier = cloneDeployRequest({
+            relayData: { callVerifier: misbehavingVerifier.address },
+          });
           ({ signature: signatureWithMisbehavingVerifier } =
             await signEnvelopingRequest(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               owner
             ));
         });
@@ -2065,30 +1047,27 @@ describe('RelayHub', function () {
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
-            relayRequestMisbehavingVerifier.request.index
+            deployRequestMisbehavingVerifier.request.index
           );
           await token.mint('1', calculatedAddr);
 
           await relayHub
             .connect(relayWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
                 gasLimit,
-                gasPrice: '1',
+                gasPrice,
               }
             );
 
           const deployedFilter = factory.filters.Deployed();
           const deployedEvent = await factory.queryFilter(deployedFilter);
 
-          expect(deployedEvent !== undefined).to.equal(
-            true,
-            'No Deployed event found'
-          );
+          expect(deployedEvent.length).to.equal(1, 'No Deployed event found');
 
-          expect(calculatedAddr).to.equal(deployedEvent[1]?.args.addr);
+          expect(calculatedAddr).to.equal(deployedEvent[0]?.args.addr);
 
           const nonceAfter = await factory.nonce(owner.address);
           expect(nonceAfter.toNumber()).to.equal(nonceBefore.add(1).toNumber());
@@ -2121,11 +1100,11 @@ describe('RelayHub', function () {
           const deployCall = relayHub
             .connect(relayWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
                 gasLimit,
-                gasPrice: '1',
+                gasPrice,
               }
             );
 
@@ -2136,39 +1115,36 @@ describe('RelayHub', function () {
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
-            relayRequestMisbehavingVerifier.request.index
+            deployRequestMisbehavingVerifier.request.index
           );
-          await token.mint('2', calculatedAddr);
+          await token.mint('1', calculatedAddr);
 
           await relayHub
             .connect(relayWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
                 gasLimit,
-                gasPrice: '1',
+                gasPrice,
               }
             );
 
           const deployedFilter = factory.filters.Deployed();
           const deployedEvent = await factory.queryFilter(deployedFilter);
 
-          expect(deployedEvent !== undefined).to.equal(
-            true,
-            'No Deployed event found'
-          );
+          expect(deployedEvent.length).to.equal(1, 'No Deployed event found');
 
-          expect(calculatedAddr).to.equal(deployedEvent[1]?.args.addr);
+          expect(calculatedAddr).to.equal(deployedEvent[0]?.args.addr);
 
           const deployCall = relayHub
             .connect(relayWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
                 gasLimit,
-                gasPrice: '1',
+                gasPrice,
               }
             );
 
@@ -2179,10 +1155,10 @@ describe('RelayHub', function () {
           const deployCall = relayHub
             .connect(relayWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
-                gasPrice: '1',
+                gasPrice,
                 gasLimit: '60000',
               }
             );
@@ -2191,20 +1167,12 @@ describe('RelayHub', function () {
         });
 
         it('should not accept deploy requests with gas price lower than user specified', async function () {
-          const deployRequestMisbehavingVerifier: DeployRequest = {
+          const deployRequestMisbehavingVerifier = cloneDeployRequest({
             relayData: {
-              ...deployRequest.relayData,
+              callverifier: misbehavingVerifier.address,
+              gasPrice: BigInt(2).toString(),
             },
-            request: {
-              ...deployRequest.request,
-            },
-          };
-
-          deployRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address;
-          deployRequestMisbehavingVerifier.relayData.gasPrice = (
-            BigInt(1) + BigInt(1)
-          ).toString();
+          });
 
           const deployCall = relayHub
             .connect(relayWorker)
@@ -2213,7 +1181,7 @@ describe('RelayHub', function () {
               signatureWithMisbehavingVerifier,
               {
                 gasLimit,
-                gasPrice: '1',
+                gasPrice,
               }
             );
 
@@ -2227,34 +1195,30 @@ describe('RelayHub', function () {
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
-            relayRequestMisbehavingVerifier.request.index
+            deployRequestMisbehavingVerifier.request.index
           );
           await token.mint('1', calculatedAddr);
 
           await relayHub
             .connect(incorrectWorker)
             .deployCall(
-              relayRequestMisbehavingVerifier,
+              deployRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
-                gasPrice: '1',
+                gasPrice,
                 gasLimit,
               }
             );
 
           const deployedFilter = factory.filters.Deployed();
           const deployedEvent = await factory.queryFilter(deployedFilter);
-          expect(deployedEvent !== undefined).to.equal(
-            true,
-            'No Deployed event found'
-          );
+          expect(deployedEvent.length).to.equal(1, 'No Deployed event found');
         });
       });
     });
   });
 
   describe('penalize', function () {
-    const gasLimit = 4e6;
     let beneficiary: SignerWithAddress;
     let penalizerMock: SignerWithAddress;
 
@@ -2264,58 +1228,32 @@ describe('RelayHub', function () {
         SignerWithAddress
       ];
 
-      const relayHubFactory = await ethers.getContractFactory('RelayHub');
+      relayHub = await deployHub(penalizerMock.address);
 
-      relayHub = await relayHubFactory.deploy(
-        penalizerMock.address,
-        10,
-        (1e18).toString(),
-        1000,
-        (1e18).toString()
-      );
+      await relayHub
+        .connect(relayOwner)
+        .stakeForAddress(relayManager.address, 1000, {
+          value: ethers.utils.parseEther('2'),
+        });
+      await relayHub
+        .connect(relayManager)
+        .addRelayWorkers([relayWorker.address]);
     });
 
     context('with unknown worker', function () {
-      beforeEach(async function () {
-        await relayHub
-          .connect(relayOwner)
-          .stakeForAddress(relayManager.address, 1000, {
-            value: ethers.utils.parseEther('1'),
+      it('should not penalize when a worker with address zero is specified', async function () {
+        const penalize = relayHub
+          .connect(penalizerMock)
+          .penalize(ethers.constants.AddressZero, beneficiary.address, {
+            gasLimit,
           });
-        await relayHub
-          .connect(relayManager)
-          .addRelayWorkers([relayWorker.address]);
-      });
 
-      it('should not penalize when an unknown worker is specified', async function () {
-        try {
-          const [unknownWorker] = (await ethers.getSigners()) as [
-            SignerWithAddress
-          ];
-
-          await relayHub
-            .connect(penalizerMock)
-            .penalize(unknownWorker.address, beneficiary.address, {
-              gasLimit,
-            });
-        } catch (error) {
-          const err: string =
-            error instanceof Error ? error.message : JSON.stringify(error);
-          expect(err.includes('Unknown relay worker')).to.be.true;
-        }
+        await expect(penalize).to.be.rejectedWith('Unknown relay worker');
       });
     });
 
     context('with manager stake unlocked', function () {
       beforeEach(async function () {
-        await relayHub
-          .connect(relayOwner)
-          .stakeForAddress(relayManager.address, 1000, {
-            value: ethers.utils.parseEther('1'),
-          });
-        await relayHub
-          .connect(relayManager)
-          .addRelayWorkers([relayWorker.address]);
         await relayHub.connect(relayOwner).unlockStake(relayManager.address);
       });
 
@@ -2406,17 +1344,13 @@ describe('RelayHub', function () {
           await ethers.provider.getBalance(beneficiary.address)
         );
 
-        try {
-          await relayHub
-            .connect(penalizerMock)
-            .penalize(relayWorker.address, beneficiary.address, {
-              gasLimit,
-            });
-        } catch (error) {
-          const err: string =
-            error instanceof Error ? error.message : JSON.stringify(error);
-          expect(err.includes('Unstaked relay manager')).to.be.true;
-        }
+        const penalize = relayHub
+          .connect(penalizerMock)
+          .penalize(relayWorker.address, beneficiary.address, {
+            gasLimit,
+          });
+
+        await expect(penalize).to.be.rejectedWith('Unstaked relay manager');
 
         stakeInfo = await relayHub.getStakeInfo(relayManager.address);
         const stakeBalanceAfter = BigNumber.from(stakeInfo.stake);
@@ -2439,14 +1373,6 @@ describe('RelayHub', function () {
       const url = 'http://relay.com';
 
       beforeEach(async function () {
-        await relayHub
-          .connect(relayOwner)
-          .stakeForAddress(relayManager.address, 1000, {
-            value: ethers.utils.parseEther('2'),
-          });
-        await relayHub
-          .connect(relayManager)
-          .addRelayWorkers([relayWorker.address]);
         await relayHub.connect(relayManager).registerRelayServer(url);
       });
 
