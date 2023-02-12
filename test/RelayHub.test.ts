@@ -629,7 +629,7 @@ describe('RelayHub', function () {
 
           await relayHub
             .connect(relayWorker)
-            .relayCall(relayRequest, signatureWithPermissiveVerifier, {
+            .relayCall(relayRequestEncodedFn, signatureWithPermissiveVerifier, {
               gasLimit,
               gasPrice,
             });
@@ -665,7 +665,7 @@ describe('RelayHub', function () {
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
           await relayHub
             .connect(relayWorker)
-            .relayCall(relayRequest, signatureWithPermissiveVerifier, {
+            .relayCall(relayRequestEncodedFn, signatureWithPermissiveVerifier, {
               gasLimit,
               gasPrice,
             });
@@ -680,7 +680,7 @@ describe('RelayHub', function () {
 
           const relayCall = relayHub
             .connect(relayWorker)
-            .relayCall(relayRequest, signatureWithPermissiveVerifier, {
+            .relayCall(relayRequestEncodedFn, signatureWithPermissiveVerifier, {
               gasLimit,
               gasPrice,
             });
@@ -821,13 +821,13 @@ describe('RelayHub', function () {
               }
             );
 
-          const transactionRelayedFilter =
-            relayHub.filters.TransactionRelayed();
-          const transactionRelayedEvent = await relayHub.queryFilter(
-            transactionRelayedFilter
+          const transactionRelayedRevertedFilter =
+            relayHub.filters.TransactionRelayedButRevertedByRecipient();
+          const transactionRelayedRevertedEvent = await relayHub.queryFilter(
+            transactionRelayedRevertedFilter
           );
 
-          expect(transactionRelayedEvent.length).to.equal(1);
+          expect(transactionRelayedRevertedEvent.length).to.equal(1);
         });
       });
     });
