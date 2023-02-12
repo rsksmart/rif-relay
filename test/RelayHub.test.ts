@@ -1,32 +1,22 @@
-import { expect } from 'chai'
-import { ethers } from 'hardhat'
-import { BigNumber, Wallet, /*Wallet, constants*/ 
-providers} from 'ethers'
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
+import { BigNumber, Wallet, providers } from 'ethers';
 import {
   UtilToken,
-  CustomSmartWalletFactory,
   SmartWalletFactory,
   Penalizer,
   RelayHub,
   SmartWallet,
-} from '@rsksmart/rif-relay-contracts'
-import {
-  DeployRequest,
-  ESTIMATED_GAS_CORRECTION_FACTOR,
-  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
-} from '@rsksmart/rif-relay-client'
+} from '@rsksmart/rif-relay-contracts';
+import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-client';
 import {
   TestDeployVerifierConfigurableMisbehavior,
   TestDeployVerifierEverythingAccepted,
-  //TestDeployVerifierEverythingAccepted,
   TestRecipient,
-  TestRecipient__factory,
   TestVerifierConfigurableMisbehavior,
   TestVerifierEverythingAccepted,
-} from '../typechain-types'
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { RelayRequest } from '@rsksmart/rif-relay-client'
-import { defaultEnvironment } from '@rsksmart/rif-relay-server'
+} from '../typechain-types';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
   getSuffixDataAndSignature,
   createSmartWalletFactory,
@@ -34,70 +24,67 @@ import {
   RSK_URL,
   signEnvelopingRequest,
   evmMineMany,
-} from './utils/TestUtils'
-import { smartwallet } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts'
+} from './utils/TestUtils';
 
 const stripHex = (s: string): string => {
-  return s.slice(2, s.length)
-}
+  return s.slice(2, s.length);
+};
 
 function cloneRelayRequest(relayRequest: RelayRequest): RelayRequest {
   return {
     request: { ...relayRequest.request },
     relayData: { ...relayRequest.relayData },
-  }
+  };
 }
 
-describe.only('RelayHub', function () {
-  let penalizer: Penalizer
-  let relayHub: RelayHub
-  let verifier: TestVerifierEverythingAccepted
-  let recipient: TestRecipient
-  let token: UtilToken
-  let forwarder: SmartWallet
-  let factory: SmartWalletFactory
-  let sharedRelayRequestData: RelayRequest
-  let relayWorker: SignerWithAddress
-  let relayManager: SignerWithAddress
-  let relayOwner: SignerWithAddress
-  let fundedAccount: SignerWithAddress
-  let relayHubSigner: SignerWithAddress
-  let owner: Wallet
-  let incorrectWorker: SignerWithAddress
+describe('RelayHub', function () {
+  let penalizer: Penalizer;
+  let relayHub: RelayHub;
+  let verifier: TestVerifierEverythingAccepted;
+  let recipient: TestRecipient;
+  let token: UtilToken;
+  let forwarder: SmartWallet;
+  let factory: SmartWalletFactory;
+  let sharedRelayRequestData: RelayRequest;
+  let relayWorker: SignerWithAddress;
+  let relayManager: SignerWithAddress;
+  let relayOwner: SignerWithAddress;
+  let fundedAccount: SignerWithAddress;
+  let relayHubSigner: SignerWithAddress;
+  let owner: Wallet;
+  let incorrectWorker: SignerWithAddress;
   let provider: providers.JsonRpcProvider;
 
   beforeEach(async function () {
+    provider = new ethers.providers.JsonRpcProvider(RSK_URL);
+    owner = ethers.Wallet.createRandom().connect(provider);
 
-    provider = new ethers.providers.JsonRpcProvider(RSK_URL)
-    owner = ethers.Wallet.createRandom().connect(provider)
-
-    const penalizerFactory = await ethers.getContractFactory('Penalizer')
-    penalizer = await penalizerFactory.deploy()
+    const penalizerFactory = await ethers.getContractFactory('Penalizer');
+    penalizer = await penalizerFactory.deploy();
 
     //const { relayHubConfiguration } = defaultEnvironment!;
 
-    const relayHubFactory = await ethers.getContractFactory('RelayHub')
+    const relayHubFactory = await ethers.getContractFactory('RelayHub');
 
     relayHub = await relayHubFactory.deploy(
       penalizer.address,
       10,
       (1e18).toString(),
       1000,
-      (1e18).toString(),
-    )
+      (1e18).toString()
+    );
 
     relayHub.connect(provider);
 
     verifier = await ethers
       .getContractFactory('TestVerifierEverythingAccepted')
-      .then((contractFactory) => contractFactory.deploy())
+      .then((contractFactory) => contractFactory.deploy());
 
     const smartWalletTemplate = await ethers
       .getContractFactory('SmartWallet')
-      .then((contractFactory) => contractFactory.deploy())
+      .then((contractFactory) => contractFactory.deploy());
 
-    
-    ;[
+    [
       relayWorker,
       relayManager,
       relayOwner,
@@ -110,26 +97,26 @@ describe.only('RelayHub', function () {
       SignerWithAddress,
       SignerWithAddress,
       SignerWithAddress,
-      SignerWithAddress,
-    ]
+      SignerWithAddress
+    ];
 
     //Fund the owner
     await fundedAccount.sendTransaction({
       to: owner.address,
       value: ethers.utils.parseEther('1'),
-    })
+    });
 
     factory = (await createSmartWalletFactory(
       smartWalletTemplate,
       false,
-      owner,
-    )) as SmartWalletFactory
+      owner
+    )) as SmartWalletFactory;
     recipient = await ethers
       .getContractFactory('TestRecipient')
-      .then((contractFactory) => contractFactory.deploy())
+      .then((contractFactory) => contractFactory.deploy());
     token = await ethers
       .getContractFactory('UtilToken')
-      .then((contractFactory) => contractFactory.deploy())
+      .then((contractFactory) => contractFactory.deploy());
 
     //const sender = await ethers.getSigner(relayHub.address)
 
@@ -138,9 +125,9 @@ describe.only('RelayHub', function () {
       factory,
       owner,
       sender: relayHubSigner,
-    })) as SmartWallet
+    })) as SmartWallet;
 
-    await token.mint('1000', forwarder.address)
+    await token.mint('1000', forwarder.address);
 
     sharedRelayRequestData = {
       request: {
@@ -162,417 +149,420 @@ describe.only('RelayHub', function () {
         callForwarder: forwarder.address,
         callVerifier: verifier.address,
       },
-    }
-  })
+    };
+  });
   describe('#add/disable relay workers', function () {
     it('should register and allow to disable new relay workers', async function () {
       await relayHub.stakeForAddress(relayManager.address, 1000, {
         value: ethers.utils.parseEther('1'),
-      })
+      });
 
       const relayWorkersBefore = await relayHub.workerCount(
-        relayManager.address,
-      )
+        relayManager.address
+      );
 
       expect(relayWorkersBefore.toNumber()).to.equal(
         0,
-        `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`,
-      )
+        `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`
+      );
 
       const addRelayWorkersTrx = await relayHub
         .connect(relayManager)
-        .addRelayWorkers([relayWorker.address])
-      await addRelayWorkersTrx.wait()
-      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded()
+        .addRelayWorkers([relayWorker.address]);
+      await addRelayWorkersTrx.wait();
+      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
 
       const [relayWorkersAddedEvent] = await relayHub.queryFilter(
-        relayWorkersAddedFilter,
-      )
+        relayWorkersAddedFilter
+      );
 
       expect(relayManager.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.relayManager.toLowerCase(),
-      )
+        relayWorkersAddedEvent?.args.relayManager.toLowerCase()
+      );
       expect(relayWorker.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.newRelayWorkers[0]?.toLowerCase(),
-      )
+        relayWorkersAddedEvent?.args.newRelayWorkers[0]?.toLowerCase()
+      );
       expect(BigNumber.from(1)).to.equal(
-        relayWorkersAddedEvent?.args.workersCount,
-      )
+        relayWorkersAddedEvent?.args.workersCount
+      );
 
-      const relayWorkersAfter = await relayHub.workerCount(relayManager.address)
-      expect(relayWorkersAfter.toNumber()).to.equal(1, 'Workers must be one')
+      const relayWorkersAfter = await relayHub.workerCount(
+        relayManager.address
+      );
+      expect(relayWorkersAfter.toNumber()).to.equal(1, 'Workers must be one');
 
-      const manager = await relayHub.workerToManager(relayWorker.address)
+      const manager = await relayHub.workerToManager(relayWorker.address);
 
       // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
       const expectedManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('1')),
-      )
+        stripHex(relayManager.address.concat('1'))
+      );
 
       expect(manager.toLowerCase()).to.equal(
         expectedManager.toLowerCase(),
-        `Incorrect relay manager: ${manager}`,
-      )
+        `Incorrect relay manager: ${manager}`
+      );
 
       const disableWorkerTrx = await relayHub
         .connect(relayManager)
-        .disableRelayWorkers([relayWorker.address])
+        .disableRelayWorkers([relayWorker.address]);
 
-      await disableWorkerTrx.wait()
-      const disableWorkerFilter = relayHub.filters.RelayWorkersDisabled()
+      await disableWorkerTrx.wait();
+      const disableWorkerFilter = relayHub.filters.RelayWorkersDisabled();
       const [relayWorkersDisabledEvent] = await relayHub.queryFilter(
-        disableWorkerFilter,
-      )
+        disableWorkerFilter
+      );
 
       expect(relayManager.address.toLowerCase()).to.equal(
-        relayWorkersDisabledEvent?.args.relayManager.toLowerCase(),
-      )
+        relayWorkersDisabledEvent?.args.relayManager.toLowerCase()
+      );
       expect(relayWorker.address.toLowerCase()).to.equal(
-        relayWorkersDisabledEvent?.args.relayWorkers[0]?.toLowerCase(),
-      )
+        relayWorkersDisabledEvent?.args.relayWorkers[0]?.toLowerCase()
+      );
       expect(BigNumber.from(0)).to.equal(
-        relayWorkersDisabledEvent?.args.workersCount,
-      )
+        relayWorkersDisabledEvent?.args.workersCount
+      );
 
       const workersCountAfterDisable = await relayHub.workerCount(
-        relayManager.address,
-      )
+        relayManager.address
+      );
       expect(workersCountAfterDisable.toNumber()).equal(
         0,
-        'Workers must be zero',
-      )
+        'Workers must be zero'
+      );
 
       const disabledManager = await relayHub.workerToManager(
-        relayWorker.address,
-      )
+        relayWorker.address
+      );
       const expectedInvalidManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('0')),
-      )
+        stripHex(relayManager.address.concat('0'))
+      );
       expect(disabledManager.toLowerCase()).to.equal(
         expectedInvalidManager.toLowerCase(),
-        `Incorrect relay manager: ${disabledManager}`,
-      )
-    })
+        `Incorrect relay manager: ${disabledManager}`
+      );
+    });
 
     it('should fail to disable more relay workers than available', async function () {
       await relayHub.stakeForAddress(relayManager.address, 1000, {
         value: ethers.utils.parseEther('1'),
-      })
+      });
 
       const relayWorkersBefore = await relayHub.workerCount(
-        relayManager.address,
-      )
+        relayManager.address
+      );
 
       expect(relayWorkersBefore.toNumber()).to.equal(
         0,
-        `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`,
-      )
+        `Initial workers must be zero but was ${relayWorkersBefore.toNumber()}`
+      );
 
       const addRelayWorkersTrx = await relayHub
         .connect(relayManager)
-        .addRelayWorkers([relayWorker.address])
-      await addRelayWorkersTrx.wait()
-      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded()
+        .addRelayWorkers([relayWorker.address]);
+      await addRelayWorkersTrx.wait();
+      const relayWorkersAddedFilter = relayHub.filters.RelayWorkersAdded();
 
       const [relayWorkersAddedEvent] = await relayHub.queryFilter(
-        relayWorkersAddedFilter,
-      )
+        relayWorkersAddedFilter
+      );
 
       expect(relayManager.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.relayManager.toLowerCase(),
-      )
+        relayWorkersAddedEvent?.args.relayManager.toLowerCase()
+      );
       expect(relayWorker.address.toLowerCase()).to.equal(
-        relayWorkersAddedEvent?.args.newRelayWorkers[0]?.toLowerCase(),
-      )
+        relayWorkersAddedEvent?.args.newRelayWorkers[0]?.toLowerCase()
+      );
       expect(BigNumber.from(1)).to.equal(
-        relayWorkersAddedEvent?.args.workersCount,
-      )
+        relayWorkersAddedEvent?.args.workersCount
+      );
 
-      const relayWorkersAfter = await relayHub.workerCount(relayManager.address)
-      expect(relayWorkersAfter.toNumber()).to.equal(1, 'Workers must be one')
+      const relayWorkersAfter = await relayHub.workerCount(
+        relayManager.address
+      );
+      expect(relayWorkersAfter.toNumber()).to.equal(1, 'Workers must be one');
 
-      const manager = await relayHub.workerToManager(relayWorker.address)
+      const manager = await relayHub.workerToManager(relayWorker.address);
 
       // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
       const expectedManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('1')),
-      )
+        stripHex(relayManager.address.concat('1'))
+      );
 
       expect(manager.toLowerCase()).to.equal(
         expectedManager.toLowerCase(),
-        `Incorrect relay manager: ${manager}`,
-      )
+        `Incorrect relay manager: ${manager}`
+      );
 
       const disableWorkerTrx = relayHub
         .connect(relayManager)
-        .disableRelayWorkers([relayWorker.address, relayWorker.address])
+        .disableRelayWorkers([relayWorker.address, relayWorker.address]);
 
       await expect(disableWorkerTrx).to.be.rejectedWith(
-        'invalid quantity of workers',
-      )
+        'invalid quantity of workers'
+      );
 
       const workersCountAfterDisable = await relayHub.workerCount(
-        relayManager.address,
-      )
-      expect(workersCountAfterDisable.toNumber()).equal(1, 'Workers must be 1')
+        relayManager.address
+      );
+      expect(workersCountAfterDisable.toNumber()).equal(1, 'Workers must be 1');
 
       const disabledManager = await relayHub.workerToManager(
-        relayWorker.address,
-      )
+        relayWorker.address
+      );
       const expectedInvalidManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('1')),
-      )
+        stripHex(relayManager.address.concat('1'))
+      );
       expect(disabledManager.toLowerCase()).to.equal(
         expectedInvalidManager.toLowerCase(),
-        `Incorrect relay manager: ${disabledManager}`,
-      )
-    })
+        `Incorrect relay manager: ${disabledManager}`
+      );
+    });
 
     it('should only allow the corresponding relay manager to disable their respective relay workers', async function () {
       await relayHub.stakeForAddress(relayManager.address, 1000, {
         value: ethers.utils.parseEther('1'),
-      })
+      });
 
-      const [
-        incorrectRelayManager,
-        incorrectWorker,
-      ] = (await ethers.getSigners()) as [SignerWithAddress, SignerWithAddress]
+      const [incorrectRelayManager, incorrectWorker] =
+        (await ethers.getSigners()) as [SignerWithAddress, SignerWithAddress];
 
       await relayHub
         .connect(relayOwner)
         .stakeForAddress(incorrectRelayManager.address, 1000, {
           value: ethers.utils.parseEther('1'),
-        })
+        });
 
-      const relayWorkers = await relayHub.workerCount(relayManager.address)
+      const relayWorkers = await relayHub.workerCount(relayManager.address);
 
       const relayWorkersIncorrect = await relayHub.workerCount(
-        incorrectRelayManager.address,
-      )
+        incorrectRelayManager.address
+      );
 
       expect(relayWorkers.toNumber()).to.equal(
         0,
-        `Initial workers must be zero but was ${relayWorkers.toNumber()}`,
-      )
+        `Initial workers must be zero but was ${relayWorkers.toNumber()}`
+      );
 
       expect(relayWorkersIncorrect.toNumber()).to.equal(
         0,
-        `Initial workers must be zero but was ${relayWorkers.toNumber()}`,
-      )
+        `Initial workers must be zero but was ${relayWorkers.toNumber()}`
+      );
 
       await relayHub
         .connect(relayManager)
-        .addRelayWorkers([relayWorker.address])
+        .addRelayWorkers([relayWorker.address]);
 
       await relayHub
         .connect(incorrectRelayManager)
-        .addRelayWorkers([incorrectWorker.address])
+        .addRelayWorkers([incorrectWorker.address]);
 
-      const workersAfterAdd = await relayHub.workerCount(relayManager.address)
+      const workersAfterAdd = await relayHub.workerCount(relayManager.address);
 
       const workersIncorrectAfterAdd = await relayHub.workerCount(
-        incorrectRelayManager.address,
-      )
+        incorrectRelayManager.address
+      );
 
-      expect(workersAfterAdd.toNumber()).equal(1, 'Workers must be 1')
+      expect(workersAfterAdd.toNumber()).equal(1, 'Workers must be 1');
 
-      expect(workersIncorrectAfterAdd.toNumber()).equal(1, 'Workers must be 1')
+      expect(workersIncorrectAfterAdd.toNumber()).equal(1, 'Workers must be 1');
 
-      const manager = await relayHub.workerToManager(relayWorker.address)
+      const manager = await relayHub.workerToManager(relayWorker.address);
 
       const managerIncorrectWorker = await relayHub.workerToManager(
-        incorrectWorker.address,
-      )
+        incorrectWorker.address
+      );
 
       // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
       const expectedManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('1')),
-      )
+        stripHex(relayManager.address.concat('1'))
+      );
       const expectedIncorrectManager = '0x00000000000000000000000'.concat(
-        stripHex(incorrectRelayManager.address.concat('1')),
-      )
+        stripHex(incorrectRelayManager.address.concat('1'))
+      );
 
       expect(manager.toLowerCase()).to.equal(
         expectedManager.toLowerCase(),
-        `Incorrect relay manager: ${manager}`,
-      )
+        `Incorrect relay manager: ${manager}`
+      );
 
       expect(managerIncorrectWorker.toLowerCase()).to.equal(
         expectedIncorrectManager.toLowerCase(),
-        `Incorrect relay manager: ${managerIncorrectWorker}`,
-      )
+        `Incorrect relay manager: ${managerIncorrectWorker}`
+      );
 
       const disableWorkerTrx = relayHub
         .connect(incorrectRelayManager)
-        .disableRelayWorkers([relayWorker.address])
+        .disableRelayWorkers([relayWorker.address]);
 
-      await expect(disableWorkerTrx).to.be.rejectedWith('Incorrect Manager')
+      await expect(disableWorkerTrx).to.be.rejectedWith('Incorrect Manager');
 
       const workersAfterDisable = await relayHub.workerCount(
-        incorrectRelayManager.address,
-      )
+        incorrectRelayManager.address
+      );
 
       expect(workersAfterDisable.toNumber()).to.equal(
         1,
-        "Workers shouldn't have changed",
-      )
+        "Workers shouldn't have changed"
+      );
 
-      const queriedManager = await relayHub.workerToManager(relayWorker.address)
+      const queriedManager = await relayHub.workerToManager(
+        relayWorker.address
+      );
 
       const expectedRelayManager = '0x00000000000000000000000'.concat(
-        stripHex(relayManager.address.concat('1')),
-      )
+        stripHex(relayManager.address.concat('1'))
+      );
 
       expect(queriedManager.toLowerCase()).to.equal(
         expectedRelayManager.toLowerCase(),
-        `Incorrect relay manager: ${manager}`,
-      )
+        `Incorrect relay manager: ${manager}`
+      );
 
       const queriedManagerIncorrectWorker = await relayHub.workerToManager(
-        incorrectWorker.address,
-      )
+        incorrectWorker.address
+      );
 
       expect(queriedManagerIncorrectWorker.toLowerCase()).to.equal(
         expectedIncorrectManager.toLowerCase(),
-        `Incorrect relay manager: ${queriedManagerIncorrectWorker}`,
-      )
-    })
-  })
+        `Incorrect relay manager: ${queriedManagerIncorrectWorker}`
+      );
+    });
+  });
 
   describe('relayCall', function () {
-    const gas = 4e6
-    let relayRequest: RelayRequest
+    const gas = 4e6;
+    let relayRequest: RelayRequest;
 
     beforeEach(function () {
       relayRequest = {
         request: { ...sharedRelayRequestData.request, data: '0xdeadbeef' },
         relayData: { ...sharedRelayRequestData.relayData },
-      }
-    })
+      };
+    });
 
     it('should retrieve version number', async function () {
-      const version = await relayHub.versionHub()
-      expect(version).to.match(/2\.\d*\.\d*-?.*\+enveloping\.hub\.irelayhub/)
-    })
+      const version = await relayHub.versionHub();
+      expect(version).to.match(/2\.\d*\.\d*-?.*\+enveloping\.hub\.irelayhub/);
+    });
 
     context('with unknown worker', function () {
       it('should not accept a relay call with a disabled worker - 2', async function () {
         const [unknownWorker] = (await ethers.getSigners()) as [
-          SignerWithAddress,
-        ]
+          SignerWithAddress
+        ];
 
-        relayRequest.relayData.feesReceiver = unknownWorker.address
+        relayRequest.relayData.feesReceiver = unknownWorker.address;
 
         const { signature } = await getSuffixDataAndSignature(
           forwarder,
           relayRequest,
-          owner,
-        )
+          owner
+        );
 
         const relayCall = relayHub
           .connect(unknownWorker)
           .relayCall(relayRequest, signature, {
             gasPrice: gas,
-          })
+          });
 
-        await expect(relayCall).to.be.rejectedWith('Not an enabled worker')
-      })
-    })
+        await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
+      });
+    });
 
     context('with manager stake unlocked', function () {
-      let signature: string
+      let signature: string;
 
       beforeEach(async function () {
-        ;({ signature } = await getSuffixDataAndSignature(
+        ({ signature } = await getSuffixDataAndSignature(
           forwarder,
           relayRequest,
-          owner,
-        ))
+          owner
+        ));
 
         await relayHub
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('1'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-      })
+          .addRelayWorkers([relayWorker.address]);
+      });
 
       it('should not accept a relay call', async function () {
-        await relayHub.connect(relayOwner).unlockStake(relayManager.address)
+        await relayHub.connect(relayOwner).unlockStake(relayManager.address);
 
         const relayCall = relayHub
           .connect(relayWorker)
           .relayCall(relayRequest, signature, {
             gasPrice: gas,
-          })
+          });
 
-        await expect(relayCall).to.be.rejectedWith('RelayManager not staked')
-      })
+        await expect(relayCall).to.be.rejectedWith('RelayManager not staked');
+      });
 
       it('should not accept a relay call with a disabled worker', async function () {
         await relayHub
           .connect(relayManager)
-          .disableRelayWorkers([relayWorker.address])
+          .disableRelayWorkers([relayWorker.address]);
 
         const relayCall = relayHub
           .connect(relayWorker)
           .relayCall(relayRequest, signature, {
             gasPrice: gas,
-          })
+          });
 
-        await expect(relayCall).to.be.rejectedWith('Not an enabled worker')
-      })
-    })
+        await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
+      });
+    });
 
     context('with staked and registered relay', function () {
-      const url = 'http://relay.com'
-      const message = 'Enveloping RelayHub'
-      const messageWithNoParams = 'Method with no parameters'
+      const url = 'http://relay.com';
+      const message = 'Enveloping RelayHub';
+      const messageWithNoParams = 'Method with no parameters';
 
-      let relayRequest: RelayRequest
-      let signatureWithPermissiveVerifier: string
-      let misbehavingVerifier: TestVerifierConfigurableMisbehavior
+      let relayRequest: RelayRequest;
+      let signatureWithPermissiveVerifier: string;
+      let misbehavingVerifier: TestVerifierConfigurableMisbehavior;
 
       beforeEach(async function () {
         await relayHub
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('2'),
-          })
+          });
 
         const encodedFunction = recipient.interface.encodeFunctionData(
           'emitMessage',
-          [message],
-        )
+          [message]
+        );
 
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-        await relayHub.connect(relayManager).registerRelayServer(url)
+          .addRelayWorkers([relayWorker.address]);
+        await relayHub.connect(relayManager).registerRelayServer(url);
 
-        relayRequest = cloneRelayRequest(sharedRelayRequestData)
-        relayRequest.request.data = encodedFunction
-        ;({
-          signature: signatureWithPermissiveVerifier,
-        } = await getSuffixDataAndSignature(forwarder, relayRequest, owner))
+        relayRequest = cloneRelayRequest(sharedRelayRequestData);
+        relayRequest.request.data = encodedFunction;
+        ({ signature: signatureWithPermissiveVerifier } =
+          await getSuffixDataAndSignature(forwarder, relayRequest, owner));
 
         misbehavingVerifier = await ethers
           .getContractFactory('TestVerifierConfigurableMisbehavior')
-          .then((contract) => contract.deploy())
-      })
+          .then((contract) => contract.deploy());
+      });
 
       context('with relay worker that is not an EOA', function () {
         it('should not accept relay requests', async function () {
-          const signature = '0xdeadbeef'
+          const signature = '0xdeadbeef';
 
           const testRelayWorkerContract = await ethers
             .getContractFactory('TestRelayWorkerContract')
-            .then((contract) => contract.deploy())
+            .then((contract) => contract.deploy());
           await relayHub
             .connect(relayManager)
-            .addRelayWorkers([testRelayWorkerContract.address])
+            .addRelayWorkers([testRelayWorkerContract.address]);
 
           const relayCall = testRelayWorkerContract.relayCall(
             relayHub.address,
@@ -580,14 +570,14 @@ describe.only('RelayHub', function () {
             signature,
             {
               gasPrice: gas,
-            },
-          )
+            }
+          );
 
           await expect(relayCall).to.be.rejectedWith(
-            'RelayWorker cannot be a contract',
-          )
-        })
-      })
+            'RelayWorker cannot be a contract'
+          );
+        });
+      });
 
       /*context.skip('with view functions only', function () {
 
@@ -626,28 +616,27 @@ describe.only('RelayHub', function () {
       context('with funded verifier', function () {
         //let misbehavingVerifier: TestVerifierConfigurableMisbehavior;
 
-        let signatureWithMisbehavingVerifier: string
-        let relayRequestMisbehavingVerifier: RelayRequest
-        const gas = 4e6
+        let signatureWithMisbehavingVerifier: string;
+        let relayRequestMisbehavingVerifier: RelayRequest;
+        const gas = 4e6;
 
         beforeEach(async function () {
-          ;({ signature } = await getSuffixDataAndSignature(
+          /*const { signature } = await getSuffixDataAndSignature(
             forwarder,
             relayRequest,
             owner,
-          ))
+          );*/
 
-          relayRequestMisbehavingVerifier = cloneRelayRequest(relayRequest)
+          relayRequestMisbehavingVerifier = cloneRelayRequest(relayRequest);
           relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address
-          ;({
-            signature: signatureWithMisbehavingVerifier,
-          } = await getSuffixDataAndSignature(
-            forwarder,
-            relayRequestMisbehavingVerifier,
-            owner,
-          ))
-        })
+            misbehavingVerifier.address;
+          ({ signature: signatureWithMisbehavingVerifier } =
+            await getSuffixDataAndSignature(
+              forwarder,
+              relayRequestMisbehavingVerifier,
+              owner
+            ));
+        });
 
         /*it.skip('gas prediction tests - with token payment', async function () {
 
@@ -1519,9 +1508,9 @@ describe.only('RelayHub', function () {
         });*/
 
         it('gas estimation tests', async function () {
-          const nonceBefore = await forwarder.nonce()
+          const nonceBefore = await forwarder.nonce();
 
-          await token.mint('1000000', forwarder.address)
+          await token.mint('1000000', forwarder.address);
 
           const completeReq: RelayRequest = {
             request: {
@@ -1537,154 +1526,162 @@ describe.only('RelayHub', function () {
             relayData: {
               ...relayRequest.relayData,
             },
-          }
+          };
 
           const { signature: sig } = await getSuffixDataAndSignature(
             forwarder,
             completeReq,
-            owner,
-          )
+            owner
+          );
 
           const relayCallTrx = await relayHub
             .connect(relayWorker)
             .relayCall(completeReq, sig, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          const nonceAfter = await forwarder.nonce()
-          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber())
+          const nonceAfter = await forwarder.nonce();
+          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
 
           const eventHash = ethers.utils.keccak256(
-            Buffer.from('GasUsed(uint256,uint256)'),
-          )
-          const txReceipt = await relayCallTrx.wait()
-          console.log('---------------------------------------')
+            Buffer.from('GasUsed(uint256,uint256)')
+          );
+          const txReceipt = await relayCallTrx.wait();
+          console.log('---------------------------------------');
 
-          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`)
+          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`);
           console.log(
-            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`,
-          )
+            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
+          );
 
-          let previousGas = BigInt(0)
-          let previousStep = null
+          let previousGas = BigInt(0);
+          let previousStep = null;
           // not sure about this loop
           for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i]
+            const log = txReceipt.logs[i];
             if (ethers.utils.hexValue(eventHash) === log?.topics[0]) {
-              const step = log.data.substring(0, 66)
+              const step = log.data.substring(0, 66);
               const gasUsed = BigInt(
-                '0x' + log.data.substring(67, log.data.length),
-              )
-              console.log('---------------------------------------')
-              console.log('step :', BigInt(step).toString())
-              console.log('gasLeft :', gasUsed.toString())
+                '0x' + log.data.substring(67, log.data.length)
+              );
+              console.log('---------------------------------------');
+              console.log('step :', BigInt(step).toString());
+              console.log('gasLeft :', gasUsed.toString());
 
               if (previousStep != null) {
                 console.log(
                   `Steps substraction ${BigInt(step).toString()} and ${BigInt(
-                    previousStep,
-                  ).toString()}`,
-                )
+                    previousStep
+                  ).toString()}`
+                );
                 console.log(
-                  (previousGas.valueOf() - gasUsed.valueOf()).toString(),
-                )
+                  (previousGas.valueOf() - gasUsed.valueOf()).toString()
+                );
               }
-              console.log('---------------------------------------')
-              previousGas = BigInt(gasUsed)
-              previousStep = step
+              console.log('---------------------------------------');
+              previousGas = BigInt(gasUsed);
+              previousStep = step;
             }
           }
 
-          const sampleRecipientEmittedFilter = recipient.filters.SampleRecipientEmitted()
+          const sampleRecipientEmittedFilter =
+            recipient.filters.SampleRecipientEmitted();
           const sampleRecipientEmittedEvent = await recipient.queryFilter(
-            sampleRecipientEmittedFilter,
-          )
+            sampleRecipientEmittedFilter
+          );
 
-          expect(message).to.equal(sampleRecipientEmittedEvent[0]?.args.message)
+          expect(message).to.equal(
+            sampleRecipientEmittedEvent[0]?.args.message
+          );
           expect(forwarder.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase(),
-          )
+            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
+          );
           expect(relayWorker.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase(),
-          )
+            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
+          );
 
-          const transactionRelayedFilter = relayHub.filters.TransactionRelayed()
+          const transactionRelayedFilter =
+            relayHub.filters.TransactionRelayed();
           const transactionRelayedEvent = await relayHub.queryFilter(
-            transactionRelayedFilter,
-          )
+            transactionRelayedFilter
+          );
 
-          expect(transactionRelayedEvent).to.not.be.null
-        })
+          expect(transactionRelayedEvent).to.not.be.null;
+        });
 
         it('should fail to relay if the worker has been disabled', async function () {
-          let manager = await relayHub.workerToManager(relayWorker.address)
+          let manager = await relayHub.workerToManager(relayWorker.address);
           // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
           let expectedManager = '0x00000000000000000000000'.concat(
-            stripHex(relayManager.address.concat('1')),
-          )
+            stripHex(relayManager.address.concat('1'))
+          );
 
           expect(manager.toLowerCase()).to.equal(
             expectedManager.toLowerCase(),
-            `Incorrect relay manager: ${manager}`,
-          )
+            `Incorrect relay manager: ${manager}`
+          );
 
           await relayHub
             .connect(relayManager)
-            .disableRelayWorkers([relayWorker.address])
+            .disableRelayWorkers([relayWorker.address]);
 
-          manager = await relayHub.workerToManager(relayWorker.address)
+          manager = await relayHub.workerToManager(relayWorker.address);
           expectedManager = '0x00000000000000000000000'.concat(
-            stripHex(relayManager.address.concat('0')),
-          )
+            stripHex(relayManager.address.concat('0'))
+          );
           expect(manager.toLowerCase()).to.equal(
             expectedManager.toLowerCase(),
-            `Incorrect relay manager: ${manager}`,
-          )
+            `Incorrect relay manager: ${manager}`
+          );
 
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          await expect(relayCall).to.be.rejectedWith('Not an enabled worker')
-        })
+          await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
+        });
 
         it('relayCall executes the transaction and increments sender nonce on hub', async function () {
-          const nonceBefore = await forwarder.nonce()
+          const nonceBefore = await forwarder.nonce();
 
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          const nonceAfter = await forwarder.nonce()
-          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber())
+          const nonceAfter = await forwarder.nonce();
+          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
 
-          const recipientEmittedFilter = recipient.filters.SampleRecipientEmitted()
+          const recipientEmittedFilter =
+            recipient.filters.SampleRecipientEmitted();
           const sampleRecipientEmittedEvent = await recipient.queryFilter(
-            recipientEmittedFilter,
-          )
+            recipientEmittedFilter
+          );
 
-          expect(message).to.equal(sampleRecipientEmittedEvent[0]?.args.message)
+          expect(message).to.equal(
+            sampleRecipientEmittedEvent[0]?.args.message
+          );
           expect(forwarder.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase(),
-          )
+            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
+          );
           expect(relayWorker.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase(),
-          )
+            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
+          );
 
-          const transactionRelayedFilter = relayHub.filters.TransactionRelayed()
+          const transactionRelayedFilter =
+            relayHub.filters.TransactionRelayed();
           const transactionRelayedEvent = await relayHub.queryFilter(
-            transactionRelayedFilter,
-          )
+            transactionRelayedFilter
+          );
 
-          expect(transactionRelayedEvent).to.not.be.null
-        })
+          expect(transactionRelayedEvent).to.not.be.null;
+        });
 
         it('relayCall should refuse to re-send transaction with same nonce', async function () {
           await relayHub
@@ -1692,100 +1689,101 @@ describe.only('RelayHub', function () {
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          const recipientEmittedFilter = recipient.filters.SampleRecipientEmitted()
+          const recipientEmittedFilter =
+            recipient.filters.SampleRecipientEmitted();
           const sampleRecipientEmittedEvent = await recipient.queryFilter(
-            recipientEmittedFilter,
-          )
+            recipientEmittedFilter
+          );
 
-          expect(sampleRecipientEmittedEvent).to.not.be.null
+          expect(sampleRecipientEmittedEvent).to.not.be.null;
 
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequest, signatureWithPermissiveVerifier, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          await expect(relayCall).to.be.rejectedWith('nonce mismatch')
-        })
+          await expect(relayCall).to.be.rejectedWith('nonce mismatch');
+        });
         // This test is added due to a regression that almost slipped to production.
         it('relayCall executes the transaction with no parameters', async function () {
           const encodedFunction = recipient.interface.encodeFunctionData(
-            'emitMessageNoParams',
-          )
-          const relayRequestNoCallData = cloneRelayRequest(relayRequest)
-          relayRequestNoCallData.request.data = encodedFunction
+            'emitMessageNoParams'
+          );
+          const relayRequestNoCallData = cloneRelayRequest(relayRequest);
+          relayRequestNoCallData.request.data = encodedFunction;
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
             relayRequestNoCallData,
-            owner,
-          )
+            owner
+          );
 
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequestNoCallData, signature, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          const sampleRecipientEmittedFilter = recipient.filters.SampleRecipientEmitted()
+          const sampleRecipientEmittedFilter =
+            recipient.filters.SampleRecipientEmitted();
           const sampleRecipientEmittedEvent = await recipient.queryFilter(
-            sampleRecipientEmittedFilter,
-          )
+            sampleRecipientEmittedFilter
+          );
 
           expect(messageWithNoParams).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.message,
-          )
+            sampleRecipientEmittedEvent[0]?.args.message
+          );
           expect(forwarder.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase(),
-          )
+            sampleRecipientEmittedEvent[0]?.args.msgSender.toLowerCase()
+          );
           expect(relayWorker.address.toLowerCase()).to.equal(
-            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase(),
-          )
-        })
+            sampleRecipientEmittedEvent[0]?.args.origin.toLowerCase()
+          );
+        });
 
         it('relayCall executes a transaction even if recipient call reverts', async function () {
-          const encodedFunction = recipient.interface.encodeFunctionData(
-            'testRevert',
-          )
+          const encodedFunction =
+            recipient.interface.encodeFunctionData('testRevert');
 
-          const relayRequestRevert = cloneRelayRequest(relayRequest)
-          relayRequestRevert.request.data = encodedFunction
+          const relayRequestRevert = cloneRelayRequest(relayRequest);
+          relayRequestRevert.request.data = encodedFunction;
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
             relayRequestRevert,
-            owner,
-          )
+            owner
+          );
 
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequestRevert, signature, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
           const reason =
             '0x08c379a0' +
             ethers.utils.defaultAbiCoder
               .encode(['string'], ['always fail'])
-              .substring(2)
+              .substring(2);
 
-          const recipientRevertedFilter = relayHub.filters.TransactionRelayedButRevertedByRecipient()
-          const transactionRelayedButRevertedByRecipientEvent = await relayHub.queryFilter(
-            recipientRevertedFilter,
-          )
+          const recipientRevertedFilter =
+            relayHub.filters.TransactionRelayedButRevertedByRecipient();
+          const transactionRelayedButRevertedByRecipientEvent =
+            await relayHub.queryFilter(recipientRevertedFilter);
 
           expect(relayWorker.address.toLowerCase()).to.equal(
-            transactionRelayedButRevertedByRecipientEvent[0]?.args.relayWorker.toLowerCase(),
-          )
+            transactionRelayedButRevertedByRecipientEvent[0]?.args.relayWorker.toLowerCase()
+          );
           expect(reason.toLowerCase()).to.equal(
-            transactionRelayedButRevertedByRecipientEvent[0]?.args.reason.toLowerCase(),
-          )
-        })
+            transactionRelayedButRevertedByRecipientEvent[0]?.args.reason.toLowerCase()
+          );
+        });
 
         it('should not accept relay requests if passed gas is too low for a relayed transaction', async function () {
           const relayCall = relayHub
@@ -1796,42 +1794,41 @@ describe.only('RelayHub', function () {
               {
                 gasPrice: '1',
                 gasLimit: '60000',
-              },
-            )
+              }
+            );
 
-          await expect(relayCall).to.be.rejectedWith('transaction reverted')
-        })
+          await expect(relayCall).to.be.rejectedWith('transaction reverted');
+        });
 
         it('should not accept relay requests with gas price lower than user specified', async function () {
-          const relayRequestMisbehavingVerifier = cloneRelayRequest(
-            relayRequest,
-          )
+          const relayRequestMisbehavingVerifier =
+            cloneRelayRequest(relayRequest);
           relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address
+            misbehavingVerifier.address;
           relayRequestMisbehavingVerifier.relayData.gasPrice = (
             BigInt('1') + BigInt(1)
-          ).toString()
+          ).toString();
 
           const { signature } = await getSuffixDataAndSignature(
             forwarder,
             relayRequestMisbehavingVerifier,
-            owner,
-          )
+            owner
+          );
 
           const relayCall = relayHub
             .connect(relayWorker)
             .relayCall(relayRequestMisbehavingVerifier, signature, {
               gasLimit: gas,
               gasPrice: '1',
-            })
+            });
 
-          await expect(relayCall).to.be.rejectedWith('Invalid gas price')
-        })
+          await expect(relayCall).to.be.rejectedWith('Invalid gas price');
+        });
 
         it('should accept relay requests with incorrect relay worker', async function () {
           await relayHub
             .connect(relayManager)
-            .addRelayWorkers([incorrectWorker.address])
+            .addRelayWorkers([incorrectWorker.address]);
           await relayHub
             .connect(relayWorker)
             .relayCall(
@@ -1840,37 +1837,38 @@ describe.only('RelayHub', function () {
               {
                 gasLimit: gas,
                 gasPrice: '1',
-              },
-            )
+              }
+            );
 
-          const transactionRelayedFilter = relayHub.filters.TransactionRelayed()
+          const transactionRelayedFilter =
+            relayHub.filters.TransactionRelayed();
           const transactionRelayedEvent = await relayHub.queryFilter(
-            transactionRelayedFilter,
-          )
+            transactionRelayedFilter
+          );
 
-          expect(transactionRelayedEvent).to.not.be.null
-        })
-      })
-    })
-  })
+          expect(transactionRelayedEvent).to.not.be.null;
+        });
+      });
+    });
+  });
 
   describe('deployCall', function () {
-    let min = 0
-    let max = 1000000000
-    let nextWalletIndex: number
-    let sharedDeployRequestData: DeployRequest
-    let deployVerifier: TestDeployVerifierEverythingAccepted
-    let unknownWorker: SignerWithAddress
+    let min = 0;
+    let max = 1000000000;
+    let nextWalletIndex: number;
+    let sharedDeployRequestData: DeployRequest;
+    let deployVerifier: TestDeployVerifierEverythingAccepted;
+    let unknownWorker: SignerWithAddress;
 
     beforeEach(async function () {
-      min = Math.ceil(min)
-      max = Math.floor(max)
-      nextWalletIndex = Math.floor(Math.random() * (max - min + 1) + min)
+      min = Math.ceil(min);
+      max = Math.floor(max);
+      nextWalletIndex = Math.floor(Math.random() * (max - min + 1) + min);
 
       deployVerifier = await ethers
         .getContractFactory('TestDeployVerifierEverythingAccepted')
-        .then((contractFactory) => contractFactory.deploy())
-      ;[unknownWorker] = (await ethers.getSigners()) as [SignerWithAddress]
+        .then((contractFactory) => contractFactory.deploy());
+      [unknownWorker] = (await ethers.getSigners()) as [SignerWithAddress];
 
       sharedDeployRequestData = {
         request: {
@@ -1893,125 +1891,125 @@ describe.only('RelayHub', function () {
           callForwarder: factory.address,
           callVerifier: deployVerifier.address,
         },
-      }
-    })
+      };
+    });
 
     context('with unknown worker', function () {
-      const gas = 4e6
-      let deployRequest: DeployRequest
-      let signature: string
+      const gas = 4e6;
+      let deployRequest: DeployRequest;
+      let signature: string;
 
       beforeEach(async function () {
         deployRequest = {
           relayData: { ...sharedDeployRequestData.relayData },
           request: { ...sharedDeployRequestData.request },
-        }
+        };
 
-        deployRequest.request.index = nextWalletIndex.toString()
-        deployRequest.relayData.feesReceiver = unknownWorker.address
-        ;({ signature } = await signEnvelopingRequest(deployRequest, owner))
+        deployRequest.request.index = nextWalletIndex.toString();
+        deployRequest.relayData.feesReceiver = unknownWorker.address;
+        ({ signature } = await signEnvelopingRequest(deployRequest, owner));
 
-        nextWalletIndex++
-      })
+        nextWalletIndex++;
+      });
 
       it('should not accept a deploy call - 2', async function () {
         const deployCall = relayHub
           .connect(unknownWorker)
           .deployCall(deployRequest, signature, {
             gasLimit: gas,
-          })
+          });
 
-        await expect(deployCall).to.be.rejectedWith('Not an enabled worker')
-      })
-    })
+        await expect(deployCall).to.be.rejectedWith('Not an enabled worker');
+      });
+    });
 
     context('with manager stake unlocked', function () {
-      const gasLimit = 4e6
-      let signature: string
-      let deployRequest: DeployRequest
+      const gasLimit = 4e6;
+      let signature: string;
+      let deployRequest: DeployRequest;
 
       beforeEach(async function () {
         deployRequest = {
           relayData: { ...sharedDeployRequestData.relayData },
           request: { ...sharedDeployRequestData.request },
-        }
-        deployRequest.request.index = nextWalletIndex.toString()
+        };
+        deployRequest.request.index = nextWalletIndex.toString();
 
         await relayHub
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('1'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-        ;({ signature } = await signEnvelopingRequest(deployRequest, owner))
-        nextWalletIndex++
-      })
+          .addRelayWorkers([relayWorker.address]);
+        ({ signature } = await signEnvelopingRequest(deployRequest, owner));
+        nextWalletIndex++;
+      });
 
       it('should not accept a deploy call with an unstaked RelayManager', async function () {
-        await relayHub.connect(relayOwner).unlockStake(relayManager.address)
+        await relayHub.connect(relayOwner).unlockStake(relayManager.address);
 
         const deployCall = relayHub
           .connect(relayWorker)
           .deployCall(deployRequest, signature, {
             gasLimit,
-          })
+          });
 
-        await expect(deployCall).to.be.rejectedWith('RelayManager not staked')
-      })
+        await expect(deployCall).to.be.rejectedWith('RelayManager not staked');
+      });
       it('should not accept a deploy call with a disabled relay worker', async function () {
         await relayHub
           .connect(relayManager)
-          .disableRelayWorkers([relayWorker.address])
+          .disableRelayWorkers([relayWorker.address]);
 
         const deployCall = relayHub
           .connect(unknownWorker)
           .deployCall(deployRequest, signature, {
             gasLimit,
-          })
+          });
 
-        await expect(deployCall).to.be.rejectedWith('Not an enabled worker')
-      })
-    })
+        await expect(deployCall).to.be.rejectedWith('Not an enabled worker');
+      });
+    });
 
     context('with staked and registered relay', function () {
-      const url = 'http://relay.com'
-      let deployRequest: DeployRequest
+      const url = 'http://relay.com';
+      let deployRequest: DeployRequest;
 
       beforeEach(async function () {
         await relayHub
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('2'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-        await relayHub.connect(relayManager).registerRelayServer(url)
+          .addRelayWorkers([relayWorker.address]);
+        await relayHub.connect(relayManager).registerRelayServer(url);
 
         deployRequest = {
           relayData: { ...sharedDeployRequestData.relayData },
           request: { ...sharedDeployRequestData.request },
-        }
-        deployRequest.request.index = nextWalletIndex.toString()
-        nextWalletIndex++
-      })
+        };
+        deployRequest.request.index = nextWalletIndex.toString();
+        nextWalletIndex++;
+      });
 
       context(
         'with relay worker that is not externally-owned account',
         function () {
           it('should not accept deploy requests', async function () {
-            const signature = '0xdeadbeef'
-            const gasLimit = 4e6
+            const signature = '0xdeadbeef';
+            const gasLimit = 4e6;
 
             const testRelayWorkerContract = await ethers
               .getContractFactory('TestRelayWorkerContract')
-              .then((contract) => contract.deploy())
+              .then((contract) => contract.deploy());
 
             await relayHub
               .connect(relayManager)
-              .addRelayWorkers([testRelayWorkerContract.address])
+              .addRelayWorkers([testRelayWorkerContract.address]);
 
             const deployCall = testRelayWorkerContract.deployCall(
               relayHub.address,
@@ -2019,21 +2017,21 @@ describe.only('RelayHub', function () {
               signature,
               {
                 gasLimit,
-              },
-            )
+              }
+            );
 
             await expect(deployCall).to.be.rejectedWith(
-              'RelayWorker cannot be a contract',
-            )
-          })
-        },
-      )
+              'RelayWorker cannot be a contract'
+            );
+          });
+        }
+      );
 
       context('with funded verifier', function () {
-        let misbehavingVerifier: TestDeployVerifierConfigurableMisbehavior
-        let signatureWithMisbehavingVerifier: string
-        let relayRequestMisbehavingVerifier: DeployRequest
-        const gasLimit = 4e6
+        let misbehavingVerifier: TestDeployVerifierConfigurableMisbehavior;
+        let signatureWithMisbehavingVerifier: string;
+        let relayRequestMisbehavingVerifier: DeployRequest;
+        const gasLimit = 4e6;
 
         beforeEach(async function () {
           misbehavingVerifier = await ethers
@@ -2045,33 +2043,31 @@ describe.only('RelayHub', function () {
           await fundedAccount.sendTransaction({
             to: misbehavingVerifier.address,
             value: ethers.utils.parseEther('1'),
-          })
+          });
 
           relayRequestMisbehavingVerifier = {
-            relayData: { ...sharedDeployRequestData.relayData },
-            request: { ...sharedDeployRequestData.request },
-          }
+            relayData: { ...deployRequest.relayData },
+            request: { ...deployRequest.request },
+          };
           relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address
+            misbehavingVerifier.address;
 
           //relayRequestMisbehavingVerifier.request.tokenGas = '100000';
-
-          ;({
-            signature: signatureWithMisbehavingVerifier,
-          } = await signEnvelopingRequest(
-            relayRequestMisbehavingVerifier,
-            owner,
-          ))
-        })
+          ({ signature: signatureWithMisbehavingVerifier } =
+            await signEnvelopingRequest(
+              relayRequestMisbehavingVerifier,
+              owner
+            ));
+        });
 
         it('deployCall executes the transaction and increases sender nonce on factory', async function () {
-          const nonceBefore = await factory.nonce(owner.address)
+          const nonceBefore = await factory.nonce(owner.address);
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
-            relayRequestMisbehavingVerifier.request.index,
-          )
-          await token.mint('1', calculatedAddr)
+            relayRequestMisbehavingVerifier.request.index
+          );
+          await token.mint('1', calculatedAddr);
 
           await relayHub
             .connect(relayWorker)
@@ -2081,206 +2077,203 @@ describe.only('RelayHub', function () {
               {
                 gasLimit,
                 gasPrice: '1',
-              },
-            )
+              }
+            );
 
-          const deployedFilter = factory.filters.Deployed()
-          const deployedEvent = await factory.queryFilter(deployedFilter)
+          const deployedFilter = factory.filters.Deployed();
+          const deployedEvent = await factory.queryFilter(deployedFilter);
 
           expect(deployedEvent !== undefined).to.equal(
             true,
-            'No Deployed event found',
-          )
-          expect(deployedEvent[0]?.args.addr).to.equal('addr')
+            'No Deployed event found'
+          );
 
-          expect(calculatedAddr).to.equal(deployedEvent[0]?.args.addr)
+          expect(calculatedAddr).to.equal(deployedEvent[1]?.args.addr);
 
-          const nonceAfter = await factory.nonce(owner.address)
-          expect(nonceAfter.toNumber()).to.equal(nonceBefore.add(1).toNumber())
-        })
+          const nonceAfter = await factory.nonce(owner.address);
+          expect(nonceAfter.toNumber()).to.equal(nonceBefore.add(1).toNumber());
+        });
 
-        it.skip('should fail to deploy if the worker has been disabled', async function () {
-          let manager = await relayHub.workerToManager(relayWorker.address)
+        it('should fail to deploy if the worker has been disabled', async function () {
+          let manager = await relayHub.workerToManager(relayWorker.address);
           // manager = 32 bytes: <zeroes = 11bytes + 4 bits > + <manager address = 20 bytes = 160 bits > + <isEnabled = 4 bits>
           let expectedManager = '0x00000000000000000000000'.concat(
-            stripHex(relayManager.concat('1')),
-          )
+            stripHex(relayManager.address.concat('1'))
+          );
 
-          assert.equal(
-            manager.toLowerCase(),
+          expect(manager.toLowerCase()).to.equal(
             expectedManager.toLowerCase(),
-            `Incorrect relay manager: ${manager}`,
-          )
+            `Incorrect relay manager: ${manager}`
+          );
 
-          await relayHub.disableRelayWorkers([relayWorker.address], {
-            from: relayManager,
-          })
-          manager = await relayHub.workerToManager(relayWorker.address)
+          await relayHub
+            .connect(relayManager)
+            .disableRelayWorkers([relayWorker.address]);
+          manager = await relayHub.workerToManager(relayWorker.address);
           expectedManager = '0x00000000000000000000000'.concat(
-            stripHex(relayManager.address.concat('0')),
-          )
-          assert.equal(
-            manager.toLowerCase(),
+            stripHex(relayManager.address.concat('0'))
+          );
+          expect(manager.toLowerCase()).to.equal(
             expectedManager.toLowerCase(),
-            `Incorrect relay manager: ${manager}`,
-          )
+            `Incorrect relay manager: ${manager}`
+          );
 
-          await expectRevert(
-            relayHub.deployCall(
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(
               relayRequestMisbehavingVerifier,
               signatureWithMisbehavingVerifier,
               {
-                from: relayWorker,
-                gas,
-                gasPrice,
-              },
-            ),
-            'Not an enabled worker',
-          )
-        })
+                gasLimit,
+                gasPrice: '1',
+              }
+            );
 
-        it.skip('deployCall should refuse to re-send transaction with same nonce', async function () {
-          const calculatedAddr = await factory.getSmartWalletAddress(
-            gaslessAccount.address,
-            constants.ZERO_ADDRESS,
-            relayRequestMisbehavingVerifier.request.index,
-          )
-          await token.mint('2', calculatedAddr)
+          await expect(deployCall).to.be.rejectedWith('Not an enabled worker');
+        });
 
-          const { tx } = await relayHub.deployCall(
-            relayRequestMisbehavingVerifier,
-            signatureWithMisbehavingVerifier,
-            {
-              from: relayWorker,
-              gas,
-              gasPrice,
-            },
-          )
-
-          const trx = await web3.eth.getTransactionReceipt(tx)
-
-          const decodedLogs = abiDecoder.decodeLogs(trx.logs)
-
-          const deployedEvent = decodedLogs.find(
-            (e: any) => e != null && e.name === 'Deployed',
-          )
-          assert.isTrue(deployedEvent !== undefined, 'No Deployed event found')
-          const event = deployedEvent?.events[0]
-          assert.equal(event.name, 'addr')
-          const generatedSWAddress = toChecksumAddress(event.value, env.chainId)
-
-          assert.equal(calculatedAddr, generatedSWAddress)
-          assert.equal(calculatedAddr, generatedSWAddress)
-
-          await expectRevert(
-            relayHub.deployCall(
-              relayRequestMisbehavingVerifier,
-              signatureWithMisbehavingVerifier,
-              {
-                from: relayWorker,
-                gas,
-                gasPrice,
-              },
-            ),
-            'nonce mismatch',
-          )
-        })
-
-        it.skip('should not accept deploy requests if passed gas is too low for a relayed transaction', async function () {
-          await expectRevert(
-            relayHub.deployCall(
-              relayRequestMisbehavingVerifier,
-              signatureWithMisbehavingVerifier,
-              {
-                from: relayWorker,
-                gasPrice,
-                gas: '60000',
-              },
-            ),
-            'transaction reverted',
-          )
-        })
-
-        it.skip('should not accept deploy requests with gas price lower than user specified', async function () {
-          const relayRequestMisbehavingVerifier = cloneDeployRequest(
-            deployRequest,
-          )
-          relayRequestMisbehavingVerifier.relayData.callVerifier =
-            misbehavingVerifier.address
-          relayRequestMisbehavingVerifier.relayData.gasPrice = (
-            BigInt(gasPrice) + BigInt(1)
-          ).toString()
-
-          const dataToSign = new TypedDeployRequestData(
-            chainId,
-            factory.address,
-            relayRequestMisbehavingVerifier,
-          )
-          const signatureWithMisbehavingVerifier = getLocalEip712Signature(
-            dataToSign,
-            gaslessAccount.privateKey,
-          )
-          await expectRevert(
-            relayHub.deployCall(
-              relayRequestMisbehavingVerifier,
-              signatureWithMisbehavingVerifier,
-              {
-                from: relayWorker,
-                gas,
-                gasPrice: gasPrice,
-              },
-            ),
-            'Invalid gas price',
-          )
-        })
-
-        it.skip('should accept deploy requests with incorrect relay worker', async function () {
-          await relayHub.connect(relayManager).addRelayWorkers([incorrectWorker.address]);
+        it('deployCall should refuse to re-send transaction with same nonce', async function () {
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
-            relayRequestMisbehavingVerifier.request.index,
-          )
-          await token.mint('1', calculatedAddr);
-
-          await relayHub.connect(incorrectWorker).deployCall(
-            relayRequestMisbehavingVerifier,
-            signatureWithMisbehavingVerifier,
-            {
-              gasPrice: '1',
-              gasLimit,
-            },
+            relayRequestMisbehavingVerifier.request.index
           );
-          
+          await token.mint('2', calculatedAddr);
+
+          await relayHub
+            .connect(relayWorker)
+            .deployCall(
+              relayRequestMisbehavingVerifier,
+              signatureWithMisbehavingVerifier,
+              {
+                gasLimit,
+                gasPrice: '1',
+              }
+            );
+
           const deployedFilter = factory.filters.Deployed();
           const deployedEvent = await factory.queryFilter(deployedFilter);
-          expect(deployedEvent !== undefined).to.equal(true, 'No Deployed event found');
-        })
-      })
-    })
-  })
+
+          expect(deployedEvent !== undefined).to.equal(
+            true,
+            'No Deployed event found'
+          );
+
+          expect(calculatedAddr).to.equal(deployedEvent[1]?.args.addr);
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(
+              relayRequestMisbehavingVerifier,
+              signatureWithMisbehavingVerifier,
+              {
+                gasLimit,
+                gasPrice: '1',
+              }
+            );
+
+          await expect(deployCall).to.be.rejectedWith('nonce mismatch');
+        });
+
+        it('should not accept deploy requests if passed gas is too low for a relayed transaction', async function () {
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(
+              relayRequestMisbehavingVerifier,
+              signatureWithMisbehavingVerifier,
+              {
+                gasPrice: '1',
+                gasLimit: '60000',
+              }
+            );
+
+          await expect(deployCall).to.be.rejectedWith('transaction reverted');
+        });
+
+        it('should not accept deploy requests with gas price lower than user specified', async function () {
+          const deployRequestMisbehavingVerifier: DeployRequest = {
+            relayData: {
+              ...deployRequest.relayData,
+            },
+            request: {
+              ...deployRequest.request,
+            },
+          };
+
+          deployRequestMisbehavingVerifier.relayData.callVerifier =
+            misbehavingVerifier.address;
+          deployRequestMisbehavingVerifier.relayData.gasPrice = (
+            BigInt(1) + BigInt(1)
+          ).toString();
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(
+              deployRequestMisbehavingVerifier,
+              signatureWithMisbehavingVerifier,
+              {
+                gasLimit,
+                gasPrice: '1',
+              }
+            );
+
+          await expect(deployCall).to.be.rejectedWith('Invalid gas price');
+        });
+
+        it('should accept deploy requests with incorrect relay worker', async function () {
+          await relayHub
+            .connect(relayManager)
+            .addRelayWorkers([incorrectWorker.address]);
+          const calculatedAddr = await factory.getSmartWalletAddress(
+            owner.address,
+            ethers.constants.AddressZero,
+            relayRequestMisbehavingVerifier.request.index
+          );
+          await token.mint('1', calculatedAddr);
+
+          await relayHub
+            .connect(incorrectWorker)
+            .deployCall(
+              relayRequestMisbehavingVerifier,
+              signatureWithMisbehavingVerifier,
+              {
+                gasPrice: '1',
+                gasLimit,
+              }
+            );
+
+          const deployedFilter = factory.filters.Deployed();
+          const deployedEvent = await factory.queryFilter(deployedFilter);
+          expect(deployedEvent !== undefined).to.equal(
+            true,
+            'No Deployed event found'
+          );
+        });
+      });
+    });
+  });
 
   describe('penalize', function () {
-    const gasLimit = 4e6
-    let beneficiary: SignerWithAddress
-    let penalizerMock: SignerWithAddress
+    const gasLimit = 4e6;
+    let beneficiary: SignerWithAddress;
+    let penalizerMock: SignerWithAddress;
 
     beforeEach(async function () {
-      ;[penalizerMock, beneficiary] = (await ethers.getSigners()) as [
+      [penalizerMock, beneficiary] = (await ethers.getSigners()) as [
         SignerWithAddress,
-        SignerWithAddress,
-      ]
+        SignerWithAddress
+      ];
 
-      const relayHubFactory = await ethers.getContractFactory('RelayHub')
+      const relayHubFactory = await ethers.getContractFactory('RelayHub');
 
       relayHub = await relayHubFactory.deploy(
         penalizerMock.address,
         10,
         (1e18).toString(),
         1000,
-        (1e18).toString(),
-      )
-    })
+        (1e18).toString()
+      );
+    });
 
     context('with unknown worker', function () {
       beforeEach(async function () {
@@ -2288,30 +2281,30 @@ describe.only('RelayHub', function () {
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('1'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-      })
+          .addRelayWorkers([relayWorker.address]);
+      });
 
       it('should not penalize when an unknown worker is specified', async function () {
         try {
           const [unknownWorker] = (await ethers.getSigners()) as [
-            SignerWithAddress,
-          ]
+            SignerWithAddress
+          ];
 
           await relayHub
             .connect(penalizerMock)
             .penalize(unknownWorker.address, beneficiary.address, {
               gasLimit,
-            })
+            });
         } catch (error) {
           const err: string =
-            error instanceof Error ? error.message : JSON.stringify(error)
-          expect(err.includes('Unknown relay worker')).to.be.true
+            error instanceof Error ? error.message : JSON.stringify(error);
+          expect(err.includes('Unknown relay worker')).to.be.true;
         }
-      })
-    })
+      });
+    });
 
     context('with manager stake unlocked', function () {
       beforeEach(async function () {
@@ -2319,140 +2312,143 @@ describe.only('RelayHub', function () {
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('1'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-        await relayHub.connect(relayOwner).unlockStake(relayManager.address)
-      })
+          .addRelayWorkers([relayWorker.address]);
+        await relayHub.connect(relayOwner).unlockStake(relayManager.address);
+      });
 
       it('should not penalize when an unknown penalizer is specified', async function () {
         const penalize = relayHub
           .connect(relayOwner)
           .penalize(relayWorker.address, beneficiary.address, {
             gasLimit,
-          })
+          });
 
-        await expect(penalize).to.be.rejectedWith('Not penalizer')
-      })
+        await expect(penalize).to.be.rejectedWith('Not penalizer');
+      });
 
       it('should penalize when the stake is unlocked', async function () {
-        let stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0
-        expect(isUnlocked).to.equal(true, 'Stake is not unlocked')
+        let stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0;
+        expect(isUnlocked).to.equal(true, 'Stake is not unlocked');
 
-        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake)
+        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceBefore = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
-        const toBurn = stakeBalanceBefore.div(BigNumber.from(2))
-        const reward = stakeBalanceBefore.sub(toBurn)
+          await ethers.provider.getBalance(beneficiary.address)
+        );
+        const toBurn = stakeBalanceBefore.div(BigNumber.from(2));
+        const reward = stakeBalanceBefore.sub(toBurn);
 
         await relayHub
           .connect(penalizerMock)
           .penalize(relayWorker.address, beneficiary.address, {
             gasLimit,
-          })
+          });
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceAfter = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
+          await ethers.provider.getBalance(beneficiary.address)
+        );
 
         expect(stakeBalanceAfter.eq(BigNumber.from(0))).to.equal(
           true,
-          'Stake after penalization must be zero',
-        )
+          'Stake after penalization must be zero'
+        );
         expect(
-          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)),
-        ).to.equal(true, 'Beneficiary did not receive half the stake')
-      })
+          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward))
+        ).to.equal(true, 'Beneficiary did not receive half the stake');
+      });
 
       it('should revert if stake is already zero', async function () {
-        let stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0
-        expect(isUnlocked).to.equal(true, 'Stake is not unlocked')
+        let stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const isUnlocked = Number(stakeInfo.withdrawBlock) > 0;
+        expect(isUnlocked).to.equal(true, 'Stake is not unlocked');
 
-        await evmMineMany(Number(stakeInfo.unstakeDelay))
+        await evmMineMany(Number(stakeInfo.unstakeDelay));
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake);
 
         const relayOwnerBalanceBefore = BigNumber.from(
-          await ethers.provider.getBalance(relayOwner.address),
-        )
-        const gasPrice = BigNumber.from('60000000')
+          await ethers.provider.getBalance(relayOwner.address)
+        );
+        const gasPrice = BigNumber.from('60000000');
         const txResponse = await relayHub
           .connect(relayOwner)
-          .withdrawStake(relayManager.address, { gasPrice })
+          .withdrawStake(relayManager.address, { gasPrice });
 
         const rbtcUsed = BigNumber.from(
-          (await txResponse.wait()).cumulativeGasUsed,
-        ).mul(gasPrice)
+          (await txResponse.wait()).cumulativeGasUsed
+        ).mul(gasPrice);
 
         const relayOwnerBalanceAfter = BigNumber.from(
-          await ethers.provider.getBalance(relayOwner.address),
-        )
+          await ethers.provider.getBalance(relayOwner.address)
+        );
 
         expect(
           relayOwnerBalanceAfter.eq(
-            relayOwnerBalanceBefore.sub(rbtcUsed).add(stakeBalanceBefore),
-          ),
-        ).to.equal(true, 'Withdraw process failed')
+            relayOwnerBalanceBefore.sub(rbtcUsed).add(stakeBalanceBefore)
+          )
+        ).to.equal(true, 'Withdraw process failed');
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeAfterWithdraw = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeAfterWithdraw = BigNumber.from(stakeInfo.stake);
 
-        expect(stakeAfterWithdraw.isZero()).to.equal(true, 'Stake must be zero')
+        expect(stakeAfterWithdraw.isZero()).to.equal(
+          true,
+          'Stake must be zero'
+        );
 
         const beneficiaryBalanceBefore = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
+          await ethers.provider.getBalance(beneficiary.address)
+        );
 
         try {
           await relayHub
             .connect(penalizerMock)
             .penalize(relayWorker.address, beneficiary.address, {
               gasLimit,
-            })
+            });
         } catch (error) {
           const err: string =
-            error instanceof Error ? error.message : JSON.stringify(error)
-          expect(err.includes('Unstaked relay manager')).to.be.true
+            error instanceof Error ? error.message : JSON.stringify(error);
+          expect(err.includes('Unstaked relay manager')).to.be.true;
         }
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceAfter = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
+          await ethers.provider.getBalance(beneficiary.address)
+        );
 
         expect(stakeBalanceAfter.isZero()).to.equal(
           true,
-          'Stake after penalization must still be zero',
-        )
+          'Stake after penalization must still be zero'
+        );
         expect(beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore)).to.equal(
           true,
-          'Beneficiary balance must remain unchanged',
-        )
-      })
-    })
+          'Beneficiary balance must remain unchanged'
+        );
+      });
+    });
 
     context('with staked and registered relay', function () {
-      const url = 'http://relay.com'
+      const url = 'http://relay.com';
 
       beforeEach(async function () {
         await relayHub
           .connect(relayOwner)
           .stakeForAddress(relayManager.address, 1000, {
             value: ethers.utils.parseEther('2'),
-          })
+          });
         await relayHub
           .connect(relayManager)
-          .addRelayWorkers([relayWorker.address])
-        await relayHub.connect(relayManager).registerRelayServer(url)
-      })
+          .addRelayWorkers([relayWorker.address]);
+        await relayHub.connect(relayManager).registerRelayServer(url);
+      });
 
       it('should not penalize when an unknown penalizer is specified', async function () {
         await expect(
@@ -2460,79 +2456,79 @@ describe.only('RelayHub', function () {
             .connect(relayOwner)
             .penalize(relayWorker.address, beneficiary.address, {
               gasLimit,
-            }),
-        ).to.be.rejectedWith('Not penalizer')
-      })
+            })
+        ).to.be.rejectedWith('Not penalizer');
+      });
 
       it('should penalize', async function () {
-        let stakeInfo = await relayHub.getStakeInfo(relayManager.address)
+        let stakeInfo = await relayHub.getStakeInfo(relayManager.address);
 
-        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake)
+        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceBefore = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
-        const toBurn = stakeBalanceBefore.div(BigNumber.from(2))
-        const reward = stakeBalanceBefore.sub(toBurn)
+          await ethers.provider.getBalance(beneficiary.address)
+        );
+        const toBurn = stakeBalanceBefore.div(BigNumber.from(2));
+        const reward = stakeBalanceBefore.sub(toBurn);
 
         await relayHub
           .connect(penalizerMock)
           .penalize(relayWorker.address, beneficiary.address, {
             gasLimit,
-          })
+          });
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceAfter = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
+          await ethers.provider.getBalance(beneficiary.address)
+        );
 
         expect(stakeBalanceAfter.eq(BigNumber.from(0))).to.equal(
           true,
-          'Stake after penalization must be zero',
-        )
+          'Stake after penalization must be zero'
+        );
         expect(
-          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)),
-        ).to.equal(true, 'Beneficiary did not receive half the stake')
-      })
+          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward))
+        ).to.equal(true, 'Beneficiary did not receive half the stake');
+      });
 
       it('should revert if trying to penalize twice', async function () {
-        let stakeInfo = await relayHub.getStakeInfo(relayManager.address)
+        let stakeInfo = await relayHub.getStakeInfo(relayManager.address);
 
-        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake)
+        const stakeBalanceBefore = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceBefore = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
-        const toBurn = stakeBalanceBefore.div(BigNumber.from(2))
-        const reward = stakeBalanceBefore.sub(toBurn)
+          await ethers.provider.getBalance(beneficiary.address)
+        );
+        const toBurn = stakeBalanceBefore.div(BigNumber.from(2));
+        const reward = stakeBalanceBefore.sub(toBurn);
 
         await relayHub
           .connect(penalizerMock)
           .penalize(relayWorker.address, beneficiary.address, {
             gasLimit,
-          })
+          });
 
-        stakeInfo = await relayHub.getStakeInfo(relayManager.address)
-        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake)
+        stakeInfo = await relayHub.getStakeInfo(relayManager.address);
+        const stakeBalanceAfter = BigNumber.from(stakeInfo.stake);
         const beneficiaryBalanceAfter = BigNumber.from(
-          await ethers.provider.getBalance(beneficiary.address),
-        )
+          await ethers.provider.getBalance(beneficiary.address)
+        );
 
         expect(stakeBalanceAfter.eq(BigNumber.from(0))).to.equal(
           true,
-          'Stake after penalization must be zero',
-        )
+          'Stake after penalization must be zero'
+        );
         expect(
-          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward)),
-        ).to.equal(true, 'Beneficiary did not receive half the stake')
+          beneficiaryBalanceAfter.eq(beneficiaryBalanceBefore.add(reward))
+        ).to.equal(true, 'Beneficiary did not receive half the stake');
 
         await expect(
           relayHub
             .connect(penalizerMock)
             .penalize(relayWorker.address, beneficiary.address, {
               gasLimit,
-            }),
-        ).to.be.rejectedWith('Unstaked relay manager')
-      })
-    })
-  })
-})
+            })
+        ).to.be.rejectedWith('Unstaked relay manager');
+      });
+    });
+  });
+});

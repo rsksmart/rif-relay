@@ -9,8 +9,6 @@ import {
   relayDataType,
   RelayRequest,
   relayRequestType,
-  DeployRequest,
-  deployRequestType
 } from '@rsksmart/rif-relay-client';
 
 const eIP712DomainType: MessageTypeProperty[] = [
@@ -87,34 +85,4 @@ export function getLocalEip712Signature(
     data: typedRequestData,
     version: SignTypedDataVersion.V4,
   });
-}
-
-export class TypedDeployRequestData implements TypedMessage<Types> {
-  readonly types: Types;
-
-  readonly domain: Domain;
-
-  readonly primaryType: string;
-
-  readonly message: any;
-
-  constructor(
-      chainId: number,
-      verifier: string,
-      relayRequest: DeployRequest
-  ) {
-      this.types = {
-          EIP712Domain: eIP712DomainType,
-          RelayRequest: deployRequestType,
-          RelayData: relayDataType
-      };
-      this.domain = getDomainSeparator(verifier, chainId);
-      this.primaryType = 'RelayRequest';
-      // in the signature, all "request" fields are flattened out at the top structure.
-      // other params are inside "relayData" sub-type
-      this.message = {
-          ...relayRequest.request,
-          relayData: relayRequest.relayData
-      };
-  }
 }
