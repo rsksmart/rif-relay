@@ -412,7 +412,7 @@ const prepareRelayTransaction = async ({
   };
 };
 
-const signEnvelopingRequest = async (
+export const signEnvelopingRequest = async (
   envelopingRequest: EnvelopingRequest,
   signer: Wallet
 ) => {
