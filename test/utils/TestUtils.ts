@@ -267,9 +267,9 @@ const deployRelayHub = async (
     ...configOverride,
   };
 
-  const relayHubFactory = (await ethers.getContractFactory(
+  const relayHubFactory = await ethers.getContractFactory(
     'RelayHub'
-  )) as RelayHub__factory;
+  );
 
   const {
     maxWorkerCount,
