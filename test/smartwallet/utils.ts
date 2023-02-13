@@ -1,4 +1,8 @@
-import { Event as SolidityEvent, ContractTransaction } from 'ethers';
+import {
+  Event as SolidityEvent,
+  ContractTransaction,
+  BigNumberish,
+} from 'ethers';
 import { Result as SolidityEventArg } from '@ethersproject/abi';
 import { ethers as hardhat } from 'hardhat';
 import { NonRevertTestToken, TestToken, TetherToken } from 'typechain-types';
@@ -34,7 +38,7 @@ async function getLogArguments(contractTransaction: ContractTransaction) {
 async function mintTokens(
   token: TokenToTest,
   tokenName: TokenName,
-  amount: string | number,
+  amount: BigNumberish,
   recipient: string
 ) {
   if (tokenName === TETHER_TOKEN_NAME) {

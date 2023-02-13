@@ -11,6 +11,7 @@ import {
   IForwarder,
   RelayHub__factory,
   SmartWallet,
+  CustomSmartWalletDeployVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import {
   buildServerUrl,
@@ -37,7 +38,7 @@ import {
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
 import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
-import { CustomSmartWallet } from 'typechain-types';
+import { CustomSmartWallet, DeployVerifier } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 import {
@@ -231,7 +232,7 @@ const revertEvmSnapshot = async (snapshotId: string) => {
 // An existing account in RSKJ that have been depleted
 const getExistingGaslessAccount = async (): Promise<SignerWithAddress> => {
   const signers = await ethers.getSigners();
-  const accountToBeDepleted = signers.at(9)!;
+  const accountToBeDepleted = signers.at(9) as SignerWithAddress;
 
   const balance = await accountToBeDepleted.getBalance();
   if (!balance.gte(0)) {
@@ -278,33 +279,34 @@ const deployRelayHub = async (
   );
 };
 
-const deploySmartWalletContracts = async (
-  owner: Wallet | SignerWithAddress,
-  template?: IForwarder
+const deployVerifiers = async (
+  smartWalletFactory: SmartWalletFactory | CustomSmartWalletFactory,
+  isCustom = false
 ) => {
-  const smartWalletDeployer = await ethers.getContractFactory('SmartWallet');
-  const deployVerifierFactory = await ethers.getContractFactory(
-    'DeployVerifier'
-  );
+  let deployVerifier: DeployVerifier | CustomSmartWalletDeployVerifier;
+
+  if (isCustom) {
+    const deployVerifierFactory = await ethers.getContractFactory(
+      'CustomSmartWalletDeployVerifier'
+    );
+    deployVerifier = await deployVerifierFactory.deploy(
+      smartWalletFactory.address
+    );
+  } else {
+    const deployVerifierFactory = await ethers.getContractFactory(
+      'DeployVerifier'
+    );
+    deployVerifier = await deployVerifierFactory.deploy(
+      smartWalletFactory.address
+    );
+  }
+
   const relayVerifierFactory = await ethers.getContractFactory('RelayVerifier');
-
-  const smartWalletTemplate = template ?? (await smartWalletDeployer.deploy());
-
-  const smartWalletFactory = await createSmartWalletFactory(
-    smartWalletTemplate,
-    false,
-    owner
-  );
-
-  const deployVerifier = await deployVerifierFactory.deploy(
-    smartWalletFactory.address
-  );
   const relayVerifier = await relayVerifierFactory.deploy(
     smartWalletFactory.address
   );
 
   return {
-    smartWalletFactory,
     deployVerifier,
     relayVerifier,
   };
@@ -598,7 +600,7 @@ export {
   createSmartWalletFactory,
   prepareRelayTransaction,
   deployRelayHub,
-  deploySmartWalletContracts,
+  deployVerifiers,
   createEnvelopingRequest,
   getSuffixData,
   signData,
