@@ -267,9 +267,7 @@ const deployRelayHub = async (
     ...configOverride,
   };
 
-  const relayHubFactory = (await ethers.getContractFactory(
-    'RelayHub'
-  )) as RelayHub__factory;
+  const relayHubFactory = await ethers.getContractFactory('RelayHub');
 
   const {
     maxWorkerCount,
@@ -412,7 +410,7 @@ const prepareRelayTransaction = async ({
   };
 };
 
-const signEnvelopingRequest = async (
+export const signEnvelopingRequest = async (
   envelopingRequest: EnvelopingRequest,
   signer: Wallet
 ) => {
