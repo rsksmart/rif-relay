@@ -18,6 +18,8 @@ import {
   evmMineMany,
   createSmartWalletFactory,
   deployVerifiers,
+  generateRandomAddress,
+  createUserDefinedRequest,
 } from '../utils/TestUtils';
 import config from 'config';
 import {
@@ -96,7 +98,7 @@ describe('RelayServer', function () {
       const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
 
       const { chainId } = provider.network;
-      const networkId = (await provider.send('net_version', [])) as number;
+      const networkId = Number(await provider.send('net_version', []));
 
       const server = getServerInstance({ relayOwner });
 
@@ -120,15 +122,15 @@ describe('RelayServer', function () {
     let encodedData: string;
 
     beforeEach(async function () {
-      const fakeDeployVerifier = ethers.Wallet.createRandom();
-      const fakeRelayVerifier = ethers.Wallet.createRandom();
+      const fakeDeployVerifierAddress = generateRandomAddress();
+      const fakeRelayVerifierAddress = generateRandomAddress();
       relayHub = await deployRelayHub();
       loadConfiguration({
         app: basicAppConfig,
         contracts: {
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: fakeDeployVerifier.address,
-          relayVerifierAddress: fakeRelayVerifier.address,
+          deployVerifierAddress: fakeDeployVerifierAddress,
+          relayVerifierAddress: fakeRelayVerifierAddress,
         },
       });
       recipient = await deployTestRecipient();
@@ -138,8 +140,8 @@ describe('RelayServer', function () {
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
-        deployVerifierAddress: fakeDeployVerifier.address,
-        relayVerifierAddress: fakeRelayVerifier.address,
+        deployVerifierAddress: fakeDeployVerifierAddress,
+        relayVerifierAddress: fakeRelayVerifierAddress,
       });
       relayClient = new RelayClient();
       const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
@@ -157,22 +159,16 @@ describe('RelayServer', function () {
     });
 
     describe('validateInputTypes', function () {
-      it('should throw on undefined field of request', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+      it('should throw if relayHub is undefined', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -187,22 +183,16 @@ describe('RelayServer', function () {
 
     describe('validateInput', function () {
       it('should throw on wrong hub address', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-            relayHub: constants.AddressZero,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          relayHub: constants.AddressZero,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -213,23 +203,17 @@ describe('RelayServer', function () {
       });
 
       it('should throw on wrong fees receiver address', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
-        hubInfo.feesReceiver = ethers.Wallet.createRandom().address;
+        hubInfo.feesReceiver = generateRandomAddress();
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -239,22 +223,16 @@ describe('RelayServer', function () {
         );
       });
 
-      it('should throw on gas price below to zero', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+      it('should throw if gas price is equal to zero', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -267,22 +245,16 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request expired', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-            validUntilTime: 1000,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          validUntilTime: 1000,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -293,22 +265,16 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request too close', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-            validUntilTime: Math.round(Date.now() / 1000),
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          validUntilTime: Math.round(Date.now() / 1000),
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -321,10 +287,9 @@ describe('RelayServer', function () {
 
     describe('isTrustedVerifier', function () {
       it('should not validate if the verifier is not trusted', function () {
-        const wrongVerifier = ethers.Wallet.createRandom();
+        const wrongVerifierAddress = generateRandomAddress();
 
-        expect(relayServer.isTrustedVerifier(wrongVerifier.address)).to.be
-          .false;
+        expect(relayServer.isTrustedVerifier(wrongVerifierAddress)).to.be.false;
       });
 
       it('should validate if the verifier is trusted', function () {
@@ -338,21 +303,15 @@ describe('RelayServer', function () {
 
     describe('validateVerifier', function () {
       it('should validate verifier in enveloping request', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            tokenContract: constants.AddressZero,
-            nonce: 1,
-          },
-          relayData: {
-            callForwarder: constants.AddressZero,
-          },
-        };
+        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -373,24 +332,23 @@ describe('RelayServer', function () {
       });
 
       it('should throw if wrong verifier in enveloping request', async function () {
-        const wrongVerifier = ethers.Wallet.createRandom();
+        const wrongVerifierAddress = generateRandomAddress();
 
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          false,
+          {
             from: owner.address,
             to: recipient.address,
             data: encodedData,
-            tokenContract: constants.AddressZero,
             nonce: 1,
           },
-          relayData: {
-            callForwarder: constants.AddressZero,
-            callVerifier: wrongVerifier.address,
-          },
-        };
+          {
+            callVerifier: wrongVerifierAddress,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -403,13 +361,13 @@ describe('RelayServer', function () {
 
     describe('validateMaxNonce', function () {
       beforeEach(async function () {
-        const receipt = ethers.Wallet.createRandom();
+        const receiptAddress = generateRandomAddress();
         const { relayWorkerAddress } = hubInfo;
         await relayServer.transactionManager.sendTransaction({
           signer: relayWorkerAddress,
           serverAction: ServerAction.VALUE_TRANSFER,
           gasLimit: BigNumber.from(defaultEnvironment?.minTxGasCost),
-          destination: receipt.address,
+          destination: receiptAddress,
           creationBlockNumber: 0,
         });
       });
@@ -444,15 +402,15 @@ describe('RelayServer', function () {
     let encodedData: string;
 
     beforeEach(async function () {
-      const fakeDeployVerifier = ethers.Wallet.createRandom();
-      const fakeRelayVerifier = ethers.Wallet.createRandom();
+      const fakeDeployVerifierAddress = generateRandomAddress();
+      const fakeRelayVerifierAddress = generateRandomAddress();
       relayHub = await deployRelayHub();
       loadConfiguration({
         app: basicAppConfig,
         contracts: {
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: fakeDeployVerifier.address,
-          relayVerifierAddress: fakeRelayVerifier.address,
+          deployVerifierAddress: fakeDeployVerifierAddress,
+          relayVerifierAddress: fakeRelayVerifierAddress,
         },
       });
       recipient = await deployTestRecipient();
@@ -462,8 +420,8 @@ describe('RelayServer', function () {
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
-        deployVerifierAddress: fakeDeployVerifier.address,
-        relayVerifierAddress: fakeRelayVerifier.address,
+        deployVerifierAddress: fakeDeployVerifierAddress,
+        relayVerifierAddress: fakeRelayVerifierAddress,
       });
       relayClient = new RelayClient();
       const [worker, fundedAccount, relayOwner] =
@@ -502,30 +460,30 @@ describe('RelayServer', function () {
 
     describe('maxPossibleGasWithViewCall', function () {
       it('should fail to relay rejected transaction', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          false,
+          {
             from: owner.address,
             to: recipient.address,
             data: encodedData,
-            tokenContract: constants.AddressZero,
             nonce: 0,
           },
-          relayData: {
+          {
             callForwarder: smartWallet.address,
-          },
-        };
+          }
+        ) as UserDefinedRelayRequest;
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
 
         const wrongEnvelopingTxRequest = await createEnvelopingTxRequest(
           {
-            ...userDefinedRelayRequestBody,
+            ...userDefinedRelayRequest,
             request: {
-              ...userDefinedRelayRequestBody.request,
+              ...userDefinedRelayRequest.request,
               gas: constants.Two,
             } as RelayRequestBody,
           },
@@ -567,21 +525,21 @@ describe('RelayServer', function () {
           data: encodedData,
         });
 
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          false,
+          {
             from: owner.address,
             to: recipient.address,
             data: encodedData,
-            tokenContract: constants.AddressZero,
             gas,
           },
-          relayData: {
+          {
             callForwarder: smartWallet.address,
-          },
-        };
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -616,8 +574,9 @@ describe('RelayServer', function () {
         const token = await prepareToken(tokenName);
         await mintTokens(token, tokenName, 100, smartWallet.address);
 
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          false,
+          {
             from: owner.address,
             to: recipient.address,
             data: encodedData,
@@ -625,13 +584,13 @@ describe('RelayServer', function () {
             tokenAmount: 50,
             gas,
           },
-          relayData: {
+          {
             callForwarder: smartWallet.address,
-          },
-        };
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -654,20 +613,20 @@ describe('RelayServer', function () {
       });
 
       it('should relay transaction', async function () {
-        const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-          request: {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          false,
+          {
             from: owner.address,
             to: recipient.address,
             data: encodedData,
-            tokenContract: constants.AddressZero,
           },
-          relayData: {
+          {
             callForwarder: smartWallet.address,
-          },
-        };
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequestBody,
+          userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
@@ -808,7 +767,7 @@ describe('RelayServer', function () {
         blockchain: {
           registrationBlockRate,
           refreshStateTimeoutBlocks,
-          // workerTargetBalance: 0.6e18 verify this with the team
+          workerTargetBalance: (0.6e18).toString(),
         },
       });
       const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
@@ -1024,22 +983,22 @@ describe('RelayServer', function () {
 
       encodedData = recipient.interface.encodeFunctionData('testNextRevert');
 
-      const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-        request: {
+      const userDefinedRelayRequest = createUserDefinedRequest(
+        false,
+        {
           from: owner.address,
           to: recipient.address,
           data: encodedData,
-          tokenContract: constants.AddressZero,
         },
-        relayData: {
+        {
           callForwarder: smartWallet.address,
-        },
-      };
+        }
+      );
 
       const hubInfo = server.getChainInfo();
 
       const envelopingTxRequest = await createEnvelopingTxRequest(
-        userDefinedRelayRequestBody,
+        userDefinedRelayRequest,
         relayClient,
         hubInfo
       );
@@ -1061,22 +1020,22 @@ describe('RelayServer', function () {
     it('should delay transactions in alerted state', async function () {
       const timeBefore = Date.now();
 
-      const userDefinedRelayRequestBody: UserDefinedRelayRequest = {
-        request: {
+      const userDefinedRelayRequest = createUserDefinedRequest(
+        false,
+        {
           from: owner.address,
           to: recipient.address,
           data: encodedData,
-          tokenContract: constants.AddressZero,
         },
-        relayData: {
+        {
           callForwarder: smartWallet.address,
-        },
-      };
+        }
+      );
 
       const hubInfo = relayServer.getChainInfo();
 
       const envelopingTxRequest = await createEnvelopingTxRequest(
-        userDefinedRelayRequestBody,
+        userDefinedRelayRequest,
         relayClient,
         hubInfo
       );
@@ -1182,10 +1141,10 @@ describe('RelayServer', function () {
     });
 
     it('should return error if verifier is not trusted', async function () {
-      const wrongVerifier = ethers.Wallet.createRandom();
+      const wrongVerifierAddress = generateRandomAddress();
 
       await expect(
-        relayServer.tokenHandler(wrongVerifier.address)
+        relayServer.tokenHandler(wrongVerifierAddress)
       ).to.be.rejectedWith('supplied verifier is not trusted');
     });
 

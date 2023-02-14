@@ -35,6 +35,12 @@ import {
   RelayRequestBody,
   relayRequestType,
   SHA3_NULL_S,
+  UserDefinedDeployData,
+  UserDefinedDeployRequest,
+  UserDefinedDeployRequestBody,
+  UserDefinedRelayData,
+  UserDefinedRelayRequest,
+  UserDefinedRelayRequestBody,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
 import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
@@ -524,6 +530,10 @@ const signData = (
   return ethers.utils.joinSignature(signature);
 };
 
+const generateRandomAddress = (): string => {
+  return utils.hexlify(utils.randomBytes(20));
+};
+
 const baseRelayData: EnvelopingRequestData = {
   gasPrice: '1',
   feesReceiver: constants.AddressZero,
@@ -588,6 +598,51 @@ const createEnvelopingRequest = (
       };
 };
 
+const baseUserDefinedDeployBody: UserDefinedDeployRequestBody = {
+  from: constants.AddressZero,
+  index: 0,
+  tokenContract: constants.AddressZero,
+};
+
+const baseUserDefinedRelayBody: UserDefinedRelayRequestBody = {
+  from: constants.AddressZero,
+  tokenContract: constants.AddressZero,
+  data: '0x00',
+  to: constants.AddressZero,
+};
+
+const baseUserDefinedRelayData: UserDefinedRelayData = {
+  callForwarder: constants.AddressZero,
+};
+
+const createUserDefinedRequest = (
+  isDeploy: boolean,
+  request?: Partial<UserDefinedDeployRequestBody | UserDefinedRelayRequestBody>,
+  relayData?: Partial<UserDefinedDeployData | UserDefinedRelayData>
+): UserDefinedRelayRequest | UserDefinedDeployRequest => {
+  return isDeploy
+    ? {
+        request: {
+          ...baseUserDefinedDeployBody,
+          ...request,
+        },
+        relayData: {
+          ...baseUserDefinedRelayData,
+          ...relayData,
+        },
+      }
+    : {
+        request: {
+          ...baseUserDefinedRelayBody,
+          ...request,
+        },
+        relayData: {
+          ...baseUserDefinedRelayData,
+          ...relayData,
+        },
+      };
+};
+
 export {
   startRelay,
   stopRelay,
@@ -602,8 +657,10 @@ export {
   deployRelayHub,
   deployVerifiers,
   createEnvelopingRequest,
+  createUserDefinedRequest,
   getSuffixData,
   signData,
+  generateRandomAddress,
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
   RSK_URL,
