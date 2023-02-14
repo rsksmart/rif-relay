@@ -10,6 +10,7 @@ import '@rsksmart/rif-relay-contracts/contracts/factory/SmartWalletFactory.sol';
 import '@rsksmart/rif-relay-contracts/contracts/factory/CustomSmartWalletFactory.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/DeployVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/RelayVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/Penalizer.sol';
 import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 import '@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol';
 

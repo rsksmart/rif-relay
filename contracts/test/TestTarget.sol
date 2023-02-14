@@ -1,12 +1,9 @@
 // SPDX-License-Identifier:MIT
 pragma solidity ^0.6.12;
 
-import "hardhat/console.sol";
-
 contract TestTarget {
 
     string public  versionRecipient = "2.0.1+enveloping.test.recipient";
-
 
     // solhint-disable-next-line no-empty-blocks
     receive() external payable {}
