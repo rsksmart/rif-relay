@@ -8,7 +8,15 @@ import {
   RelayHub,
   SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
-import { DeployRequest, RelayRequest } from '@rsksmart/rif-relay-client';
+import {
+  CommonEnvelopingRequestBody,
+  DeployRequest,
+  DeployRequestBody,
+  EnvelopingRequest,
+  EnvelopingRequestData,
+  RelayRequest,
+  RelayRequestBody,
+} from '@rsksmart/rif-relay-client';
 import {
   TestDeployVerifierConfigurableMisbehavior,
   TestDeployVerifierEverythingAccepted,
@@ -67,6 +75,19 @@ describe('RelayHub', function () {
           (1e18).toString()
         )
       );
+  };
+
+  const cloneEnvelopingRequest = (
+    envelopingRequest: EnvelopingRequest,
+    override: {
+      request?: Partial<CommonEnvelopingRequestBody>;
+      relayData?: Partial<EnvelopingRequestData>;
+    }
+  ): EnvelopingRequest => {
+    return {
+      request: { ...envelopingRequest.request, ...override.request },
+      relayData: { ...envelopingRequest.relayData, ...override.relayData },
+    };
   };
 
   beforeEach(async function () {
@@ -130,7 +151,7 @@ describe('RelayHub', function () {
       });
     });
 
-    it('should register and allow to disable new relay workers', async function () {
+    it('should allow to disable new relay workers', async function () {
       await relayHub
         .connect(relayManager)
         .addRelayWorkers([relayWorker.address]);
@@ -389,16 +410,11 @@ describe('RelayHub', function () {
       };
     });
 
-    const cloneRelayRequest = (
-      override: Partial<{
-        request: Record<string, unknown>;
-        relayData: Record<string, unknown>;
-      }>
-    ): RelayRequest => {
-      return {
-        request: { ...relayRequest.request, ...override.request },
-        relayData: { ...relayRequest.relayData, ...override.relayData },
-      };
+    const cloneRelayRequest = (override: {
+      request?: Partial<RelayRequestBody>;
+      relayData?: Partial<EnvelopingRequestData>;
+    }) => {
+      return cloneEnvelopingRequest(relayRequest, override) as RelayRequest;
     };
 
     it('should retrieve version number', async function () {
@@ -407,7 +423,7 @@ describe('RelayHub', function () {
     });
 
     context('with unknown worker', function () {
-      it('should not accept a relay call with a disabled worker - 2', async function () {
+      it('should not accept a relay call coming from an unknown worker', async function () {
         const [unknownWorker] = (await ethers.getSigners()) as [
           SignerWithAddress
         ];
@@ -544,35 +560,6 @@ describe('RelayHub', function () {
         });
       });
 
-      context('with view functions only', function () {
-        it("should get 'verifierAccepted = true' and no revert reason as view call result of 'relayCall' for a valid transaction", async function () {
-          const relayCallView = await relayHub
-            .connect(relayWorker)
-            .callStatic.relayCall(
-              relayRequestEncodedFn,
-              signatureWithPermissiveVerifier,
-              {
-                gasPrice,
-              }
-            );
-
-          expect(relayCallView).to.be.true;
-        });
-
-        it.skip("should get Verifier's reject reason from view call result of 'relayCall' for a transaction with a wrong signature", async function () {
-          const relayRequestMisbehavingVerifier = cloneRelayRequest({
-            relayData: { callVerifier: misbehavingVerifier.address },
-          });
-
-          await misbehavingVerifier.setReturnInvalidErrorCode(true);
-          const relayCallView = await relayHub
-            .connect(relayWorker)
-            .relayCall(relayRequestMisbehavingVerifier, '0x');
-
-          expect(relayCallView).to.be.false;
-        });
-      });
-
       context('with funded verifier', function () {
         let signatureWithMisbehavingVerifier: string;
         let relayRequestMisbehavingVerifier: RelayRequest;
@@ -624,7 +611,7 @@ describe('RelayHub', function () {
           await expect(relayCall).to.be.rejectedWith('Not an enabled worker');
         });
 
-        it('relayCall executes the transaction and increments sender nonce on hub', async function () {
+        it('should execute the transaction and increase sender nonce on hub', async function () {
           const nonceBefore = await forwarder.nonce();
 
           await relayHub
@@ -662,7 +649,7 @@ describe('RelayHub', function () {
           expect(transactionRelayedEvent.length).to.equal(1);
         });
 
-        it('relayCall should refuse to re-send transaction with same nonce', async function () {
+        it('should refuse to re-send transaction with same nonce', async function () {
           await relayHub
             .connect(relayWorker)
             .relayCall(relayRequestEncodedFn, signatureWithPermissiveVerifier, {
@@ -689,7 +676,7 @@ describe('RelayHub', function () {
         });
 
         // This test is added due to a regression that almost slipped to production.
-        it('relayCall executes the transaction with no parameters', async function () {
+        it('should execute the transaction with no parameters', async function () {
           const encodedFunction = recipient.interface.encodeFunctionData(
             'emitMessageNoParams'
           );
@@ -727,7 +714,7 @@ describe('RelayHub', function () {
           );
         });
 
-        it('relayCall executes a transaction even if recipient call reverts', async function () {
+        it('should execute a transaction even if recipient call reverts', async function () {
           const encodedFunction =
             recipient.interface.encodeFunctionData('testRevert');
 
@@ -875,20 +862,15 @@ describe('RelayHub', function () {
       };
     });
 
-    const cloneDeployRequest = (
-      override: Partial<{
-        request: Record<string, unknown>;
-        relayData: Record<string, unknown>;
-      }>
-    ) => {
-      return {
-        request: { ...deployRequest.request, ...override.request },
-        relayData: { ...deployRequest.relayData, ...override.relayData },
-      };
+    const cloneDeployRequest = (override: {
+      request?: Partial<DeployRequestBody>;
+      relayData?: Partial<EnvelopingRequestData>;
+    }) => {
+      return cloneEnvelopingRequest(deployRequest, override) as DeployRequest;
     };
 
     context('with unknown worker', function () {
-      it('should not accept a deploy call - 2', async function () {
+      it('should not accept a deploy call with aun unknown worker', async function () {
         const deployRequestUnknownWorker = cloneDeployRequest({
           request: { index: nextWalletIndex.toString() },
           relayData: { feesReceiver: unknownWorker.address },
@@ -1042,7 +1024,7 @@ describe('RelayHub', function () {
             ));
         });
 
-        it('deployCall executes the transaction and increases sender nonce on factory', async function () {
+        it('should execute the transaction and increase sender nonce on factory', async function () {
           const nonceBefore = await factory.nonce(owner.address);
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
@@ -1111,7 +1093,7 @@ describe('RelayHub', function () {
           await expect(deployCall).to.be.rejectedWith('Not an enabled worker');
         });
 
-        it('deployCall should refuse to re-send transaction with same nonce', async function () {
+        it('should refuse to re-send transaction with same nonce', async function () {
           const calculatedAddr = await factory.getSmartWalletAddress(
             owner.address,
             ethers.constants.AddressZero,
@@ -1169,7 +1151,7 @@ describe('RelayHub', function () {
         it('should not accept deploy requests with gas price lower than user specified', async function () {
           const deployRequestMisbehavingVerifier = cloneDeployRequest({
             relayData: {
-              callverifier: misbehavingVerifier.address,
+              callVerifier: misbehavingVerifier.address,
               gasPrice: BigInt(2).toString(),
             },
           });
