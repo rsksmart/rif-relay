@@ -1,4 +1,8 @@
-import { Event as SolidityEvent, ContractTransaction } from 'ethers';
+import {
+  Event as SolidityEvent,
+  ContractTransaction,
+  BigNumberish,
+} from 'ethers';
 import { Result as SolidityEventArg } from '@ethersproject/abi';
 import { ethers as hardhat } from 'hardhat';
 import { NonRevertTestToken, TestToken, TetherToken } from 'typechain-types';
@@ -34,17 +38,14 @@ async function getLogArguments(contractTransaction: ContractTransaction) {
 async function mintTokens(
   token: TokenToTest,
   tokenName: TokenName,
-  amount: number,
+  amount: BigNumberish,
   recipient: string
 ) {
   if (tokenName === TETHER_TOKEN_NAME) {
     await (token as TetherToken).issue(amount);
     await (token as TetherToken).transfer(recipient, amount);
   } else {
-    await (token as TestToken | NonRevertTestToken).mint(
-      INITIAL_SMART_WALLET_TOKEN_AMOUNT,
-      recipient
-    );
+    await (token as TestToken | NonRevertTestToken).mint(amount, recipient);
   }
 }
 

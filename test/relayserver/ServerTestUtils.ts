@@ -3,16 +3,29 @@ import {
   RelayHubInterface,
   RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { ManagerEvent } from '@rsksmart/rif-relay-server';
+import {
+  AppConfig,
+  BlockchainConfig,
+  ContractsConfig,
+  ManagerEvent,
+} from '@rsksmart/rif-relay-server';
 import { BigNumberish, constants } from 'ethers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
+import config from 'config';
+import { EnvelopingTxRequest } from '@rsksmart/rif-relay-client';
 
 export type ServerWorkdirs = {
   workdir: string;
   managerWorkdir: string;
   workersWorkdir: string;
 };
+
+export type ServerLoadConfiguration = Partial<{
+  app: Partial<AppConfig>;
+  contracts: Partial<ContractsConfig>;
+  blockchain: Partial<BlockchainConfig>;
+}>;
 
 const provider = ethers.provider;
 
@@ -35,22 +48,20 @@ const assertEventHub = async (
     RelayHub__factory.createInterface();
   const receipts = await resolveAllReceipts(transactionHashes);
 
-  const registeredLogs = receipts.flatMap((receipt) => {
+  const parsedLogs = receipts.flatMap((receipt) => {
     return receipt.logs.map((log) => relayHubInterface.parseLog(log));
   });
 
-  expect(registeredLogs.length).to.be.equal(1);
+  const registeredReceipt = parsedLogs.find((log) => log.name === event);
 
-  const parsedLog = registeredLogs.at(0);
-
-  if (!parsedLog) {
+  if (!registeredReceipt) {
     throw new Error('Registered receipt not found');
   }
 
-  expect(parsedLog.name).to.be.equal(event);
+  expect(registeredReceipt.name).to.be.equal(event);
 
   if (indexedAddress) {
-    expect(parsedLog.args[0]).to.be.equal(indexedAddress);
+    expect(registeredReceipt.args[0]).to.be.equal(indexedAddress);
   }
 };
 
@@ -78,9 +89,60 @@ const getTemporaryWorkdirs = (): ServerWorkdirs => {
   };
 };
 
+const stringifyEnvelopingTx = (
+  envelopingTx: EnvelopingTxRequest
+): EnvelopingTxRequest => {
+  const {
+    relayRequest: {
+      request: { tokenGas, nonce, value, tokenAmount, gas },
+      relayData: { gasPrice },
+    },
+  } = envelopingTx;
+
+  return {
+    ...envelopingTx,
+    relayRequest: {
+      ...envelopingTx.relayRequest,
+      request: {
+        ...envelopingTx.relayRequest.request,
+        tokenGas: tokenGas.toString(),
+        nonce: nonce.toString(),
+        value: value.toString(),
+        tokenAmount: tokenAmount.toString(),
+        gas: gas?.toString(),
+      },
+      relayData: {
+        ...envelopingTx.relayRequest.relayData,
+        gasPrice: gasPrice.toString(),
+      },
+    },
+  } as EnvelopingTxRequest;
+};
+
+const loadConfiguration = ({
+  app = {},
+  contracts = {},
+  blockchain = {},
+}: ServerLoadConfiguration) => {
+  config.util.extendDeep(config, {
+    app,
+    contracts,
+    blockchain,
+  });
+};
+
+const deployTestRecipient = async () => {
+  const testRecipientFactory = await ethers.getContractFactory('TestRecipient');
+
+  return await testRecipientFactory.deploy();
+};
+
 export {
   resolveAllReceipts,
   assertEventHub,
   getTotalTxCosts,
   getTemporaryWorkdirs,
+  stringifyEnvelopingTx,
+  loadConfiguration,
+  deployTestRecipient,
 };
