@@ -69,6 +69,8 @@ const basicAppConfig: Partial<AppConfig> = {
   workdir: SERVER_WORK_DIR,
 };
 
+const IS_DEPLOY_REQUEST = false;
+
 const originalConfig = config.util.toObject(config) as ServerConfigParams;
 
 const provider = ethers.provider;
@@ -160,12 +162,15 @@ describe('RelayServer', function () {
 
     describe('validateInputTypes', function () {
       it('should throw if relayHub is undefined', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -183,13 +188,16 @@ describe('RelayServer', function () {
 
     describe('validateInput', function () {
       it('should throw on wrong hub address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-          relayHub: constants.AddressZero,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            relayHub: constants.AddressZero,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -203,12 +211,15 @@ describe('RelayServer', function () {
       });
 
       it('should throw on wrong fees receiver address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
 
         hubInfo.feesReceiver = generateRandomAddress();
 
@@ -224,12 +235,15 @@ describe('RelayServer', function () {
       });
 
       it('should throw if gas price is equal to zero', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -245,13 +259,16 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request expired', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-          validUntilTime: 1000,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            validUntilTime: 1000,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -265,13 +282,16 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request too close', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-          validUntilTime: Math.round(Date.now() / 1000),
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            validUntilTime: Math.round(Date.now() / 1000),
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -303,12 +323,15 @@ describe('RelayServer', function () {
 
     describe('validateVerifier', function () {
       it('should validate verifier in enveloping request', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
-          from: owner.address,
-          to: recipient.address,
-          data: encodedData,
-          nonce: 1,
-        });
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -335,7 +358,7 @@ describe('RelayServer', function () {
         const wrongVerifierAddress = generateRandomAddress();
 
         const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+          IS_DEPLOY_REQUEST,
           {
             from: owner.address,
             to: recipient.address,
@@ -461,7 +484,7 @@ describe('RelayServer', function () {
     describe('maxPossibleGasWithViewCall', function () {
       it('should fail to relay rejected transaction', async function () {
         const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+          IS_DEPLOY_REQUEST,
           {
             from: owner.address,
             to: recipient.address,
@@ -526,7 +549,7 @@ describe('RelayServer', function () {
         });
 
         const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+          IS_DEPLOY_REQUEST,
           {
             from: owner.address,
             to: recipient.address,
@@ -575,7 +598,7 @@ describe('RelayServer', function () {
         await mintTokens(token, tokenName, 100, smartWallet.address);
 
         const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+          IS_DEPLOY_REQUEST,
           {
             from: owner.address,
             to: recipient.address,
@@ -614,7 +637,7 @@ describe('RelayServer', function () {
 
       it('should relay transaction', async function () {
         const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+          IS_DEPLOY_REQUEST,
           {
             from: owner.address,
             to: recipient.address,
@@ -984,7 +1007,7 @@ describe('RelayServer', function () {
       encodedData = recipient.interface.encodeFunctionData('testNextRevert');
 
       const userDefinedRelayRequest = createUserDefinedRequest(
-        false,
+        IS_DEPLOY_REQUEST,
         {
           from: owner.address,
           to: recipient.address,
@@ -1021,7 +1044,7 @@ describe('RelayServer', function () {
       const timeBefore = Date.now();
 
       const userDefinedRelayRequest = createUserDefinedRequest(
-        false,
+        IS_DEPLOY_REQUEST,
         {
           from: owner.address,
           to: recipient.address,
