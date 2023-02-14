@@ -870,7 +870,7 @@ describe('RelayHub', function () {
     };
 
     context('with unknown worker', function () {
-      it('should not accept a deploy call with aun unknown worker', async function () {
+      it('should not accept a deploy call with an unknown worker', async function () {
         const deployRequestUnknownWorker = cloneDeployRequest({
           request: { index: nextWalletIndex.toString() },
           relayData: { feesReceiver: unknownWorker.address },
