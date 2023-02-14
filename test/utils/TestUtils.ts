@@ -11,8 +11,10 @@ import {
   IForwarder,
   RelayHub__factory,
   SmartWallet,
+  CustomSmartWalletDeployVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import {
+  buildServerUrl,
   defaultEnvironment,
   getServerConfig,
   RelayHubConfiguration,
@@ -33,10 +35,16 @@ import {
   RelayRequestBody,
   relayRequestType,
   SHA3_NULL_S,
+  UserDefinedDeployData,
+  UserDefinedDeployRequest,
+  UserDefinedDeployRequestBody,
+  UserDefinedRelayData,
+  UserDefinedRelayRequest,
+  UserDefinedRelayRequestBody,
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
 import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
-import { CustomSmartWallet } from 'typechain-types';
+import { CustomSmartWallet, DeployVerifier } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 import {
@@ -160,14 +168,6 @@ const startRelay = async (options: StartRelayParams) => {
   };
 };
 
-const buildServerUrl = () => {
-  const { app } = getServerConfig();
-
-  const portFromUrl = app.url.match(/:(\d{0,5})$/);
-
-  return !portFromUrl && app.port ? `${app.url}:${app.port}` : app.url;
-};
-
 const getServerReady = async (
   url: string,
   client = new HttpClient(new HttpWrapper(undefined, 'silent'))
@@ -238,7 +238,7 @@ const revertEvmSnapshot = async (snapshotId: string) => {
 // An existing account in RSKJ that have been depleted
 const getExistingGaslessAccount = async (): Promise<SignerWithAddress> => {
   const signers = await ethers.getSigners();
-  const accountToBeDepleted = signers.at(9)!;
+  const accountToBeDepleted = signers.at(9) as SignerWithAddress;
 
   const balance = await accountToBeDepleted.getBalance();
   if (!balance.gte(0)) {
@@ -279,16 +279,49 @@ const deployRelayHub = async (
   return relayHubFactory.deploy(
     penalizer,
     maxWorkerCount,
+    minimumEntryDepositValue,
     minimumUnstakeDelay,
-    minimumStake,
-    minimumEntryDepositValue
+    minimumStake
   );
+};
+
+const deployVerifiers = async (
+  smartWalletFactory: SmartWalletFactory | CustomSmartWalletFactory,
+  isCustom = false
+) => {
+  let deployVerifier: DeployVerifier | CustomSmartWalletDeployVerifier;
+
+  if (isCustom) {
+    const deployVerifierFactory = await ethers.getContractFactory(
+      'CustomSmartWalletDeployVerifier'
+    );
+    deployVerifier = await deployVerifierFactory.deploy(
+      smartWalletFactory.address
+    );
+  } else {
+    const deployVerifierFactory = await ethers.getContractFactory(
+      'DeployVerifier'
+    );
+    deployVerifier = await deployVerifierFactory.deploy(
+      smartWalletFactory.address
+    );
+  }
+
+  const relayVerifierFactory = await ethers.getContractFactory('RelayVerifier');
+  const relayVerifier = await relayVerifierFactory.deploy(
+    smartWalletFactory.address
+  );
+
+  return {
+    deployVerifier,
+    relayVerifier,
+  };
 };
 
 const createSmartWalletFactory = async (
   template: IForwarder,
   isCustom = false,
-  owner: Wallet
+  owner: Wallet | SignerWithAddress
 ) => {
   const factory = isCustom
     ? await ethers.getContractFactory('CustomSmartWalletFactory')
@@ -497,6 +530,10 @@ const signData = (
   return ethers.utils.joinSignature(signature);
 };
 
+const generateRandomAddress = (): string => {
+  return utils.hexlify(utils.randomBytes(20));
+};
+
 const baseRelayData: EnvelopingRequestData = {
   gasPrice: '1',
   feesReceiver: constants.AddressZero,
@@ -561,6 +598,51 @@ const createEnvelopingRequest = (
       };
 };
 
+const baseUserDefinedDeployBody: UserDefinedDeployRequestBody = {
+  from: constants.AddressZero,
+  index: 0,
+  tokenContract: constants.AddressZero,
+};
+
+const baseUserDefinedRelayBody: UserDefinedRelayRequestBody = {
+  from: constants.AddressZero,
+  tokenContract: constants.AddressZero,
+  data: '0x00',
+  to: constants.AddressZero,
+};
+
+const baseUserDefinedRelayData: UserDefinedRelayData = {
+  callForwarder: constants.AddressZero,
+};
+
+const createUserDefinedRequest = (
+  isDeploy: boolean,
+  request?: Partial<UserDefinedDeployRequestBody | UserDefinedRelayRequestBody>,
+  relayData?: Partial<UserDefinedDeployData | UserDefinedRelayData>
+): UserDefinedRelayRequest | UserDefinedDeployRequest => {
+  return isDeploy
+    ? {
+        request: {
+          ...baseUserDefinedDeployBody,
+          ...request,
+        },
+        relayData: {
+          ...baseUserDefinedRelayData,
+          ...relayData,
+        },
+      }
+    : {
+        request: {
+          ...baseUserDefinedRelayBody,
+          ...request,
+        },
+        relayData: {
+          ...baseUserDefinedRelayData,
+          ...relayData,
+        },
+      };
+};
+
 export {
   startRelay,
   stopRelay,
@@ -573,9 +655,12 @@ export {
   createSmartWalletFactory,
   prepareRelayTransaction,
   deployRelayHub,
+  deployVerifiers,
   createEnvelopingRequest,
+  createUserDefinedRequest,
   getSuffixData,
   signData,
+  generateRandomAddress,
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
   RSK_URL,
