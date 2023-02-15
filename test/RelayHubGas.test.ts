@@ -28,6 +28,7 @@ import {
   createSupportedSmartWallet,
   RSK_URL,
 } from './utils/TestUtils'
+import { keccak256 } from 'ethers/lib/utils'
 
 function logGasOverhead(gasOverhead: BigNumber) {
     // bg and fg colours taken from https://stackoverflow.com/questions/9781218/how-to-change-node-jss-console-font-color
@@ -275,7 +276,7 @@ describe('RelayHub', function () {
             let { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
 
           let detailedEstimation = await ethers.provider.estimateGas({
-            from: relayWorker.address.address,
+            from: relayWorker.address,
             to: relayHub.address,
             data: relayHub.interface.encodeFunctionData('relayCall', [completeReq, sig]),
             gasPrice,
@@ -336,39 +337,15 @@ describe('RelayHub', function () {
 
           console.log(`Cumulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`)
 
-          /*let logs = abiDecoder.decodeLogs(txReceipt.logs)
-          let sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.address.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          let transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-          assert.isTrue(
-            transactionRelayedEvent !== undefined &&
-              transactionRelayedEvent !== null,
-            'TransactionRelayedEvent not found',
-          )*/
-
           // SECOND CALL
           await token.mint('100', forwarder.address)
 
           swalletInitialBalance = await token.balanceOf(forwarder.address)
-          balanceToTransfer = toHex(swalletInitialBalance.toNumber())
-          relayWorkerInitialBalance = await token.balanceOf(relayWorker)
+          balanceToTransfer = ethers.utils.hexValue(swalletInitialBalance.toNumber())
+          relayWorkerInitialBalance = await token.balanceOf(relayWorker.address)
 
-          completeReq.request.tokenAmount = toHex(swalletInitialBalance)
-          estimatedDestinationCallGas = await web3.eth.estimateGas({
+          completeReq.request.tokenAmount = ethers.utils.hexValue(swalletInitialBalance)
+          estimatedDestinationCallGas = await ethers.provider.estimateGas({
             from: completeReq.relayData.callForwarder,
             to: completeReq.request.to,
             gasPrice: completeReq.relayData.gasPrice,
@@ -376,50 +353,40 @@ describe('RelayHub', function () {
           })
 
           internalDestinationCallCost =
-            estimatedDestinationCallGas >
-            constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              ? estimatedDestinationCallGas -
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              : estimatedDestinationCallGas
+            estimatedDestinationCallGas.toNumber() >
+            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              ? estimatedDestinationCallGas.toNumber() -
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              : estimatedDestinationCallGas.toNumber()
           internalDestinationCallCost =
             internalDestinationCallCost *
-            constants.ESTIMATED_GAS_CORRECTION_FACTOR
+            ESTIMATED_GAS_CORRECTION_FACTOR;
 
-          estimatedTokenPaymentGas = await web3.eth.estimateGas({
-            from: completeReq.relayData.callForwarder,
+          estimatedTokenPaymentGas = await ethers.provider.estimateGas({
+            from: forwarder.address,
             to: token.address,
-            data: token.contract.methods
-              .transfer(relayWorker, balanceToTransfer)
-              .encodeABI(),
+            data: token.interface.encodeFunctionData('transfer', [relayWorker.address, balanceToTransfer])
           })
 
           internalTokenCallCost =
-            estimatedTokenPaymentGas >
-            constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              ? estimatedTokenPaymentGas -
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              : estimatedTokenPaymentGas
+            estimatedTokenPaymentGas.toNumber() >
+            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              ? estimatedTokenPaymentGas.toNumber() -
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              : estimatedTokenPaymentGas.toNumber()
           internalTokenCallCost =
-            internalTokenCallCost * constants.ESTIMATED_GAS_CORRECTION_FACTOR
+            internalTokenCallCost * ESTIMATED_GAS_CORRECTION_FACTOR
 
-          completeReq.request.gas = toHex(internalDestinationCallCost)
-          completeReq.request.tokenGas = toHex(internalTokenCallCost)
+          completeReq.request.gas = ethers.utils.hexValue(internalDestinationCallCost)
+          completeReq.request.tokenGas = ethers.utils.hexValue(internalTokenCallCost)
+          completeReq.request.nonce = nonceBefore.add(BigNumber.from(1)).toString();
+          
+          ({ signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner));
 
-          completeReq.request.nonce = nonceBefore.add(toBN(1)).toString()
-          reqToSign = new TypedRequestData(
-            chainId,
-            forwarder.address,
-            completeReq,
-          )
-
-          sig = getLocalEip712Signature(reqToSign, gaslessAccount.privateKey)
-
-          detailedEstimation = await web3.eth.estimateGas({
+        detailedEstimation = await ethers.provider.estimateGas({
             from: relayWorker.address,
             to: relayHub.address,
-            data: relayHub.contract.methods
-              .relayCall(completeReq, sig)
-              .encodeABI(),
+            data: relayHub.interface.encodeFunctionData('relayCall', [completeReq, sig]),
             gasPrice,
           })
 
@@ -442,78 +409,41 @@ describe('RelayHub', function () {
           console.log('Detailed estimation: ', detailedEstimation)
 
           sWalletFinalBalance = await token.balanceOf(forwarder.address)
-          relayWorkerFinalBalance = await token.balanceOf(relayWorker)
+          relayWorkerFinalBalance = await token.balanceOf(relayWorker.address)
 
-          assert.isTrue(
+          expect(
             swalletInitialBalance.eq(
-              sWalletFinalBalance.add(toBN(balanceToTransfer)),
-            ),
+              sWalletFinalBalance.add(BigNumber.from(balanceToTransfer)),
+            )).to.equal(true,
             'SW Payment did not occur',
           )
-          assert.isTrue(
+          expect(
             relayWorkerFinalBalance.eq(
-              relayWorkerInitialBalance.add(toBN(balanceToTransfer)),
-            ),
+              relayWorkerInitialBalance.add(BigNumber.from(balanceToTransfer)),
+            )).to.equal(true,
             'Worker did not receive payment',
           )
 
           nonceAfter = await forwarder.nonce()
-          assert.equal(
-            nonceBefore.addn(2).toNumber(),
+          expect(
+            nonceBefore.add(2).toNumber()).to.equal(
             nonceAfter.toNumber(),
             'Incorrect nonce after execution',
           )
 
-          txReceipt = await web3.eth.getTransactionReceipt(result.tx)
+          txReceipt = await result.wait();
 
           console.log(
-            `Cumulative Gas Used in second run: ${txReceipt.cumulativeGasUsed}`,
-          )
-
-          logs = abiDecoder.decodeLogs(txReceipt.logs)
-          sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.address.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-          assert.isTrue(
-            transactionRelayedEvent !== undefined &&
-              transactionRelayedEvent !== null,
-            'TransactionRelayedEvent not found',
+            `Cumulative Gas Used in second run: ${txReceipt.cumulativeGasUsed.toString()}`,
           )
         })
 
         it('gas prediction tests - without token payment', async function () {
-          const SmartWallet = artifacts.require('SmartWallet')
-          const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-          const smartWalletFactory: SmartWalletFactoryInstance = await createSmartWalletFactory(
-            smartWalletTemplate,
-          )
-          const forwarder = await createSmartWallet(
-            _,
-            gaslessAccount.address,
-            smartWalletFactory,
-            gaslessAccount.privateKey,
-            chainId,
-          )
-
           const nonceBefore = await forwarder.nonce()
           let swalletInitialBalance = await token.balanceOf(
             forwarder.address,
           )
-          let relayWorkerInitialBalance = await token.balanceOf(relayWorker)
+          let relayWorkerInitialBalance = await token.balanceOf(relayWorker.address)
           let message =
             'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING '
           message = message.concat(message)
@@ -523,19 +453,24 @@ describe('RelayHub', function () {
           message = message.concat(message)
           message = message.concat(message)
 
-          const completeReq: RelayRequest = cloneRelayRequest(
-            sharedRelayRequestData,
-          )
-          completeReq.request.data = recipientContract.contract.methods
-            .emitMessage(message)
-            .encodeABI()
-          completeReq.request.nonce = nonceBefore.toString()
-          completeReq.relayData.callForwarder = forwarder.address
-          completeReq.request.tokenAmount = '0x00'
-          completeReq.request.tokenContract = constants.ZERO_ADDRESS
-          completeReq.request.tokenGas = '0x00'
+          const encodedFunction = recipient.interface.encodeFunctionData(
+            'emitMessage',
+            [message]
+          );
 
-          let estimatedDestinationCallGas = await web3.eth.estimateGas({
+          const completeReq: RelayRequest = cloneRelayRequest(
+            { 
+                request: {
+                    nonce: nonceBefore.toString(),
+                    tokenAmount: '0x00',
+                    tokenContract: ethers.constants.AddressZero,
+                    tokenGas: '0x00',
+                    data: encodedFunction
+                }
+             },
+          )
+
+          let estimatedDestinationCallGas = await ethers.provider.estimateGas({
             from: completeReq.relayData.callForwarder,
             to: completeReq.request.to,
             gasPrice: completeReq.relayData.gasPrice,
@@ -543,36 +478,25 @@ describe('RelayHub', function () {
           })
 
           let internalDestinationCallCost =
-            estimatedDestinationCallGas >
-            constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              ? estimatedDestinationCallGas -
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              : estimatedDestinationCallGas
+            estimatedDestinationCallGas.toNumber() >
+            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              ? estimatedDestinationCallGas.toNumber() -
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              : estimatedDestinationCallGas.toNumber()
           internalDestinationCallCost =
             internalDestinationCallCost *
-            constants.ESTIMATED_GAS_CORRECTION_FACTOR
+            ESTIMATED_GAS_CORRECTION_FACTOR
 
-          completeReq.request.gas = toHex(internalDestinationCallCost)
+          completeReq.request.gas = ethers.utils.hexValue(internalDestinationCallCost)
 
-          let reqToSign = new TypedRequestData(
-            chainId,
-            forwarder.address,
-            completeReq,
-          )
+          let { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
 
-          let sig = getLocalEip712Signature(
-            reqToSign,
-            gaslessAccount.privateKey,
-          )
-
-          let detailedEstimation = await web3.eth.estimateGas({
+          let detailedEstimation = await ethers.provider.estimateGas({
             from: relayWorker.address,
             to: relayHub.address,
-            data: relayHub.contract.methods
-              .relayCall(completeReq, sig)
-              .encodeABI(),
+            data: relayHub.interface.encodeFunctionData('relayCall', [completeReq, sig]),
             gasPrice,
-            gas: 6800000,
+            gasLimit: 6800000,
           })
 
           // gas estimation fit
@@ -589,7 +513,7 @@ describe('RelayHub', function () {
           console.log('X = ', internalDestinationCallCost)
           console.log('The predicted total cost is: ', estimatedCost)
           console.log('Detailed estimation: ', detailedEstimation)
-          const { tx } = await relayHub.relayCall(completeReq, sig, {
+          const relayCallResult = await relayHub.relayCall(completeReq, sig, {
             from: relayWorker.address,
             gasLimit,
             gasPrice,
@@ -598,58 +522,34 @@ describe('RelayHub', function () {
           let sWalletFinalBalance = await token.balanceOf(
             forwarder.address,
           )
-          let relayWorkerFinalBalance = await token.balanceOf(relayWorker)
+          let relayWorkerFinalBalance = await token.balanceOf(relayWorker.address)
 
-          assert.isTrue(
-            swalletInitialBalance.eq(sWalletFinalBalance),
+          expect(
+            swalletInitialBalance.eq(sWalletFinalBalance)).to.equal(true,
             'SW Payment did occur',
           )
-          assert.isTrue(
-            relayWorkerFinalBalance.eq(relayWorkerInitialBalance),
+          expect(
+            relayWorkerFinalBalance.eq(relayWorkerInitialBalance)).to.equal(true,
             'Worker did receive payment',
           )
 
           let nonceAfter = await forwarder.nonce()
-          assert.equal(
-            nonceBefore.addn(1).toNumber(),
+          expect(
+            nonceBefore.add(1).toNumber()).to.equal(
             nonceAfter.toNumber(),
             'Incorrect nonce after execution',
           )
 
-          let txReceipt = await web3.eth.getTransactionReceipt(tx)
+          let txReceipt = await relayCallResult.wait();
 
-          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
-
-          let logs = abiDecoder.decodeLogs(txReceipt.logs)
-          let sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.address.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          let transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-          assert.isTrue(
-            transactionRelayedEvent !== undefined &&
-              transactionRelayedEvent !== null,
-            'TransactionRelayedEvent not found',
-          )
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`)
 
           // SECOND CALL
 
           swalletInitialBalance = await token.balanceOf(forwarder.address)
-          relayWorkerInitialBalance = await token.balanceOf(relayWorker)
+          relayWorkerInitialBalance = await token.balanceOf(relayWorker.address)
 
-          estimatedDestinationCallGas = await web3.eth.estimateGas({
+          estimatedDestinationCallGas = await ethers.provider.estimateGas({
             from: completeReq.relayData.callForwarder,
             to: completeReq.request.to,
             gasPrice: completeReq.relayData.gasPrice,
@@ -657,32 +557,25 @@ describe('RelayHub', function () {
           })
 
           internalDestinationCallCost =
-            estimatedDestinationCallGas >
-            constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              ? estimatedDestinationCallGas -
-                constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-              : estimatedDestinationCallGas
+            estimatedDestinationCallGas.toNumber() >
+            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              ? estimatedDestinationCallGas.toNumber() -
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              : estimatedDestinationCallGas.toNumber()
           internalDestinationCallCost =
             internalDestinationCallCost *
-            constants.ESTIMATED_GAS_CORRECTION_FACTOR
+            ESTIMATED_GAS_CORRECTION_FACTOR
 
-          completeReq.request.gas = toHex(internalDestinationCallCost)
+          completeReq.request.gas = ethers.utils.hexValue(internalDestinationCallCost)
 
-          completeReq.request.nonce = nonceBefore.add(toBN(1)).toString()
-          reqToSign = new TypedRequestData(
-            chainId,
-            forwarder.address,
-            completeReq,
-          )
+          completeReq.request.nonce = nonceBefore.add(BigNumber.from(1)).toString();
+          
+          ({signature: sig} = await getSuffixDataAndSignature(forwarder, completeReq, owner));
 
-          sig = getLocalEip712Signature(reqToSign, gaslessAccount.privateKey)
-
-          detailedEstimation = await web3.eth.estimateGas({
+          detailedEstimation = await ethers.provider.estimateGas({
             from: relayWorker.address,
             to: relayHub.address,
-            data: relayHub.contract.methods
-              .relayCall(completeReq, sig)
-              .encodeABI(),
+            data: relayHub.interface.encodeFunctionData('relayCall', [completeReq, sig]),
             gasPrice,
           })
 
@@ -701,69 +594,32 @@ describe('RelayHub', function () {
           console.log('Detailed estimation: ', detailedEstimation)
 
           sWalletFinalBalance = await token.balanceOf(forwarder.address)
-          relayWorkerFinalBalance = await token.balanceOf(relayWorker)
+          relayWorkerFinalBalance = await token.balanceOf(relayWorker.address)
 
-          assert.isTrue(
-            swalletInitialBalance.eq(sWalletFinalBalance),
+          expect(
+            swalletInitialBalance.eq(sWalletFinalBalance)).to.equal(true,
             'SW Payment did occur',
           )
-          assert.isTrue(
-            relayWorkerFinalBalance.eq(relayWorkerInitialBalance),
+          expect(
+            relayWorkerFinalBalance.eq(relayWorkerInitialBalance)).to.equal(true,
             'Worker did receive payment',
           )
 
           nonceAfter = await forwarder.nonce()
-          assert.equal(
-            nonceBefore.addn(2).toNumber(),
+          expect(
+            nonceBefore.add(2).toNumber()).to.equal(
             nonceAfter.toNumber(),
             'Incorrect nonce after execution',
           )
 
-          txReceipt = await web3.eth.getTransactionReceipt(result.tx)
+          txReceipt = await result.wait();
 
           console.log(
-            `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed}`,
-          )
-
-          logs = abiDecoder.decodeLogs(txReceipt.logs)
-          sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.address.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-          assert.isTrue(
-            transactionRelayedEvent !== undefined &&
-              transactionRelayedEvent !== null,
-            'TransactionRelayedEvent not found',
+            `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed.toString()}`,
           )
         })
 
         it('gas estimation tests for SmartWallet', async function () {
-          const SmartWallet = artifacts.require('SmartWallet')
-          const smartWalletTemplate: SmartWalletInstance = await SmartWallet.new()
-          const smartWalletFactory: SmartWalletFactoryInstance = await createSmartWalletFactory(
-            smartWalletTemplate,
-          )
-          const forwarder = await createSmartWallet(
-            _,
-            gaslessAccount.address,
-            smartWalletFactory,
-            gaslessAccount.privateKey,
-            chainId,
-          )
-
           const nonceBefore = await forwarder.nonce()
           await token.mint('10000', forwarder.address)
 
@@ -776,29 +632,26 @@ describe('RelayHub', function () {
           message = message.concat(message)
           message = message.concat(message)
           message = message.concat(message)
+          const encodedFunction = recipient.interface.encodeFunctionData(
+            'emitMessage',
+            [message]
+          );
+
           const completeReq: RelayRequest = cloneRelayRequest(
-            sharedRelayRequestData,
-          )
-          completeReq.request.data = recipientContract.contract.methods
-            .emitMessage(message)
-            .encodeABI()
-          completeReq.request.nonce = nonceBefore.toString()
-          completeReq.relayData.callForwarder = forwarder.address
-          completeReq.request.tokenAmount = '0x00'
-          completeReq.request.tokenGas = '0'
-
-          const reqToSign = new TypedRequestData(
-            chainId,
-            forwarder.address,
-            completeReq,
+            { 
+                request: {
+                    nonce: nonceBefore.toString(),
+                    tokenAmount: '0x00',
+                    tokenContract: ethers.constants.AddressZero,
+                    tokenGas: '0x00',
+                    data: encodedFunction
+                }
+             },
           )
 
-          const sig = getLocalEip712Signature(
-            reqToSign,
-            gaslessAccount.privateKey,
-          )
+          const { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
 
-          const estimatedDestinationCallCost = await web3.eth.estimateGas({
+          const estimatedDestinationCallCost = await ethers.provider.estimateGas({
             from: completeReq.relayData.callForwarder,
             to: completeReq.request.to,
             gasPrice: completeReq.relayData.gasPrice,
@@ -807,7 +660,7 @@ describe('RelayHub', function () {
 
           // tokenAmount is set to 0
           const tokenPaymentEstimation = 0
-          /* const tokenPaymentEstimation = await web3.eth.estimateGas({
+          /* const tokenPaymentEstimation = await ethers.provider.estimateGas({
                     from: completeReq.relayData.callForwarder,
                     to: token.address,
                     data: token.contract.methods.transfer(relayWorker, '1').encodeABI()
@@ -819,7 +672,7 @@ describe('RelayHub', function () {
           const a0 = Number('37796.074')
           const a1 = Number('1.086')
           const estimatedCost =
-            a1 * (estimatedDestinationCallCost + tokenPaymentEstimation) + a0
+            a1 * (estimatedDestinationCallCost.toNumber() + tokenPaymentEstimation) + a0
 
           console.log(
             'The destination contract call estimate is: ',
@@ -828,41 +681,41 @@ describe('RelayHub', function () {
           console.log('The token gas estimate is: ', tokenPaymentEstimation)
           console.log(
             'X = ',
-            estimatedDestinationCallCost + tokenPaymentEstimation,
+            estimatedDestinationCallCost.toNumber() + tokenPaymentEstimation,
           )
 
           console.log('The predicted total cost is: ', estimatedCost)
-          const { tx } = await relayHub.relayCall(completeReq, sig, {
+          const relayCallResult = await relayHub.relayCall(completeReq, sig, {
             from: relayWorker.address,
             gasLimit,
             gasPrice,
           })
 
           const nonceAfter = await forwarder.nonce()
-          assert.equal(
-            nonceBefore.addn(1).toNumber(),
+          expect(
+            nonceBefore.add(1).toNumber()).to.equal(
             nonceAfter.toNumber(),
             'Incorrect nonce after execution',
           )
 
-          const eventHash = keccak('GasUsed(uint256,uint256)')
-          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          const eventHash = keccak256(Buffer.from('GasUsed(uint256,uint256)'));
+          const txReceipt = await relayCallResult.wait();
 
           // const costForCalling = 0;
           // const overheadCost = txReceipt.cumulativeGasUsed - costForCalling - estimatedDestinationCallCost;
           // console.log('data overhead: ', overheadCost);
 
           // console.log('---------------SmartWallet: RelayCall metrics------------------------')
-          console.log(`Cumulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
-          console.log(`Gas Used: ${txReceipt.gasUsed}`)
+          console.log(`Cumulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`)
+          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`)
 
-          let previousGas: BigInt = BigInt(0)
+          let previousGas = BigInt(0)
           let previousStep: string | null = null
           for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i]
-            if ('0x' + eventHash.toString('hex') === log.topics[0]) {
+            const log = txReceipt.logs[i];
+            if ('0x' + eventHash === log?.topics[0]) {
               const step = log.data.substring(0, 66)
-              const gasUsed: BigInt = BigInt(
+              const gasUsed = BigInt(
                 '0x' + log.data.substring(67, log.data.length),
               )
               console.log('---------------------------------------')
@@ -882,50 +735,28 @@ describe('RelayHub', function () {
               console.log('---------------------------------------')
 
               // TODO: we should check this
-              // @ts-ignore
               previousGas = BigInt(gasUsed)
               previousStep = step
             }
           }
 
-          const logs = abiDecoder.decodeLogs(txReceipt.logs)
-          const sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.address.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          const transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-
-          assert.isNotNull(transactionRelayedEvent)
-
-          const callWithoutRelay = await recipientContract.emitMessage(message)
-          const cumulativeGasUsedWithoutRelay: number =
-            callWithoutRelay.receipt.cumulativeGasUsed
+          const callWithoutRelay = await recipient.emitMessage(message)
+          const callWithoutrelayReceipt = await callWithoutRelay.wait();
+          const cumulativeGasUsedWithoutRelay = callWithoutrelayReceipt.cumulativeGasUsed.toNumber();
           const gasOverhead =
-            txReceipt.cumulativeGasUsed - cumulativeGasUsedWithoutRelay
+            txReceipt.cumulativeGasUsed.toNumber() - cumulativeGasUsedWithoutRelay
           console.log(
             '--------------- Destination Call Without enveloping------------------------',
           )
           console.log(
-            `Gas Used: ${callWithoutRelay.receipt.gasUsed}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`,
+            `Gas Used: ${callWithoutrelayReceipt.gasUsed.toString()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`,
           )
           console.log('---------------------------------------')
           console.log(
             '--------------- Destination Call with enveloping------------------------',
           )
           console.log(
-            `Gas Used: ${txReceipt.gasUsed}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed}`,
+            `Gas Used: ${txReceipt.gasUsed.toString()}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed.toString()}`,
           )
           console.log('---------------------------------------')
           console.log(
@@ -937,17 +768,8 @@ describe('RelayHub', function () {
           console.log('Round 2')
 
           completeReq.request.nonce = nonceAfter.toString()
-          const reqToSign2 = new TypedRequestData(
-            chainId,
-            forwarder.address,
-            completeReq,
-          )
-
-          const sig2 = getLocalEip712Signature(
-            reqToSign2,
-            gaslessAccount.privateKey,
-          )
-          const { tx: tx2 } = await relayHub.relayCall(
+          const { signature: sig2 } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
+          const relayCallResult2 = await relayHub.relayCall(
             completeReq,
             sig2,
             {
@@ -956,71 +778,58 @@ describe('RelayHub', function () {
               gasPrice,
             },
           )
-          const txReceipt2 = await web3.eth.getTransactionReceipt(tx2)
+          const txReceipt2 = await relayCallResult2.wait();
           console.log(
             '--------------- Destination Call with enveloping------------------------',
           )
           console.log(
-            `Gas Used: ${txReceipt2.gasUsed}, CumulativeGasUsed: ${txReceipt2.cumulativeGasUsed}`,
+            `Gas Used: ${txReceipt2.gasUsed.toString()}, CumulativeGasUsed: ${txReceipt2.cumulativeGasUsed.toString()}`,
           )
         })
 
         it('gas estimation tests', async function () {
-          const nonceBefore = await forwarderInstance.nonce()
-          const TestToken = artifacts.require('TestToken')
-          const tokenInstance = await TestToken.new()
-          await tokenInstance.mint('1000000', forwarder)
 
-          const completeReq = {
+            const encodedFunction = recipient.interface.encodeFunctionData(
+                'emitMessage',
+                [message]
+              );
+
+              const nonceBefore = await forwarder.nonce()
+
+          const completeReq = cloneRelayRequest({
             request: {
-              ...relayRequest.request,
-              data: recipientContract.contract.methods
-                .emitMessage(message)
-                .encodeABI(),
+              data: encodedFunction,
               nonce: nonceBefore.toString(),
-              tokenContract: tokenInstance.address,
               tokenAmount: '0',
               tokenGas: '0',
-            },
-            relayData: {
-              ...relayRequest.relayData,
-            },
-          }
+            }
+          })
 
-          const reqToSign = new TypedRequestData(
-            chainId,
-            forwarder,
-            completeReq,
-          )
+          const { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
 
-          const sig = getLocalEip712Signature(
-            reqToSign,
-            gaslessAccount.privateKey,
-          )
-
-          const { tx } = await relayHub.relayCall(completeReq, sig, {
+          const relayCallResult = await relayHub.relayCall(completeReq, sig, {
             from: relayWorker.address,
             gasLimit,
             gasPrice,
           })
 
-          const nonceAfter = await forwarderInstance.nonce()
-          assert.equal(nonceBefore.addn(1).toNumber(), nonceAfter.toNumber())
+          const nonceAfter = await forwarder.nonce();
+          expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
 
-          const eventHash = keccak('GasUsed(uint256,uint256)')
-          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          const eventHash = keccak256(Buffer.from('GasUsed(uint256,uint256)'));
+          const txReceipt = await relayCallResult.wait()
           console.log('---------------------------------------')
 
-          console.log(`Gas Used: ${txReceipt.gasUsed}`)
-          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed}`)
+          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`)
+          console.log(`Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`)
 
-          let previousGas: BigInt = BigInt(0)
+          let previousGas = BigInt(0)
           let previousStep: null | string = null
           for (let i = 0; i < txReceipt.logs.length; i++) {
             const log = txReceipt.logs[i]
-            if ('0x' + eventHash.toString('hex') === log.topics[0]) {
+            if ('0x' + eventHash === log?.topics[0]) {
               const step = log.data.substring(0, 66)
-              const gasUsed: BigInt = BigInt(
+              const gasUsed = BigInt(
                 '0x' + log.data.substring(67, log.data.length),
               )
               console.log('---------------------------------------')
@@ -1039,96 +848,129 @@ describe('RelayHub', function () {
               }
               console.log('---------------------------------------')
               // TODO: we should check this
-              // @ts-ignore
               previousGas = BigInt(gasUsed)
               previousStep = step
             }
           }
-
-          const logs = abiDecoder.decodeLogs(txReceipt.logs)
-          const sampleRecipientEmittedEvent = logs.find(
-            (e: any) => e != null && e.name === 'SampleRecipientEmitted',
-          )
-
-          assert.equal(message, sampleRecipientEmittedEvent.events[0].value)
-          assert.equal(
-            forwarder.toLowerCase(),
-            sampleRecipientEmittedEvent.events[1].value.toLowerCase(),
-          )
-          assert.equal(
-            relayWorker.toLowerCase(),
-            sampleRecipientEmittedEvent.events[2].value.toLowerCase(),
-          )
-
-          const transactionRelayedEvent = logs.find(
-            (e: any) => e != null && e.name === 'TransactionRelayed',
-          )
-
-          assert.isNotNull(transactionRelayedEvent)
         })
 
+        async function forgeRequest(
+            transferReceiver: string,
+            balanceToTransfer: string,
+            fees: string
+        ) {
+            const isSponsored = fees === '0';
+            const tokenContract = isSponsored
+                ? ethers.constants.AddressZero
+                : token.address;
+
+            const completeReq: RelayRequest = cloneRelayRequest(
+                {
+                    request: {
+                        data: token.interface.encodeFunctionData('transfer', [ transferReceiver, balanceToTransfer ]),
+                        nonce: (await forwarder.nonce()).toString(),
+                        tokenAmount: fees,
+                        tokenContract,
+                    }
+                }
+            );
+ 
+            const estimatedDestinationCallGas =
+                await ethers.provider.estimateGas({
+                    from: completeReq.relayData.callForwarder,
+                    to: completeReq.request.to,
+                    gasPrice: completeReq.relayData.gasPrice,
+                    data: completeReq.request.data
+                });
+
+            let internalDestinationCallCost =
+            estimatedDestinationCallGas.toNumber() >
+            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              ? estimatedDestinationCallGas.toNumber() -
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+              : estimatedDestinationCallGas.toNumber()
+          internalDestinationCallCost =
+            internalDestinationCallCost *
+            ESTIMATED_GAS_CORRECTION_FACTOR;
+            
+            completeReq.request.gas = ethers.utils.hexValue(
+                internalDestinationCallCost
+            );
+
+            const estimatedTokenPaymentGas = await ethers.provider.estimateGas(
+                {
+                    from: completeReq.relayData.callForwarder,
+                    to: token.address,
+                    data: token.interface.encodeFunctionData('transfer', [relayWorker.address, fees])
+                }
+            );
+
+            if (!isSponsored) {
+                let internalTokenCallCost =
+                estimatedTokenPaymentGas.toNumber() >
+                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+                  ? estimatedTokenPaymentGas.toNumber() -
+                    INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
+                  : estimatedTokenPaymentGas.toNumber()
+              internalTokenCallCost =
+                internalTokenCallCost * ESTIMATED_GAS_CORRECTION_FACTOR
+
+                completeReq.request.tokenGas = ethers.utils.hexValue(
+                    internalTokenCallCost
+                );
+            }
+
+            return completeReq;
+        }
+
         async function estimateGasOverhead(fees: string) {
-          const forwarder = await createSmartWalletInstance()
           // refill SW balance
           await token.mint('10000', forwarder.address)
 
           const swalletInitialBalance = await token.balanceOf(
             forwarder.address,
           )
-          const relayWorkerInitialBalance = await token.balanceOf(relayWorker)
+          const relayWorkerInitialBalance = await token.balanceOf(relayWorker.address)
 
-          const accounts = await web3.eth.getAccounts()
-          const firstAccount = accounts[0]
+          const [ firstAccount, transferReceiver ] = await ethers.getSigners() as [SignerWithAddress, SignerWithAddress]
           // necessary to execute the transfer tx without relay
-          await token.mint('10000', firstAccount)
-          const transferReceiver = accounts[1]
-          const balanceToTransfer = toHex(1000)
+          await token.mint('10000', firstAccount.address)
+          const balanceToTransfer = 1000
 
           // forge the request
-          const hexFees = toHex(fees)
           const completeReq: RelayRequest = await forgeRequest(
-            transferReceiver,
-            balanceToTransfer,
-            forwarder,
-            hexFees,
+            transferReceiver.address,
+            balanceToTransfer.toString(),
+            fees,
           )
 
-          const sig = signRequest(completeReq, forwarder.address)
+          const { signature: sig } = await getSuffixDataAndSignature(forwarder, completeReq, owner);
 
-          const { tx } = await relayHub.relayCall(completeReq, sig, {
+          const relayCallResult = await relayHub.relayCall(completeReq, sig, {
             from: relayWorker.address,
             gasLimit,
             gasPrice,
           })
-          const txReceipt = await web3.eth.getTransactionReceipt(tx)
+          const txReceipt = await relayCallResult.wait();
 
           // assert the transaction has been relayed correctly
           const sWalletFinalBalance = await token.balanceOf(
             forwarder.address,
           )
-          const relayWorkerFinalBalance = await token.balanceOf(relayWorker)
-          assert.isTrue(
+          const relayWorkerFinalBalance = await token.balanceOf(relayWorker.address)
+          expect(
             swalletInitialBalance.eq(
               sWalletFinalBalance
-                .add(toBN(hexFees))
-                .add(toBN(balanceToTransfer)),
-            ),
+                .add(BigNumber.from(fees))
+                .add(BigNumber.from(balanceToTransfer)),
+            )).to.equal(true,
             'SW Payment did not occur',
           )
-          assert.isTrue(
+          expect(
             relayWorkerFinalBalance.eq(
-              relayWorkerInitialBalance.add(toBN(hexFees)),
-            ),
+              relayWorkerInitialBalance.add(BigNumber.from(fees)),
+            )).to.equal(
             'Worker did not receive payment',
-          )
-          const logs = abiDecoder.decodeLogs(txReceipt.logs)
-          const findLog = (logs: any, name: string) =>
-            logs.find((e: any) => e != null && e.name === name)
-          const transactionRelayedEvent = findLog(logs, 'TransactionRelayed')
-          assert.isTrue(
-            transactionRelayedEvent !== undefined &&
-              transactionRelayedEvent !== null,
-            'TransactionRelayedEvent not found',
           )
           await printGasStatus(txReceipt)
         }
@@ -1137,7 +979,7 @@ describe('RelayHub', function () {
           await estimateGasOverhead('5000')
         })
 
-        it.only('gas estimation tests for token transfer - without token payment', async function () {
+        it('gas estimation tests for token transfer - without token payment', async function () {
           await estimateGasOverhead('0')
         })
       })
