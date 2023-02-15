@@ -71,8 +71,6 @@ const basicAppConfig: Partial<AppConfig> = {
 
 const IS_DEPLOY_REQUEST = false;
 
-const originalConfig = config.util.toObject(config) as ServerConfigParams;
-
 const provider = ethers.provider;
 
 describe('RelayServer', function () {
@@ -80,6 +78,16 @@ describe('RelayServer', function () {
     _alerted: boolean;
     _workerSemaphoreOn: boolean;
   };
+
+  let originalConfig: ServerConfigParams;
+
+  before(function () {
+    originalConfig = config.util.toObject(config) as ServerConfigParams;
+  });
+
+  afterEach(function () {
+    config.util.extendDeep(config, originalConfig);
+  });
 
   describe('init', function () {
     beforeEach(async function () {
@@ -90,10 +98,6 @@ describe('RelayServer', function () {
           relayHubAddress: relayHub.address,
         },
       });
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('should initialize relay params (chainId, networkId)', async function () {
@@ -154,10 +158,6 @@ describe('RelayServer', function () {
       encodedData = recipient.interface.encodeFunctionData('emitMessage', [
         'hello',
       ]);
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     describe('validateInputTypes', function () {
@@ -477,10 +477,6 @@ describe('RelayServer', function () {
       });
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     describe('maxPossibleGasWithViewCall', function () {
       it('should fail to relay rejected transaction', async function () {
         const userDefinedRelayRequest = createUserDefinedRequest(
@@ -676,10 +672,6 @@ describe('RelayServer', function () {
       relayServer = getServerInstance({ relayOwner: relayOwner });
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     it('should not replenish when all balances are sufficient', async function () {
       const { relayManagerAddress, relayWorkerAddress } =
         relayServer.getChainInfo();
@@ -797,10 +789,6 @@ describe('RelayServer', function () {
       relayServer = await getInitiatedServer({ relayOwner });
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     it('should re-register server only if registrationBlockRate passed from any tx', async function () {
       const handlePastEventsSpy = spy(
         relayServer.registrationManager,
@@ -847,10 +835,6 @@ describe('RelayServer', function () {
       });
       const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
       relayServer = getServerInstance({ relayOwner });
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('_workerSemaphore', async function () {
@@ -973,7 +957,6 @@ describe('RelayServer', function () {
 
     afterEach(function () {
       relayServer.transactionManager._initNonces();
-      config.util.extendDeep(config, originalConfig);
     });
 
     async function attackTheServer(server: RelayServer): Promise<void> {
@@ -1104,10 +1087,6 @@ describe('RelayServer', function () {
       relayServer = getServerInstance({ relayOwner });
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     it('should throw an errror if there is no custom replenish function', async function () {
       await expect(
         relayServer.replenishServer(workerIndex, 0)
@@ -1150,10 +1129,6 @@ describe('RelayServer', function () {
         },
       });
       relayServer = await getInitiatedServer({ relayOwner });
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('should return empty if there are no trusted verifiers', async function () {

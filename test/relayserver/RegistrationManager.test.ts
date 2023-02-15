@@ -40,8 +40,6 @@ const basicAppConfig: Partial<AppConfig> = {
   workdir: SERVER_WORK_DIR,
 };
 
-const originalConfig = config.util.toObject(config) as ServerConfigParams;
-
 const workerIndex = 0;
 
 const unstakeDelay = 50;
@@ -72,6 +70,16 @@ type RelayServerExposed = {
 const provider = ethers.provider;
 
 describe('RegistrationManager', function () {
+  let originalConfig: ServerConfigParams;
+
+  before(function () {
+    originalConfig = config.util.toObject(config) as ServerConfigParams;
+  });
+
+  afterEach(function () {
+    config.util.extendDeep(config, originalConfig);
+  });
+
   describe('multi-step server initialization', function () {
     let relayServer: RelayServer;
     let relayOwner: SignerWithAddress;
@@ -93,10 +101,6 @@ describe('RegistrationManager', function () {
         },
       });
       serverWorkdirs = getTemporaryWorkdirs();
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('should wait for manager balance', async function () {
@@ -225,10 +229,6 @@ describe('RegistrationManager', function () {
       });
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     it('should initialize relay after staking and funding it', async function () {
       const relayOwner = (await ethers.getSigners()).at(0) as SignerWithAddress;
       const relayServer = (await getFundedServer(
@@ -318,10 +318,6 @@ describe('RegistrationManager', function () {
         undefined,
         unstakeDelay
       );
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     describe('handlePastEvents', function () {
@@ -433,10 +429,6 @@ describe('RegistrationManager', function () {
       const latestBlock = await provider.getBlock('latest');
       await relayServer._worker(latestBlock.number);
       await relayServer._worker(latestBlock.number + 1);
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     describe('Withdrawn event', function () {
@@ -565,7 +557,6 @@ describe('RegistrationManager', function () {
 
         const gasPrice = await provider.getGasPrice();
 
-        // TODO: these two hard-coded indexes are dependent on the order of operations in 'withdrawAllFunds'
         const workerEthTxCost = await getTotalTxCosts(receipts, gasPrice);
 
         const ownerBalanceAfter = await provider.getBalance(relayOwner.address);
@@ -607,10 +598,6 @@ describe('RegistrationManager', function () {
         { block: 2, eventData: {} as TypedEvent },
         { block: 3, eventData: {} as TypedEvent },
       ];
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('should extract events which are due (lower or equal block number)', function () {
@@ -658,10 +645,6 @@ describe('RegistrationManager', function () {
       await registrationManager.refreshStake();
     });
 
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
-    });
-
     describe('without re-registration', function () {
       it('should register server and add workers', async function () {
         let pendingTransactions = await relayServer.txStoreManager.getAll();
@@ -704,10 +687,6 @@ describe('RegistrationManager', function () {
         },
       });
       relayServer = await getInitiatedServer({ relayOwner });
-    });
-
-    afterEach(function () {
-      config.util.extendDeep(config, originalConfig);
     });
 
     it('should return false if the stake requirement is not satisfied', function () {
