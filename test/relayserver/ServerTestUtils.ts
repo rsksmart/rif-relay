@@ -15,13 +15,13 @@ import { ethers } from 'hardhat';
 import config from 'config';
 import { EnvelopingTxRequest } from '@rsksmart/rif-relay-client';
 
-export type ServerWorkdirs = {
+type ServerWorkdirs = {
   workdir: string;
   managerWorkdir: string;
   workersWorkdir: string;
 };
 
-export type ServerLoadConfiguration = Partial<{
+type ServerLoadConfiguration = Partial<{
   app: Partial<AppConfig>;
   contracts: Partial<ContractsConfig>;
   blockchain: Partial<BlockchainConfig>;
@@ -146,3 +146,5 @@ export {
   loadConfiguration,
   deployTestRecipient,
 };
+
+export type { ServerWorkdirs, ServerLoadConfiguration };
