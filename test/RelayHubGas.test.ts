@@ -28,7 +28,6 @@ import {
   createSupportedSmartWallet,
   RSK_URL,
 } from './utils/TestUtils';
-import { keccak256 } from 'ethers/lib/utils';
 
 function logGasOverhead(gasOverhead: BigNumber) {
   const bgMagenta = '\x1B[45m';
@@ -48,7 +47,7 @@ const deployContract = <Contract>(contract: string) => {
     .then((contractFactory) => contractFactory.deploy() as Contract);
 };
 
-describe('RelayHub', function () {
+describe('RelayHub GasEstimation', function () {
   let penalizer: Penalizer;
   let relayHub: RelayHub;
   let verifier: TestVerifierEverythingAccepted;
@@ -64,21 +63,6 @@ describe('RelayHub', function () {
   let provider: providers.JsonRpcProvider;
   const gasPrice = 1;
   const gasLimit = 4e6;
-
-  async function printGasStatus(receipt: ContractReceipt) {
-    const noRelayCall = await token.transfer(owner.address, '1000');
-
-    const { gasUsed: gasUsedWithoutRelay } = await noRelayCall.wait();
-
-    const gasOverhead = receipt.gasUsed.sub(gasUsedWithoutRelay);
-    console.log(
-      `Destination Call Without enveloping - Gas Used: ${gasUsedWithoutRelay.toString()}`
-    );
-    console.log(
-      `Destination Call with enveloping - Gas Used: ${receipt.gasUsed.toString()}`
-    );
-    logGasOverhead(gasOverhead);
-  }
 
   const deployHub = (penalizerAddress: string) => {
     return ethers
@@ -203,87 +187,27 @@ describe('RelayHub', function () {
       });
 
       context('with funded verifier', function () {
-        it('gas prediction tests - with token payment', async function () {
-          const nonceBefore = await forwarder.nonce();
-          await token.mint('10000', forwarder.address);
-          let swalletInitialBalance = await token.balanceOf(forwarder.address);
-          let relayWorkerInitialBalance = await token.balanceOf(
-            relayWorker.address
+        async function printGasStatus(receipt: ContractReceipt) {
+          const noRelayCall = await token.transfer(owner.address, '1000');
+          const { gasUsed: gasUsedWithoutRelay } = await noRelayCall.wait();
+
+          const gasOverhead = receipt.gasUsed.sub(gasUsedWithoutRelay);
+          console.log(
+            `Destination Call Without enveloping - Gas Used: ${gasUsedWithoutRelay.toString()}`
           );
-          let message =
-            'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
-          message = message.concat(message);
-
-          const encodedFunction = recipient.interface.encodeFunctionData(
-            'emitMessage',
-            [message]
+          console.log(
+            `Destination Call with enveloping - Gas Used: ${receipt.gasUsed.toString()}`
           );
+          logGasOverhead(gasOverhead);
+        }
 
-          let balanceToTransfer = ethers.utils.hexValue(
-            swalletInitialBalance.toNumber()
-          );
-
-          let estimatedDestinationCallGas = await ethers.provider.estimateGas({
-            from: forwarder.address,
-            to: recipient.address,
-            gasPrice: gasPrice,
-            data: encodedFunction,
-          });
-
-          let internalDestinationCallCost =
-            estimatedDestinationCallGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedDestinationCallGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedDestinationCallGas.toNumber();
-          internalDestinationCallCost =
-            internalDestinationCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          let estimatedTokenPaymentGas = await ethers.provider.estimateGas({
-            from: forwarder.address,
-            to: token.address,
-            data: token.interface.encodeFunctionData('transfer', [
-              relayWorker.address,
-              balanceToTransfer,
-            ]),
-          });
-
-          let internalTokenCallCost =
-            estimatedTokenPaymentGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedTokenPaymentGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedTokenPaymentGas.toNumber();
-          internalTokenCallCost =
-            internalTokenCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          const completeReq: RelayRequest = cloneRelayRequest({
-            request: {
-              nonce: nonceBefore.toString(),
-              tokenAmount: balanceToTransfer,
-              data: encodedFunction,
-              gas: ethers.utils.hexValue(internalDestinationCallCost),
-              tokenGas: ethers.utils.hexValue(internalTokenCallCost),
-            },
-          });
-
-          let { signature: sig } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          );
-
-          let detailedEstimation = await ethers.provider.estimateGas({
-            from: relayWorker.address,
-            to: relayHub.address,
-            data: relayHub.interface.encodeFunctionData('relayCall', [
-              completeReq,
-              sig,
-            ]),
-            gasPrice,
-            gasLimit: 6800000,
-          });
-
+        function printGasPrediction({
+          internalDestinationCallCost,
+          internalTokenCallCost,
+        }: {
+          internalDestinationCallCost: number;
+          internalTokenCallCost: number;
+        }) {
           // gas estimation fit
           // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
           // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
@@ -291,7 +215,20 @@ describe('RelayHub', function () {
           const a1 = Number('1.098');
           const estimatedCost =
             a1 * (internalDestinationCallCost + internalTokenCallCost) + a0;
+          console.log('The predicted total cost is: ', estimatedCost);
+        }
 
+        function printGasAnalysis({
+          cumulativeGasUsed,
+          detailedEstimation,
+          internalDestinationCallCost,
+          internalTokenCallCost,
+        }: {
+          internalDestinationCallCost: number;
+          internalTokenCallCost: number;
+          detailedEstimation: number;
+          cumulativeGasUsed: number;
+        }) {
           console.log(
             'The destination contract call estimate is: ',
             internalDestinationCallCost
@@ -301,168 +238,209 @@ describe('RelayHub', function () {
             'X = ',
             internalDestinationCallCost + internalTokenCallCost
           );
-          console.log('The predicted total cost is: ', estimatedCost);
-          console.log('Detailed estimation: ', detailedEstimation);
-          const relayCallResult = await relayHub
-            .connect(relayWorker)
-            .relayCall(completeReq, sig, {
-              gasLimit,
-              gasPrice,
-            });
 
-          let sWalletFinalBalance = await token.balanceOf(forwarder.address);
-          let relayWorkerFinalBalance = await token.balanceOf(
+          console.log('Detailed estimation: ', detailedEstimation);
+          console.log('Cumulative Gas Used:', cumulativeGasUsed);
+        }
+
+        const assertRelayedTransaction = async (
+          forwarderInitialBalance: BigNumber,
+          relayWorkerInitialBalance: BigNumber,
+          balanceToTransfer: BigNumber,
+          fees?: BigNumber
+        ) => {
+          const forwarderFinalBalance = await token.balanceOf(
+            forwarder.address
+          );
+          const relayWorkerFinalBalance = await token.balanceOf(
             relayWorker.address
           );
 
           expect(
-            swalletInitialBalance.eq(
-              sWalletFinalBalance.add(BigNumber.from(balanceToTransfer))
+            forwarderInitialBalance.eq(
+              forwarderFinalBalance
+                .add(balanceToTransfer)
+                .add(BigNumber.from(fees ?? 0))
             )
           ).to.equal(true, 'SW Payment did not occur');
           expect(
             relayWorkerFinalBalance.eq(
-              relayWorkerInitialBalance.add(BigNumber.from(balanceToTransfer))
+              relayWorkerInitialBalance.add(fees ?? balanceToTransfer)
             )
           ).to.equal(true, 'Worker did not receive payment');
+        };
 
-          let nonceAfter = await forwarder.nonce();
+        const assertNonce = async (nonceBefore: BigNumber) => {
+          const nonceAfter = await forwarder.nonce();
           expect(nonceBefore.add(1).toNumber()).to.equal(
             nonceAfter.toNumber(),
             'Incorrect nonce after execution'
           );
+        };
 
-          let txReceipt = await relayCallResult.wait();
+        const correctEstimatedCallCost = (estimate: number) => {
+          const correction = INTERNAL_TRANSACTION_ESTIMATED_CORRECTION;
 
-          console.log(
-            `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
+          return (
+            ESTIMATED_GAS_CORRECTION_FACTOR *
+            (estimate > correction ? estimate - correction : estimate)
           );
+        };
 
-          // SECOND CALL
-          await token.mint('100', forwarder.address);
-
-          swalletInitialBalance = await token.balanceOf(forwarder.address);
-          balanceToTransfer = ethers.utils.hexValue(
-            swalletInitialBalance.toNumber()
+        const getCurrentBalances = async () => {
+          const nonceBefore = await forwarder.nonce();
+          const forwarderInitialBalance = await token.balanceOf(
+            forwarder.address
           );
-          relayWorkerInitialBalance = await token.balanceOf(
+          const relayWorkerInitialBalance = await token.balanceOf(
             relayWorker.address
           );
 
-          completeReq.request.tokenAmount = ethers.utils.hexValue(
-            swalletInitialBalance
+          return {
+            nonceBefore,
+            forwarderInitialBalance,
+            relayWorkerInitialBalance,
+          };
+        };
+
+        const triggerRelayCallProcess = async ({
+          message,
+          estimateGasLimit,
+          noPayment,
+          noTokenGas,
+          noTokenContract,
+          noCorrection,
+        }: {
+          message: string;
+          estimateGasLimit?: boolean;
+          noPayment?: boolean;
+          noTokenGas?: boolean;
+          noTokenContract?: boolean;
+          noCorrection?: boolean;
+        }) => {
+          const encodedFunction = recipient.interface.encodeFunctionData(
+            'emitMessage',
+            [message]
           );
-          estimatedDestinationCallGas = await ethers.provider.estimateGas({
-            from: completeReq.relayData.callForwarder,
-            to: completeReq.request.to,
-            gasPrice: completeReq.relayData.gasPrice,
-            data: completeReq.request.data,
+
+          await token.mint('100', forwarder.address);
+
+          const {
+            nonceBefore,
+            forwarderInitialBalance,
+            relayWorkerInitialBalance,
+          } = await getCurrentBalances();
+
+          const balanceToTransfer = noPayment
+            ? '0x00'
+            : forwarderInitialBalance.toNumber();
+
+          const estimatedDestinationCallGas = await ethers.provider.estimateGas(
+            {
+              from: forwarder.address,
+              to: recipient.address,
+              gasPrice,
+              data: encodedFunction,
+            }
+          );
+
+          const internalDestinationCallCost = noCorrection
+            ? estimatedDestinationCallGas.toNumber()
+            : correctEstimatedCallCost(estimatedDestinationCallGas.toNumber());
+
+          let internalTokenCallCost = 0;
+          if (!noTokenGas) {
+            const estimatedTokenPaymentGas = await ethers.provider.estimateGas({
+              from: forwarder.address,
+              to: token.address,
+              data: token.interface.encodeFunctionData('transfer', [
+                relayWorker.address,
+                balanceToTransfer,
+              ]),
+            });
+            internalTokenCallCost = correctEstimatedCallCost(
+              estimatedTokenPaymentGas.toNumber()
+            );
+          }
+
+          const completeReq: RelayRequest = cloneRelayRequest({
+            request: {
+              nonce: nonceBefore.toString(),
+              tokenAmount: balanceToTransfer,
+              data: encodedFunction,
+              gas: internalDestinationCallCost,
+              tokenGas: internalTokenCallCost,
+              tokenContract: noTokenContract
+                ? ethers.constants.AddressZero
+                : token.address,
+            },
           });
 
-          internalDestinationCallCost =
-            estimatedDestinationCallGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedDestinationCallGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedDestinationCallGas.toNumber();
-          internalDestinationCallCost =
-            internalDestinationCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          estimatedTokenPaymentGas = await ethers.provider.estimateGas({
-            from: forwarder.address,
-            to: token.address,
-            data: token.interface.encodeFunctionData('transfer', [
-              relayWorker.address,
-              balanceToTransfer,
-            ]),
-          });
-
-          internalTokenCallCost =
-            estimatedTokenPaymentGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedTokenPaymentGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedTokenPaymentGas.toNumber();
-          internalTokenCallCost =
-            internalTokenCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          completeReq.request.gas = ethers.utils.hexValue(
-            internalDestinationCallCost
-          );
-          completeReq.request.tokenGas = ethers.utils.hexValue(
-            internalTokenCallCost
-          );
-          completeReq.request.nonce = nonceBefore
-            .add(BigNumber.from(1))
-            .toString();
-          ({ signature: sig } = await getSuffixDataAndSignature(
+          const { signature } = await getSuffixDataAndSignature(
             forwarder,
             completeReq,
             owner
-          ));
+          );
 
-          detailedEstimation = await ethers.provider.estimateGas({
+          const detailedEstimation = await ethers.provider.estimateGas({
             from: relayWorker.address,
             to: relayHub.address,
             data: relayHub.interface.encodeFunctionData('relayCall', [
               completeReq,
-              sig,
+              signature,
             ]),
             gasPrice,
+            gasLimit: estimateGasLimit ? gasLimit : undefined,
           });
 
-          const result = await relayHub
+          const relayCallResult = await relayHub
             .connect(relayWorker)
-            .relayCall(completeReq, sig, {
+            .relayCall(completeReq, signature, {
               gasLimit,
               gasPrice,
             });
 
+          await assertRelayedTransaction(
+            forwarderInitialBalance,
+            relayWorkerInitialBalance,
+            BigNumber.from(balanceToTransfer)
+          );
+
+          await assertNonce(nonceBefore);
+
+          const { cumulativeGasUsed, gasUsed } = await relayCallResult.wait();
+
+          return {
+            gasUsed,
+            cumulativeGasUsed: cumulativeGasUsed.toNumber(),
+            detailedEstimation: detailedEstimation.toNumber(),
+            internalDestinationCallCost,
+            internalTokenCallCost,
+          };
+        };
+        it('gas prediction tests - with token payment', async function () {
+          let message =
+            'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
+          message = message.concat(message);
+
+          const relayCallProcessFirstResult = await triggerRelayCallProcess({
+            message,
+            estimateGasLimit: true,
+          });
+
+          printGasPrediction(relayCallProcessFirstResult);
+          printGasAnalysis(relayCallProcessFirstResult);
+
+          // SECOND CALL
           console.log('ROUND 2');
-          console.log(
-            'The destination contract call estimate is: ',
-            internalDestinationCallCost
-          );
-          console.log('The token gas estimate is: ', internalTokenCallCost);
-          console.log(
-            'X = ',
-            internalDestinationCallCost + internalTokenCallCost
-          );
-          console.log('Detailed estimation: ', detailedEstimation);
+          const relayCallProcessSecondResult = await triggerRelayCallProcess({
+            message,
+          });
 
-          sWalletFinalBalance = await token.balanceOf(forwarder.address);
-          relayWorkerFinalBalance = await token.balanceOf(relayWorker.address);
-
-          expect(
-            swalletInitialBalance.eq(
-              sWalletFinalBalance.add(BigNumber.from(balanceToTransfer))
-            )
-          ).to.equal(true, 'SW Payment did not occur');
-          expect(
-            relayWorkerFinalBalance.eq(
-              relayWorkerInitialBalance.add(BigNumber.from(balanceToTransfer))
-            )
-          ).to.equal(true, 'Worker did not receive payment');
-
-          nonceAfter = await forwarder.nonce();
-          expect(nonceBefore.add(2).toNumber()).to.equal(
-            nonceAfter.toNumber(),
-            'Incorrect nonce after execution'
-          );
-
-          txReceipt = await result.wait();
-
-          console.log(
-            `Cumulative Gas Used in second run: ${txReceipt.cumulativeGasUsed.toString()}`
-          );
+          printGasAnalysis(relayCallProcessSecondResult);
         });
 
         it('gas prediction tests - without token payment', async function () {
-          const nonceBefore = await forwarder.nonce();
-          let swalletInitialBalance = await token.balanceOf(forwarder.address);
-          let relayWorkerInitialBalance = await token.balanceOf(
-            relayWorker.address
-          );
           let message =
             'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
           message = message.concat(message);
@@ -472,193 +450,28 @@ describe('RelayHub', function () {
           message = message.concat(message);
           message = message.concat(message);
 
-          const encodedFunction = recipient.interface.encodeFunctionData(
-            'emitMessage',
-            [message]
-          );
-
-          const completeReq: RelayRequest = cloneRelayRequest({
-            request: {
-              nonce: nonceBefore.toString(),
-              tokenAmount: '0x00',
-              tokenContract: ethers.constants.AddressZero,
-              tokenGas: '0x00',
-              data: encodedFunction,
-            },
+          const relayCallProcessFirstResult = await triggerRelayCallProcess({
+            message,
+            estimateGasLimit: true,
+            noPayment: true,
+            noTokenGas: true,
           });
 
-          let estimatedDestinationCallGas = await ethers.provider.estimateGas({
-            from: completeReq.relayData.callForwarder,
-            to: completeReq.request.to,
-            gasPrice: completeReq.relayData.gasPrice,
-            data: completeReq.request.data,
-          });
-
-          let internalDestinationCallCost =
-            estimatedDestinationCallGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedDestinationCallGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedDestinationCallGas.toNumber();
-          internalDestinationCallCost =
-            internalDestinationCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          completeReq.request.gas = ethers.utils.hexValue(
-            internalDestinationCallCost
-          );
-
-          let { signature: sig } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          );
-
-          let detailedEstimation = await ethers.provider.estimateGas({
-            from: relayWorker.address,
-            to: relayHub.address,
-            data: relayHub.interface.encodeFunctionData('relayCall', [
-              completeReq,
-              sig,
-            ]),
-            gasPrice,
-            gasLimit: 6800000,
-          });
-
-          // gas estimation fit
-          // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-          // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-          const a0 = Number('35095.980');
-          const a1 = Number('1.098');
-          const estimatedCost = a1 * internalDestinationCallCost + a0;
-
-          console.log(
-            'The destination contract call estimate is: ',
-            internalDestinationCallCost
-          );
-          console.log('X = ', internalDestinationCallCost);
-          console.log('The predicted total cost is: ', estimatedCost);
-          console.log('Detailed estimation: ', detailedEstimation);
-          const relayCallResult = await relayHub
-            .connect(relayWorker)
-            .relayCall(completeReq, sig, {
-              gasLimit,
-              gasPrice,
-            });
-
-          let sWalletFinalBalance = await token.balanceOf(forwarder.address);
-          let relayWorkerFinalBalance = await token.balanceOf(
-            relayWorker.address
-          );
-
-          expect(swalletInitialBalance.eq(sWalletFinalBalance)).to.equal(
-            true,
-            'SW Payment did occur'
-          );
-          expect(
-            relayWorkerFinalBalance.eq(relayWorkerInitialBalance)
-          ).to.equal(true, 'Worker did receive payment');
-
-          let nonceAfter = await forwarder.nonce();
-          expect(nonceBefore.add(1).toNumber()).to.equal(
-            nonceAfter.toNumber(),
-            'Incorrect nonce after execution'
-          );
-
-          let txReceipt = await relayCallResult.wait();
-
-          console.log(
-            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
-          );
+          printGasPrediction(relayCallProcessFirstResult);
+          printGasAnalysis(relayCallProcessFirstResult);
 
           // SECOND CALL
-
-          swalletInitialBalance = await token.balanceOf(forwarder.address);
-          relayWorkerInitialBalance = await token.balanceOf(
-            relayWorker.address
-          );
-
-          estimatedDestinationCallGas = await ethers.provider.estimateGas({
-            from: completeReq.relayData.callForwarder,
-            to: completeReq.request.to,
-            gasPrice: completeReq.relayData.gasPrice,
-            data: completeReq.request.data,
-          });
-
-          internalDestinationCallCost =
-            estimatedDestinationCallGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedDestinationCallGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedDestinationCallGas.toNumber();
-          internalDestinationCallCost =
-            internalDestinationCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          completeReq.request.gas = ethers.utils.hexValue(
-            internalDestinationCallCost
-          );
-
-          completeReq.request.nonce = nonceBefore
-            .add(BigNumber.from(1))
-            .toString();
-          ({ signature: sig } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          ));
-
-          detailedEstimation = await ethers.provider.estimateGas({
-            from: relayWorker.address,
-            to: relayHub.address,
-            data: relayHub.interface.encodeFunctionData('relayCall', [
-              completeReq,
-              sig,
-            ]),
-            gasPrice,
-          });
-
-          const result = await relayHub
-            .connect(relayWorker)
-            .relayCall(completeReq, sig, {
-              gasLimit,
-              gasPrice,
-            });
-
           console.log('ROUND 2');
-          console.log(
-            'The destination contract call estimate is: ',
-            internalDestinationCallCost
-          );
-          console.log('X = ', internalDestinationCallCost);
-          console.log('Detailed estimation: ', detailedEstimation);
+          const relayCallProcessSecondResult = await triggerRelayCallProcess({
+            message,
+            noPayment: true,
+            noTokenGas: true,
+          });
 
-          sWalletFinalBalance = await token.balanceOf(forwarder.address);
-          relayWorkerFinalBalance = await token.balanceOf(relayWorker.address);
-
-          expect(swalletInitialBalance.eq(sWalletFinalBalance)).to.equal(
-            true,
-            'SW Payment did occur'
-          );
-          expect(
-            relayWorkerFinalBalance.eq(relayWorkerInitialBalance)
-          ).to.equal(true, 'Worker did receive payment');
-
-          nonceAfter = await forwarder.nonce();
-          expect(nonceBefore.add(2).toNumber()).to.equal(
-            nonceAfter.toNumber(),
-            'Incorrect nonce after execution'
-          );
-
-          txReceipt = await result.wait();
-
-          console.log(
-            `Cummulative Gas Used in second run: ${txReceipt.cumulativeGasUsed.toString()}`
-          );
+          printGasAnalysis(relayCallProcessSecondResult);
         });
 
         it('gas estimation tests for SmartWallet', async function () {
-          const nonceBefore = await forwarder.nonce();
-          await token.mint('10000', forwarder.address);
-
           let message =
             'RIF Enveloping RIF Enveloping RIF Enveloping RIF Enveloping';
           message = message.concat(message);
@@ -668,141 +481,33 @@ describe('RelayHub', function () {
           message = message.concat(message);
           message = message.concat(message);
           message = message.concat(message);
-          const encodedFunction = recipient.interface.encodeFunctionData(
-            'emitMessage',
-            [message]
-          );
 
-          const completeReq: RelayRequest = cloneRelayRequest({
-            request: {
-              nonce: nonceBefore.toString(),
-              tokenAmount: '0x00',
-              tokenContract: ethers.constants.AddressZero,
-              tokenGas: '0x00',
-              data: encodedFunction,
-            },
+          const { gasUsed, cumulativeGasUsed } = await triggerRelayCallProcess({
+            message,
+            estimateGasLimit: true,
+            noPayment: true,
+            noTokenGas: true,
+            noTokenContract: true,
+            noCorrection: true,
           });
 
-          const { signature: sig } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          );
-
-          const estimatedDestinationCallCost =
-            await ethers.provider.estimateGas({
-              from: completeReq.relayData.callForwarder,
-              to: completeReq.request.to,
-              gasPrice: completeReq.relayData.gasPrice,
-              data: completeReq.request.data,
-            });
-
-          // tokenAmount is set to 0
-          const tokenPaymentEstimation = 0;
-          /* const tokenPaymentEstimation = await ethers.provider.estimateGas({
-                    from: completeReq.relayData.callForwarder,
-                    to: token.address,
-                    data: token.contract.methods.transfer(relayWorker, '1').encodeABI()
-                }); */
-
-          // gas estimation fit
-          // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-          // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-          const a0 = Number('37796.074');
-          const a1 = Number('1.086');
-          const estimatedCost =
-            a1 *
-              (estimatedDestinationCallCost.toNumber() +
-                tokenPaymentEstimation) +
-            a0;
-
-          console.log(
-            'The destination contract call estimate is: ',
-            estimatedDestinationCallCost
-          );
-          console.log('The token gas estimate is: ', tokenPaymentEstimation);
-          console.log(
-            'X = ',
-            estimatedDestinationCallCost.toNumber() + tokenPaymentEstimation
-          );
-
-          console.log('The predicted total cost is: ', estimatedCost);
-          const relayCallResult = await relayHub
-            .connect(relayWorker)
-            .relayCall(completeReq, sig, {
-              gasLimit,
-              gasPrice,
-            });
-
-          const nonceAfter = await forwarder.nonce();
-          expect(nonceBefore.add(1).toNumber()).to.equal(
-            nonceAfter.toNumber(),
-            'Incorrect nonce after execution'
-          );
-
-          const eventHash = keccak256(Buffer.from('GasUsed(uint256,uint256)'));
-          const txReceipt = await relayCallResult.wait();
-
-          // const costForCalling = 0;
-          // const overheadCost = txReceipt.cumulativeGasUsed - costForCalling - estimatedDestinationCallCost;
-          // console.log('data overhead: ', overheadCost);
-
-          // console.log('---------------SmartWallet: RelayCall metrics------------------------')
-          console.log(
-            `Cumulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
-          );
-          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`);
-
-          let previousGas = BigInt(0);
-          let previousStep: string | null = null;
-          for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i];
-            if ('0x' + eventHash === log?.topics[0]) {
-              const step = log.data.substring(0, 66);
-              const gasUsed = BigInt(
-                '0x' + log.data.substring(67, log.data.length)
-              );
-              console.log('---------------------------------------');
-              console.log('step :', BigInt(step).toString());
-              console.log('gasLeft :', gasUsed.toString());
-
-              if (previousStep != null) {
-                console.log(
-                  `Steps substraction ${BigInt(step).toString()} and ${BigInt(
-                    previousStep
-                  ).toString()}`
-                );
-                console.log(
-                  (previousGas.valueOf() - gasUsed.valueOf()).toString()
-                );
-              }
-              console.log('---------------------------------------');
-
-              // TODO: we should check this
-              previousGas = BigInt(gasUsed);
-              previousStep = step;
-            }
-          }
-
           const callWithoutRelay = await recipient.emitMessage(message);
-          const callWithoutrelayReceipt = await callWithoutRelay.wait();
+          const callWithoutRelayReceipt = await callWithoutRelay.wait();
           const cumulativeGasUsedWithoutRelay =
-            callWithoutrelayReceipt.cumulativeGasUsed.toNumber();
-          const gasOverhead =
-            txReceipt.cumulativeGasUsed.toNumber() -
-            cumulativeGasUsedWithoutRelay;
+            callWithoutRelayReceipt.cumulativeGasUsed.toNumber();
+          const gasOverhead = cumulativeGasUsed - cumulativeGasUsedWithoutRelay;
           console.log(
             '--------------- Destination Call Without enveloping------------------------'
           );
           console.log(
-            `Gas Used: ${callWithoutrelayReceipt.gasUsed.toString()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
+            `Gas Used: ${callWithoutRelayReceipt.gasUsed.toNumber()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
           );
           console.log('---------------------------------------');
           console.log(
             '--------------- Destination Call with enveloping------------------------'
           );
           console.log(
-            `Gas Used: ${txReceipt.gasUsed.toString()}, CumulativeGasUsed: ${txReceipt.cumulativeGasUsed.toString()}`
+            `Gas Used: ${gasUsed.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsed}`
           );
           console.log('---------------------------------------');
           console.log(
@@ -813,23 +518,22 @@ describe('RelayHub', function () {
 
           console.log('Round 2');
 
-          completeReq.request.nonce = nonceAfter.toString();
-          const { signature: sig2 } = await getSuffixDataAndSignature(
-            forwarder,
-            completeReq,
-            owner
-          );
-          const relayCallResult2 = await relayHub.relayCall(completeReq, sig2, {
-            from: relayWorker.address,
-            gasLimit,
-            gasPrice,
+          const {
+            gasUsed: gasUsedRound2,
+            cumulativeGasUsed: cumulativeGasUsedRound2,
+          } = await triggerRelayCallProcess({
+            message,
+            estimateGasLimit: true,
+            noPayment: true,
+            noTokenGas: true,
+            noTokenContract: true,
+            noCorrection: true,
           });
-          const txReceipt2 = await relayCallResult2.wait();
           console.log(
             '--------------- Destination Call with enveloping------------------------'
           );
           console.log(
-            `Gas Used: ${txReceipt2.gasUsed.toString()}, CumulativeGasUsed: ${txReceipt2.cumulativeGasUsed.toString()}`
+            `Gas Used: ${gasUsedRound2.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsedRound2}`
           );
         });
 
@@ -866,7 +570,6 @@ describe('RelayHub', function () {
           const nonceAfter = await forwarder.nonce();
           expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
 
-          const eventHash = keccak256(Buffer.from('GasUsed(uint256,uint256)'));
           const txReceipt = await relayCallResult.wait();
           console.log('---------------------------------------');
 
@@ -874,36 +577,6 @@ describe('RelayHub', function () {
           console.log(
             `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
           );
-
-          let previousGas = BigInt(0);
-          let previousStep: null | string = null;
-          for (let i = 0; i < txReceipt.logs.length; i++) {
-            const log = txReceipt.logs[i];
-            if ('0x' + eventHash === log?.topics[0]) {
-              const step = log.data.substring(0, 66);
-              const gasUsed = BigInt(
-                '0x' + log.data.substring(67, log.data.length)
-              );
-              console.log('---------------------------------------');
-              console.log('step :', BigInt(step).toString());
-              console.log('gasLeft :', gasUsed.toString());
-
-              if (previousStep != null) {
-                console.log(
-                  `Steps substraction ${BigInt(step).toString()} and ${BigInt(
-                    previousStep
-                  ).toString()}`
-                );
-                console.log(
-                  (previousGas.valueOf() - gasUsed.valueOf()).toString()
-                );
-              }
-              console.log('---------------------------------------');
-              // TODO: we should check this
-              previousGas = BigInt(gasUsed);
-              previousStep = step;
-            }
-          }
         });
 
         async function forgeRequest(
@@ -916,43 +589,26 @@ describe('RelayHub', function () {
             ? ethers.constants.AddressZero
             : token.address;
 
-          const completeReq: RelayRequest = cloneRelayRequest({
-            request: {
-              data: token.interface.encodeFunctionData('transfer', [
-                transferReceiver,
-                balanceToTransfer,
-              ]),
-              to: token.address,
-              nonce: (await forwarder.nonce()).toString(),
-              tokenAmount: fees,
-              tokenContract,
-            },
-          });
+          const encodedFunction = token.interface.encodeFunctionData(
+            'transfer',
+            [transferReceiver, balanceToTransfer]
+          );
 
           const estimatedDestinationCallGas = await ethers.provider.estimateGas(
             {
-              from: completeReq.relayData.callForwarder,
-              to: completeReq.request.to,
-              gasPrice: completeReq.relayData.gasPrice,
-              data: completeReq.request.data,
+              from: forwarder.address,
+              to: token.address,
+              gasPrice,
+              data: encodedFunction,
             }
           );
 
-          let internalDestinationCallCost =
-            estimatedDestinationCallGas.toNumber() >
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              ? estimatedDestinationCallGas.toNumber() -
-                INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-              : estimatedDestinationCallGas.toNumber();
-          internalDestinationCallCost =
-            internalDestinationCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
-
-          completeReq.request.gas = ethers.utils.hexValue(
-            internalDestinationCallCost
+          const internalDestinationCallCost = correctEstimatedCallCost(
+            estimatedDestinationCallGas.toNumber()
           );
 
           const estimatedTokenPaymentGas = await ethers.provider.estimateGas({
-            from: completeReq.relayData.callForwarder,
+            from: forwarder.address,
             to: token.address,
             data: token.interface.encodeFunctionData('transfer', [
               relayWorker.address,
@@ -960,20 +616,25 @@ describe('RelayHub', function () {
             ]),
           });
 
-          if (!isSponsored) {
-            let internalTokenCallCost =
-              estimatedTokenPaymentGas.toNumber() >
-              INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                ? estimatedTokenPaymentGas.toNumber() -
-                  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-                : estimatedTokenPaymentGas.toNumber();
-            internalTokenCallCost =
-              internalTokenCallCost * ESTIMATED_GAS_CORRECTION_FACTOR;
+          const tokenGas = !isSponsored
+            ? {
+                tokenGas: correctEstimatedCallCost(
+                  estimatedTokenPaymentGas.toNumber()
+                ),
+              }
+            : {};
 
-            completeReq.request.tokenGas = ethers.utils.hexValue(
-              internalTokenCallCost
-            );
-          }
+          const completeReq: RelayRequest = cloneRelayRequest({
+            request: {
+              data: encodedFunction,
+              to: token.address,
+              nonce: (await forwarder.nonce()).toString(),
+              tokenAmount: fees,
+              tokenContract,
+              gas: internalDestinationCallCost,
+              ...tokenGas,
+            },
+          });
 
           return completeReq;
         }
@@ -982,12 +643,8 @@ describe('RelayHub', function () {
           // refill SW balance
           await token.mint('9000', forwarder.address);
 
-          const swalletInitialBalance = await token.balanceOf(
-            forwarder.address
-          );
-          const relayWorkerInitialBalance = await token.balanceOf(
-            relayWorker.address
-          );
+          const { forwarderInitialBalance, relayWorkerInitialBalance } =
+            await getCurrentBalances();
 
           const transferReceiver = ethers.Wallet.createRandom();
 
@@ -1001,7 +658,7 @@ describe('RelayHub', function () {
             fees
           );
 
-          const { signature: sig } = await getSuffixDataAndSignature(
+          const { signature } = await getSuffixDataAndSignature(
             forwarder,
             completeReq,
             owner
@@ -1009,30 +666,18 @@ describe('RelayHub', function () {
 
           const relayCallResult = await relayHub
             .connect(relayWorker)
-            .relayCall(completeReq, sig, {
+            .relayCall(completeReq, signature, {
               gasLimit,
               gasPrice,
             });
           const txReceipt = await relayCallResult.wait();
 
-          // assert the transaction has been relayed correctly
-          const sWalletFinalBalance = await token.balanceOf(forwarder.address);
-          const relayWorkerFinalBalance = await token.balanceOf(
-            relayWorker.address
+          await assertRelayedTransaction(
+            forwarderInitialBalance,
+            relayWorkerInitialBalance,
+            BigNumber.from(balanceToTransfer),
+            BigNumber.from(fees)
           );
-
-          expect(
-            swalletInitialBalance.eq(
-              sWalletFinalBalance
-                .add(BigNumber.from(fees))
-                .add(BigNumber.from(1000))
-            )
-          ).to.equal(true, 'SW Payment did not occur');
-          expect(
-            relayWorkerFinalBalance.eq(
-              relayWorkerInitialBalance.add(BigNumber.from(fees))
-            )
-          ).to.equal(true, 'Worker did not receive payment');
           await printGasStatus(txReceipt);
         }
 
