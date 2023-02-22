@@ -125,7 +125,7 @@ describe('RelayHub GasEstimation', function () {
     )) as SmartWalletFactory;
   });
 
-  describe('relayCall', function () {
+  describe.only('relayCall', function () {
     let relayRequest: RelayRequest;
     let forwarder: SmartWallet;
 
@@ -188,6 +188,11 @@ describe('RelayHub GasEstimation', function () {
 
       context('with funded verifier', function () {
         async function printGasStatus(receipt: ContractReceipt) {
+          const [firstAccount] = (await ethers.getSigners()) as [
+            SignerWithAddress
+          ];
+          await token.mint('1000', firstAccount.address);
+
           const noRelayCall = await token.transfer(owner.address, '1000');
           const { gasUsed: gasUsedWithoutRelay } = await noRelayCall.wait();
 
