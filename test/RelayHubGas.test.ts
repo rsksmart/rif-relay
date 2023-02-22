@@ -125,7 +125,7 @@ describe('RelayHub GasEstimation', function () {
     )) as SmartWalletFactory;
   });
 
-  describe.only('relayCall', function () {
+  describe('relayCall', function () {
     let relayRequest: RelayRequest;
     let forwarder: SmartWallet;
 
