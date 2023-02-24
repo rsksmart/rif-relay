@@ -48,7 +48,7 @@ const deployContract = <Contract>(contract: string) => {
     .then((contractFactory) => contractFactory.deploy() as Contract);
 };
 
-describe.only('RelayHub Gas Estimation', function () {
+describe('RelayHub Gas Estimation', function () {
   let penalizer: Penalizer;
   let relayHub: RelayHub;
   let verifier: TestVerifierEverythingAccepted;
