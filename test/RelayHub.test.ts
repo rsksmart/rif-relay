@@ -32,6 +32,7 @@ import {
   RSK_URL,
   signEnvelopingRequest,
   evmMineMany,
+  deployRelayHub,
 } from './utils/TestUtils';
 import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
 
@@ -62,20 +63,6 @@ describe('RelayHub', function () {
   let provider: providers.JsonRpcProvider;
   const gasPrice = 1;
   const gasLimit = 4e6;
-
-  const deployHub = (penalizerAddress: string) => {
-    return ethers
-      .getContractFactory('RelayHub')
-      .then((contract) =>
-        contract.deploy(
-          penalizerAddress,
-          10,
-          (1e18).toString(),
-          1000,
-          (1e18).toString()
-        )
-      );
-  };
 
   const cloneEnvelopingRequest = (
     envelopingRequest: EnvelopingRequest,
@@ -117,7 +104,7 @@ describe('RelayHub', function () {
       'SmartWallet'
     );
 
-    relayHub = await deployHub(penalizer.address);
+    relayHub = await deployRelayHub(penalizer.address);
 
     await fundedAccount.sendTransaction({
       to: owner.address,
@@ -1210,7 +1197,7 @@ describe('RelayHub', function () {
         SignerWithAddress
       ];
 
-      relayHub = await deployHub(penalizerMock.address);
+      relayHub = await deployRelayHub(penalizerMock.address);
 
       await relayHub
         .connect(relayOwner)
