@@ -27,6 +27,7 @@ import {
   createSmartWalletFactory,
   createSupportedSmartWallet,
   RSK_URL,
+  deployRelayHub,
 } from './utils/TestUtils';
 
 function logGasOverhead(gasOverhead: BigNumber) {
@@ -47,7 +48,7 @@ const deployContract = <Contract>(contract: string) => {
     .then((contractFactory) => contractFactory.deploy() as Contract);
 };
 
-describe('RelayHub GasEstimation', function () {
+describe.only('RelayHub Gas Estimation', function () {
   let penalizer: Penalizer;
   let relayHub: RelayHub;
   let verifier: TestVerifierEverythingAccepted;
@@ -63,20 +64,6 @@ describe('RelayHub GasEstimation', function () {
   let provider: providers.JsonRpcProvider;
   const gasPrice = 1;
   const gasLimit = 4e6;
-
-  const deployHub = (penalizerAddress: string) => {
-    return ethers
-      .getContractFactory('RelayHub')
-      .then((contract) =>
-        contract.deploy(
-          penalizerAddress,
-          10,
-          (1e18).toString(),
-          1000,
-          (1e18).toString()
-        )
-      );
-  };
 
   const cloneEnvelopingRequest = (
     envelopingRequest: EnvelopingRequest,
@@ -111,7 +98,7 @@ describe('RelayHub GasEstimation', function () {
       'SmartWallet'
     );
 
-    relayHub = await deployHub(penalizer.address);
+    relayHub = await deployRelayHub(penalizer.address);
 
     await fundedAccount.sendTransaction({
       to: owner.address,
@@ -424,9 +411,7 @@ describe('RelayHub GasEstimation', function () {
           };
         };
         it('gas prediction tests - with token payment', async function () {
-          let message =
-            'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
-          message = message.concat(message);
+          const message = 'RIF ENVELOPING '.repeat(22);
 
           const relayCallProcessFirstResult = await triggerRelayCallProcess({
             message,
@@ -446,14 +431,7 @@ describe('RelayHub GasEstimation', function () {
         });
 
         it('gas prediction tests - without token payment', async function () {
-          let message =
-            'RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING RIF ENVELOPING ';
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
+          const message = 'RIF ENVELOPING '.repeat(77);
 
           const relayCallProcessFirstResult = await triggerRelayCallProcess({
             message,
@@ -477,15 +455,7 @@ describe('RelayHub GasEstimation', function () {
         });
 
         it('gas estimation tests for SmartWallet', async function () {
-          let message =
-            'RIF Enveloping RIF Enveloping RIF Enveloping RIF Enveloping';
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
-          message = message.concat(message);
+          const message = 'RIF Enveloping '.repeat(32);
 
           const { gasUsed, cumulativeGasUsed } = await triggerRelayCallProcess({
             message,
@@ -502,26 +472,16 @@ describe('RelayHub GasEstimation', function () {
             callWithoutRelayReceipt.cumulativeGasUsed.toNumber();
           const gasOverhead = cumulativeGasUsed - cumulativeGasUsedWithoutRelay;
           console.log(
-            '--------------- Destination Call Without enveloping------------------------'
+            `Destination Call without enveloping - Gas Used: ${callWithoutRelayReceipt.gasUsed.toNumber()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
           );
           console.log(
-            `Gas Used: ${callWithoutRelayReceipt.gasUsed.toNumber()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
-          );
-          console.log('---------------------------------------');
-          console.log(
-            '--------------- Destination Call with enveloping------------------------'
+            `Destination Call with enveloping - Gas Used: ${gasUsed.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsed}`
           );
           console.log(
-            `Gas Used: ${gasUsed.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsed}`
+            `Enveloping Overhead (message length: ${message.length}) - Overhead Gas: ${gasOverhead} `
           );
-          console.log('---------------------------------------');
-          console.log(
-            `--------------- Enveloping Overhead (message length: ${message.length}) ------------------------`
-          );
-          console.log(`Overhead Gas: ${gasOverhead}`);
-          console.log('---------------------------------------');
 
-          console.log('Round 2');
+          console.log('Round 2: ');
 
           const {
             gasUsed: gasUsedRound2,
@@ -535,10 +495,7 @@ describe('RelayHub GasEstimation', function () {
             noCorrection: true,
           });
           console.log(
-            '--------------- Destination Call with enveloping------------------------'
-          );
-          console.log(
-            `Gas Used: ${gasUsedRound2.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsedRound2}`
+            `Destination Call with enveloping - Gas Used: ${gasUsedRound2.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsedRound2}`
           );
         });
 
@@ -576,11 +533,9 @@ describe('RelayHub GasEstimation', function () {
           expect(nonceBefore.add(1).toNumber()).to.equal(nonceAfter.toNumber());
 
           const txReceipt = await relayCallResult.wait();
-          console.log('---------------------------------------');
 
-          console.log(`Gas Used: ${txReceipt.gasUsed.toString()}`);
           console.log(
-            `Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
+            `Gas Used: ${txReceipt.gasUsed.toString()} - Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}`
           );
         });
 
