@@ -260,7 +260,7 @@ const deployRelayHub = async (
   configOverride?: Partial<RelayHubConfiguration>
 ): Promise<RelayHub> => {
   const relayHubConfiguration: RelayHubConfiguration = {
-    ...defaultEnvironment!.relayHubConfiguration,
+    ...defaultEnvironment.relayHubConfiguration,
     ...configOverride,
   };
 
