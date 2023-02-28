@@ -14,7 +14,6 @@ import {
   CustomSmartWalletDeployVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import {
-  buildServerUrl,
   defaultEnvironment,
   getServerConfig,
   RelayHubConfiguration,
@@ -119,12 +118,10 @@ const startRelay = async (options: StartRelayParams) => {
   const { delay, stake, relayOwner } = options;
 
   const {
-    app: { workdir },
+    app: { workdir, url },
   } = getServerConfig();
 
   fs.rmSync(workdir, { recursive: true, force: true });
-
-  const url = buildServerUrl();
 
   const runServerPath = path.resolve(
     __dirname,
@@ -263,7 +260,7 @@ const deployRelayHub = async (
   configOverride?: Partial<RelayHubConfiguration>
 ): Promise<RelayHub> => {
   const relayHubConfiguration: RelayHubConfiguration = {
-    ...defaultEnvironment!.relayHubConfiguration,
+    ...defaultEnvironment.relayHubConfiguration,
     ...configOverride,
   };
 
