@@ -25,8 +25,8 @@ import config from 'config';
 import {
   AppConfig,
   BlockchainConfig,
-  buildServerUrl,
   defaultEnvironment,
+  getServerConfig,
   RelayServer,
   SendTransactionDetails,
   ServerAction,
@@ -141,7 +141,10 @@ describe('RelayServer', function () {
       });
       recipient = await deployTestRecipient();
       const { chainId } = provider.network;
-      const serverUrl = buildServerUrl();
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
+
       setEnvelopingConfig({
         preferredRelays: [serverUrl],
         chainId,
@@ -438,7 +441,9 @@ describe('RelayServer', function () {
       });
       recipient = await deployTestRecipient();
       const { chainId } = provider.network;
-      const serverUrl = buildServerUrl();
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
       setEnvelopingConfig({
         preferredRelays: [serverUrl],
         chainId,
@@ -565,8 +570,9 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const { maxPossibleGas } =
-          await relayServer.validateRequestWithVerifier(stringifyRequest);
+        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+          stringifyRequest
+        );
 
         const { txHash } = await relayServer.createRelayTransaction(
           stringifyRequest
@@ -616,8 +622,9 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const { maxPossibleGas } =
-          await relayServer.validateRequestWithVerifier(stringifyRequest);
+        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+          stringifyRequest
+        );
 
         const { txHash } = await relayServer.createRelayTransaction(
           stringifyRequest
@@ -925,7 +932,9 @@ describe('RelayServer', function () {
           SignerWithAddress
         ];
       const { chainId } = provider.network;
-      const serverUrl = buildServerUrl();
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
       setEnvelopingConfig({
         preferredRelays: [serverUrl],
         chainId,
