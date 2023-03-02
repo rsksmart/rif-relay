@@ -1,20 +1,25 @@
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import {
+  DeployRequestBody,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   EnvelopingRequestData,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   RelayRequest,
   RelayRequestBody,
+  SHA3_NULL_S,
 } from '@rsksmart/rif-relay-client'
 import { UtilToken } from '@rsksmart/rif-relay-contracts'
-import { BigNumber, ContractReceipt, Wallet } from 'ethers'
+import { BigNumber, Contract, ContractReceipt, Wallet, constants } from 'ethers'
 import {
+  CreateSmartWalletParams,
   RSK_URL,
+  createEnvelopingRequest,
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployRelayHub,
   getSuffixDataAndSignature,
+  signEnvelopingRequest,
 } from '../test/utils/TestUtils'
 import {
   Penalizer,
@@ -25,6 +30,8 @@ import {
   TestVerifierEverythingAccepted,
 } from 'typechain-types'
 import { expect } from 'chai';
+
+import SmartWalletJson from '../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 
 const gasPrice = 1
 const gasLimit = 4e6
@@ -106,12 +113,13 @@ const estimateGas = async () => {
       owner,
     )) as SmartWalletFactory
   
-    forwarder = (await createSupportedSmartWallet({
+    forwarder = await createSupportedSmartWallet({
       relayHub: relayHubSigner.address,
       factory,
       owner,
       sender: relayHubSigner,
-    })) as SmartWallet
+      logGas: true
+    }) as SmartWallet;
   
     await token.mint('1000', forwarder.address)
   
@@ -166,23 +174,6 @@ const estimateGas = async () => {
       `Destination Call with enveloping - Gas Used: ${receipt.gasUsed.toString()}`,
     )
     logGasOverhead(gasOverhead)
-  }
-
-  function printGasPrediction({
-    internalDestinationCallCost,
-    internalTokenCallCost,
-  }: {
-    internalDestinationCallCost: number;
-    internalTokenCallCost: number;
-  }) {
-    // gas estimation fit
-    // 5.10585×10^-14 x^3 - 2.21951×10^-8 x^2 + 1.06905 x + 92756.3
-    // 8.2808×10^-14 x^3 - 8.62083×10^-8 x^2 + 1.08734 x + 36959.6
-    const a0 = Number('35095.980');
-    const a1 = Number('1.098');
-    const estimatedCost =
-      a1 * (internalDestinationCallCost + internalTokenCallCost) + a0;
-    console.log('The predicted total cost is: ', estimatedCost);
   }
 
   function printGasAnalysis({
@@ -386,8 +377,6 @@ const estimateGas = async () => {
     };
   };
 
-  //finish setting up
-
   logTitle('Gas prediction - with token payment:')
 
   let message = 'RIF ENVELOPING '.repeat(22);
@@ -399,7 +388,6 @@ const estimateGas = async () => {
     estimateGasLimit: true,
   });
 
-  printGasPrediction(relayCallProcessFirstResult);
   printGasAnalysis(relayCallProcessFirstResult);
 
   console.log('ROUND 2');
@@ -419,7 +407,6 @@ const estimateGas = async () => {
     noTokenGas: true,
   });
 
-  printGasPrediction(relayCallProcessFirstResult);
   printGasAnalysis(relayCallProcessFirstResult);
 
   console.log('ROUND 2');
@@ -450,7 +437,7 @@ const estimateGas = async () => {
     callWithoutRelayReceipt.cumulativeGasUsed.toNumber();
   const gasOverhead = cumulativeGasUsed - cumulativeGasUsedWithoutRelay;
   console.log(
-    `Destination Call without enveloping - Gas Used: ${callWithoutRelayReceipt.gasUsed.toNumber()}, Cummulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
+    `Destination Call without enveloping - Gas Used: ${callWithoutRelayReceipt.gasUsed.toNumber()}, Cumulative Gas Used: ${cumulativeGasUsedWithoutRelay}`
   );
   console.log(
     `Destination Call with enveloping - Gas Used: ${gasUsed.toNumber()}, CumulativeGasUsed: ${cumulativeGasUsed}`
@@ -515,7 +502,7 @@ const estimateGas = async () => {
   const txReceipt = await relayCallResult.wait();
 
   console.log(
-    `Gas Used: ${txReceipt.gasUsed.toString()} - Cummulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}\n`
+    `Gas Used: ${txReceipt.gasUsed.toString()} - Cumulative Gas Used: ${txReceipt.cumulativeGasUsed.toString()}\n`
   );
 
   async function forgeRequest(
@@ -582,7 +569,7 @@ const estimateGas = async () => {
     return completeReq;
   }
 
-  async function estimateGasOverhead(fees: string) {
+  async function estimateTokenTransferGasOverhead(fees: string) {
     await deployAndSetup();
     // refill SW balance
     await token.mint('9000', forwarder.address);
@@ -628,10 +615,10 @@ const estimateGas = async () => {
   }
 
   logTitle('Gas estimation tests for token transfer - with token payment')
-  await estimateGasOverhead('5000');
+  await estimateTokenTransferGasOverhead('5000');
 
   logTitle('Gas estimation tests for token transfer - without token payment')
-  await estimateGasOverhead('0');
+  await estimateTokenTransferGasOverhead('0');
 
 }
 
