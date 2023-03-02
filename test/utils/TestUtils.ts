@@ -90,6 +90,7 @@ type CreateSmartWalletParams = {
   logicAddr?: string;
   initParams?: string;
   isCustomSmartWallet?: boolean;
+  logGas?: boolean;
 };
 
 type PrepareRelayTransactionParams = {
@@ -341,6 +342,7 @@ const createSupportedSmartWallet = async ({
   logicAddr = constants.AddressZero,
   initParams = SHA3_NULL_S,
   isCustomSmartWallet,
+  logGas = false,
 }: CreateSmartWalletParams): Promise<SupportedSmartWallet> => {
   const envelopingRequest = createEnvelopingRequest(
     true,
@@ -366,7 +368,7 @@ const createSupportedSmartWallet = async ({
     owner
   );
 
-  await factory
+  const deployTransaction = await factory
     .connect(sender)
     .relayedUserSmartWalletCreation(
       envelopingRequest.request as DeployRequestBody,
@@ -374,6 +376,13 @@ const createSupportedSmartWallet = async ({
       constants.AddressZero,
       signature
     );
+
+  if (logGas) {
+    const deployReceipt = await deployTransaction.wait();
+    console.log(
+      `Smart Wallet Deployment Cumulative Gas Used: ${deployReceipt.gasUsed.toString()}\n`
+    );
+  }
 
   const isCustom =
     isCustomSmartWallet ?? (!!logicAddr && logicAddr !== constants.AddressZero);
