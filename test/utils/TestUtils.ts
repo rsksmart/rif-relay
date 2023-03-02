@@ -17,7 +17,6 @@ import {
   defaultEnvironment,
   getServerConfig,
   RelayHubConfiguration,
-  ServerConfigParams,
   sleep,
 } from '@rsksmart/rif-relay-server';
 import {
@@ -69,11 +68,10 @@ type SupportedSmartWalletFactory =
   | SmartWalletFactory;
 
 type StartRelayParams = {
-  serverConfig: ServerConfigParams;
   delay?: number;
   stake?: BigNumberish;
-  relayOwner: string;
-  relayHubAddress: string;
+  relayOwner: SignerWithAddress;
+  log: boolean;
 };
 
 type CreateSmartWalletParams = {
@@ -115,46 +113,83 @@ const RSK_URL = nodeConfig.get<string>(
 
 const { provider } = ethers;
 
-const startRelay = async (options: StartRelayParams) => {
-  const { delay, stake, relayOwner } = options;
-
+const startRelay = async ({
+  delay,
+  stake,
+  relayOwner,
+  log = true,
+}: StartRelayParams) => {
   const {
-    app: { workdir, url },
+    app: { workdir, url, port },
   } = getServerConfig();
 
   fs.rmSync(workdir, { recursive: true, force: true });
 
   const runServerPath = path.resolve(
     __dirname,
-    '../node_modules/@rsksmart/rif-relay-server/dist/commands/Start.js'
+    '../../node_modules/@rsksmart/rif-relay-server/dist/commands/Start.js'
   );
 
-  const proc: ChildProcessWithoutNullStreams & { alreadyStarted?: number } =
+  const proc: ChildProcessWithoutNullStreams & { alreadystarted?: number } =
     childProcess.spawn('node', [runServerPath]);
+
+  let relayLog = function (_: string): void {
+    console.debug('Unknown', _);
+  };
+
+  if (log) {
+    relayLog = (msg: string) =>
+      msg
+        .split('\n')
+        .forEach((line) => console.log(`relay-${proc.pid ?? '0'}> ${line}`));
+  }
+
+  await new Promise((resolve, reject) => {
+    let lastresponse: string;
+    const listener = (data: string): void => {
+      const str = data.toString().replace(/\s+$/, '');
+      lastresponse = str;
+      relayLog(str);
+      if (str.indexOf('Listening on port') >= 0) {
+        proc.alreadystarted = 1;
+        resolve(proc);
+      }
+    };
+    proc.stdout.on('data', listener);
+    proc.stderr.on('data', listener);
+    const doaListener = (code: unknown): void => {
+      if (!proc.alreadystarted) {
+        relayLog(`died before init code=${JSON.stringify(code)}`);
+        reject(new Error(lastresponse));
+      }
+    };
+    proc.on('exit', doaListener.bind(proc));
+  });
 
   const client = new HttpClient(new HttpWrapper(undefined, 'silent'));
 
   const { relayManagerAddress, relayHubAddress } = await doUntilDefined(
-    () => client.getChainInfo(url),
+    () => client.getChainInfo(`${url}:${port}`),
     ATTEMPTS_GET_SERVER_STATUS
   );
 
   console.log('Relay Server Manager Address', relayManagerAddress);
 
-  await provider.getSigner(relayOwner).sendTransaction({
+  await relayOwner.sendTransaction({
     to: relayManagerAddress,
     value: utils.parseEther('2'),
   });
 
   const relayHub = RelayHub__factory.connect(relayHubAddress, provider);
 
-  await relayHub.stakeForAddress(relayManagerAddress, delay || 2000, {
-    from: relayOwner,
-    value: stake || utils.parseEther('1'),
-  });
+  await relayHub
+    .connect(relayOwner)
+    .stakeForAddress(relayManagerAddress, delay || 2000, {
+      value: stake || utils.parseEther('1'),
+    });
 
   const { relayWorkerAddress } = await doUntilDefined(
-    () => getServerReady(url, client),
+    () => getServerReady(`${url}:${port}`, client),
     ATTEMPTS_GET_SERVER_READY,
     'Server is not ready to relay transactions'
   );
@@ -649,6 +684,12 @@ const createUserDefinedRequest = (
       };
 };
 
+const deployContract = <T>(contract: string) => {
+  return ethers
+    .getContractFactory(contract)
+    .then((contractFactory) => contractFactory.deploy() as T);
+};
+
 export {
   startRelay,
   stopRelay,
@@ -670,6 +711,7 @@ export {
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
   RSK_URL,
+  deployContract,
 };
 
 export type {

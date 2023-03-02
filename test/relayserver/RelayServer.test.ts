@@ -10,6 +10,7 @@ import {
   PromiseOrValue,
   RelayHub,
   RelayVerifier,
+  SmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   createSupportedSmartWallet,
@@ -20,6 +21,7 @@ import {
   deployVerifiers,
   generateRandomAddress,
   createUserDefinedRequest,
+  deployContract,
 } from '../utils/TestUtils';
 import config from 'config';
 import {
@@ -151,6 +153,7 @@ describe('RelayServer', function () {
         relayHubAddress: relayHub.address,
         deployVerifierAddress: fakeDeployVerifierAddress,
         relayVerifierAddress: fakeRelayVerifierAddress,
+        logLevel: 5,
       });
       relayClient = new RelayClient();
       const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
@@ -450,6 +453,7 @@ describe('RelayServer', function () {
         relayHubAddress: relayHub.address,
         deployVerifierAddress: fakeDeployVerifierAddress,
         relayVerifierAddress: fakeRelayVerifierAddress,
+        logLevel: 5,
       });
       relayClient = new RelayClient();
       const [worker, fundedAccount, relayOwner] =
@@ -465,10 +469,9 @@ describe('RelayServer', function () {
       encodedData = recipient.interface.encodeFunctionData('emitMessage', [
         'hello',
       ]);
-      const smartWalletTemplateFactory = await ethers.getContractFactory(
+      const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      const smartWalletTemplate = await smartWalletTemplateFactory.deploy();
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
         false,
@@ -900,14 +903,12 @@ describe('RelayServer', function () {
     let smartWallet: SupportedSmartWallet;
 
     beforeEach(async function () {
-      const relayVerifierFactory = await ethers.getContractFactory(
+      rejectingRelayVerifier = await deployContract(
         'TestVerifierConfigurableMisbehavior'
       );
-      rejectingRelayVerifier = await relayVerifierFactory.deploy();
-      const deployVerifierFactory = await ethers.getContractFactory(
+      rejectingDeployVerifier = await deployContract(
         'TestDeployVerifierConfigurableMisbehavior'
       );
-      rejectingDeployVerifier = await deployVerifierFactory.deploy();
 
       relayHub = await deployRelayHub();
       loadConfiguration({
@@ -941,15 +942,15 @@ describe('RelayServer', function () {
         relayHubAddress: relayHub.address,
         deployVerifierAddress: rejectingDeployVerifier.address,
         relayVerifierAddress: rejectingRelayVerifier.address,
+        logLevel: 5,
       });
       relayClient = new RelayClient();
       relayServer = await getInitiatedServer({ relayOwner });
       owner = ethers.Wallet.createRandom();
       AccountManager.getInstance().addAccount(owner);
-      const smartWalletTemplateFactory = await ethers.getContractFactory(
+      const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      const smartWalletTemplate = await smartWalletTemplateFactory.deploy();
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
         false,
@@ -1116,10 +1117,9 @@ describe('RelayServer', function () {
         SignerWithAddress
       ];
       const relayHub = await deployRelayHub();
-      const smartWalletTemplateFactory = await ethers.getContractFactory(
+      const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      const smartWalletTemplate = await smartWalletTemplateFactory.deploy();
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
         false,

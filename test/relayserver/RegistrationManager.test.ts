@@ -487,7 +487,7 @@ describe('RegistrationManager', function () {
         expect(workerBalanceAfter).to.be.equal(constants.Zero);
       });
 
-      it("should emit 'unstaked' when witihdrawing funds", async function () {
+      it("should emit 'unstaked' when withdrawing funds", async function () {
         const { relayManagerAddress } = relayServer.getChainInfo();
 
         await relayHub.connect(relayOwner).unlockStake(relayManagerAddress);

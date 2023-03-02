@@ -1,0 +1,829 @@
+import { expect } from 'chai';
+import {
+  createSmartWalletFactory,
+  createSupportedSmartWallet,
+  deployContract,
+  deployRelayHub,
+  RSK_URL,
+  SupportedSmartWallet,
+} from '../utils/TestUtils';
+import {
+  RelayHub,
+  TestDeployVerifierEverythingAccepted,
+  TestRecipient,
+  TestVerifierEverythingAccepted,
+  UtilToken,
+} from 'typechain-types';
+import {
+  RelayClient,
+  AccountManager,
+  UserDefinedRelayRequest,
+  setEnvelopingConfig,
+  setProvider,
+  estimateInternalCallGas,
+  UserDefinedDeployRequest,
+  EnvelopingEvent,
+  EnvelopingTxRequest,
+  HttpClient,
+  HttpWrapper,
+} from '@rsksmart/rif-relay-client';
+import { constants, Wallet } from 'ethers';
+import { ethers } from 'hardhat';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { loadConfiguration } from '../relayserver/ServerTestUtils';
+import { getInitiatedServer } from '../relayserver/ServerTestEnvironments';
+import {
+  AppConfig,
+  getServerConfig,
+  HttpServer,
+  RelayServer,
+  ServerConfigParams,
+} from '@rsksmart/rif-relay-server';
+import { SmartWallet, SmartWalletFactory } from '@rsksmart/rif-relay-contracts';
+import { DeployedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/factory/CustomSmartWalletFactory';
+import { Server } from 'http';
+import express from 'express';
+import bodyParser from 'body-parser';
+import config from 'config';
+
+const SERVER_WORK_DIR = './tmp/enveloping/test/server';
+
+const serverPort = 8095;
+
+const basicAppConfig: Partial<AppConfig> = {
+  url: `http:localhost:${serverPort}`,
+  port: serverPort,
+  devMode: true,
+  logLevel: 5,
+  workdir: SERVER_WORK_DIR,
+};
+
+const provider = ethers.provider;
+
+class MockHttpClient extends HttpClient {
+  constructor(readonly mockPort: number, httpWrapper: HttpWrapper) {
+    super(httpWrapper);
+  }
+
+  override async relayTransaction(
+    relayUrl: string,
+    envelopingTx: EnvelopingTxRequest
+  ): Promise<string> {
+    return await super.relayTransaction(this.mapUrl(relayUrl), envelopingTx);
+  }
+
+  private mapUrl(relayUrl: string): string {
+    return relayUrl.replace(`:${serverPort}`, `:${this.mockPort}`);
+  }
+}
+
+describe('RelayClient', function () {
+  let relayClient: RelayClient;
+  let relayServer: RelayServer;
+  let httpServer: HttpServer;
+  let relayHub: RelayHub;
+  let relayVerifier: TestVerifierEverythingAccepted;
+  let deployVerifier: TestDeployVerifierEverythingAccepted;
+  let token: UtilToken;
+  let gaslessAccount: Wallet;
+  let relayWorker: SignerWithAddress;
+  let relayOwner: SignerWithAddress;
+  let fundedAccount: SignerWithAddress;
+  let chainId: number;
+
+  let originalConfig: ServerConfigParams;
+
+  before(async function () {
+    originalConfig = config.util.toObject(config) as ServerConfigParams;
+    gaslessAccount = Wallet.createRandom();
+    [relayWorker, relayOwner, fundedAccount] = (await ethers.getSigners()) as [
+      SignerWithAddress,
+      SignerWithAddress,
+      SignerWithAddress
+    ];
+    relayHub = await deployRelayHub();
+    relayVerifier = await deployContract('TestVerifierEverythingAccepted');
+    deployVerifier = await deployContract(
+      'TestDeployVerifierEverythingAccepted'
+    );
+    loadConfiguration({
+      app: basicAppConfig,
+      contracts: {
+        relayHubAddress: relayHub.address,
+        relayVerifierAddress: relayVerifier.address,
+        deployVerifierAddress: deployVerifier.address,
+      },
+      blockchain: {
+        workerTargetBalance: (0.6e18).toString(),
+        rskNodeUrl: RSK_URL,
+        gasPriceFactor: 1,
+      },
+    });
+    relayServer = await getInitiatedServer({ relayOwner });
+    httpServer = new HttpServer(serverPort, relayServer);
+    httpServer.start();
+    ({ chainId } = provider.network);
+    const {
+      app: { url: serverUrl },
+    } = getServerConfig();
+    setProvider(provider);
+    setEnvelopingConfig({
+      preferredRelays: [serverUrl],
+      chainId,
+      relayHubAddress: relayHub.address,
+      relayVerifierAddress: relayVerifier.address,
+      deployVerifierAddress: deployVerifier.address,
+      logLevel: 5,
+    });
+
+    relayClient = new RelayClient();
+    AccountManager.getInstance().addAccount(gaslessAccount);
+    token = await deployContract('UtilToken');
+  });
+
+  after(function () {
+    config.util.extendDeep(config, originalConfig);
+    httpServer.stop();
+    httpServer.close();
+  });
+
+  describe('relayTransaction', function () {
+    let smartWalletFactory: SmartWalletFactory;
+
+    before(async function () {
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      smartWalletFactory = (await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      )) as SmartWalletFactory;
+    });
+
+    describe('should relay transaction', function () {
+      let smartWallet: SupportedSmartWallet;
+      let testRecipient: TestRecipient;
+      let envelopingRelayRequest: UserDefinedRelayRequest;
+
+      before(async function () {
+        smartWallet = await createSupportedSmartWallet({
+          relayHub: relayWorker.address,
+          sender: relayWorker,
+          owner: gaslessAccount,
+          factory: smartWalletFactory,
+        });
+        await token.mint(1000, smartWallet.address);
+        testRecipient = await deployContract('TestRecipient');
+        const encodeData = testRecipient.interface.encodeFunctionData(
+          'emitMessage',
+          ['hello world']
+        );
+        envelopingRelayRequest = {
+          request: {
+            to: testRecipient.address,
+            data: encodeData,
+            from: gaslessAccount.address,
+            tokenContract: token.address,
+          },
+          relayData: {
+            callForwarder: smartWallet.address,
+            callVerifier: relayVerifier.address,
+          },
+        };
+      });
+
+      it('without gasLimit estimation - gasPrice', async function () {
+        const { hash, to } = await relayClient.relayTransaction(
+          envelopingRelayRequest
+        );
+
+        const filter = testRecipient.filters.SampleRecipientEmitted();
+        const logs = await testRecipient.queryFilter(filter);
+        const log = logs.find((x) => x.transactionHash === hash);
+
+        expect(log).to.not.be.undefined;
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('with tokenGas estimation(not sponsored)', async function () {
+        const amountToBePay = 100;
+        const updatedRelayRequest = {
+          ...envelopingRelayRequest,
+          request: {
+            ...envelopingRelayRequest.request,
+            tokenGas: 55000,
+            tokenAmount: amountToBePay,
+          },
+        };
+
+        const { relayWorkerAddress } = relayServer.getChainInfo();
+
+        const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const initialSwBalance = await token.balanceOf(smartWallet.address);
+
+        const { hash, to } = await relayClient.relayTransaction(
+          updatedRelayRequest
+        );
+
+        const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const finalSwBalance = await token.balanceOf(smartWallet.address);
+        const filter = testRecipient.filters.SampleRecipientEmitted();
+        const logs = await testRecipient.queryFilter(filter);
+        const log = logs.find((x) => x.transactionHash === hash);
+
+        expect(finalWorkerBalance).to.be.equal(
+          initialWorkerBalance.add(amountToBePay)
+        );
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
+        expect(log).to.not.be.undefined;
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('without tokenGas estimation(not sponsored)', async function () {
+        const amountToBePay = 100;
+
+        const updatedRelayRequest = {
+          ...envelopingRelayRequest,
+          request: {
+            ...envelopingRelayRequest.request,
+            tokenAmount: amountToBePay,
+          },
+        };
+
+        const { relayWorkerAddress } = relayServer.getChainInfo();
+        const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const initialSwBalance = await token.balanceOf(smartWallet.address);
+
+        const { hash, to } = await relayClient.relayTransaction(
+          updatedRelayRequest
+        );
+
+        const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const finalSwBalance = await token.balanceOf(smartWallet.address);
+
+        const filter = testRecipient.filters.SampleRecipientEmitted();
+        const logs = await testRecipient.queryFilter(filter);
+        const log = logs.find((x) => x.transactionHash === hash);
+
+        expect(finalWorkerBalance).to.be.equal(
+          initialWorkerBalance.add(amountToBePay)
+        );
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
+        expect(log).to.not.be.undefined;
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('with gasLimit estimation', async function () {
+        const { to: requestTo, data } = envelopingRelayRequest.request;
+
+        const { callForwarder, gasPrice } = envelopingRelayRequest.relayData;
+
+        const gasLimit = await estimateInternalCallGas({
+          to: requestTo,
+          data,
+          from: callForwarder,
+          gasPrice: (await gasPrice) ?? 0,
+        });
+
+        const updatedRelayRequest = {
+          ...envelopingRelayRequest,
+          request: {
+            ...envelopingRelayRequest.request,
+            gas: gasLimit,
+          },
+        };
+
+        const { hash, to } = await relayClient.relayTransaction(
+          updatedRelayRequest
+        );
+
+        const filter = testRecipient.filters.SampleRecipientEmitted();
+        const logs = await testRecipient.queryFilter(filter);
+        const log = logs.find((x) => x.transactionHash === hash);
+
+        expect(log).to.not.be.undefined;
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('with gasPrice', async function () {
+        const forceGasPrice = 200000;
+
+        const updatedRelayRequest = {
+          ...envelopingRelayRequest,
+          relayData: {
+            ...envelopingRelayRequest.relayData,
+            gasPrice: forceGasPrice,
+          },
+        };
+
+        const { gasPrice, to, hash } = await relayClient.relayTransaction(
+          updatedRelayRequest
+        );
+
+        const filter = testRecipient.filters.SampleRecipientEmitted();
+        const logs = await testRecipient.queryFilter(filter);
+        const log = logs.find((x) => x.transactionHash === hash);
+
+        expect(log).to.not.be.undefined;
+        expect(to).to.be.equal(relayHub.address);
+        expect(gasPrice?.eq(forceGasPrice)).to.be.true;
+      });
+    });
+
+    describe('should deploy transaction', function () {
+      let envelopingDeployRequest: UserDefinedDeployRequest;
+      const minIndex = 0;
+      const maxIndex = 1000000000;
+      let nextWalletIndex: number;
+      let deployClient: RelayClient;
+      let smartWalletAddress: string;
+
+      before(function () {
+        const {
+          app: { url: serverUrl },
+        } = getServerConfig();
+        setEnvelopingConfig({
+          preferredRelays: [serverUrl],
+          chainId,
+          relayHubAddress: relayHub.address,
+          relayVerifierAddress: relayVerifier.address,
+          deployVerifierAddress: deployVerifier.address,
+          smartWalletFactoryAddress: smartWalletFactory.address,
+          logLevel: 5,
+        });
+        deployClient = new RelayClient();
+      });
+
+      beforeEach(async function () {
+        nextWalletIndex = Math.floor(
+          Math.random() * (maxIndex - minIndex + 1) + minIndex
+        );
+        envelopingDeployRequest = {
+          request: {
+            from: gaslessAccount.address,
+            tokenContract: token.address,
+            index: nextWalletIndex,
+          },
+        };
+        smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          nextWalletIndex
+        );
+        await token.mint(1000, smartWalletAddress);
+      });
+
+      it('without gasLimit estimation - gasPrice - callForwarder', async function () {
+        const { hash, to } = await deployClient.relayTransaction(
+          envelopingDeployRequest
+        );
+
+        const filter = smartWalletFactory.filters.Deployed();
+        const logs = await smartWalletFactory.queryFilter(filter);
+        const log = logs.find(
+          (x) => x.transactionHash === hash
+        ) as DeployedEvent;
+
+        expect(log).to.not.be.undefined;
+        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('with tokenGas estimation(not sponsored)', async function () {
+        const amountToBePay = 100;
+        const updatedDeployRequest = {
+          ...envelopingDeployRequest,
+          request: {
+            ...envelopingDeployRequest.request,
+            tokenGas: 55000,
+            tokenAmount: amountToBePay,
+          },
+        };
+
+        const { relayWorkerAddress } = relayServer.getChainInfo();
+        const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const initialSwBalance = await token.balanceOf(smartWalletAddress);
+
+        const { hash, to } = await deployClient.relayTransaction(
+          updatedDeployRequest
+        );
+
+        const filter = smartWalletFactory.filters.Deployed();
+        const logs = await smartWalletFactory.queryFilter(filter);
+        const log = logs.find(
+          (x) => x.transactionHash === hash
+        ) as DeployedEvent;
+        const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const finalSwBalance = await token.balanceOf(smartWalletAddress);
+
+        expect(finalWorkerBalance).to.be.equal(
+          initialWorkerBalance.add(amountToBePay)
+        );
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
+        expect(log).to.not.be.undefined;
+        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('without tokenGas estimation(not sponsored)', async function () {
+        const amountToBePay = 100;
+        const updatedDeployRequest = {
+          ...envelopingDeployRequest,
+          request: {
+            ...envelopingDeployRequest.request,
+            tokenAmount: amountToBePay,
+          },
+        };
+
+        const { relayWorkerAddress } = relayServer.getChainInfo();
+        const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const initialSwBalance = await token.balanceOf(smartWalletAddress);
+
+        const { hash, to } = await deployClient.relayTransaction(
+          updatedDeployRequest
+        );
+
+        const filter = smartWalletFactory.filters.Deployed();
+        const logs = await smartWalletFactory.queryFilter(filter);
+        const log = logs.find(
+          (x) => x.transactionHash === hash
+        ) as DeployedEvent;
+        const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
+        const finalSwBalance = await token.balanceOf(smartWalletAddress);
+
+        expect(finalWorkerBalance).to.be.equal(
+          initialWorkerBalance.add(amountToBePay)
+        );
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
+        expect(log).to.not.be.undefined;
+        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(to).to.be.equal(relayHub.address);
+      });
+
+      it('with gasPrice', async function () {
+        const forceGasPrice = 200000;
+
+        const updatedDeployRequest = {
+          ...envelopingDeployRequest,
+          relayData: {
+            ...envelopingDeployRequest.relayData,
+            gasPrice: forceGasPrice,
+          },
+        };
+
+        const { gasPrice, to, hash } = await deployClient.relayTransaction(
+          updatedDeployRequest
+        );
+
+        const filter = smartWalletFactory.filters.Deployed();
+        const logs = await smartWalletFactory.queryFilter(filter);
+        const log = logs.find(
+          (x) => x.transactionHash === hash
+        ) as DeployedEvent;
+
+        expect(log).to.not.be.undefined;
+        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(to).to.be.equal(relayHub.address);
+        expect(gasPrice?.eq(forceGasPrice)).to.be.true;
+      });
+
+      it('with callForwarder', async function () {
+        const updatedDeployRequest = {
+          ...envelopingDeployRequest,
+          relayData: {
+            ...envelopingDeployRequest.relayData,
+            callForwarder: smartWalletFactory.address,
+          },
+        };
+
+        const { to, hash } = await deployClient.relayTransaction(
+          updatedDeployRequest
+        );
+
+        const filter = smartWalletFactory.filters.Deployed();
+        const logs = await smartWalletFactory.queryFilter(filter);
+        const log = logs.find(
+          (x) => x.transactionHash === hash
+        ) as DeployedEvent;
+
+        expect(log).to.not.be.undefined;
+        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(to).to.be.equal(relayHub.address);
+      });
+    });
+  });
+
+  describe('event handling', function () {
+    let relayEvents: EnvelopingEvent[];
+    let smartWallet: SupportedSmartWallet;
+    let testRecipient: TestRecipient;
+    let envelopingRelayRequest: UserDefinedRelayRequest;
+
+    function eventsHandler(event: EnvelopingEvent, ..._args: unknown[]): void {
+      relayEvents.push(event);
+    }
+
+    before(async function () {
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: relayWorker.address,
+        sender: relayWorker,
+        owner: gaslessAccount,
+        factory: smartWalletFactory,
+      });
+      testRecipient = await deployContract('TestRecipient');
+      const encodeData = testRecipient.interface.encodeFunctionData(
+        'emitMessage',
+        ['hello world']
+      );
+      envelopingRelayRequest = {
+        request: {
+          to: testRecipient.address,
+          data: encodeData,
+          from: gaslessAccount.address,
+          tokenContract: token.address,
+        },
+        relayData: {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        },
+      };
+    });
+
+    beforeEach(function () {
+      relayEvents = [];
+    });
+
+    it('should handle events when register', async function () {
+      relayClient.registerEventListener(eventsHandler);
+      const { hash, to } = await relayClient.relayTransaction(
+        envelopingRelayRequest
+      );
+
+      const filter = testRecipient.filters.SampleRecipientEmitted();
+      const logs = await testRecipient.queryFilter(filter);
+      const log = logs.find((x) => x.transactionHash === hash);
+
+      expect(log).to.not.be.undefined;
+      expect(to).to.be.equal(relayHub.address);
+      expect(relayEvents).to.include.members([
+        'sign-request',
+        'validate-request',
+        'send-to-relayer',
+        'relayer-response',
+      ]);
+    });
+
+    it('should not handle events when not register', async function () {
+      relayClient.unregisterEventListener(eventsHandler);
+      const { hash, to } = await relayClient.relayTransaction(
+        envelopingRelayRequest
+      );
+
+      const filter = testRecipient.filters.SampleRecipientEmitted();
+      const logs = await testRecipient.queryFilter(filter);
+      const log = logs.find((x) => x.transactionHash === hash);
+
+      expect(log).to.not.be.undefined;
+      expect(to).to.be.equal(relayHub.address);
+      expect(relayEvents.length).to.be.equal(0);
+    });
+  });
+
+  describe('isSmartWalletOwner', function () {
+    let smartWallet: SupportedSmartWallet;
+
+    before(async function () {
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: relayWorker.address,
+        sender: relayWorker,
+        owner: gaslessAccount,
+        factory: smartWalletFactory,
+      });
+    });
+
+    it('shoud return true if the EOA is the owner of the SW', async function () {
+      const isOwner = await relayClient.isSmartWalletOwner(
+        smartWallet.address,
+        gaslessAccount.address
+      );
+
+      expect(isOwner).to.be.true;
+    });
+
+    it('should return false if the EOA is not the owner of the SW', async function () {
+      const otherGaslessAccount = Wallet.createRandom();
+      const isOwner = await relayClient.isSmartWalletOwner(
+        smartWallet.address,
+        otherGaslessAccount.address
+      );
+
+      expect(isOwner).to.be.false;
+    });
+  });
+
+  describe('relay server', function () {
+    let badServer: Server;
+    const mockServerPort = 8096;
+    let localClient: RelayClient;
+    let smartWallet: SupportedSmartWallet;
+    let testRecipient: TestRecipient;
+    let envelopingRelayRequest: UserDefinedRelayRequest;
+
+    before(async function () {
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      const mockServer = express();
+
+      mockServer.use(bodyParser.urlencoded({ extended: false }));
+      mockServer.use(bodyParser.json());
+
+      const hubInfo = relayServer.getChainInfo();
+
+      mockServer.get('/chain-info', (_, res) => {
+        res.send({
+          ...hubInfo,
+        });
+      });
+
+      mockServer.post('/relay', () => {
+        console.log('== got relay.. ignoring');
+        // don't answer... keeping client in limbo
+      });
+
+      badServer = mockServer.listen(mockServerPort);
+
+      setEnvelopingConfig({
+        preferredRelays: [`http://localhost:${mockServerPort}`],
+        chainId,
+        relayHubAddress: relayHub.address,
+        relayVerifierAddress: relayVerifier.address,
+        deployVerifierAddress: deployVerifier.address,
+        smartWalletFactoryAddress: smartWalletFactory.address,
+        logLevel: 5,
+      });
+
+      localClient = new RelayClient(
+        new MockHttpClient(mockServerPort, new HttpWrapper({ timeout: 100 }))
+      );
+
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: relayWorker.address,
+        sender: relayWorker,
+        owner: gaslessAccount,
+        factory: smartWalletFactory,
+      });
+      testRecipient = await deployContract('TestRecipient');
+      const encodeData = testRecipient.interface.encodeFunctionData(
+        'emitMessage',
+        ['hello world']
+      );
+      envelopingRelayRequest = {
+        request: {
+          to: testRecipient.address,
+          data: encodeData,
+          from: gaslessAccount.address,
+          tokenContract: token.address,
+        },
+        relayData: {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        },
+      };
+    });
+
+    after(function () {
+      badServer.close();
+    });
+
+    it('should skip timed-out server', async function () {
+      await expect(
+        localClient.relayTransaction(envelopingRelayRequest)
+      ).to.be.rejectedWith('Transaction was not relayed through any hub');
+    });
+
+    it.skip('should return error from server', async function () {
+      await localClient.relayTransaction(envelopingRelayRequest);
+    });
+  });
+
+  /* describe.only('estimateRelayTransaction', function () {
+ 
+    let smartWalletFactory: SmartWalletFactory;
+
+    before(async function () {
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      smartWalletFactory = (await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      )) as SmartWalletFactory;
+    });
+ 
+    
+     describe('should estimate relay transaction', function(){
+      
+      let smartWallet: SupportedSmartWallet;
+      let testRecipient: TestRecipient;
+      let envelopingRelayRequest: UserDefinedRelayRequest;
+
+      before(async function () {
+        smartWallet = await createSupportedSmartWallet({
+          relayHub: relayWorker.address,
+          sender: relayWorker,
+          owner: gaslessAccount,
+          factory: smartWalletFactory,
+        });
+        await token.mint(1000, smartWallet.address);
+        testRecipient = await deployContract('TestRecipient');
+        const encodeData = testRecipient.interface.encodeFunctionData(
+          'emitMessage',
+          ['hello world']
+        );
+        envelopingRelayRequest = {
+          request: {
+            to: testRecipient.address,
+            data: encodeData,
+            from: gaslessAccount.address,
+            tokenContract: token.address,
+          },
+          relayData: {
+            callForwarder: smartWallet.address,
+            callVerifier: relayVerifier.address,
+          },
+        };
+      });
+
+      it('without tokenGas/gasLimit/gasPrice estimation', async function(){
+        console.log('--------estimation');
+        console.log('-----------')
+        console.log(await relayClient.estimateRelayTransaction(envelopingRelayRequest));
+      });
+
+       it('with tokenGas estimation', function(){
+ 
+       });
+ 
+       it('without tokenGas estimation', function(){
+ 
+       });
+ 
+       it('with gasLimit estimation', function(){
+ 
+       });
+  
+       it('with gasPrice', function(){
+ 
+       }); 
+  
+     });
+ 
+    describe('should estimate deploy transaction', function(){
+
+      it('without tokenGas/gasLimit/gasPrice/callForwarder estimation', function(){
+ 
+      });
+
+       it('with token gas estimation', function(){
+ 
+       });
+ 
+       it('without token gas estimation', function(){
+ 
+       });
+ 
+       it('with gasPrice', function(){
+ 
+       });
+ 
+       it('with callForwarder', function(){
+ 
+       });
+     }); 
+     
+   });    */
+});
