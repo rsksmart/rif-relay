@@ -7,6 +7,7 @@ import {
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   RelayRequest,
   RelayRequestBody,
+  DeployRequest,
   // SHA3_NULL_S,
 } from '@rsksmart/rif-relay-client';
 import { UtilToken } from '@rsksmart/rif-relay-contracts';
@@ -28,11 +29,19 @@ import {
 import {
   Penalizer,
   RelayHub,
+  // RelayHub__factory,
   SmartWallet,
   SmartWalletFactory,
   TestRecipient,
   TestVerifierEverythingAccepted,
 } from 'typechain-types';
+// import {
+//   // SmartWalletFactory,
+//   // Penalizer,
+//   // RelayHub,
+//   // RelayHub__factory,
+//   // SmartWallet,
+// } from '@rsksmart/rif-relay-contracts';
 import { expect } from 'chai';
 
 // import SmartWalletJson from '../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
@@ -243,9 +252,7 @@ const correctEstimatedCallCost = (estimate: number) => {
 const getCurrentBalances = async () => {
   const nonceBefore = await forwarder.nonce();
   const forwarderInitialBalance = await token.balanceOf(forwarder.address);
-  const relayWorkerInitialBalance = await token.balanceOf(
-    relayWorker.address
-  );
+  const relayWorkerInitialBalance = await token.balanceOf(relayWorker.address);
 
   return {
     nonceBefore,
@@ -405,9 +412,7 @@ async function forgeRequest(
 
   const tokenGas = !isSponsored
     ? {
-        tokenGas: correctEstimatedCallCost(
-          estimatedTokenPaymentGas.toNumber()
-        ),
+        tokenGas: correctEstimatedCallCost(estimatedTokenPaymentGas.toNumber()),
       }
     : {};
 
@@ -472,7 +477,7 @@ async function estimateTokenTransferGasOverhead(fees: string) {
   await printGasStatus(txReceipt);
 }
 
-async function runGasPrediction1(){
+async function runGasPrediction1() {
   const message = 'RIF ENVELOPING '.repeat(22);
 
   const relayCallProcessFirstResult = await triggerRelayCallProcess({
@@ -483,7 +488,7 @@ async function runGasPrediction1(){
   printGasAnalysis(relayCallProcessFirstResult);
 
   console.log('ROUND 2');
-  
+
   const relayCallProcessSecondResult = await triggerRelayCallProcess({
     message,
   });
@@ -491,7 +496,7 @@ async function runGasPrediction1(){
   printGasAnalysis(relayCallProcessSecondResult);
 }
 
-async function runGasPrediction2(){
+async function runGasPrediction2() {
   logTitle('Gas prediction - without token payment:');
 
   const message = 'RIF ENVELOPING '.repeat(77);
@@ -514,9 +519,9 @@ async function runGasPrediction2(){
   printGasAnalysis(relayCallProcessSecondResult);
 }
 
-async function runGasEstimation(){
+async function runGasEstimation() {
   const message = 'RIF Enveloping '.repeat(32);
-  
+
   const { gasUsed, cumulativeGasUsed } = await triggerRelayCallProcess({
     message,
     estimateGasLimit: true,
@@ -539,7 +544,8 @@ async function runGasEstimation(){
   );
   console.log(
     `Enveloping Overhead (message length: ${message.length}) - Overhead Gas: ${gasOverhead} `
-  );  console.log('Round 2: ');
+  );
+  console.log('Round 2: ');
 
   const { gasUsed: gasUsedRound2, cumulativeGasUsed: cumulativeGasUsedRound2 } =
     await triggerRelayCallProcess({
@@ -556,7 +562,7 @@ async function runGasEstimation(){
   );
 }
 
-async function runGasEstimationScenarios(){
+async function runGasEstimationScenarios() {
   const message = 'RIF Enveloping '.repeat(32);
 
   const encodedFunction = recipient.interface.encodeFunctionData(
@@ -604,13 +610,77 @@ async function runGasEstimationScenarios(){
   await estimateTokenTransferGasOverhead('0');
 }
 
+async function runDeployEstimation() {
+  owner = Wallet.createRandom().connect(ethers.provider);
+  penalizer = await deployContract<Penalizer>('Penalizer');
+  relayHub = await deployRelayHub(penalizer.address);
+  await relayHub
+    .connect(relayOwner)
+    .stakeForAddress(relayManager.address, 1000, {
+      value: ethers.utils.parseEther('2'),
+    });
+
+  await relayHub.connect(relayManager).addRelayWorkers([relayWorker.address]);
+  await relayHub.connect(relayManager).registerRelayServer('http://relay.com');
+  const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
+
+  await fundedAccount.sendTransaction({
+    to: owner.address,
+    value: ethers.utils.parseEther('10'),
+  });
+
+  const smartWalletFactory = (await createSmartWalletFactory(
+    smartWalletTemplate,
+    false,
+    owner
+  )) as SmartWalletFactory;
+
+  const deployRequest = {
+    request: {
+      data: '0x00',
+      from: owner.address,
+      nonce: '0',
+      relayHub: relayHub.address,
+      to: '0x0000000000000000000000000000000000000000',
+      tokenAmount: '0',
+      tokenContract: '0x0000000000000000000000000000000000000000',
+      tokenGas: '31259',
+      value: '0',
+      validUntilTime: 0,
+      index: 1,
+      recoverer: '0x0000000000000000000000000000000000000000',
+    },
+    relayData: {
+      callForwarder: smartWalletFactory.address,
+      callVerifier: '0x73ec81da0C72DD112e06c09A6ec03B5544d26F05',
+      feesReceiver: relayWorker.address,
+      gasPrice: '60000000',
+    },
+  } as DeployRequest;
+
+  const { signature } = await getSuffixDataAndSignature(
+    smartWalletFactory,
+    deployRequest,
+    owner
+  );
+  console.log('****runDeployEstimation() signature: ', signature);
+
+  const txResponse = await relayHub
+    .connect(relayWorker)
+    .deployCall(deployRequest, signature, { gasPrice: '60000000' });
+  const txReceipt = await txResponse.wait();
+  const { gasUsed } = txReceipt;
+
+  console.log('gasUsed: ', gasUsed.toString());
+}
+
 const estimateGas = async () => {
-  const [
-    localRelayWorker,
-    localRelayManager,
-    localRelayOwner,
-    localFundedAccount,
-    localRelayHubSigner,
+  [
+    relayWorker,
+    relayManager,
+    relayOwner,
+    fundedAccount,
+    relayHubSigner,
   ] = (await ethers.getSigners()) as [
     SignerWithAddress,
     SignerWithAddress,
@@ -619,19 +689,12 @@ const estimateGas = async () => {
     SignerWithAddress
   ];
 
-  relayWorker = localRelayWorker;
-  relayManager = localRelayManager;
-  relayOwner = localRelayOwner;
-  fundedAccount = localFundedAccount;
-  relayHubSigner = localRelayHubSigner;
-
   logTitle('Gas prediction - with token payment:');
 
   await deployAndSetup();
 
   await runGasPrediction1();
   await runGasPrediction2();
-
 
   logTitle('Gas estimation tests for SmartWallet');
 
@@ -644,7 +707,7 @@ const estimateGas = async () => {
 
   await deployAndSetup();
   await runGasEstimationScenarios();
-
+  await runDeployEstimation();
 };
 
 estimateGas().catch((error) => {

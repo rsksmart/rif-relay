@@ -20,7 +20,6 @@ import {
   EnvelopingRequestData,
   getEnvelopingRequestDataV4Field,
   isDeployRequest,
-  RelayRequest,
   RelayRequestBody,
   relayRequestType,
   SHA3_NULL_S,
@@ -374,15 +373,15 @@ export const signEnvelopingRequest = async (
 };
 
 const getSuffixDataAndSignature = async (
-  smartWallet: SupportedSmartWallet,
-  relayRequest: RelayRequest,
+  forwarder: SupportedSmartWallet | SmartWalletFactory,
+  relayRequest: EnvelopingRequest,
   owner: Wallet
 ) => {
   const { chainId } = await provider.getNetwork();
 
   const typedRequestData = new TypedRequestData(
     chainId,
-    smartWallet.address,
+    forwarder.address,
     relayRequest
   );
 

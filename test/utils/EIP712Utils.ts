@@ -6,8 +6,10 @@ import {
   TypedMessage,
 } from '@metamask/eth-sig-util';
 import {
+  deployRequestType,
+  EnvelopingRequest,
   relayDataType,
-  RelayRequest,
+  // RelayRequest,
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 
@@ -59,10 +61,10 @@ export class TypedRequestData implements TypedMessage<Types> {
 
   readonly message: Record<string, unknown>;
 
-  constructor(chainId: number, verifier: string, relayRequest: RelayRequest) {
+  constructor(chainId: number, verifier: string, relayRequest: EnvelopingRequest) {
     this.types = {
       EIP712Domain: eIP712DomainType,
-      RelayRequest: relayRequestType,
+      RelayRequest: relayRequest.request.index ? deployRequestType : relayRequestType,
       RelayData: relayDataType,
     };
     this.domain = getDomainSeparator(verifier, chainId);
