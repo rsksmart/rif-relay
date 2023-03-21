@@ -131,12 +131,6 @@ const loadConfiguration = ({
   });
 };
 
-const deployTestRecipient = async () => {
-  const testRecipientFactory = await ethers.getContractFactory('TestRecipient');
-
-  return await testRecipientFactory.deploy();
-};
-
 export {
   resolveAllReceipts,
   assertEventHub,
@@ -144,7 +138,6 @@ export {
   getTemporaryWorkdirs,
   stringifyEnvelopingTx,
   loadConfiguration,
-  deployTestRecipient,
 };
 
 export type { ServerWorkdirs, ServerLoadConfiguration };

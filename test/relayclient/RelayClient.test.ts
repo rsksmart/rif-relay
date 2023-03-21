@@ -27,7 +27,7 @@ import {
   HttpClient,
   HttpWrapper,
 } from '@rsksmart/rif-relay-client';
-import { constants, Wallet } from 'ethers';
+import { constants, Contract, EventFilter, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
@@ -40,7 +40,6 @@ import {
   ServerConfigParams,
 } from '@rsksmart/rif-relay-server';
 import { SmartWallet, SmartWalletFactory } from '@rsksmart/rif-relay-contracts';
-import { DeployedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/factory/CustomSmartWalletFactory';
 import { Server } from 'http';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -77,6 +76,28 @@ class MockHttpClient extends HttpClient {
   }
 }
 
+type AssertLogParams = {
+  filter: EventFilter;
+  hash?: string;
+  contract: Contract;
+  index: number;
+  value: unknown;
+};
+
+const assertLog = async ({
+  filter,
+  hash,
+  contract,
+  index,
+  value,
+}: AssertLogParams) => {
+  const logs = await contract.queryFilter(filter);
+  const log = logs.find((x) => x.transactionHash === hash);
+
+  expect(log).to.not.be.undefined;
+  expect(log?.args?.at(index)).to.be.equal(value);
+};
+
 describe('RelayClient', function () {
   let relayClient: RelayClient;
   let relayServer: RelayServer;
@@ -90,6 +111,7 @@ describe('RelayClient', function () {
   let relayOwner: SignerWithAddress;
   let fundedAccount: SignerWithAddress;
   let chainId: number;
+  const amountToPay = 100;
 
   let originalConfig: ServerConfigParams;
 
@@ -165,6 +187,7 @@ describe('RelayClient', function () {
       let smartWallet: SupportedSmartWallet;
       let testRecipient: TestRecipient;
       let envelopingRelayRequest: UserDefinedRelayRequest;
+      const message = 'hello world';
 
       before(async function () {
         smartWallet = await createSupportedSmartWallet({
@@ -177,7 +200,7 @@ describe('RelayClient', function () {
         testRecipient = await deployContract('TestRecipient');
         const encodeData = testRecipient.interface.encodeFunctionData(
           'emitMessage',
-          ['hello world']
+          [message]
         );
         envelopingRelayRequest = {
           request: {
@@ -199,21 +222,24 @@ describe('RelayClient', function () {
         );
 
         const filter = testRecipient.filters.SampleRecipientEmitted();
-        const logs = await testRecipient.queryFilter(filter);
-        const log = logs.find((x) => x.transactionHash === hash);
+        await assertLog({
+          filter,
+          hash,
+          contract: testRecipient,
+          index: 0,
+          value: message,
+        });
 
-        expect(log).to.not.be.undefined;
         expect(to).to.be.equal(relayHub.address);
       });
 
       it('with tokenGas estimation(not sponsored)', async function () {
-        const amountToBePay = 100;
         const updatedRelayRequest = {
           ...envelopingRelayRequest,
           request: {
             ...envelopingRelayRequest.request,
             tokenGas: 55000,
-            tokenAmount: amountToBePay,
+            tokenAmount: amountToPay,
           },
         };
 
@@ -229,25 +255,27 @@ describe('RelayClient', function () {
         const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
         const finalSwBalance = await token.balanceOf(smartWallet.address);
         const filter = testRecipient.filters.SampleRecipientEmitted();
-        const logs = await testRecipient.queryFilter(filter);
-        const log = logs.find((x) => x.transactionHash === hash);
+        await assertLog({
+          filter,
+          hash,
+          contract: testRecipient,
+          index: 0,
+          value: message,
+        });
 
         expect(finalWorkerBalance).to.be.equal(
-          initialWorkerBalance.add(amountToBePay)
+          initialWorkerBalance.add(amountToPay)
         );
-        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
-        expect(log).to.not.be.undefined;
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToPay));
         expect(to).to.be.equal(relayHub.address);
       });
 
       it('without tokenGas estimation(not sponsored)', async function () {
-        const amountToBePay = 100;
-
         const updatedRelayRequest = {
           ...envelopingRelayRequest,
           request: {
             ...envelopingRelayRequest.request,
-            tokenAmount: amountToBePay,
+            tokenAmount: amountToPay,
           },
         };
 
@@ -263,14 +291,18 @@ describe('RelayClient', function () {
         const finalSwBalance = await token.balanceOf(smartWallet.address);
 
         const filter = testRecipient.filters.SampleRecipientEmitted();
-        const logs = await testRecipient.queryFilter(filter);
-        const log = logs.find((x) => x.transactionHash === hash);
+        await assertLog({
+          filter,
+          hash,
+          contract: testRecipient,
+          index: 0,
+          value: message,
+        });
 
         expect(finalWorkerBalance).to.be.equal(
-          initialWorkerBalance.add(amountToBePay)
+          initialWorkerBalance.add(amountToPay)
         );
-        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
-        expect(log).to.not.be.undefined;
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToPay));
         expect(to).to.be.equal(relayHub.address);
       });
 
@@ -299,10 +331,14 @@ describe('RelayClient', function () {
         );
 
         const filter = testRecipient.filters.SampleRecipientEmitted();
-        const logs = await testRecipient.queryFilter(filter);
-        const log = logs.find((x) => x.transactionHash === hash);
+        await assertLog({
+          filter,
+          hash,
+          contract: testRecipient,
+          index: 0,
+          value: message,
+        });
 
-        expect(log).to.not.be.undefined;
         expect(to).to.be.equal(relayHub.address);
       });
 
@@ -322,10 +358,14 @@ describe('RelayClient', function () {
         );
 
         const filter = testRecipient.filters.SampleRecipientEmitted();
-        const logs = await testRecipient.queryFilter(filter);
-        const log = logs.find((x) => x.transactionHash === hash);
+        await assertLog({
+          filter,
+          hash,
+          contract: testRecipient,
+          index: 0,
+          value: message,
+        });
 
-        expect(log).to.not.be.undefined;
         expect(to).to.be.equal(relayHub.address);
         expect(gasPrice?.eq(forceGasPrice)).to.be.true;
       });
@@ -380,24 +420,24 @@ describe('RelayClient', function () {
         );
 
         const filter = smartWalletFactory.filters.Deployed();
-        const logs = await smartWalletFactory.queryFilter(filter);
-        const log = logs.find(
-          (x) => x.transactionHash === hash
-        ) as DeployedEvent;
+        await assertLog({
+          filter,
+          hash,
+          contract: smartWalletFactory,
+          index: 0,
+          value: smartWalletAddress,
+        });
 
-        expect(log).to.not.be.undefined;
-        expect(log.args.addr).to.be.equal(smartWalletAddress);
         expect(to).to.be.equal(relayHub.address);
       });
 
       it('with tokenGas estimation(not sponsored)', async function () {
-        const amountToBePay = 100;
         const updatedDeployRequest = {
           ...envelopingDeployRequest,
           request: {
             ...envelopingDeployRequest.request,
             tokenGas: 55000,
-            tokenAmount: amountToBePay,
+            tokenAmount: amountToPay,
           },
         };
 
@@ -410,29 +450,30 @@ describe('RelayClient', function () {
         );
 
         const filter = smartWalletFactory.filters.Deployed();
-        const logs = await smartWalletFactory.queryFilter(filter);
-        const log = logs.find(
-          (x) => x.transactionHash === hash
-        ) as DeployedEvent;
+        await assertLog({
+          filter,
+          hash,
+          contract: smartWalletFactory,
+          index: 0,
+          value: smartWalletAddress,
+        });
+
         const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
         const finalSwBalance = await token.balanceOf(smartWalletAddress);
 
         expect(finalWorkerBalance).to.be.equal(
-          initialWorkerBalance.add(amountToBePay)
+          initialWorkerBalance.add(amountToPay)
         );
-        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
-        expect(log).to.not.be.undefined;
-        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToPay));
         expect(to).to.be.equal(relayHub.address);
       });
 
       it('without tokenGas estimation(not sponsored)', async function () {
-        const amountToBePay = 100;
         const updatedDeployRequest = {
           ...envelopingDeployRequest,
           request: {
             ...envelopingDeployRequest.request,
-            tokenAmount: amountToBePay,
+            tokenAmount: amountToPay,
           },
         };
 
@@ -445,19 +486,21 @@ describe('RelayClient', function () {
         );
 
         const filter = smartWalletFactory.filters.Deployed();
-        const logs = await smartWalletFactory.queryFilter(filter);
-        const log = logs.find(
-          (x) => x.transactionHash === hash
-        ) as DeployedEvent;
+        await assertLog({
+          filter,
+          hash,
+          contract: smartWalletFactory,
+          index: 0,
+          value: smartWalletAddress,
+        });
         const finalWorkerBalance = await token.balanceOf(relayWorkerAddress);
         const finalSwBalance = await token.balanceOf(smartWalletAddress);
 
         expect(finalWorkerBalance).to.be.equal(
-          initialWorkerBalance.add(amountToBePay)
+          initialWorkerBalance.add(amountToPay)
         );
-        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToBePay));
-        expect(log).to.not.be.undefined;
-        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        expect(finalSwBalance).to.be.equal(initialSwBalance.sub(amountToPay));
+
         expect(to).to.be.equal(relayHub.address);
       });
 
@@ -477,13 +520,14 @@ describe('RelayClient', function () {
         );
 
         const filter = smartWalletFactory.filters.Deployed();
-        const logs = await smartWalletFactory.queryFilter(filter);
-        const log = logs.find(
-          (x) => x.transactionHash === hash
-        ) as DeployedEvent;
+        await assertLog({
+          filter,
+          hash,
+          contract: smartWalletFactory,
+          index: 0,
+          value: smartWalletAddress,
+        });
 
-        expect(log).to.not.be.undefined;
-        expect(log.args.addr).to.be.equal(smartWalletAddress);
         expect(to).to.be.equal(relayHub.address);
         expect(gasPrice?.eq(forceGasPrice)).to.be.true;
       });
@@ -502,13 +546,13 @@ describe('RelayClient', function () {
         );
 
         const filter = smartWalletFactory.filters.Deployed();
-        const logs = await smartWalletFactory.queryFilter(filter);
-        const log = logs.find(
-          (x) => x.transactionHash === hash
-        ) as DeployedEvent;
-
-        expect(log).to.not.be.undefined;
-        expect(log.args.addr).to.be.equal(smartWalletAddress);
+        await assertLog({
+          filter,
+          hash,
+          contract: smartWalletFactory,
+          index: 0,
+          value: smartWalletAddress,
+        });
         expect(to).to.be.equal(relayHub.address);
       });
     });
@@ -519,6 +563,7 @@ describe('RelayClient', function () {
     let smartWallet: SupportedSmartWallet;
     let testRecipient: TestRecipient;
     let envelopingRelayRequest: UserDefinedRelayRequest;
+    const message = 'hello world';
 
     function eventsHandler(event: EnvelopingEvent, ..._args: unknown[]): void {
       relayEvents.push(event);
@@ -542,7 +587,7 @@ describe('RelayClient', function () {
       testRecipient = await deployContract('TestRecipient');
       const encodeData = testRecipient.interface.encodeFunctionData(
         'emitMessage',
-        ['hello world']
+        [message]
       );
       envelopingRelayRequest = {
         request: {
@@ -569,12 +614,17 @@ describe('RelayClient', function () {
       );
 
       const filter = testRecipient.filters.SampleRecipientEmitted();
-      const logs = await testRecipient.queryFilter(filter);
-      const log = logs.find((x) => x.transactionHash === hash);
+      await assertLog({
+        filter,
+        hash,
+        contract: testRecipient,
+        index: 0,
+        value: message,
+      });
 
-      expect(log).to.not.be.undefined;
       expect(to).to.be.equal(relayHub.address);
       expect(relayEvents).to.include.members([
+        'init',
         'sign-request',
         'validate-request',
         'send-to-relayer',
@@ -589,10 +639,14 @@ describe('RelayClient', function () {
       );
 
       const filter = testRecipient.filters.SampleRecipientEmitted();
-      const logs = await testRecipient.queryFilter(filter);
-      const log = logs.find((x) => x.transactionHash === hash);
+      await assertLog({
+        filter,
+        hash,
+        contract: testRecipient,
+        index: 0,
+        value: message,
+      });
 
-      expect(log).to.not.be.undefined;
       expect(to).to.be.equal(relayHub.address);
       expect(relayEvents.length).to.be.equal(0);
     });
@@ -724,6 +778,8 @@ describe('RelayClient', function () {
       ).to.be.rejectedWith('Transaction was not relayed through any hub');
     });
 
+    // test is pending since the way of handling error with the server will be updated
+    // TODO update once updated
     it.skip('should return error from server', async function () {
       await localClient.relayTransaction(envelopingRelayRequest);
     });

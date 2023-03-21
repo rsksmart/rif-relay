@@ -1,6 +1,3 @@
-import childProcess, { ChildProcessWithoutNullStreams } from 'child_process';
-import fs from 'fs';
-import path from 'path';
 import { BigNumberish, constants, Contract, utils, Wallet } from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
@@ -9,15 +6,12 @@ import {
   SmartWalletFactory,
   CustomSmartWalletFactory,
   IForwarder,
-  RelayHub__factory,
   SmartWallet,
   CustomSmartWalletDeployVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import {
   defaultEnvironment,
-  getServerConfig,
   RelayHubConfiguration,
-  sleep,
 } from '@rsksmart/rif-relay-server';
 import {
   DeployRequestBody,
@@ -25,9 +19,6 @@ import {
   EnvelopingRequest,
   EnvelopingRequestData,
   getEnvelopingRequestDataV4Field,
-  HttpClient,
-  HttpWrapper,
-  HubInfo,
   isDeployRequest,
   RelayRequest,
   RelayRequestBody,
@@ -56,8 +47,6 @@ import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts
 
 use(chaiAsPromised);
 
-const ATTEMPTS_GET_SERVER_STATUS = 3;
-const ATTEMPTS_GET_SERVER_READY = 25;
 const ONE_FIELD_IN_BYTES = 32;
 const CHARS_PER_FIELD = 64;
 const PREFIX_HEX = '0x';
@@ -66,13 +55,6 @@ type SupportedSmartWallet = CustomSmartWallet | SmartWallet;
 type SupportedSmartWalletFactory =
   | CustomSmartWalletFactory
   | SmartWalletFactory;
-
-type StartRelayParams = {
-  delay?: number;
-  stake?: BigNumberish;
-  relayOwner: SignerWithAddress;
-  log: boolean;
-};
 
 type CreateSmartWalletParams = {
   relayHub: string;
@@ -112,138 +94,6 @@ const RSK_URL = nodeConfig.get<string>(
 );
 
 const { provider } = ethers;
-
-const startRelay = async ({
-  delay,
-  stake,
-  relayOwner,
-  log = true,
-}: StartRelayParams) => {
-  const {
-    app: { workdir, url, port },
-  } = getServerConfig();
-
-  fs.rmSync(workdir, { recursive: true, force: true });
-
-  const runServerPath = path.resolve(
-    __dirname,
-    '../../node_modules/@rsksmart/rif-relay-server/dist/commands/Start.js'
-  );
-
-  const proc: ChildProcessWithoutNullStreams & { alreadystarted?: number } =
-    childProcess.spawn('node', [runServerPath]);
-
-  let relayLog = function (_: string): void {
-    console.debug('Unknown', _);
-  };
-
-  if (log) {
-    relayLog = (msg: string) =>
-      msg
-        .split('\n')
-        .forEach((line) => console.log(`relay-${proc.pid ?? '0'}> ${line}`));
-  }
-
-  await new Promise((resolve, reject) => {
-    let lastresponse: string;
-    const listener = (data: string): void => {
-      const str = data.toString().replace(/\s+$/, '');
-      lastresponse = str;
-      relayLog(str);
-      if (str.indexOf('Listening on port') >= 0) {
-        proc.alreadystarted = 1;
-        resolve(proc);
-      }
-    };
-    proc.stdout.on('data', listener);
-    proc.stderr.on('data', listener);
-    const doaListener = (code: unknown): void => {
-      if (!proc.alreadystarted) {
-        relayLog(`died before init code=${JSON.stringify(code)}`);
-        reject(new Error(lastresponse));
-      }
-    };
-    proc.on('exit', doaListener.bind(proc));
-  });
-
-  const client = new HttpClient(new HttpWrapper(undefined, 'silent'));
-
-  const { relayManagerAddress, relayHubAddress } = await doUntilDefined(
-    () => client.getChainInfo(`${url}:${port}`),
-    ATTEMPTS_GET_SERVER_STATUS
-  );
-
-  console.log('Relay Server Manager Address', relayManagerAddress);
-
-  await relayOwner.sendTransaction({
-    to: relayManagerAddress,
-    value: utils.parseEther('2'),
-  });
-
-  const relayHub = RelayHub__factory.connect(relayHubAddress, provider);
-
-  await relayHub
-    .connect(relayOwner)
-    .stakeForAddress(relayManagerAddress, delay || 2000, {
-      value: stake || utils.parseEther('1'),
-    });
-
-  const { relayWorkerAddress } = await doUntilDefined(
-    () => getServerReady(`${url}:${port}`, client),
-    ATTEMPTS_GET_SERVER_READY,
-    'Server is not ready to relay transactions'
-  );
-
-  return {
-    proc,
-    worker: relayWorkerAddress,
-    manager: relayManagerAddress,
-  };
-};
-
-const getServerReady = async (
-  url: string,
-  client = new HttpClient(new HttpWrapper(undefined, 'silent'))
-): Promise<HubInfo | undefined> => {
-  const response = await client.getChainInfo(url);
-
-  if (response.ready) {
-    return response;
-  }
-
-  return undefined;
-};
-
-const doUntilDefined = async (
-  functionToWait: () => Promise<HubInfo | undefined>,
-  attempts: number,
-  customErrorMessage?: string,
-  interval = 1000
-): Promise<HubInfo> => {
-  for (let i = 0; i < attempts; i++) {
-    try {
-      console.log('sleep before cont.');
-      await sleep(interval);
-      const response = await functionToWait();
-
-      if (!response) {
-        continue;
-      }
-
-      return response;
-    } catch (e) {
-      console.log('getChainInfo failed');
-    }
-  }
-
-  throw Error(
-    `HubInfo poll expired: (${customErrorMessage ?? 'Server is not reachable'})`
-  );
-};
-
-const stopRelay = (proc: ChildProcessWithoutNullStreams): void => {
-  proc.kill();
-};
 
 const evmMine = async (): Promise<unknown> => {
   return provider.send('evm_mine', []);
@@ -691,8 +541,6 @@ const deployContract = <T>(contract: string) => {
 };
 
 export {
-  startRelay,
-  stopRelay,
   evmMine,
   evmMineMany,
   increaseBlockchainTime,
@@ -715,7 +563,6 @@ export {
 };
 
 export type {
-  StartRelayParams,
   CreateSmartWalletParams,
   PrepareRelayTransactionParams,
   SupportedSmartWallet,

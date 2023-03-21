@@ -54,7 +54,6 @@ import {
 } from '../../typechain-types';
 import {
   assertEventHub,
-  deployTestRecipient,
   getTotalTxCosts,
   loadConfiguration,
   stringifyEnvelopingTx,
@@ -141,7 +140,7 @@ describe('RelayServer', function () {
           relayVerifierAddress: fakeRelayVerifierAddress,
         },
       });
-      recipient = await deployTestRecipient();
+      recipient = await deployContract('TestRecipient');
       const { chainId } = provider.network;
       const {
         app: { url: serverUrl },
@@ -442,7 +441,7 @@ describe('RelayServer', function () {
           relayVerifierAddress: fakeRelayVerifierAddress,
         },
       });
-      recipient = await deployTestRecipient();
+      recipient = await deployContract('TestRecipient');
       const { chainId } = provider.network;
       const {
         app: { url: serverUrl },
@@ -925,7 +924,7 @@ describe('RelayServer', function () {
           maxAlertedDelayMS: 350,
         },
       });
-      recipient = await deployTestRecipient();
+      recipient = await deployContract('TestRecipient');
       const [worker, fundedAccount, relayOwner] =
         (await ethers.getSigners()) as [
           SignerWithAddress,
