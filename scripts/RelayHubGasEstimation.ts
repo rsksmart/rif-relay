@@ -1,50 +1,29 @@
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
-  // DeployRequestBody,
   ESTIMATED_GAS_CORRECTION_FACTOR,
   EnvelopingRequestData,
   INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   RelayRequest,
   RelayRequestBody,
   DeployRequest,
-  // SHA3_NULL_S,
 } from '@rsksmart/rif-relay-client';
 import { UtilToken } from '@rsksmart/rif-relay-contracts';
+import { BigNumber, ContractReceipt, Wallet } from 'ethers';
 import {
-  BigNumber,
-  /* Contract, */ ContractReceipt,
-  Wallet /* constants */,
-} from 'ethers';
-import {
-  // CreateSmartWalletParams,
-  RSK_URL,
-  // createEnvelopingRequest,
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployRelayHub,
   getSuffixDataAndSignature,
-  // signEnvelopingRequest,
 } from '../test/utils/TestUtils';
+import { TestRecipient, TestVerifierEverythingAccepted } from 'typechain-types';
 import {
+  SmartWalletFactory,
   Penalizer,
   RelayHub,
-  // RelayHub__factory,
   SmartWallet,
-  SmartWalletFactory,
-  TestRecipient,
-  TestVerifierEverythingAccepted,
-} from 'typechain-types';
-// import {
-//   // SmartWalletFactory,
-//   // Penalizer,
-//   // RelayHub,
-//   // RelayHub__factory,
-//   // SmartWallet,
-// } from '@rsksmart/rif-relay-contracts';
+} from '@rsksmart/rif-relay-contracts';
 import { expect } from 'chai';
-
-// import SmartWalletJson from '../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 
 const gasPrice = 1;
 const gasLimit = 4e6;
@@ -95,10 +74,19 @@ const deployContract = <Contract>(contract: string) => {
     .then((contractFactory) => contractFactory.deploy() as Contract);
 };
 
-const deployAndSetup = async () => {
-  const provider = new ethers.providers.JsonRpcProvider(RSK_URL);
+async function setupRelayHub(relayHub: RelayHub) {
+  await relayHub
+    .connect(relayOwner)
+    .stakeForAddress(relayManager.address, 1000, {
+      value: ethers.utils.parseEther('2'),
+    });
 
-  owner = ethers.Wallet.createRandom().connect(provider);
+  await relayHub.connect(relayManager).addRelayWorkers([relayWorker.address]);
+  await relayHub.connect(relayManager).registerRelayServer('http://relay.com');
+}
+
+const deployAndSetup = async () => {
+  owner = Wallet.createRandom().connect(ethers.provider);
   penalizer = await deployContract<Penalizer>('Penalizer');
   verifier = await deployContract<TestVerifierEverythingAccepted>(
     'TestVerifierEverythingAccepted'
@@ -106,8 +94,8 @@ const deployAndSetup = async () => {
   recipient = await deployContract<TestRecipient>('TestRecipient');
   token = await deployContract<UtilToken>('UtilToken');
   const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
-
   relayHub = await deployRelayHub(penalizer.address);
+  await setupRelayHub(relayHub);
 
   await fundedAccount.sendTransaction({
     to: owner.address,
@@ -152,21 +140,13 @@ const deployAndSetup = async () => {
     },
   };
 
-  await relayHub
-    .connect(relayOwner)
-    .stakeForAddress(relayManager.address, 1000, {
-      value: ethers.utils.parseEther('2'),
-    });
-
-  await relayHub.connect(relayManager).addRelayWorkers([relayWorker.address]);
-  await relayHub.connect(relayManager).registerRelayServer('http://relay.com');
-
   return {
     forwarder,
     recipient,
     relayHub,
     owner,
     relayRequest,
+    factory
   };
 };
 
@@ -477,12 +457,17 @@ async function estimateTokenTransferGasOverhead(fees: string) {
   await printGasStatus(txReceipt);
 }
 
-async function runGasPrediction1() {
-  const message = 'RIF ENVELOPING '.repeat(22);
+async function runGasPrediction(
+  messageSize: number,
+  runWithoutTokenPayment: boolean
+) {
+  const message = 'RIF ENVELOPING '.repeat(messageSize);
 
   const relayCallProcessFirstResult = await triggerRelayCallProcess({
     message,
     estimateGasLimit: true,
+    noPayment: runWithoutTokenPayment,
+    noTokenGas: runWithoutTokenPayment,
   });
 
   printGasAnalysis(relayCallProcessFirstResult);
@@ -491,29 +476,6 @@ async function runGasPrediction1() {
 
   const relayCallProcessSecondResult = await triggerRelayCallProcess({
     message,
-  });
-
-  printGasAnalysis(relayCallProcessSecondResult);
-}
-
-async function runGasPrediction2() {
-  logTitle('Gas prediction - without token payment:');
-
-  const message = 'RIF ENVELOPING '.repeat(77);
-  const relayCallProcessFirstResult = await triggerRelayCallProcess({
-    message,
-    estimateGasLimit: true,
-    noPayment: true,
-    noTokenGas: true,
-  });
-
-  printGasAnalysis(relayCallProcessFirstResult);
-
-  console.log('ROUND 2');
-  const relayCallProcessSecondResult = await triggerRelayCallProcess({
-    message,
-    noPayment: true,
-    noTokenGas: true,
   });
 
   printGasAnalysis(relayCallProcessSecondResult);
@@ -611,35 +573,13 @@ async function runGasEstimationScenarios() {
 }
 
 async function runDeployEstimation() {
-  owner = Wallet.createRandom().connect(ethers.provider);
-  penalizer = await deployContract<Penalizer>('Penalizer');
-  relayHub = await deployRelayHub(penalizer.address);
-  await relayHub
-    .connect(relayOwner)
-    .stakeForAddress(relayManager.address, 1000, {
-      value: ethers.utils.parseEther('2'),
-    });
-
-  await relayHub.connect(relayManager).addRelayWorkers([relayWorker.address]);
-  await relayHub.connect(relayManager).registerRelayServer('http://relay.com');
-  const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
-
-  await fundedAccount.sendTransaction({
-    to: owner.address,
-    value: ethers.utils.parseEther('10'),
-  });
-
-  const smartWalletFactory = (await createSmartWalletFactory(
-    smartWalletTemplate,
-    false,
-    owner
-  )) as SmartWalletFactory;
+  const {owner, relayHub,factory} = await deployAndSetup();
 
   const deployRequest = {
     request: {
       data: '0x00',
       from: owner.address,
-      nonce: '0',
+      nonce: '1',
       relayHub: relayHub.address,
       to: '0x0000000000000000000000000000000000000000',
       tokenAmount: '0',
@@ -651,7 +591,7 @@ async function runDeployEstimation() {
       recoverer: '0x0000000000000000000000000000000000000000',
     },
     relayData: {
-      callForwarder: smartWalletFactory.address,
+      callForwarder: factory.address,
       callVerifier: '0x73ec81da0C72DD112e06c09A6ec03B5544d26F05',
       feesReceiver: relayWorker.address,
       gasPrice: '60000000',
@@ -659,42 +599,36 @@ async function runDeployEstimation() {
   } as DeployRequest;
 
   const { signature } = await getSuffixDataAndSignature(
-    smartWalletFactory,
+    factory,
     deployRequest,
     owner
   );
-  console.log('****runDeployEstimation() signature: ', signature);
 
   const txResponse = await relayHub
     .connect(relayWorker)
     .deployCall(deployRequest, signature, { gasPrice: '60000000' });
-  const txReceipt = await txResponse.wait();
-  const { gasUsed } = txReceipt;
+    
+  const { gasUsed } = await txResponse.wait();;
 
-  console.log('gasUsed: ', gasUsed.toString());
+  console.log('Gas used on deploy: ', gasUsed.toString());
 }
 
 const estimateGas = async () => {
-  [
-    relayWorker,
-    relayManager,
-    relayOwner,
-    fundedAccount,
-    relayHubSigner,
-  ] = (await ethers.getSigners()) as [
-    SignerWithAddress,
-    SignerWithAddress,
-    SignerWithAddress,
-    SignerWithAddress,
-    SignerWithAddress
-  ];
+  [relayWorker, relayManager, relayOwner, fundedAccount, relayHubSigner] =
+    (await ethers.getSigners()) as [
+      SignerWithAddress,
+      SignerWithAddress,
+      SignerWithAddress,
+      SignerWithAddress,
+      SignerWithAddress
+    ];
 
   logTitle('Gas prediction - with token payment:');
-
   await deployAndSetup();
+  await runGasPrediction(22, false);
 
-  await runGasPrediction1();
-  await runGasPrediction2();
+  logTitle('Gas prediction - without token payment:');
+  await runGasPrediction(77, true);
 
   logTitle('Gas estimation tests for SmartWallet');
 
@@ -707,6 +641,10 @@ const estimateGas = async () => {
 
   await deployAndSetup();
   await runGasEstimationScenarios();
+
+  logTitle('Deploy estimation');
+  await runDeployEstimation();
+  console.log('ROUND 2');
   await runDeployEstimation();
 };
 

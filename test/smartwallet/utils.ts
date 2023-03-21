@@ -22,8 +22,6 @@ type TokenToTest = TestToken | NonRevertTestToken | TetherToken;
 async function getLogArguments(contractTransaction: ContractTransaction) {
   const receipt = await contractTransaction.wait();
 
-  // console.log(receipt);
-
   const eventResult = receipt.events?.find((event) => event.event == 'Result');
 
   const { args } = eventResult as SolidityEvent;

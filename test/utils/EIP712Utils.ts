@@ -9,7 +9,6 @@ import {
   deployRequestType,
   EnvelopingRequest,
   relayDataType,
-  // RelayRequest,
   relayRequestType,
 } from '@rsksmart/rif-relay-client';
 
@@ -61,10 +60,16 @@ export class TypedRequestData implements TypedMessage<Types> {
 
   readonly message: Record<string, unknown>;
 
-  constructor(chainId: number, verifier: string, relayRequest: EnvelopingRequest) {
+  constructor(
+    chainId: number,
+    verifier: string,
+    relayRequest: EnvelopingRequest
+  ) {
     this.types = {
       EIP712Domain: eIP712DomainType,
-      RelayRequest: relayRequest.request.index ? deployRequestType : relayRequestType,
+      RelayRequest: relayRequest.request.index
+        ? deployRequestType
+        : relayRequestType,
       RelayData: relayDataType,
     };
     this.domain = getDomainSeparator(verifier, chainId);
