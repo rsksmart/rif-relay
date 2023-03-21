@@ -9,7 +9,7 @@ import {
   DeployRequest,
 } from '@rsksmart/rif-relay-client';
 import { UtilToken } from '@rsksmart/rif-relay-contracts';
-import { BigNumber, ContractReceipt, Wallet } from 'ethers';
+import { BigNumber, ContractReceipt, Wallet, constants } from 'ethers';
 import {
   createSmartWalletFactory,
   createSupportedSmartWallet,
@@ -146,7 +146,9 @@ const deployAndSetup = async () => {
     relayHub,
     owner,
     relayRequest,
-    factory
+    factory,
+    token,
+    verifier
   };
 };
 
@@ -572,8 +574,15 @@ async function runGasEstimationScenarios() {
   await estimateTokenTransferGasOverhead('0');
 }
 
-async function runDeployEstimation() {
-  const {owner, relayHub,factory} = await deployAndSetup();
+async function runDeployEstimation(tokenAmount = '0') {
+  const {owner, relayHub,factory, token, verifier} = await deployAndSetup();
+
+  const GAS_PRICE = '60000000';
+
+  if(tokenAmount !== '0'){
+    const swAddress = await factory.getSmartWalletAddress(owner.address, constants.AddressZero, '1');
+    await token.mint(tokenAmount, swAddress);
+  }
 
   const deployRequest = {
     request: {
@@ -581,20 +590,20 @@ async function runDeployEstimation() {
       from: owner.address,
       nonce: '1',
       relayHub: relayHub.address,
-      to: '0x0000000000000000000000000000000000000000',
-      tokenAmount: '0',
-      tokenContract: '0x0000000000000000000000000000000000000000',
+      to: constants.AddressZero,
+      tokenAmount,
+      tokenContract: constants.AddressZero,
       tokenGas: '31259',
       value: '0',
       validUntilTime: 0,
       index: 1,
-      recoverer: '0x0000000000000000000000000000000000000000',
+      recoverer: constants.AddressZero,
     },
     relayData: {
       callForwarder: factory.address,
-      callVerifier: '0x73ec81da0C72DD112e06c09A6ec03B5544d26F05',
+      callVerifier: verifier.address,
       feesReceiver: relayWorker.address,
-      gasPrice: '60000000',
+      gasPrice: GAS_PRICE,
     },
   } as DeployRequest;
 
@@ -606,11 +615,11 @@ async function runDeployEstimation() {
 
   const txResponse = await relayHub
     .connect(relayWorker)
-    .deployCall(deployRequest, signature, { gasPrice: '60000000' });
-    
+    .deployCall(deployRequest, signature, { gasPrice: GAS_PRICE });
+
   const { gasUsed } = await txResponse.wait();;
 
-  console.log('Gas used on deploy: ', gasUsed.toString());
+  console.log('Total gas used on deploy: ', gasUsed.toString());
 }
 
 const estimateGas = async () => {
@@ -642,10 +651,16 @@ const estimateGas = async () => {
   await deployAndSetup();
   await runGasEstimationScenarios();
 
-  logTitle('Deploy estimation');
-  await runDeployEstimation();
-  console.log('ROUND 2');
-  await runDeployEstimation();
+  logTitle('Deploy estimation without token payment');
+  await runDeployEstimation('0');
+  console.log('\nROUND 2');
+  await runDeployEstimation('0');
+
+  logTitle('Deploy estimation with token payment');
+  const TOKEN_AMOUNT = '100000000000000000000';
+  await runDeployEstimation(TOKEN_AMOUNT);
+  console.log('\nROUND 2');
+  await runDeployEstimation(TOKEN_AMOUNT);
 };
 
 estimateGas().catch((error) => {
