@@ -38,12 +38,15 @@ on the same context as this repository during tests, this is a normal behaviour.
 
 ## Scripts
 
-This repository contains a script that analyzes gas consumption for relay requests. It prints different metrics related to gas usage when relaying a transaction.
+This repository contains a script that analyzes gas consumption for relay and deploy requests. It prints different metrics related to gas usage when relaying a transaction or deploying a smart wallet.
 To run it, execute the command:
 
 `npm run analyze:gas <NETWORK_NAME>`
 
 where:
 - `<NETWORK_NAME>` is a required parameter for the network name, taken from the `hardhat.config.ts`, and must correspond to a valid RSK Node (commonly, regtest is used). Do not use this with the default network (hardhat) as it will fail.
+
+Example: 
+`npm run analyze:gas regtest`
 
 [Deprecated Doc](docs/README.md)
