@@ -33,17 +33,12 @@ import {
   signEnvelopingRequest,
   evmMineMany,
   deployRelayHub,
+  deployContract,
 } from './utils/TestUtils';
 import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
 
 const stripHex = (s: string): string => {
   return s.slice(2, s.length);
-};
-
-const deployContract = <Contract>(contract: string) => {
-  return ethers
-    .getContractFactory(contract)
-    .then((contractFactory) => contractFactory.deploy() as Contract);
 };
 
 describe('RelayHub', function () {

@@ -1,37 +1,27 @@
-import { ethers } from 'hardhat';
-import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
-  DeployRequestBody,
-  ESTIMATED_GAS_CORRECTION_FACTOR,
-  EnvelopingRequestData,
-  INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
+  EnvelopingRequestData, ESTIMATED_GAS_CORRECTION_FACTOR, INTERNAL_TRANSACTION_ESTIMATED_CORRECTION,
   RelayRequest,
-  RelayRequestBody,
-  SHA3_NULL_S,
-} from '@rsksmart/rif-relay-client'
-import { UtilToken } from '@rsksmart/rif-relay-contracts'
-import { BigNumber, Contract, ContractReceipt, Wallet, constants } from 'ethers'
-import {
-  CreateSmartWalletParams,
-  RSK_URL,
-  createEnvelopingRequest,
-  createSmartWalletFactory,
-  createSupportedSmartWallet,
-  deployRelayHub,
-  getSuffixDataAndSignature,
-  signEnvelopingRequest,
-} from '../test/utils/TestUtils'
+  RelayRequestBody
+} from '@rsksmart/rif-relay-client';
+import { UtilToken } from '@rsksmart/rif-relay-contracts';
+import { expect } from 'chai';
+import { BigNumber, ContractReceipt, Wallet } from 'ethers';
+import { ethers } from 'hardhat';
 import {
   Penalizer,
   RelayHub,
   SmartWallet,
   SmartWalletFactory,
   TestRecipient,
-  TestVerifierEverythingAccepted,
-} from 'typechain-types'
-import { expect } from 'chai';
+  TestVerifierEverythingAccepted
+} from 'typechain-types';
+import {
+  createSmartWalletFactory,
+  createSupportedSmartWallet, deployContract, deployRelayHub,
+  getSuffixDataAndSignature, RSK_URL
+} from '../test/utils/TestUtils';
 
-import SmartWalletJson from '../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 
 const gasPrice = 1
 const gasLimit = 4e6
@@ -84,12 +74,6 @@ const estimateGas = async () => {
 
   const deployAndSetup = async () => {
     const provider = new ethers.providers.JsonRpcProvider(RSK_URL);
-  
-    const deployContract = <Contract>(contract: string) => {
-      return ethers
-        .getContractFactory(contract)
-        .then((contractFactory) => contractFactory.deploy() as Contract)
-    }
   
     owner = ethers.Wallet.createRandom().connect(provider)
     penalizer = await deployContract<Penalizer>('Penalizer')
