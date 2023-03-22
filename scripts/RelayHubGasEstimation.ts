@@ -13,6 +13,7 @@ import { BigNumber, ContractReceipt, Wallet, constants } from 'ethers';
 import {
   createSmartWalletFactory,
   createSupportedSmartWallet,
+  deployContract,
   deployRelayHub,
   getSuffixDataAndSignature,
 } from '../test/utils/TestUtils';
@@ -67,12 +68,6 @@ function logGasOverhead(gasOverhead: BigNumber) {
     `${bgMagenta}Enveloping Overhead Gas: ${gasOverhead.toString()}${reset}\n`
   );
 }
-
-const deployContract = <Contract>(contract: string) => {
-  return ethers
-    .getContractFactory(contract)
-    .then((contractFactory) => contractFactory.deploy() as Contract);
-};
 
 async function setupRelayHub(relayHub: RelayHub) {
   await relayHub
@@ -148,7 +143,7 @@ const deployAndSetup = async () => {
     relayRequest,
     factory,
     token,
-    verifier
+    verifier,
   };
 };
 
@@ -575,12 +570,16 @@ async function runGasEstimationScenarios() {
 }
 
 async function runDeployEstimation(tokenAmount = '0') {
-  const {owner, relayHub,factory, token, verifier} = await deployAndSetup();
+  const { owner, relayHub, factory, token, verifier } = await deployAndSetup();
 
   const GAS_PRICE = '60000000';
 
-  if(tokenAmount !== '0'){
-    const swAddress = await factory.getSmartWalletAddress(owner.address, constants.AddressZero, '1');
+  if (tokenAmount !== '0') {
+    const swAddress = await factory.getSmartWalletAddress(
+      owner.address,
+      constants.AddressZero,
+      '1'
+    );
     await token.mint(tokenAmount, swAddress);
   }
 
@@ -617,7 +616,7 @@ async function runDeployEstimation(tokenAmount = '0') {
     .connect(relayWorker)
     .deployCall(deployRequest, signature, { gasPrice: GAS_PRICE });
 
-  const { gasUsed } = await txResponse.wait();;
+  const { gasUsed } = await txResponse.wait();
 
   console.log('Total gas used on deploy: ', gasUsed.toString());
 }

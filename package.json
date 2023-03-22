@@ -67,16 +67,19 @@
     "analyze:gas": "npx hardhat run scripts/RelayHubGasEstimation.ts --network",
     "prebuild": "hardhat clean",
     "build": "hardhat compile --force",
-    "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\" \"**/*.yml\"",
+    "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\" \"{,scripts/**/}*.ts\" \"**/*.yml\"",
     "format:fix": "npm run format -- --write",
-    "lint": "npx eslint --cache \"{,test/**/}*.ts\"",
+    "lint": "npx eslint --cache \"{,test/**/}*.ts\" \"{,scripts/**/}*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "prepare": "utils/prepare.npm",
     "test": "ALLOW_CONFIG_MUTATIONS=true NODE_CONFIG_DIR='node_modules/@rsksmart/rif-relay-server/config:config' TEST=true REPORT_GAS=true hardhat test --typecheck",
     "test:docker": "utils/test"
   },
   "lint-staged": {
-    "*.ts": "eslint --cache --fix",
+    "*.ts": [
+      "npm run format:fix",
+      "npm run lint:fix"
+    ],
     "package.json": "npx sort-package-json"
   },
   "dependencies": {
