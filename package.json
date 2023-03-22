@@ -64,6 +64,7 @@
     "test": "test"
   },
   "scripts": {
+    "analyze:gas": "npx hardhat run scripts/RelayHubGasEstimation.ts --network",
     "prebuild": "hardhat clean",
     "build": "hardhat compile --force",
     "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\" \"**/*.yml\"",
@@ -72,8 +73,7 @@
     "lint:fix": "npm run lint -- --fix",
     "prepare": "utils/prepare.npm",
     "test": "ALLOW_CONFIG_MUTATIONS=true NODE_CONFIG_DIR='node_modules/@rsksmart/rif-relay-server/config:config' TEST=true REPORT_GAS=true hardhat test --typecheck",
-    "test:docker": "utils/test",
-    "analyze:gas": "npx hardhat run scripts/RelayHubGasEstimation.ts --network"
+    "test:docker": "utils/test"
   },
   "lint-staged": {
     "*.ts": "eslint --cache --fix",
@@ -85,7 +85,7 @@
     "@metamask/eth-sig-util": "^5.0.2",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
-    "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client#PP-635/relay-client-tests",
+    "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts",
     "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server",
     "@tsconfig/node16-strictest": "^1.0.4",
