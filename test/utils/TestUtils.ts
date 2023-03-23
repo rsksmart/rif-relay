@@ -533,11 +533,11 @@ const createUserDefinedRequest = (
       };
 };
 
-const deployContract = <T>(contract: string) => {
-  return ethers
-    .getContractFactory(contract)
-    .then((contractFactory) => contractFactory.deploy() as T);
-};
+async function deployContract<T>(contract: string) {
+  const contractFactory = await ethers.getContractFactory(contract);
+
+  return contractFactory.deploy() as T;
+}
 
 export {
   evmMine,

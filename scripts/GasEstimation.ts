@@ -16,6 +16,7 @@ import {
   deployRelayHub,
   getSuffixDataAndSignature,
   SupportedSmartWallet,
+  deployContract,
 } from '../test/utils/TestUtils';
 import { TestRecipient, TestVerifierEverythingAccepted } from 'typechain-types';
 import {
@@ -31,6 +32,7 @@ const GAS_LIMIT = 4e6;
 const UNDERLINE = '\x1b[4m';
 const RESET = '\x1b[0m';
 const TOKEN_AMOUNT_TO_TRANSFER = ethers.utils.parseUnits('100').toString();
+const RELAY_URL = 'http://relay.com';
 
 let relayWorker: SignerWithAddress;
 let relayManager: SignerWithAddress;
@@ -58,12 +60,6 @@ function logTitle(title: string) {
   console.log(`${UNDERLINE}\n${title.toUpperCase()}${RESET}`);
 }
 
-async function deployContract<Contract>(contract: string) {
-  const contractFactory = await ethers.getContractFactory(contract);
-
-  return contractFactory.deploy() as Contract;
-}
-
 async function setupRelayHub(relayHub: RelayHub) {
   await relayHub
     .connect(relayOwner)
@@ -72,7 +68,7 @@ async function setupRelayHub(relayHub: RelayHub) {
     });
 
   await relayHub.connect(relayManager).addRelayWorkers([relayWorker.address]);
-  await relayHub.connect(relayManager).registerRelayServer('http://relay.com');
+  await relayHub.connect(relayManager).registerRelayServer(RELAY_URL);
 }
 
 async function deployAndSetup() {
@@ -107,13 +103,17 @@ async function deployAndSetup() {
 }
 
 async function getTransferEstimationWithoutRelay(token: UtilToken) {
-  const [utilAccount] = (await ethers.getSigners()) as [SignerWithAddress];
+  const [senderAccount, receiverAccount] = (await ethers.getSigners()) as [
+    SignerWithAddress,
+    SignerWithAddress
+  ];
 
-  await token.mint(TOKEN_AMOUNT_TO_TRANSFER, utilAccount.address);
+  await token.mint(TOKEN_AMOUNT_TO_TRANSFER + '00', senderAccount.address);
 
   const noRelayCall = await token.transfer(
-    utilAccount.address,
-    TOKEN_AMOUNT_TO_TRANSFER
+    receiverAccount.address,
+    TOKEN_AMOUNT_TO_TRANSFER,
+    { from: senderAccount.address }
   );
 
   return await noRelayCall.wait();
@@ -172,19 +172,6 @@ function correctEstimatedCallCost(estimation: BigNumber) {
       ? estimation.sub(internalCorrection)
       : estimation
   );
-}
-
-async function getCurrentBalances(
-  token: UtilToken,
-  forwarder: SupportedSmartWallet
-) {
-  const forwarderBalance = await token.balanceOf(forwarder.address);
-  const relayWorkerBalance = await token.balanceOf(relayWorker.address);
-
-  return {
-    forwarderBalance,
-    relayWorkerBalance,
-  };
 }
 
 async function getEstimatedGasWithCorrection(
@@ -293,10 +280,8 @@ async function estimateRelayCost(fees = '0') {
 
   await token.mint(TOKEN_AMOUNT_TO_TRANSFER + '00', smartWallet.address);
 
-  const {
-    forwarderBalance: forwarderInitialBalance,
-    relayWorkerBalance: relayWorkerInitialBalance,
-  } = await getCurrentBalances(token, smartWallet);
+  const smartWalletInitialBalance = await token.balanceOf(smartWallet.address);
+  const relayWorkerInitialBalance = await token.balanceOf(relayWorker.address);
 
   const transferReceiver = ethers.Wallet.createRandom();
 
@@ -324,7 +309,7 @@ async function estimateRelayCost(fees = '0') {
   const txReceiptWithRelay = await relayCallResult.wait();
 
   await assertRelayedTransaction(
-    forwarderInitialBalance,
+    smartWalletInitialBalance,
     relayWorkerInitialBalance,
     BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER),
     token,
