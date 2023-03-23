@@ -38,7 +38,7 @@ on the same context as this repository during tests, this is a normal behaviour.
 
 ## Scripts
 
-This repository contains a script that analyzes gas consumption for relay and deploy requests. It prints different metrics related to gas usage when relaying a transaction or deploying a smart wallet.
+This repository contains a script that analyzes gas consumption for relay and deploy transactions. It prints different metrics related to gas usage when relaying a transaction or deploying a smart wallet.
 To run it, execute the command:
 
 `npm run analyze:gas <NETWORK_NAME>`

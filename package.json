@@ -64,7 +64,7 @@
     "test": "test"
   },
   "scripts": {
-    "analyze:gas": "npx hardhat run scripts/RelayHubGasEstimation.ts --network",
+    "analyze:gas": "npx hardhat run scripts/GasEstimation.ts --network",
     "prebuild": "hardhat clean",
     "build": "hardhat compile --force",
     "format": "prettier --list-different  --no-editorconfig \"{,test/**/}*.ts\" \"{,scripts/**/}*.ts\" \"**/*.yml\"",
