@@ -15,10 +15,9 @@ import {
   createSupportedSmartWallet,
   deployRelayHub,
   getSuffixDataAndSignature,
-  SupportedSmartWallet,
   deployContract,
 } from '../test/utils/TestUtils';
-import { TestRecipient, TestVerifierEverythingAccepted } from 'typechain-types';
+import { TestVerifierEverythingAccepted } from 'typechain-types';
 import {
   SmartWalletFactory,
   Penalizer,
@@ -136,17 +135,14 @@ function printRelayGasAnalysis(
   console.log(`\t\t\tGas overhead:\t\t ${gasOverhead.toString()}`);
 }
 
-async function assertRelayedTransaction(
+function assertRelayedTransaction(
   forwarderInitialBalance: BigNumber,
   relayWorkerInitialBalance: BigNumber,
+  forwarderFinalBalance: BigNumber,
+  relayWorkerFinalBalance: BigNumber,
   balanceToTransfer: BigNumber,
-  token: UtilToken,
-  forwarder: SupportedSmartWallet,
   fees?: BigNumber
 ) {
-  const forwarderFinalBalance = await token.balanceOf(forwarder.address);
-  const relayWorkerFinalBalance = await token.balanceOf(relayWorker.address);
-
   expect(
     forwarderInitialBalance.eq(
       forwarderFinalBalance
@@ -245,7 +241,6 @@ async function completeRelayRequest(
 }
 
 async function estimateRelayCost(fees = '0') {
-  const recipient = await deployContract<TestRecipient>('TestRecipient');
   const { relayHub, smartWalletFactory, owner, token, verifier } =
     await deployAndSetup();
 
@@ -259,8 +254,8 @@ async function estimateRelayCost(fees = '0') {
   const baseRelayRequest = {
     request: {
       relayHub: relayHub.address,
-      to: recipient.address,
-      data: '0xdeadbeef',
+      to: constants.AddressZero,
+      data: '0x',
       from: owner.address,
       nonce: (await smartWallet.nonce()).toString(),
       value: '0',
@@ -308,12 +303,15 @@ async function estimateRelayCost(fees = '0') {
     });
   const txReceiptWithRelay = await relayCallResult.wait();
 
-  await assertRelayedTransaction(
+  const smartWalletFinalBalance = await token.balanceOf(smartWallet.address);
+  const relayWorkerFinalBalance = await token.balanceOf(relayWorker.address);
+
+  assertRelayedTransaction(
     smartWalletInitialBalance,
     relayWorkerInitialBalance,
+    smartWalletFinalBalance,
+    relayWorkerFinalBalance,
     BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER),
-    token,
-    smartWallet,
     BigNumber.from(fees)
   );
 
