@@ -107,7 +107,9 @@ async function getTransferEstimationWithoutRelay(token: UtilToken) {
     SignerWithAddress
   ];
 
-  await token.mint(TOKEN_AMOUNT_TO_TRANSFER + '00', senderAccount.address);
+  // the amount to mint should be bigger than the amount to transfer to avoid gas refund
+  const amountToMint = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER).add(1);
+  await token.mint(amountToMint, senderAccount.address);
 
   const noRelayCall = await token.transfer(
     receiverAccount.address,
