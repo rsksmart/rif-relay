@@ -20,7 +20,6 @@ import {
   EnvelopingRequestData,
   getEnvelopingRequestDataV4Field,
   isDeployRequest,
-  RelayRequest,
   RelayRequestBody,
   relayRequestType,
   SHA3_NULL_S,
@@ -374,15 +373,15 @@ export const signEnvelopingRequest = async (
 };
 
 const getSuffixDataAndSignature = async (
-  smartWallet: SupportedSmartWallet,
-  relayRequest: RelayRequest,
+  forwarder: SupportedSmartWallet | SmartWalletFactory,
+  relayRequest: EnvelopingRequest,
   owner: Wallet
 ) => {
   const { chainId } = await provider.getNetwork();
 
   const typedRequestData = new TypedRequestData(
     chainId,
-    smartWallet.address,
+    forwarder.address,
     relayRequest
   );
 
@@ -534,11 +533,11 @@ const createUserDefinedRequest = (
       };
 };
 
-const deployContract = <T>(contract: string) => {
-  return ethers
-    .getContractFactory(contract)
-    .then((contractFactory) => contractFactory.deploy() as T);
-};
+async function deployContract<T>(contract: string) {
+  const contractFactory = await ethers.getContractFactory(contract);
+
+  return contractFactory.deploy() as T;
+}
 
 export {
   evmMine,
