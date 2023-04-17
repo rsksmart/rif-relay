@@ -38,7 +38,7 @@
   },
   "dependencies": {
     "@openeth/truffle-typings": "0.0.6",
-    "@openzeppelin/contracts": "^3.2.0",
+    "@openzeppelin/contracts": "^4.8.3",
     "@rsksmart/rif-relay-client": "1.0.0-alpha.5",
     "@rsksmart/rif-relay-common": "1.0.0-alpha.4",
     "@rsksmart/rif-relay-contracts": "1.0.0-alpha.5",
