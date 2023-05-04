@@ -50,7 +50,7 @@ const SERVER_WORK_DIR = './tmp/enveloping/test/server';
 const serverPort = 8095;
 
 const basicAppConfig: Partial<AppConfig> = {
-  url: `http:localhost:${serverPort}`,
+  url: `http://localhost:${serverPort}`,
   port: serverPort,
   devMode: true,
   logLevel: 5,
@@ -775,7 +775,7 @@ describe('RelayClient', function () {
     it('should skip timed-out server', async function () {
       await expect(
         localClient.relayTransaction(envelopingRelayRequest)
-      ).to.be.rejectedWith('Transaction was not relayed through any hub');
+      ).to.be.rejectedWith('Timeout');
     });
 
     // test is pending since the way of handling error with the server will be updated

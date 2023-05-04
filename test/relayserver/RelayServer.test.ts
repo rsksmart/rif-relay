@@ -40,10 +40,7 @@ import {
   estimateInternalCallGas,
   HubInfo,
   RelayClient,
-  RelayRequest,
-  RelayRequestBody,
   setEnvelopingConfig,
-  UserDefinedRelayRequest,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
@@ -484,58 +481,6 @@ describe('RelayServer', function () {
       });
     });
 
-    describe('maxPossibleGasWithViewCall', function () {
-      it('should fail to relay rejected transaction', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 0,
-          },
-          {
-            callForwarder: smartWallet.address,
-          }
-        ) as UserDefinedRelayRequest;
-
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
-        const wrongEnvelopingTxRequest = await createEnvelopingTxRequest(
-          {
-            ...userDefinedRelayRequest,
-            request: {
-              ...userDefinedRelayRequest.request,
-              gas: constants.Two,
-            } as RelayRequestBody,
-          },
-          relayClient,
-          hubInfo
-        );
-
-        const {
-          metadata: { signature },
-        } = wrongEnvelopingTxRequest;
-
-        const method = await relayHub.populateTransaction.relayCall(
-          envelopingTxRequest.relayRequest as RelayRequest,
-          signature
-        );
-
-        await expect(
-          relayServer.maxPossibleGasWithViewCall(
-            method,
-            envelopingTxRequest,
-            BigNumber.from(2000000)
-          )
-        ).to.be.rejectedWith('revert Signature mismatch');
-      });
-    });
-
     describe('createRelayTransaction', function () {
       let gasPrice: BigNumber;
 
@@ -572,7 +517,7 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           stringifyRequest
         );
 
@@ -582,7 +527,7 @@ describe('RelayServer', function () {
 
         const receipt = await provider.getTransactionReceipt(txHash);
 
-        expect(maxPossibleGas).to.be.equal(
+        expect(maxPossibleGasWithFee).to.be.equal(
           receipt.cumulativeGasUsed,
           'Gas used in transaction is different from expected'
         );
@@ -624,7 +569,7 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           stringifyRequest
         );
 
@@ -634,7 +579,7 @@ describe('RelayServer', function () {
 
         const receipt = await provider.getTransactionReceipt(txHash);
 
-        expect(maxPossibleGas).to.be.equal(
+        expect(maxPossibleGasWithFee).to.be.equal(
           receipt.cumulativeGasUsed,
           'Gas used in transaction is different from expected'
         );
