@@ -40,7 +40,10 @@ import {
   estimateInternalCallGas,
   HubInfo,
   RelayClient,
+  RelayRequest,
+  RelayRequestBody,
   setEnvelopingConfig,
+  UserDefinedRelayRequest,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
@@ -478,6 +481,58 @@ describe('RelayServer', function () {
         sender: worker,
         owner,
         factory: smartWalletFactory,
+      });
+    });
+
+    describe('maxPossibleGasWithViewCall', function () {
+      it('should fail to relay rejected transaction', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 0,
+          },
+          {
+            callForwarder: smartWallet.address,
+          }
+        ) as UserDefinedRelayRequest;
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        const wrongEnvelopingTxRequest = await createEnvelopingTxRequest(
+          {
+            ...userDefinedRelayRequest,
+            request: {
+              ...userDefinedRelayRequest.request,
+              gas: constants.Two,
+            } as RelayRequestBody,
+          },
+          relayClient,
+          hubInfo
+        );
+
+        const {
+          metadata: { signature },
+        } = wrongEnvelopingTxRequest;
+
+        const method = await relayHub.populateTransaction.relayCall(
+          envelopingTxRequest.relayRequest as RelayRequest,
+          signature
+        );
+
+        await expect(
+          relayServer.maxPossibleGasWithViewCall(
+            method,
+            envelopingTxRequest,
+            BigNumber.from(2000000)
+          )
+        ).to.be.rejectedWith('revert Signature mismatch');
       });
     });
 
