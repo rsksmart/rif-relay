@@ -572,7 +572,7 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           stringifyRequest
         );
 
@@ -582,7 +582,7 @@ describe('RelayServer', function () {
 
         const receipt = await provider.getTransactionReceipt(txHash);
 
-        expect(maxPossibleGas).to.be.equal(
+        expect(maxPossibleGasWithFee).to.be.equal(
           receipt.cumulativeGasUsed,
           'Gas used in transaction is different from expected'
         );
@@ -624,7 +624,7 @@ describe('RelayServer', function () {
 
         const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
-        const maxPossibleGas = await relayServer.getMaxPossibleGas(
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           stringifyRequest
         );
 
@@ -634,7 +634,7 @@ describe('RelayServer', function () {
 
         const receipt = await provider.getTransactionReceipt(txHash);
 
-        expect(maxPossibleGas).to.be.equal(
+        expect(maxPossibleGasWithFee).to.be.equal(
           receipt.cumulativeGasUsed,
           'Gas used in transaction is different from expected'
         );
