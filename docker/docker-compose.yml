@@ -2,7 +2,7 @@ version: "3"
 services:
   rskj:
     container_name: rsk-node
-    image: rsksmart/rskj:HOP-4.1.1
+    image: rsksmart/rskj:FINGERROOT-5.0.0
     ports:
       - "127.0.0.1:4444:4444"
       - "127.0.0.1:4445:4445"
