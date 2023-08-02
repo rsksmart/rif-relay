@@ -11,6 +11,14 @@ services:
     volumes:
       - ./logback.xml:/etc/rsk/logback.xml
       - ./node.conf:/etc/rsk/node.conf
+    entrypoint:
+      [
+        "java",
+        "-Dlogback.configurationFile=/etc/rsk/logback.xml",
+        "-cp",
+        "rsk.jar",
+        "co.rsk.Start",
+      ]
 
 networks:
   rif-relay-testing:

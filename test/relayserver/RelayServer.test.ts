@@ -185,9 +185,9 @@ describe('RelayServer', function () {
         envelopingTxRequest.metadata.relayHubAddress =
           undefined as unknown as PromiseOrValue<string>;
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Cannot read properties of undefined'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Cannot read properties of undefined');
       });
     });
 
@@ -210,9 +210,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Wrong hub address.'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Wrong hub address.');
       });
 
       it('should throw on wrong fees receiver address', async function () {
@@ -234,9 +234,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Wrong fees receiver address'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Wrong fees receiver address');
       });
 
       it('should throw if gas price is equal to zero', async function () {
@@ -258,9 +258,9 @@ describe('RelayServer', function () {
 
         envelopingTxRequest.relayRequest.relayData.gasPrice = 0;
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Unacceptable gasPrice'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Unacceptable gasPrice');
       });
 
       it('should throw on request expired', async function () {
@@ -281,9 +281,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Request expired (or too close)'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Request expired (or too close)');
       });
 
       it('should throw on request too close', async function () {
@@ -304,9 +304,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() => relayServer.validateInput(envelopingTxRequest)).to.throw(
-          'Request expired (or too close)'
-        );
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Request expired (or too close)');
       });
     });
 
