@@ -67,10 +67,11 @@ const getFundedServer = async (
 
   const { relayHubAddress, relayManagerAddress } = relayServer.getChainInfo();
 
-  await relayOwner.sendTransaction({
+  const managerFundingTx = await relayOwner.sendTransaction({
     to: relayManagerAddress,
     value: utils.parseEther('2'),
   });
+  await managerFundingTx.wait();
 
   const relayHub = RelayHub__factory.connect(relayHubAddress, provider);
 
