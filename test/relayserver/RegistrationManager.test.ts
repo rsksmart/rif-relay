@@ -264,7 +264,7 @@ describe('RegistrationManager', function () {
 
       expect(relayServer.isReady()).to.be.false;
 
-      expect(relayServer._lastScannedBlock).to.be.equal(0);
+      expect(relayServer._lastScannedBlock).to.be.equal(1);
 
       const workerBalanceBefore = await relayServer.getWorkerBalance(
         workerIndex
