@@ -700,7 +700,7 @@ describe('RelayServer', function () {
       });
 
       const currentBlockNumber = await provider.getBlockNumber();
-      const receipts = await replenishStrategy(relayServer, workerIndex, 0)
+      const receipts = await replenishStrategy(relayServer, workerIndex, 0);
 
       expect(receipts).to.be.deep.equal([]);
       expect(currentBlockNumber);
