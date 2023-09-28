@@ -7,6 +7,11 @@ import {
 import { BigNumber } from 'ethers';
 import fs from 'fs/promises';
 
+const bn = BigNumber.from(1);
+const bigNumberProperties = Object.getOwnPropertyNames(bn);
+const isBigNumber = (value: any) =>
+  bigNumberProperties.every((prop) => prop in value);
+
 describe('TxStoreManager', function () {
   const workdir = '/tmp/env-test';
   it('should return transactions with gasLimit and gasPrice as BigNumber', async function () {
@@ -42,10 +47,6 @@ describe('TxStoreManager', function () {
 
     const txs = await txStoreManager.getAllBySigner(workerAddress);
 
-    const bn = BigNumber.from(1);
-    const bigNumberProperties = Object.getOwnPropertyNames(bn);
-    const isBigNumber = (value: any) =>
-      bigNumberProperties.every((prop) => prop in value);
     const txExpectation = ({ gasPrice, gasLimit }: StoredTransaction) =>
       isBigNumber(gasPrice) && isBigNumber(gasLimit);
 
