@@ -371,7 +371,12 @@ describe('RegistrationManager', function () {
         const relayData = await registrationManager.getRelayData();
 
         const isValid = isRegistrationValid(
-          relayData,
+          {
+            currentlyStaked: await relayData.currentlyStaked,
+            manager: await relayData.manager,
+            registered: await relayData.registered,
+            url: await relayData.url,
+          },
           registrationManager._managerAddress
         );
 
@@ -389,8 +394,14 @@ describe('RegistrationManager', function () {
         relayServer.config.app.url = 'http://fake_url';
 
         const relayData = await registrationManager.getRelayData();
+
         const isValid = isRegistrationValid(
-          relayData,
+          {
+            currentlyStaked: await relayData.currentlyStaked,
+            manager: await relayData.manager,
+            registered: await relayData.registered,
+            url: await relayData.url,
+          },
           registrationManager._managerAddress
         );
 

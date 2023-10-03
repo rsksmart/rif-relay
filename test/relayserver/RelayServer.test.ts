@@ -347,7 +347,7 @@ describe('RelayServer', function () {
 
         const trustedVerifierSpy = spy(relayServer, 'isTrustedVerifier');
 
-        relayServer.validateVerifier(envelopingTxRequest);
+        await relayServer.validateVerifier(envelopingTxRequest);
 
         const {
           relayRequest: {
@@ -382,9 +382,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() =>
+        await expect(
           relayServer.validateVerifier(envelopingTxRequest)
-        ).to.throw('Invalid verifier');
+        ).to.be.rejectedWith('Invalid verifier');
       });
     });
 

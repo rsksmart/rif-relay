@@ -90,7 +90,7 @@
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts",
-    "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server#PP-842/fix-underpriced-transactions",
+    "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server#fix/resendTransaction",
     "@tsconfig/node16-strictest": "^1.0.4",
     "@types/config": "^3.3.0",
     "@types/node": "^18.11.18",
