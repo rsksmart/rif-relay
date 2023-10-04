@@ -30,6 +30,7 @@ import {
   defaultEnvironment,
   getServerConfig,
   RelayServer,
+  replenishStrategy,
   SendTransactionDetails,
   ServerAction,
   ServerConfigParams,
@@ -346,7 +347,7 @@ describe('RelayServer', function () {
 
         const trustedVerifierSpy = spy(relayServer, 'isTrustedVerifier');
 
-        relayServer.validateVerifier(envelopingTxRequest);
+        await relayServer.validateVerifier(envelopingTxRequest);
 
         const {
           relayRequest: {
@@ -381,9 +382,9 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        expect(() =>
+        await expect(
           relayServer.validateVerifier(envelopingTxRequest)
-        ).to.throw('Invalid verifier');
+        ).to.be.rejectedWith('Invalid verifier');
       });
     });
 
@@ -699,7 +700,7 @@ describe('RelayServer', function () {
       });
 
       const currentBlockNumber = await provider.getBlockNumber();
-      const receipts = await relayServer.replenishServer(workerIndex, 0);
+      const receipts = await replenishStrategy(relayServer, workerIndex, 0);
 
       expect(receipts).to.be.deep.equal([]);
       expect(currentBlockNumber);
@@ -727,7 +728,7 @@ describe('RelayServer', function () {
         'manager RBTC balance should be greater than target'
       ).to.be.true;
 
-      const receipts = await relayServer.replenishServer(workerIndex, 0);
+      const receipts = await replenishStrategy(relayServer, workerIndex, 0);
 
       const gasPrice = await provider.getGasPrice();
 
@@ -770,7 +771,7 @@ describe('RelayServer', function () {
         fundingNeededEmitted = true;
       });
 
-      await relayServer.replenishServer(workerIndex, 0);
+      await replenishStrategy(relayServer, workerIndex, 0);
 
       expect(fundingNeededEmitted, 'fundingNeeded not emitted').to.be.true;
     });
@@ -1096,9 +1097,9 @@ describe('RelayServer', function () {
       relayServer = getServerInstance({ relayOwner });
     });
 
-    it('should throw an errror if there is no custom replenish function', async function () {
+    it('should throw an error if there is no custom replenish function', async function () {
       await expect(
-        relayServer.replenishServer(workerIndex, 0)
+        replenishStrategy(relayServer, workerIndex, 0)
       ).to.be.rejectedWith(
         'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.'
       );
