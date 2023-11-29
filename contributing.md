@@ -3,13 +3,13 @@ Thank you for investing your time in contributing to RIF Relay! Any contribution
 
 ## Understanding the Project
 RIF Relay is a secure transaction relay system that enables users to pay fees using ERC-20 tokens; it was inspired by the Gas Station Network (GSN) project. It comprises four main modules: RIF Relay Contracts, RIF Relay Common, RIF Relay Client, and RIF Relay Server, each with specific functionalities and roles within the system.
-Before contributing, we recommend familiarizing yourself with RIF Relay and it purpose. Please refer to the [`*Readme.md*`] (https://github.com/rsksmart/rif-relay#readme) for detailed information. 
+Before contributing, we recommend familiarizing yourself with RIF Relay and it purpose. Please refer to the [`*Readme.md*`](https://github.com/rsksmart/rif-relay#readme) for detailed information. 
 
 ## New Contributor
 To get an overview of the project, read the README in the respective RIF Relay module repository. Here are some resources to help you get started:
 - Read the Code of Conduct.
 - How to make a contribution: Follow the steps outlined below.
-- Where to go for help? Join the [Rootstock Open Discord] (https://rootstock.io/discord) for community support.
+- Where to go for help? Join the [Rootstock Open Discord](https://rootstock.io/discord) for community support.
 - Credits and Attribution: Contributors are acknowledged in the project documentation.
 
 ### How do I make a contribution?
@@ -48,9 +48,9 @@ To get an overview of the project, read the README in the respective RIF Relay m
 2. Provide a clear and detailed description of the changes in the PR.
 
 **Testing**
-- Follow the testing instructions in the [Readme.md] (https://github.com/rsksmart/rif-relay#readme) to run tests.
+- Follow the testing instructions in the [Readme.md](https://github.com/rsksmart/rif-relay#readme) to run tests.
 - Ensure all tests pass before submitting a PR.
 
 **Where to go for help**
-- Contributors can seek help on the [Rootstock Open Discord] (https://rootstock.io/discord).
+- Contributors can seek help on the [Rootstock Open Discord](https://rootstock.io/discord).
 
