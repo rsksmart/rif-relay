@@ -182,6 +182,8 @@ To check that the node running, see section on Using the JAR file
 
 Now, you have successfully setup a Rootstock node using the docker image.
 
+For other configuration, visit [RIF Relay on the Devportal](https://dev.rootstock.io/guides/rif-relay/)
+
 ## Testing
 
 This repository contains all the integration tests. These tests verify the behavior of the entire system.
