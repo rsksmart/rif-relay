@@ -22,15 +22,23 @@ Each module has instructions for development and usage.
 
 ## Getting Started
 
-## 1. Running the Rootstock node
+## Running the Rootstock node
 
-- this can be done either by using the [JAR package](https://dev.rootstock.io/rsk/node/install/operating-systems/java/) or the [docker](https://dev.rootstock.io/rsk/node/install/operating-systems/) container
-- see devportal documentation: [https://dev.rootstock.io/rsk/node/install/](https://dev.rootstock.io/rsk/node/install/)
-- in either case, a specific `node.conf` file must be used: [https://github.com/rsksmart/rif-relay/blob/develop/docker/node.conf](https://github.com/rsksmart/rif-relay/blob/develop/docker/node.conf)
+Running the Rootstock node is crucial for several reasons, some of which includes:
+1. **Network Support**: You contribute to the network's security and decentralization.
+2. **Smart Contract Interaction**: Essential for deploying and interacting with smart contracts on RSK.
+3. **Privacy and Security**: Running your own node enhances privacy and security compared to using third-party services.
+4. **Real-Time Data Access**: You get immediate access to blockchain data.
+5. **Customization and Optimization**: Allows for tailored configurations for specific needs.
+6. **Network Synchronization**: Ensures you have the latest blockchain data.
+7. **Ecosystem Support**: Helps in the growth and development of the RSK ecosystem.
+8. **Financial Rewards**: Possible incentives like transaction fees or block rewards.
+
+This can be done either by using the [JAR package](https://dev.rootstock.io/rsk/node/install/operating-systems/java/) or the [docker](https://dev.rootstock.io/rsk/node/install/operating-systems/) container
 
 ### Using the JAR file
 
-To run the Rootstock node using the [JAR file](https://github.com/rsksmart/rskj/releases), see the instructions for how to **[Install the node using a JAR file](https://dev.rootstock.io/rsk/node/install/operating-systems/java/).**
+To run the Rootstock node using the JAR file, see the prerequisite for how to **[Install the node using a JAR file](https://dev.rootstock.io/rsk/node/install/operating-systems/java/).**
 
 - Create the directory for the node:
 
@@ -111,9 +119,7 @@ Now, you have successfully setup a Rootstock node using the jar file.
 
 ### 
 
-- developer’s portal instructions
-    
-    Follow the instructions in [How to setup a Rootstock node using Docker](https://dev.rootstock.io/rsk/node/install/operating-systems/).
+- Developer’s portal instructions
     
     In this guide, we will run the node using the **[Dockerfile.RegTest](https://github.com/rsksmart/artifacts/blob/master/Dockerfiles/RSK-Node/Dockerfile.RegTest).** This means a node connected to a private `RegTest` network.
     
@@ -180,9 +186,9 @@ You should see the below output:
 
 To check that the node running, see section on Using the JAR file
 
-Now, you have successfully setup a Rootstock node using the docker image.
-
-For other configuration, visit [RIF Relay on the Devportal](https://dev.rootstock.io/guides/rif-relay/)
+Now, you have successfully setup a Rootstock node using the docker image
+    
+For More information on the configuration, visit [RIF Relay on the Devportal](https://dev.rootstock.io/rsk/node/install/)
 
 ## Testing
 
