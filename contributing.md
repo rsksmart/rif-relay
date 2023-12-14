@@ -6,7 +6,7 @@ RIF Relay is a secure transaction relay system that enables users to pay fees us
 Before contributing, we recommend familiarizing yourself with RIF Relay and its purpose. Please refer to the [`Readme.md`](https://github.com/rsksmart/rif-relay#readme) for detailed information. 
 
 ## New Contributor
-To get an overview of the project, read the README in the respective RIF Relay module repository. Here are some resources to help you get started:
+To get an overview of the project, read the [README](https://github.com/rsksmart/rif-relay#rif-relay) in the respective RIF Relay module repository. Here are some resources to help you get started:
 - Read the Code of Conduct.
 - How to make a contribution: Follow the steps outlined below.
 - Where to go for help? Join the [Rootstock Open Discord](https://rootstock.io/discord) for community support.
