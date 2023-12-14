@@ -2,7 +2,7 @@
 Thank you for investing your time in contributing to RIF Relay! Any contribution you make will be reflected on the [RIF Relay GitHub page](https://github.com/rsksmart/rif-relay). Your efforts help improve the Rootstock and RIF ecosystem.
 
 ## Understanding the Project
-RIF Relay is a secure transaction relay system that enables users to pay fees using ERC-20 tokens; it was inspired by the Gas Station Network (GSN) project. It comprises four main modules: RIF Relay Contracts, RIF Relay Common, RIF Relay Client, and RIF Relay Server, each with specific functionalities and roles within the system.
+RIF Relay is a secure transaction relay system that enables users to pay fees using ERC-20 tokens; it was inspired by the Gas Station Network (GSN) project. It comprises four main modules: RIF Relay Contracts, RIF Relay Client, and RIF Relay Server, each with specific functionalities and roles within the system.
 Before contributing, we recommend familiarizing yourself with RIF Relay and it purpose. Please refer to the [`Readme.md`](https://github.com/rsksmart/rif-relay#readme) for detailed information. 
 
 ## New Contributor
