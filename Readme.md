@@ -40,7 +40,7 @@ This can be done either by using the [JAR package](https://dev.rootstock.io/rsk/
 
 ### Add network to Metamask
 
-In order to interact with the Rootstock network, we have to add it to Metamask. As we are using the node on --regtest mode, we will add the Regtest Network. Follow the steps below or see tutorial on [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/).
+In order to interact with the Rootstock network, we have to add it to Metamask. As we are using the node on ``--regtest mode``, we will add the Regtest Network. Follow the steps below or see tutorial on [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/).
 
 ### Set up RIF Relay contracts and Server
 
