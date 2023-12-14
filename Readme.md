@@ -20,7 +20,7 @@ RIF Relay is built in modules, the entire system is made up by 3 modules.
 
 Each module has instructions for development and usage.
 
-## Getting Started
+## Getting Started: How to use the RIF Relay Sample dApp SDK
 
 [Installation Requirement](https://dev.rootstock.io/guides/rif-relay/installation-requirements/)
 
