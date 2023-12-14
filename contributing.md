@@ -33,7 +33,7 @@ To get an overview of the project, read the README in the respective RIF Relay m
 **Proposing New Features**
 1. Open an issue on the GitHub repository describing the feature.
 2. Discuss the feasibility and relevance of the feature with the project maintainers.
-3. Once approved, follow the steps for submitting a fix to implement the feature.
+3. Once approved, follow the steps to submit the changes required to implement the feature.
 
 **How to Submit an Issue**
 1. Fork the repository and create a new branch for your changes.
