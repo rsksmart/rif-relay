@@ -22,7 +22,9 @@ Each module has instructions for development and usage.
 
 ## Getting Started
 
-## Running the Rootstock node
+[Installation Requirement](https://dev.rootstock.io/guides/rif-relay/installation-requirements/)
+
+### Running the Rootstock node
 
 Running the Rootstock node is crucial for several reasons, some of which includes:
 1. **Network Support**: You contribute to the network's security and decentralization.
@@ -36,159 +38,22 @@ Running the Rootstock node is crucial for several reasons, some of which include
 
 This can be done either by using the [JAR package](https://dev.rootstock.io/rsk/node/install/operating-systems/java/) or the [docker](https://dev.rootstock.io/rsk/node/install/operating-systems/) container
 
-### Using the JAR file
+### Add network to Metamask
 
-To run the Rootstock node using the JAR file, see the prerequisite for how to **[Install the node using a JAR file](https://dev.rootstock.io/rsk/node/install/operating-systems/java/).**
+In order to interact with the Rootstock network, we have to add it to Metamask. As we are using the node on --regtest mode, we will add the Regtest Network. Follow the steps below or see tutorial on [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/).
 
-- Create the directory for the node:
+### Set up RIF Relay contracts and Server
 
-```jsx
-mkdir rskj-node-jar
-cd ~/rskj-node-jar
-```
+Setting up RIF Relay contracts and server involves a multi-step process that includes deploying on-chain components, fulfilling installation requirements, and utilizing development tools. 
 
-- Move or copy the just downloaded jar file to the directory
+Follow this guide to [Setup RIF Relay Contract and Server](https://dev.rootstock.io/guides/rif-relay/deployment/)
+- RIF Relay Server Repository: https://github.com/rsksmart/rif-relay-server
+- RIF Relay Contracts Repository: https://github.com/rsksmart/rif-relay-contracts
 
-```jsx
-mv ~/Downloads/rskj-core-5.3.0-FINGERROOT-all.jar SHA256SUMS.asc /Users/{user}/rskj-node-jar/
-```
+### RIF Relay Sample dApp
 
-- Create another directory inside `~/rskj-node-jar/config`
+This is a sample dApp to showcase how users can submit relayed transactions to the Rootstock blockchain using the [RIF Relay SDK](https://github.com/infuy/relaying-services-sdk). You will need to connect to the dApp with MetaMask but only for signing transactions with the account that owns the Smart Wallets. Follow this guide for [RIF Relay Sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp)
 
-```jsx
-mkdir config
-```
-
-- Download this config file: [https://github.com/rsksmart/rif-relay/blob/develop/docker/node.conf](https://github.com/rsksmart/rif-relay/blob/develop/docker/node.conf)
-- Copy or move the `node.conf` file just downloaded into the config directory
-- CD into the folder containing the jar file
-
-Run the following command in the terminal:
-
-```bash
-arch -x86_64 /usr/local/opt/openjdk@8/bin/java -Drsk.conf.file=./config/node.conf -cp ./rskj-core-5.3.0-FINGERROOT-all.jar co.rsk.Start --regtest
-```
-
-OR
-
-```jsx
-java -Drsk.conf.file=./config/node.conf \
-cp ./<PATH-TO-JAR-FILE> co.rsk.Start \
--regtest
-```
-
----
-
-Leave the terminal running.
-
-Now let’s check that the node is running
-
-Open another terminal and enter the command below:
-
-```jsx
-curl http://localhost:4444 \
- -s \
- -X POST \
- -H "Content-Type: application/json" \
- --data '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}'
-```
-
-It should output a response like this:
-
-```jsx
-{"jsonrpc":"2.0","id":67,"result":"RskJ/5.3.0/Mac OS X/Java1.8/FINGERROOT-202f1c5"}
-```
-
-Check the blockNumber:
-
-```jsx
-curl -X POST http://localhost:4444/ \
--H "Content-Type: application/json" \
---data '{"jsonrpc":"2.0", "method":"eth_blockNumber","params":[],"id":1}'
-```
-
-You should see the below output:
-
-```jsx
-{"jsonrpc":"2.0","id":1,"result":"0x0"}
-```
-
-Now, you have successfully setup a Rootstock node using the jar file.
-
-### Using Docker
-
-### 
-
-- Developer’s portal instructions
-    
-    In this guide, we will run the node using the **[Dockerfile.RegTest](https://github.com/rsksmart/artifacts/blob/master/Dockerfiles/RSK-Node/Dockerfile.RegTest).** This means a node connected to a private `RegTest` network.
-    
-    Note that If you get the error:
-    
-    ```jsx
-    => ERROR [6/6] COPY supervisord.conf /etc/supervisor/conf.d/supervisord.  0.0s
-    ------
-     > [6/6] COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf:
-    ------
-    failed to compute cache key: "/supervisord.conf" not found: not found
-    ```
-    
-    Ensure that supervisord.conf is in the same folder as the dockerfile.
-    
-    When the build finishes, you should see an output similar to this:
-    
-    ```jsx
-    [+] Building 158.0s (11/11) FINISHED                                            
-     => [internal] load build definition from Dockerfile.RegTest               0.0s
-     => => transferring dockerfile: 293B
-    ....
-    => => exporting layers                                                    3.8s 
-     => => writing image sha256:d73739affdbe3f82a8ba9c686d34c04f48ac510568522  0.0s 
-     => => naming to docker.io/library/regtest                                 0.0s
-    
-    Use 'docker scan' to run Snyk tests against images to find vulnerabilities and learn how to fix them
-    ```
-    
-    Now you have a container ready to run Rootstock!
-    
-
-To run the RegTest node, you should execute:
-
-Pull the RSKj Docker Image
-
-```jsx
-docker pull rsksmart/rskj
-```
-
-Run the Node
-
-```jsx
-docker run -d --name rsk-node -p 4444:4444 -p 50505:50505 rsksmart/rskj node --regtest
-```
-
-If successful, the node should be running.
-
-Interacting with the Node
-
-```jsx
-curl -X POST -H "Content-Type: application/json" --data "{\"jsonrpc\":\"2.0\",\"method\":\"net_version\",\"params\":[],\"id\":1}" http://127.0.0.1:4444
-```
-
----
-
----
-
-You should see the below output:
-
-```bash
-{"jsonrpc":"2.0","id":1,"result":"33"}
-```
-
-To check that the node running, see section on Using the JAR file
-
-Now, you have successfully setup a Rootstock node using the docker image
-    
-For More information on the configuration, visit [RIF Relay on the Devportal](https://dev.rootstock.io/rsk/node/install/)
 
 ## Testing
 
