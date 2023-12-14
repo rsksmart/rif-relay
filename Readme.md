@@ -20,40 +20,36 @@ RIF Relay is built in modules, the entire system is made up by 3 modules.
 
 Each module has instructions for development and usage.
 
-## Getting Started: How to use the RIF Relay Sample dApp SDK
+## Getting Started: How to Use the RIF Relay Sample dApp SDK
 
-[Installation Requirement](https://dev.rootstock.io/guides/rif-relay/installation-requirements/)
+This guide helps to quickly get started with setting up your environment to use RIF Relay and also use the sample dApp to test relay services.
 
-### Running the Rootstock node
+We will do the following;
 
-Running the Rootstock node is crucial for several reasons, some of which includes:
-1. **Network Support**: You contribute to the network's security and decentralization.
-2. **Smart Contract Interaction**: Essential for deploying and interacting with smart contracts on RSK.
-3. **Privacy and Security**: Running your own node enhances privacy and security compared to using third-party services.
-4. **Real-Time Data Access**: You get immediate access to blockchain data.
-5. **Customization and Optimization**: Allows for tailored configurations for specific needs.
-6. **Network Synchronization**: Ensures you have the latest blockchain data.
-7. **Ecosystem Support**: Helps in the growth and development of the RSK ecosystem.
-8. **Financial Rewards**: Possible incentives like transaction fees or block rewards.
+- Run the Rootstock node using JAR and Docker
+- Add a network to Metamask
+- Setup RIF Relay Contracts and Server
+- Configure and run the sample dApp
 
-This can be done either by using the [JAR package](https://dev.rootstock.io/rsk/node/install/operating-systems/java/) or the [docker](https://dev.rootstock.io/rsk/node/install/operating-systems/) container
+### Installation Requirements
 
-### Add network to Metamask
+Ensure your system meets the necessary [installation requirements](https://dev.rootstock.io/guides/rif-relay/installation-requirements/).
 
-In order to interact with the Rootstock network, we have to add it to Metamask. As we are using the node on ``--regtest mode``, we will add the Regtest Network. Follow the steps below or see tutorial on [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/).
+### Run the Rootstock Node
+The Rootstock node enhances network security, smart contract functionality, privacy, and access to real-time data. It also supports the RSK ecosystem and offers incentives like transaction fees or block rewards. Setup the node on `--regtest mode` using [JAR package](https://dev.rootstock.io/rsk/node/install/operating-systems/java/) or [Docker container](https://dev.rootstock.io/rsk/node/install/operating-systems/).
 
-### Set up RIF Relay contracts and Server
+### Add Network to Metamask
+To interact with the Rootstock network, you need to add it to Metamask. Follow the steps in [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/) to add the Regtest Network since we're using the node on `--regtest mode`.
 
-Setting up RIF Relay contracts and server involves a multi-step process that includes deploying on-chain components, fulfilling installation requirements, and utilizing development tools. 
+### Setup RIF Relay Contracts and Server
+The setup of RIF Relay contracts and server is a multi-step process. It involves deploying on-chain components, meeting installation requirements, and using various development tools. For detailed instructions and necessary resources for this setup, see [Setup RIF Relay Contract and Server guide](https://dev.rootstock.io/guides/rif-relay/deployment/). 
+For specific resources, see:
+- [RIF Relay Server](https://github.com/rsksmart/rif-relay-server).
+- [RIF Relay Contracts](https://github.com/rsksmart/rif-relay-contracts).
 
-Follow this guide to [Setup RIF Relay Contract and Server](https://dev.rootstock.io/guides/rif-relay/deployment/)
-- RIF Relay Server Repository: https://github.com/rsksmart/rif-relay-server
-- RIF Relay Contracts Repository: https://github.com/rsksmart/rif-relay-contracts
+### Configure and Run the RIF Relay Sample dApp
 
-### RIF Relay Sample dApp
-
-This is a sample dApp to showcase how users can submit relayed transactions to the Rootstock blockchain using the [RIF Relay SDK](https://github.com/infuy/relaying-services-sdk). You will need to connect to the dApp with MetaMask but only for signing transactions with the account that owns the Smart Wallets. Follow this guide for [RIF Relay Sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp)
-
+This is a sample dApp to show you how to submit relayed transactions to the Rootstock blockchain using the [RIF Relay SDK](https://github.com/infuy/relaying-services-sdk). Connect to the dApp with MetaMask for signing transactions with the account that owns the Smart Wallets. For more detials, see [RIF Relaying Services SDK sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp).
 
 ## Testing
 
