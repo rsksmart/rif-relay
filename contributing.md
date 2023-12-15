@@ -51,6 +51,3 @@ To get an overview of the project, read the [README](https://github.com/rsksmart
 - Follow the testing instructions in the [Readme.md](https://github.com/rsksmart/rif-relay#readme) to run tests.
 - Ensure all tests pass before submitting a PR.
 
-**Where to go for help**
-- Contributors can seek help on the [Rootstock Open Discord](https://rootstock.io/discord).
-
