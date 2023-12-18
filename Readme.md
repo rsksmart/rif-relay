@@ -42,7 +42,7 @@ The Rootstock node enhances network security, smart contract functionality, priv
 To interact with the Rootstock network, you need to add it to Metamask. Follow the steps in [How to add Metamask to Rootstock](https://dev.rootstock.io/develop/wallet/use/metamask/) to add the Regtest Network since we're using the node on `--regtest mode`.
 
 ### Setup RIF Relay Contracts and Server
-The setup of RIF Relay contracts and server is a multi-step process. It involves deploying on-chain components, meeting installation requirements, and using various development tools. For detailed instructions and necessary resources for this setup, see [Setup RIF Relay Contract and Server guide](https://dev.rootstock.io/guides/rif-relay/deployment/). 
+The setup of RIF Relay Contracts and Server is a multi-step process. It involves deploying on-chain components, meeting installation requirements, and using various development tools. For detailed instructions and necessary resources for this setup, see [Setup RIF Relay Contract and Server guide](https://dev.rootstock.io/guides/rif-relay/deployment/). 
 For specific resources, see:
 - [RIF Relay Server](https://github.com/rsksmart/rif-relay-server).
 - [RIF Relay Contracts](https://github.com/rsksmart/rif-relay-contracts).
