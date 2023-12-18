@@ -22,22 +22,14 @@ To get an overview of the project, read the [README](https://github.com/rsksmart
    - Expected behavior and what actually happens.
    - Any relevant screenshots or error messages.
 
-**Submitting a Fix**
-1. Fork the repository.
-2. Create a new branch for your fix.
-3. Make your changes in the new branch.
-4. Commit your changes with a descriptive commit message.
-5. Push the branch to your fork.
-6. Submit a pull request against the main branch of the original repository.
-
 **Proposing New Features**
 1. Open an issue on the GitHub repository describing the feature.
 2. Discuss the feasibility and relevance of the feature with the project maintainers.
 3. Once approved, follow the steps to submit the changes required to implement the feature.
 
-**How to Submit an Issue**
+**How to Submit an Issue or Fix**
 1. Fork the repository and create a new branch for your changes.
-2. Make your changes and commit them.
+2. Make your changes in the new branch and commit them.
 3. Push your branch to your fork.
 4. Go to the original repository and click on ‘New Pull Request’.
 5. Select your branch and provide a detailed description of your changes.
