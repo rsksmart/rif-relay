@@ -20,9 +20,9 @@ RIF Relay is built in modules, the entire system is made up by 3 modules.
 
 Each module has instructions for development and usage.
 
-## RIF Relay Starter Kit
+## Getting Started with the RIF Relay Sample dApp SDK
 
-For a detailed step-by-step guide on getting started with RIF Relay, refer to the [Starter kit](/guides/rif-relay/starter-kit).
+We've created a sample dApp to showcase how users can submit relayed transactions to the RSK blockchain using the [RIF Relay SDK](https://github.com/rsksmart/rif-relay-sdk). For details, see [RIF Relaying Services SDK sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp).
 
 ## Testing
 
