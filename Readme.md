@@ -22,7 +22,7 @@ Each module has instructions for development and usage.
 
 ## Getting Started with the RIF Relay Sample dApp SDK
 
-We've created a sample dApp to showcase how users can submit relayed transactions to the RSK blockchain using the RIF Relay Sample dApp SDK. For details, see [RIF Relaying Services SDK sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp).
+We've created a sample dApp to showcase how users can submit relayed transactions to the Rootstock blockchain using the RIF Relay Sample dApp SDK. For details, see [RIF Relaying Services SDK sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp).
 
 ## Testing
 
