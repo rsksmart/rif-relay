@@ -1,112 +1,143 @@
-// @ts-ignore
-import abiDecoder from 'abi-decoder';
-import { TransactionReceipt } from 'web3-core';
-import { toBN } from 'web3-utils';
+import { TransactionReceipt } from '@ethersproject/providers';
 import {
-    IRelayVerifier,
-    IDeployVerifier,
-    IRelayHub
+  RelayHubInterface,
+  RelayHub__factory,
 } from '@rsksmart/rif-relay-contracts';
-import { RelayServer } from '@rsksmart/rif-relay-server';
-import { PrefixedHexString } from 'ethereumjs-tx';
+import {
+  AppConfig,
+  BlockchainConfig,
+  ContractsConfig,
+  ManagerEvent,
+} from '@rsksmart/rif-relay-server';
+import { BigNumberish, constants } from 'ethers';
+import { expect } from 'chai';
+import { ethers } from 'hardhat';
+import config from 'config';
+import { EnvelopingTxRequest } from '@rsksmart/rif-relay-client';
 
-const TestRecipient = artifacts.require('TestRecipient');
-const TestVerifierEverythingAccepted = artifacts.require(
-    'TestVerifierEverythingAccepted'
-);
-const TestDeployVerifierEverythingAccepted = artifacts.require(
-    'TestDeployVerifierEverythingAccepted'
-);
+type ServerWorkdirs = {
+  workdir: string;
+  managerWorkdir: string;
+  workersWorkdir: string;
+};
 
-abiDecoder.addABI(IRelayHub.abi);
-abiDecoder.addABI(IRelayVerifier.abi);
-abiDecoder.addABI(IDeployVerifier.abi);
+type ServerLoadConfiguration = Partial<{
+  app: Partial<AppConfig>;
+  contracts: Partial<ContractsConfig>;
+  blockchain: Partial<BlockchainConfig>;
+}>;
 
-// @ts-ignore
-abiDecoder.addABI(TestRecipient.abi);
-// @ts-ignore
-abiDecoder.addABI(TestVerifierEverythingAccepted.abi);
-// @ts-ignore
-abiDecoder.addABI(TestDeployVerifierEverythingAccepted.abi);
+const provider = ethers.provider;
 
-async function resolveAllReceipts(
-    transactionHashes: PrefixedHexString[]
-): Promise<TransactionReceipt[]> {
-    // actually returns promise for '.all'
-    // eslint-disable-next-line @typescript-eslint/promise-function-async
-    return await Promise.all(
-        transactionHashes.map((transactionHash) =>
-            web3.eth.getTransactionReceipt(transactionHash)
-        )
-    );
-}
+const resolveAllReceipts = async (
+  transactionHashes: string[]
+): Promise<TransactionReceipt[]> => {
+  return await Promise.all(
+    transactionHashes.map((transactionHash) =>
+      provider.getTransactionReceipt(transactionHash)
+    )
+  );
+};
 
-export async function assertRelayAdded(
-    transactionHashes: PrefixedHexString[],
-    server: RelayServer,
-    checkWorkers = true
-): Promise<void> {
-    const receipts = await resolveAllReceipts(transactionHashes);
-    const registeredReceipt = receipts.find((r) => {
-        const decodedLogs = abiDecoder
-            .decodeLogs(r.logs)
-            .map(server.registrationManager._parseEvent);
-        return decodedLogs[0].name === 'RelayServerRegistered';
-    });
-    if (registeredReceipt == null) {
-        throw new Error('Registered Receipt not found');
-    }
-    const registeredLogs = abiDecoder
-        .decodeLogs(registeredReceipt.logs)
-        .map(server.registrationManager._parseEvent);
-    assert.equal(registeredLogs.length, 1);
-    assert.equal(registeredLogs[0].name, 'RelayServerRegistered');
-    assert.equal(
-        registeredLogs[0].args.relayManager.toLowerCase(),
-        server.managerAddress.toLowerCase()
-    );
-    assert.equal(registeredLogs[0].args.relayUrl, server.config.url);
+const assertEventHub = async (
+  event: ManagerEvent,
+  transactionHashes: string[],
+  indexedAddress?: string
+) => {
+  const relayHubInterface: RelayHubInterface =
+    RelayHub__factory.createInterface();
+  const receipts = await resolveAllReceipts(transactionHashes);
 
-    if (checkWorkers) {
-        const workersAddedReceipt = receipts.find((r) => {
-            const decodedLogs = abiDecoder
-                .decodeLogs(r.logs)
-                .map(server.registrationManager._parseEvent);
-            return decodedLogs[0].name === 'RelayWorkersAdded';
-        });
-        const workersAddedLogs = abiDecoder
-            .decodeLogs(workersAddedReceipt.logs)
-            .map(server.registrationManager._parseEvent);
-        assert.equal(workersAddedLogs.length, 1);
-        assert.equal(workersAddedLogs[0].name, 'RelayWorkersAdded');
-    }
-}
+  const parsedLogs = receipts.flatMap((receipt) => {
+    return receipt.logs.map((log) => relayHubInterface.parseLog(log));
+  });
 
-export async function getTotalTxCosts(
-    transactionHashes: PrefixedHexString[],
-    gasPrice: string
-): Promise<BN> {
-    const receipts = await resolveAllReceipts(transactionHashes);
-    return receipts
-        .map((r) => toBN(r.gasUsed).mul(toBN(gasPrice)))
-        .reduce((previous, current) => previous.add(current), toBN(0));
-}
+  const registeredReceipt = parsedLogs.find((log) => log.name === event);
 
-export interface ServerWorkdirs {
-    workdir: string;
-    managerWorkdir: string;
-    workersWorkdir: string;
-}
+  if (!registeredReceipt) {
+    throw new Error('Registered receipt not found');
+  }
 
-export function getTemporaryWorkdirs(): ServerWorkdirs {
-    const workdir =
-        '/tmp/enveloping/test/relayserver/defunct' + Date.now().toString();
-    const managerWorkdir = workdir + '/manager';
-    const workersWorkdir = workdir + '/workers';
+  expect(registeredReceipt.name).to.be.equal(event);
 
-    return {
-        workdir,
-        managerWorkdir,
-        workersWorkdir
-    };
-}
+  if (indexedAddress) {
+    expect(registeredReceipt.args[0]).to.be.equal(indexedAddress);
+  }
+};
+
+const getTotalTxCosts = async (
+  transactionHashes: string[],
+  gasPrice: BigNumberish
+) => {
+  const receipts = await resolveAllReceipts(transactionHashes);
+
+  return receipts
+    .map((receipt) => receipt.gasUsed.mul(gasPrice))
+    .reduce((previous, current) => previous.add(current), constants.Zero);
+};
+
+const getTemporaryWorkdirs = (): ServerWorkdirs => {
+  const workdir =
+    '/tmp/enveloping/test/relayserver/defunct' + Date.now().toString();
+  const managerWorkdir = workdir + '/manager';
+  const workersWorkdir = workdir + '/workers';
+
+  return {
+    workdir,
+    managerWorkdir,
+    workersWorkdir,
+  };
+};
+
+const stringifyEnvelopingTx = (
+  envelopingTx: EnvelopingTxRequest
+): EnvelopingTxRequest => {
+  const {
+    relayRequest: {
+      request: { tokenGas, nonce, value, tokenAmount, gas },
+      relayData: { gasPrice },
+    },
+  } = envelopingTx;
+
+  return {
+    ...envelopingTx,
+    relayRequest: {
+      ...envelopingTx.relayRequest,
+      request: {
+        ...envelopingTx.relayRequest.request,
+        tokenGas: tokenGas.toString(),
+        nonce: nonce.toString(),
+        value: value.toString(),
+        tokenAmount: tokenAmount.toString(),
+        gas: gas?.toString(),
+      },
+      relayData: {
+        ...envelopingTx.relayRequest.relayData,
+        gasPrice: gasPrice.toString(),
+      },
+    },
+  } as EnvelopingTxRequest;
+};
+
+const loadConfiguration = ({
+  app = {},
+  contracts = {},
+  blockchain = {},
+}: ServerLoadConfiguration) => {
+  config.util.extendDeep(config, {
+    app,
+    contracts,
+    blockchain,
+  });
+};
+
+export {
+  resolveAllReceipts,
+  assertEventHub,
+  getTotalTxCosts,
+  getTemporaryWorkdirs,
+  stringifyEnvelopingTx,
+  loadConfiguration,
+};
+
+export type { ServerWorkdirs, ServerLoadConfiguration };

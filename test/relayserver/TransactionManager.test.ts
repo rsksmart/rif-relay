@@ -1,107 +1,107 @@
-import { PrefixedHexString, Transaction } from 'ethereumjs-tx';
-import * as ethUtils from 'ethereumjs-util';
+import {
+  KeyManager,
+  ServerDependencies,
+  StoredTransaction,
+  TransactionManager,
+  TxStoreManager,
+} from '@rsksmart/rif-relay-server';
+import { expect, use } from 'chai';
+import { BigNumber, PopulatedTransaction } from 'ethers';
+import fs from 'fs/promises';
+import sinon from 'sinon';
+import sinonChai from 'sinon-chai';
 
-import { evmMineMany, getTestingEnvironment } from '../TestUtils';
-import { RelayServer } from '@rsksmart/rif-relay-server';
-import { HttpProvider } from 'web3-core';
-import { ServerTestEnvironment } from './ServerTestEnvironment';
+use(sinonChai);
 
-contract('TransactionManager', function (accounts) {
-    const pendingTransactionTimeoutBlocks = 5;
-    const confirmationsNeeded = 12;
-    let relayServer: RelayServer;
-    let env: ServerTestEnvironment;
+describe('TransactionManager', function () {
+  const workdir = '/tmp/env-test';
+  let txManager: TransactionManager;
+  let workersKeyManager: KeyManager;
+  let workerAddress: string;
 
-    before(async function () {
-        const chainId = (await getTestingEnvironment()).chainId;
-        env = new ServerTestEnvironment(
-            web3.currentProvider as HttpProvider,
-            accounts
-        );
-        await env.init({ chainId });
-        await env.newServerInstance({
-            pendingTransactionTimeoutBlocks,
-            workerTargetBalance: 0.6e18
-        });
-        relayServer = env.relayServer;
+  beforeEach(async function () {
+    const managerKeyManager = new KeyManager(1, workdir);
+    workersKeyManager = new KeyManager(1, workdir);
+    workerAddress = workersKeyManager.getAddress(0)!;
+    const txStoreManager = new TxStoreManager({ workdir });
+    const dependencies: ServerDependencies = {
+      managerKeyManager,
+      workersKeyManager,
+      txStoreManager,
+    };
+    await txStoreManager.putTx({
+      txId: 'id1',
+      attempts: 1,
+      nonce: 1,
+      creationBlockNumber: 0,
+      gasLimit: BigNumber.from(1),
+      gasPrice: BigNumber.from(1),
+      nonceSigner: {
+        nonce: 1,
+        signer: workerAddress,
+      },
+      from: workerAddress,
+    } as StoredTransaction);
+    await txStoreManager.putTx({
+      txId: 'id2',
+      attempts: 1,
+      nonce: 2,
+      creationBlockNumber: 0,
+      gasLimit: BigNumber.from(1),
+      gasPrice: BigNumber.from(2),
+      nonceSigner: {
+        nonce: 2,
+        signer: workerAddress,
+      },
+      from: workerAddress,
+    } as StoredTransaction);
+
+    txManager = new TransactionManager(dependencies);
+  });
+
+  it('should boost underpriced pending transactions for a given signer', async function () {
+    const currentBlockHeight = 100;
+    sinon.stub(txManager, '_resolveNewGasPrice').returns({
+      isMaxGasPriceReached: false,
+      newGasPrice: BigNumber.from(3),
     });
+    const resendTransactionStub = sinon
+      .stub(txManager, 'resendTransaction')
+      .callsFake(
+        async (
+          tx: StoredTransaction,
+          _: number,
+          newGasPrice: BigNumber,
+          __: boolean
+        ) => {
+          const { to, from, nonce, gasLimit } = tx;
+          const txToSign: PopulatedTransaction = {
+            to,
+            from,
+            nonce,
+            gasLimit,
+            gasPrice: newGasPrice,
+          };
+          const signedTransaction = await workersKeyManager.signTransaction(
+            tx.from,
+            txToSign
+          );
 
-    describe('nonce counter asynchronous access protection', function () {
-        let _pollNonceOrig: (signer: string) => Promise<number>;
-        let signTransactionOrig: (
-            signer: string,
-            tx: Transaction
-        ) => PrefixedHexString;
-        before(function () {
-            _pollNonceOrig = relayServer.transactionManager.pollNonce;
-            relayServer.transactionManager.pollNonce = async function (signer) {
-                return await this.contractInteractor.getTransactionCount(
-                    signer,
-                    'pending'
-                );
-            };
-        });
-        after(function () {
-            relayServer.transactionManager.pollNonce = _pollNonceOrig;
-        });
+          return signedTransaction;
+        }
+      );
 
-        it('should not deadlock if server returned error while locked', async function () {
-            try {
-                signTransactionOrig =
-                    relayServer.transactionManager.workersKeyManager
-                        .signTransaction;
-                relayServer.transactionManager.workersKeyManager.signTransaction =
-                    function () {
-                        throw new Error('no tx for you');
-                    };
-                try {
-                    await env.relayTransaction();
-                } catch (e) {
-                    assert.include(e.message, 'no tx for you');
-                    assert.isFalse(
-                        relayServer.transactionManager.nonceMutex.isLocked(),
-                        'nonce mutex not released after exception'
-                    );
-                }
-            } finally {
-                relayServer.transactionManager.workersKeyManager.signTransaction =
-                    signTransactionOrig;
-            }
-        });
-    });
+    const boostedTransactions =
+      await txManager.boostUnderpricedPendingTransactionsForSigner(
+        workerAddress,
+        currentBlockHeight
+      );
 
-    describe('local storage maintenance', function () {
-        let parsedTxHash: PrefixedHexString;
-        let latestBlock: number;
+    expect(resendTransactionStub).to.have.been.callCount(2);
+    expect(boostedTransactions.size).to.be.eql(2);
+  });
 
-        before(async function () {
-            await relayServer.transactionManager.txStoreManager.clearAll();
-            relayServer.transactionManager._initNonces();
-            const { signedTx } = await env.relayTransaction();
-            parsedTxHash = ethUtils.bufferToHex(
-                new Transaction(
-                    signedTx,
-                    relayServer.transactionManager.rawTxOptions
-                ).hash()
-            );
-            latestBlock = (await env.web3.eth.getBlock('latest')).number;
-        });
-
-        it('should remove confirmed transactions from the recent transactions storage', async function () {
-            await relayServer.transactionManager.removeConfirmedTransactions(
-                latestBlock
-            );
-            let storedTransactions =
-                await relayServer.transactionManager.txStoreManager.getAll();
-            assert.equal(storedTransactions[0].txId, parsedTxHash);
-            await evmMineMany(confirmationsNeeded);
-            const newLatestBlock = await env.web3.eth.getBlock('latest');
-            await relayServer.transactionManager.removeConfirmedTransactions(
-                newLatestBlock.number
-            );
-            storedTransactions =
-                await relayServer.transactionManager.txStoreManager.getAll();
-            assert.deepEqual([], storedTransactions);
-        });
-    });
+  afterEach(async function () {
+    await fs.rm(workdir, { recursive: true, force: true });
+  });
 });

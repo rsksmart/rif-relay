@@ -3,7 +3,7 @@
 To run the RSKj container please use the following command:
 
 ```bash
-docker run -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445  --name enveloping-rskj -it -v $PWD/logback.xml:/etc/rsk/logback.xml -v $PWD/node.conf:/etc/rsk/node.conf rsksmart/rskj:IRIS-3 --regtest
+docker run -d -p 127.0.0.1:4444:4444 -p 127.0.0.1:4445:4445  --name relay-rskj-fingerroot-5.0.0 -it -v $PWD/docker/logback.xml:/etc/rsk/logback.xml -v $PWD/docker/node.conf:/etc/rsk/node.conf rsksmart/rskj:FINGERROOT-5.0.0 --regtest
 ```
 
 You could also use docker-compose:

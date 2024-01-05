@@ -1,1037 +1,1211 @@
-/* global artifacts describe */
-// @ts-ignore
+import { ethers } from 'hardhat';
+import { expect } from 'chai';
 import {
-    constants,
-    defaultEnvironment,
-    EnvelopingConfig,
-    isRsk,
-    RelayTransactionRequest,
-    sleep,
-    TokenResponse
-} from '@rsksmart/rif-relay-common';
+  createEnvelopingTxRequest,
+  getServerInstance,
+  getInitiatedServer,
+} from './ServerTestEnvironments';
 import {
-    TestDeployVerifierConfigurableMisbehaviorInstance,
-    TestRecipientInstance,
-    TestTokenInstance,
-    TestVerifierConfigurableMisbehaviorInstance
-} from '@rsksmart/rif-relay-contracts/types/truffle-contracts';
+  DeployVerifier,
+  PromiseOrValue,
+  RelayHub,
+  RelayVerifier,
+  SmartWallet,
+} from '@rsksmart/rif-relay-contracts';
 import {
-    RelayServer,
-    SendTransactionDetails,
-    ServerAction,
-    ServerConfigParams,
-    SignedTransactionDetails
+  createSupportedSmartWallet,
+  deployRelayHub,
+  SupportedSmartWallet,
+  evmMineMany,
+  createSmartWalletFactory,
+  deployVerifiers,
+  generateRandomAddress,
+  createUserDefinedRequest,
+  deployContract,
+} from '../utils/TestUtils';
+import config from 'config';
+import {
+  AppConfig,
+  BlockchainConfig,
+  defaultEnvironment,
+  getServerConfig,
+  RelayServer,
+  replenishStrategy,
+  SendTransactionDetails,
+  ServerAction,
+  ServerConfigParams,
+  SignedTransactionDetails,
 } from '@rsksmart/rif-relay-server';
-import chai from 'chai';
-import chaiAsPromised from 'chai-as-promised';
-import { PrefixedHexString } from 'ethereumjs-tx';
-import sinon from 'sinon';
-import sinonChai from 'sinon-chai';
-import { HttpProvider } from 'web3-core';
-import { toBN, toHex } from 'web3-utils';
 import {
-    evmMineMany,
-    getTestingEnvironment,
-    INCORRECT_ECDSA_SIGNATURE,
-    revert,
-    snapshot
-} from '../TestUtils';
-import { LocalhostOne, ServerTestEnvironment } from './ServerTestEnvironment';
-import { assertRelayAdded, getTotalTxCosts } from './ServerTestUtils';
+  AccountManager,
+  estimateInternalCallGas,
+  HubInfo,
+  RelayClient,
+  RelayRequest,
+  RelayRequestBody,
+  setEnvelopingConfig,
+  UserDefinedRelayRequest,
+} from '@rsksmart/rif-relay-client';
+import { BigNumber, constants, Wallet } from 'ethers';
+import { spy, match } from 'sinon';
+import {
+  TestDeployVerifierConfigurableMisbehavior,
+  TestRecipient,
+  TestVerifierConfigurableMisbehavior,
+} from '../../typechain-types';
+import {
+  assertEventHub,
+  getTotalTxCosts,
+  loadConfiguration,
+  stringifyEnvelopingTx,
+} from './ServerTestUtils';
+import { mintTokens, prepareToken } from '../smartwallet/utils';
+import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
+import { sleep } from '@rsksmart/rif-relay-server';
 
-const expect = chai.expect;
-chai.use(chaiAsPromised).use(sinonChai);
+const SERVER_WORK_DIR = './tmp/enveloping/test/server';
 
-const TestToken = artifacts.require('TestToken');
-const TestVerifierConfigurableMisbehavior = artifacts.require(
-    'TestVerifierConfigurableMisbehavior'
-);
-const TestDeployVerifierConfigurableMisbehavior = artifacts.require(
-    'TestDeployVerifierConfigurableMisbehavior'
-);
+const basicAppConfig: Partial<AppConfig> = {
+  checkInterval: 10,
+  logLevel: 5,
+  workdir: SERVER_WORK_DIR,
+};
 
-const revertReasonSupported = true;
-contract('RelayServer', function (accounts) {
-    const alertedBlockDelay = 0;
+const IS_DEPLOY_REQUEST = false;
 
-    let id: string;
-    let globalId: string;
-    let env: ServerTestEnvironment;
-    let token: TestTokenInstance;
+const provider = ethers.provider;
 
-    before(async function () {
-        globalId = (await snapshot()).result;
-        const relayClientConfig: Partial<EnvelopingConfig> = {
-            preferredRelays: [LocalhostOne],
-            maxRelayNonceGap: 0,
-            chainId: (await getTestingEnvironment()).chainId
+describe('RelayServer', function () {
+  type RelayServerExposed = {
+    _alerted: boolean;
+    _workerSemaphoreOn: boolean;
+  };
+
+  let originalConfig: ServerConfigParams;
+
+  before(function () {
+    originalConfig = config.util.toObject(config) as ServerConfigParams;
+  });
+
+  afterEach(function () {
+    config.util.extendDeep(config, originalConfig);
+  });
+
+  describe('init', function () {
+    beforeEach(async function () {
+      const relayHub = await deployRelayHub();
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+        },
+      });
+    });
+
+    it('should initialize relay params (chainId, networkId)', async function () {
+      const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+
+      const { chainId } = provider.network;
+      const networkId = Number(await provider.send('net_version', []));
+
+      const server = getServerInstance({ relayOwner });
+
+      expect(server.chainId).to.not.be.equal(chainId);
+      expect(server.networkId).to.not.be.equal(networkId);
+
+      await server.init();
+
+      expect(server.chainId).to.be.equal(chainId);
+      expect(server.networkId).to.be.equal(networkId);
+    });
+  });
+
+  describe('validation', function () {
+    let relayHub: RelayHub;
+    let relayServer: RelayServer;
+    let relayClient: RelayClient;
+    let recipient: TestRecipient;
+    let hubInfo: HubInfo;
+    let owner: Wallet;
+    let encodedData: string;
+
+    beforeEach(async function () {
+      const fakeDeployVerifierAddress = generateRandomAddress();
+      const fakeRelayVerifierAddress = generateRandomAddress();
+      relayHub = await deployRelayHub();
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          deployVerifierAddress: fakeDeployVerifierAddress,
+          relayVerifierAddress: fakeRelayVerifierAddress,
+        },
+      });
+      recipient = await deployContract('TestRecipient');
+      const { chainId } = provider.network;
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
+
+      setEnvelopingConfig({
+        preferredRelays: [serverUrl],
+        chainId,
+        relayHubAddress: relayHub.address,
+        deployVerifierAddress: fakeDeployVerifierAddress,
+        relayVerifierAddress: fakeRelayVerifierAddress,
+        logLevel: 5,
+      });
+      relayClient = new RelayClient();
+      const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+      relayServer = await getInitiatedServer({ relayOwner });
+      hubInfo = relayServer.getChainInfo();
+      owner = ethers.Wallet.createRandom();
+      AccountManager.getInstance().addAccount(owner);
+      encodedData = recipient.interface.encodeFunctionData('emitMessage', [
+        'hello',
+      ]);
+    });
+
+    describe('validateInputTypes', function () {
+      it('should throw if relayHub is undefined', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+        envelopingTxRequest.metadata.relayHubAddress =
+          undefined as unknown as PromiseOrValue<string>;
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Cannot read properties of undefined');
+      });
+    });
+
+    describe('validateInput', function () {
+      it('should throw on wrong hub address', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            relayHub: constants.AddressZero,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Wrong hub address.');
+      });
+
+      it('should throw on wrong fees receiver address', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
+
+        hubInfo.feesReceiver = generateRandomAddress();
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Wrong fees receiver address');
+      });
+
+      it('should throw if gas price is equal to zero', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        envelopingTxRequest.relayRequest.relayData.gasPrice = 0;
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Unacceptable gasPrice');
+      });
+
+      it('should throw on request expired', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            validUntilTime: 1000,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Request expired (or too close)');
+      });
+
+      it('should throw on request too close', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+            validUntilTime: Math.round(Date.now() / 1000),
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.validateInput(envelopingTxRequest)
+        ).to.be.rejectedWith('Request expired (or too close)');
+      });
+    });
+
+    describe('isTrustedVerifier', function () {
+      it('should not validate if the verifier is not trusted', function () {
+        const wrongVerifierAddress = generateRandomAddress();
+
+        expect(relayServer.isTrustedVerifier(wrongVerifierAddress)).to.be.false;
+      });
+
+      it('should validate if the verifier is trusted', function () {
+        const [verifier] = relayServer.verifierHandler().trustedVerifiers as [
+          string
+        ];
+
+        expect(relayServer.isTrustedVerifier(verifier)).to.be.true;
+      });
+    });
+
+    describe('validateVerifier', function () {
+      it('should validate verifier in enveloping request', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        const trustedVerifierSpy = spy(relayServer, 'isTrustedVerifier');
+
+        await relayServer.validateVerifier(envelopingTxRequest);
+
+        const {
+          relayRequest: {
+            relayData: { callVerifier },
+          },
+        } = envelopingTxRequest;
+
+        expect(trustedVerifierSpy.calledOnce).to.be.true;
+        expect(trustedVerifierSpy.calledWith(callVerifier.toString())).to.be
+          .true;
+      });
+
+      it('should throw if wrong verifier in enveloping request', async function () {
+        const wrongVerifierAddress = generateRandomAddress();
+
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 1,
+          },
+          {
+            callVerifier: wrongVerifierAddress,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.validateVerifier(envelopingTxRequest)
+        ).to.be.rejectedWith('Invalid verifier');
+      });
+    });
+
+    describe('validateMaxNonce', function () {
+      beforeEach(async function () {
+        const receiptAddress = generateRandomAddress();
+        const { relayWorkerAddress } = hubInfo;
+        await relayServer.transactionManager.sendTransaction({
+          signer: relayWorkerAddress,
+          serverAction: ServerAction.VALUE_TRANSFER,
+          gasLimit: BigNumber.from(defaultEnvironment?.minTxGasCost),
+          destination: receiptAddress,
+          creationBlockNumber: 0,
+        });
+      });
+
+      it('should not throw with relayMaxNonce above current nonce', async function () {
+        const pollNonceSpy = spy(relayServer.transactionManager, 'pollNonce');
+
+        const nonceValidation = relayServer.validateMaxNonce('1000');
+
+        await expect(nonceValidation).to.be.fulfilled;
+        expect(pollNonceSpy.calledOnce).to.be.true;
+      });
+
+      it('should throw exception with relayMaxNonce below current nonce', async function () {
+        const nonceValidation = relayServer.validateMaxNonce('0');
+
+        await expect(nonceValidation).to.be.rejectedWith(
+          'Unacceptable relayMaxNonce'
+        );
+      });
+    });
+  });
+
+  describe('relayTransaction', function () {
+    let relayHub: RelayHub;
+    let relayServer: RelayServer;
+    let relayClient: RelayClient;
+    let recipient: TestRecipient;
+    let owner: Wallet;
+    let smartWallet: SupportedSmartWallet;
+    let hubInfo: HubInfo;
+    let encodedData: string;
+
+    beforeEach(async function () {
+      const fakeDeployVerifierAddress = generateRandomAddress();
+      const fakeRelayVerifierAddress = generateRandomAddress();
+      relayHub = await deployRelayHub();
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          deployVerifierAddress: fakeDeployVerifierAddress,
+          relayVerifierAddress: fakeRelayVerifierAddress,
+        },
+      });
+      recipient = await deployContract('TestRecipient');
+      const { chainId } = provider.network;
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
+      setEnvelopingConfig({
+        preferredRelays: [serverUrl],
+        chainId,
+        relayHubAddress: relayHub.address,
+        deployVerifierAddress: fakeDeployVerifierAddress,
+        relayVerifierAddress: fakeRelayVerifierAddress,
+        logLevel: 5,
+      });
+      relayClient = new RelayClient();
+      const [worker, fundedAccount, relayOwner] =
+        (await ethers.getSigners()) as [
+          SignerWithAddress,
+          SignerWithAddress,
+          SignerWithAddress
+        ];
+      relayServer = await getInitiatedServer({ relayOwner });
+      owner = ethers.Wallet.createRandom();
+      hubInfo = relayServer.getChainInfo();
+      AccountManager.getInstance().addAccount(owner);
+      encodedData = recipient.interface.encodeFunctionData('emitMessage', [
+        'hello',
+      ]);
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: worker.address,
+        sender: worker,
+        owner,
+        factory: smartWalletFactory,
+      });
+    });
+
+    describe('maxPossibleGasWithViewCall', function () {
+      it('should fail to relay rejected transaction', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            nonce: 0,
+          },
+          {
+            callForwarder: smartWallet.address,
+          }
+        ) as UserDefinedRelayRequest;
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        const wrongEnvelopingTxRequest = await createEnvelopingTxRequest(
+          {
+            ...userDefinedRelayRequest,
+            request: {
+              ...userDefinedRelayRequest.request,
+              gas: constants.Two,
+            } as RelayRequestBody,
+          },
+          relayClient,
+          hubInfo
+        );
+
+        const {
+          metadata: { signature },
+        } = wrongEnvelopingTxRequest;
+
+        const method = await relayHub.populateTransaction.relayCall(
+          envelopingTxRequest.relayRequest as RelayRequest,
+          signature
+        );
+
+        await expect(
+          relayServer.maxPossibleGasWithViewCall(
+            method,
+            envelopingTxRequest,
+            BigNumber.from(2000000)
+          )
+        ).to.be.rejectedWith('revert Signature mismatch');
+      });
+    });
+
+    describe('createRelayTransaction', function () {
+      let gasPrice: BigNumber;
+
+      beforeEach(function () {
+        gasPrice = BigNumber.from(60000000);
+      });
+
+      it('should estimate the transaction max gas properly without token fee', async function () {
+        const gas = await estimateInternalCallGas({
+          from: smartWallet.address,
+          to: recipient.address,
+          gasPrice,
+          data: encodedData,
+        });
+
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            gas,
+          },
+          {
+            callForwarder: smartWallet.address,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
+
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
+          stringifyRequest
+        );
+
+        const { txHash } = await relayServer.createRelayTransaction(
+          stringifyRequest
+        );
+
+        const receipt = await provider.getTransactionReceipt(txHash);
+
+        expect(maxPossibleGasWithFee).to.be.equal(
+          receipt.cumulativeGasUsed,
+          'Gas used in transaction is different from expected'
+        );
+      });
+
+      it('should estimate the transaction max gas properly with token fee', async function () {
+        const gas = await estimateInternalCallGas({
+          from: smartWallet.address,
+          to: recipient.address,
+          gasPrice,
+          data: encodedData,
+        });
+
+        const tokenName = 'TestToken';
+
+        const token = await prepareToken(tokenName);
+        await mintTokens(token, tokenName, 100, smartWallet.address);
+
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+            tokenContract: token.address,
+            tokenAmount: 50,
+            gas,
+          },
+          {
+            callForwarder: smartWallet.address,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
+
+        const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
+          stringifyRequest
+        );
+
+        const { txHash } = await relayServer.createRelayTransaction(
+          stringifyRequest
+        );
+
+        const receipt = await provider.getTransactionReceipt(txHash);
+
+        expect(maxPossibleGasWithFee).to.be.equal(
+          receipt.cumulativeGasUsed,
+          'Gas used in transaction is different from expected'
+        );
+      });
+
+      it('should relay transaction', async function () {
+        const userDefinedRelayRequest = createUserDefinedRequest(
+          IS_DEPLOY_REQUEST,
+          {
+            from: owner.address,
+            to: recipient.address,
+            data: encodedData,
+          },
+          {
+            callForwarder: smartWallet.address,
+          }
+        );
+
+        const envelopingTxRequest = await createEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
+
+        await expect(
+          relayServer.createRelayTransaction(
+            stringifyEnvelopingTx(envelopingTxRequest)
+          )
+        ).to.be.fulfilled;
+      });
+    });
+  });
+
+  describe('relay workers/manager rebalancing', function () {
+    let relayServer: RelayServer;
+    let relayOwner: SignerWithAddress;
+    const workerIndex = 0;
+
+    beforeEach(async function () {
+      [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+      loadConfiguration({
+        app: basicAppConfig,
+      });
+      relayServer = getServerInstance({ relayOwner: relayOwner });
+    });
+
+    it('should not replenish when all balances are sufficient', async function () {
+      const { relayManagerAddress, relayWorkerAddress } =
+        relayServer.getChainInfo();
+
+      const { managerTargetBalance, workerTargetBalance } =
+        config.get<BlockchainConfig>('blockchain');
+
+      await relayOwner.sendTransaction({
+        to: relayManagerAddress,
+        value: managerTargetBalance,
+      });
+
+      await relayOwner.sendTransaction({
+        to: relayWorkerAddress,
+        value: workerTargetBalance,
+      });
+
+      const currentBlockNumber = await provider.getBlockNumber();
+      const receipts = await replenishStrategy(relayServer, workerIndex, 0);
+
+      expect(receipts).to.be.deep.equal([]);
+      expect(currentBlockNumber);
+      expect(currentBlockNumber).to.be.equal(await provider.getBlockNumber());
+    });
+
+    it('should use relay manager balance to fund workers', async function () {
+      const { relayManagerAddress } = relayServer.getChainInfo();
+
+      const { managerTargetBalance, workerTargetBalance } =
+        config.get<BlockchainConfig>('blockchain');
+
+      const refill =
+        BigNumber.from(managerTargetBalance).add(workerTargetBalance);
+
+      await relayOwner.sendTransaction({
+        to: relayManagerAddress,
+        value: refill,
+      });
+
+      const managerBalanceBefore = await relayServer.getManagerBalance();
+
+      expect(
+        managerBalanceBefore.gt(managerTargetBalance),
+        'manager RBTC balance should be greater than target'
+      ).to.be.true;
+
+      const receipts = await replenishStrategy(relayServer, workerIndex, 0);
+
+      const gasPrice = await provider.getGasPrice();
+
+      const totalTxCosts = await getTotalTxCosts(receipts, gasPrice);
+
+      const workerBalance = await relayServer.getWorkerBalance(workerIndex);
+
+      expect(
+        workerBalance.eq(workerTargetBalance),
+        'worker balance is different from worker target balance'
+      ).to.be.true;
+
+      const managerBalanceAfter = await relayServer.getManagerBalance();
+
+      expect(
+        managerBalanceAfter.eq(
+          managerBalanceBefore.sub(managerTargetBalance).sub(totalTxCosts)
+        ),
+        'manager balance should increase by hub balance minus txs costs'
+      ).to.be.true;
+    });
+
+    it("should emit 'funding needed' when both rbtc and hub balances are too low", async function () {
+      const managerBalance = await relayServer.getManagerBalance();
+
+      const { workerTargetBalance, managerMinBalance } =
+        config.get<BlockchainConfig>('blockchain');
+
+      const refill = BigNumber.from(workerTargetBalance).sub(
+        relayServer.workerBalanceRequired.currentValue
+      );
+
+      expect(
+        refill.lt(managerBalance.sub(managerMinBalance)),
+        'manager has balance to replenish'
+      ).to.be.false;
+
+      let fundingNeededEmitted = false;
+      relayServer.on('fundingNeeded', () => {
+        fundingNeededEmitted = true;
+      });
+
+      await replenishStrategy(relayServer, workerIndex, 0);
+
+      expect(fundingNeededEmitted, 'fundingNeeded not emitted').to.be.true;
+    });
+  });
+
+  describe('server keepalive re-registration', function () {
+    const registrationBlockRate = 100;
+    const refreshStateTimeoutBlocks = 1;
+    let relayServer: RelayServer;
+
+    beforeEach(async function () {
+      const relayHub = await deployRelayHub();
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+        },
+        blockchain: {
+          registrationBlockRate,
+          refreshStateTimeoutBlocks,
+          workerTargetBalance: (0.6e18).toString(),
+        },
+      });
+      const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+      relayServer = await getInitiatedServer({ relayOwner });
+    });
+
+    it('should re-register server only if registrationBlockRate passed from any tx', async function () {
+      const handlePastEventsSpy = spy(
+        relayServer.registrationManager,
+        'handlePastEvents'
+      );
+
+      let latestBlock = await provider.getBlock('latest');
+      let receipts = await relayServer._worker(latestBlock.number);
+      const receipts2 = await relayServer._worker(latestBlock.number + 1);
+
+      expect(
+        receipts.length,
+        'should not re-register if already registered'
+      ).to.be.equal(0);
+
+      expect(
+        receipts2.length,
+        'should not re-register if already registered'
+      ).to.be.equal(0);
+
+      expect(
+        handlePastEventsSpy.calledWith(match.any, match.any, match.any, false)
+      ).to.be.true;
+
+      await evmMineMany(registrationBlockRate);
+
+      latestBlock = await provider.getBlock('latest');
+      receipts = await relayServer._worker(latestBlock.number);
+
+      expect(
+        handlePastEventsSpy.calledWith(match.any, match.any, match.any, true)
+      ).to.be.true;
+
+      await assertEventHub('RelayServerRegistered', receipts);
+    });
+  });
+
+  describe('Function testing', function () {
+    let relayServer: RelayServer;
+
+    beforeEach(async function () {
+      loadConfiguration({
+        app: basicAppConfig,
+      });
+      const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+      relayServer = getServerInstance({ relayOwner });
+    });
+
+    it('_workerSemaphore', async function () {
+      const localServer = relayServer as unknown as RelayServerExposed;
+
+      expect(
+        localServer._workerSemaphoreOn,
+        '_workerSemaphoreOn should be false first'
+      ).to.be.false;
+
+      const workerOrig = relayServer['_worker'];
+
+      let shouldRun = true;
+      try {
+        relayServer._worker = async function (): Promise<string[]> {
+          while (shouldRun) {
+            await sleep(200);
+          }
+
+          return [];
         };
 
-        env = new ServerTestEnvironment(
-            web3.currentProvider as HttpProvider,
-            accounts
-        );
-        await env.init(relayClientConfig);
-        const overrideParams: Partial<ServerConfigParams> = {
-            alertedBlockDelay,
-            workerTargetBalance: 0.6e18
-        };
-        await env.newServerInstance(overrideParams);
-        await env.clearServerStorage();
-        token = await TestToken.new();
-        await token.mint('1000', env.forwarder.address);
+        const latestBlock = await provider.getBlock('latest');
+        // eslint-disable-next-line
+        relayServer._workerSemaphore(latestBlock.number);
+
+        expect(
+          localServer._workerSemaphoreOn,
+          '_workerSemaphoreOn should be true after'
+        ).to.be.true;
+
+        shouldRun = false;
+        await sleep(200);
+
+        expect(
+          localServer._workerSemaphoreOn,
+          '_workerSemaphoreOn should be false after'
+        ).to.be.false;
+      } finally {
+        relayServer._worker = workerOrig;
+      }
+    });
+  });
+
+  describe('alerted state as griefing mitigation', function () {
+    const alertedBlockDelay = 100;
+    const refreshStateTimeoutBlocks = 1;
+    let rejectingRelayVerifier: TestVerifierConfigurableMisbehavior;
+    let rejectingDeployVerifier: TestDeployVerifierConfigurableMisbehavior;
+    let relayHub: RelayHub;
+    let relayServer: RelayServer;
+    let relayClient: RelayClient;
+    let recipient: TestRecipient;
+    let encodedData: string;
+    let owner: Wallet;
+    let smartWallet: SupportedSmartWallet;
+
+    beforeEach(async function () {
+      rejectingRelayVerifier = await deployContract(
+        'TestVerifierConfigurableMisbehavior'
+      );
+      rejectingDeployVerifier = await deployContract(
+        'TestDeployVerifierConfigurableMisbehavior'
+      );
+
+      relayHub = await deployRelayHub();
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          deployVerifierAddress: rejectingDeployVerifier.address,
+          relayVerifierAddress: rejectingRelayVerifier.address,
+        },
+        blockchain: {
+          alertedBlockDelay,
+          refreshStateTimeoutBlocks,
+          minAlertedDelayMS: 300,
+          maxAlertedDelayMS: 350,
+        },
+      });
+      recipient = await deployContract('TestRecipient');
+      const [worker, fundedAccount, relayOwner] =
+        (await ethers.getSigners()) as [
+          SignerWithAddress,
+          SignerWithAddress,
+          SignerWithAddress
+        ];
+      const { chainId } = provider.network;
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
+      setEnvelopingConfig({
+        preferredRelays: [serverUrl],
+        chainId,
+        relayHubAddress: relayHub.address,
+        deployVerifierAddress: rejectingDeployVerifier.address,
+        relayVerifierAddress: rejectingRelayVerifier.address,
+        logLevel: 5,
+      });
+      relayClient = new RelayClient();
+      relayServer = await getInitiatedServer({ relayOwner });
+      owner = ethers.Wallet.createRandom();
+      AccountManager.getInstance().addAccount(owner);
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: worker.address,
+        sender: worker,
+        owner,
+        factory: smartWalletFactory,
+      });
+      await attackTheServer(relayServer);
     });
 
-    after(async function () {
-        await revert(globalId);
-        await env.clearServerStorage();
+    afterEach(function () {
+      relayServer.transactionManager._initNonces();
     });
 
-    describe('#init()', function () {
-        it('should initialize relay params (chainId, networkId, gasPrice)', async function () {
-            const env = new ServerTestEnvironment(
-                web3.currentProvider as HttpProvider,
-                accounts
-            );
-            await env.init({});
-            await env.newServerInstanceNoInit();
-            const relayServerToInit = env.relayServer;
-            const chainId = await env.web3.eth.getChainId();
-            const networkId = await env.web3.eth.net.getId();
-            assert.notEqual(relayServerToInit.chainId, chainId);
-            assert.notEqual(relayServerToInit.networkId, networkId);
-            assert.equal(relayServerToInit.ready, false);
-            await relayServerToInit.init();
-            assert.equal(
-                relayServerToInit.ready,
-                false,
-                'relay should not be ready yet'
-            );
-            assert.equal(relayServerToInit.chainId, chainId);
-            assert.equal(relayServerToInit.networkId, networkId);
+    async function attackTheServer(server: RelayServer): Promise<void> {
+      const sendTransactionOrigin =
+        server.transactionManager['sendTransaction'];
+
+      server.transactionManager.sendTransaction = async function ({
+        signer,
+        method,
+        destination,
+        value = constants.Zero,
+        gasLimit,
+        gasPrice,
+        creationBlockNumber,
+        serverAction,
+      }: SendTransactionDetails): Promise<SignedTransactionDetails> {
+        await recipient.setNextRevert();
+
+        return await sendTransactionOrigin.call(server.transactionManager, {
+          signer,
+          method,
+          destination,
+          value,
+          gasLimit,
+          gasPrice,
+          creationBlockNumber,
+          serverAction,
         });
-    });
-
-    describe('validation', function () {
-        beforeEach(async function () {
-            await env.relayServer.txStoreManager.clearAll();
-        });
-
-        describe('#validateInputTypes()', function () {
-            // skipped because error message changed here for no apparent reason
-            it.skip('should throw on undefined data', async function () {
-                const req = await env.createRelayHttpRequest();
-                // @ts-ignore
-                req.relayRequest.request.data = undefined;
-                try {
-                    env.relayServer.validateInputTypes(req);
-                    assert.fail();
-                } catch (e) {
-                    assert.include(
-                        e.message,
-                        'Expected argument to be of type `string` but received type `undefined`'
-                    );
-                }
-            });
-        });
-
-        describe('#validateInput()', function () {
-            it('should fail to relay with wrong relay worker', async function () {
-                const req = await env.createRelayHttpRequest();
-                req.relayRequest.relayData.feesReceiver = accounts[1];
-                try {
-                    env.relayServer.validateInput(req);
-                    assert.fail();
-                } catch (e) {
-                    assert.include(
-                        e.message,
-                        `Wrong fees receiver address: ${accounts[1]}`
-                    );
-                }
-            });
-
-            it('should fail to relay with unacceptable gasPrice', async function () {
-                const wrongGasPrice = isRsk(await getTestingEnvironment())
-                    ? '0.5'
-                    : '100';
-                const req = await env.createRelayHttpRequest();
-                req.relayRequest.relayData.gasPrice = wrongGasPrice;
-                try {
-                    env.relayServer.validateInput(req);
-                    assert.fail();
-                } catch (e) {
-                    assert.include(
-                        e.message,
-                        `Unacceptable gasPrice: relayServer's gasPrice:${env.relayServer.gasPrice} request's gasPrice: ${wrongGasPrice}`
-                    );
-                }
-            });
-
-            it('should fail to relay with wrong hub address', async function () {
-                const wrongHubAddress = '0xdeadface';
-                const req = await env.createRelayHttpRequest();
-                req.metadata.relayHubAddress = wrongHubAddress;
-                try {
-                    env.relayServer.validateInput(req);
-                    assert.fail();
-                } catch (e) {
-                    assert.include(
-                        e.message,
-                        `Wrong hub address.\nRelay server's hub address: ${env.relayServer.config.relayHubAddress}, request's hub address: ${wrongHubAddress}\n`
-                    );
-                }
-            });
-        });
-
-        describe('#validateVerifier()', function () {
-            describe('with trusted forwarder', function () {
-                before(async function () {
-                    await env.relayServer._initTrustedVerifiers([
-                        env.relayVerifier.address,
-                        env.deployVerifier.address
-                    ]);
-                });
-
-                after(async function () {
-                    await env.relayServer._initTrustedVerifiers([]);
-                });
-
-                it('#isTrustedVerifier', function () {
-                    assert.isFalse(
-                        env.relayServer.isTrustedVerifier(accounts[1]),
-                        'identify untrusted verifier'
-                    );
-                    assert.isTrue(
-                        env.relayServer.isTrustedVerifier(
-                            env.relayVerifier.address
-                        ),
-                        'identify trusted verifier'
-                    );
-                    assert.isTrue(
-                        env.relayServer.isTrustedVerifier(
-                            env.deployVerifier.address
-                        ),
-                        'identify trusted verifier'
-                    );
-                });
-
-                it('#verifierHandler', async function () {
-                    const relayVerifier =
-                        env.relayVerifier.address.toLowerCase();
-                    const deployVerifier =
-                        env.deployVerifier.address.toLowerCase();
-                    const trustedVerifiers = (
-                        await env.relayServer.verifierHandler()
-                    ).trustedVerifiers;
-                    assert.isTrue(trustedVerifiers.includes(relayVerifier));
-                    assert.isTrue(trustedVerifiers.includes(deployVerifier));
-                    assert.equal(trustedVerifiers.length, 2);
-                });
-            });
-
-            describe('#validateMaxNonce()', function () {
-                before(async function () {
-                    // this is a new worker account - create transaction
-                    const latestBlock = (await env.web3.eth.getBlock('latest'))
-                        .number;
-                    await env.relayServer._worker(latestBlock);
-                    const signer = env.relayServer.workerAddress;
-
-                    console.log(`THE BALANCE OF THE WORKER ${signer} is`);
-                    console.log(await web3.eth.getBalance(signer));
-                    await env.relayServer.transactionManager.sendTransaction({
-                        signer,
-                        serverAction: ServerAction.VALUE_TRANSFER,
-                        gasLimit: defaultEnvironment.mintxgascost,
-                        destination: accounts[0],
-                        creationBlockNumber: 0
-                    });
-                });
-
-                it('should not throw with relayMaxNonce above current nonce', async function () {
-                    await env.relayServer.validateMaxNonce(1000);
-                });
-
-                it('should throw exception with relayMaxNonce below current nonce', async function () {
-                    try {
-                        await env.relayServer.validateMaxNonce(0);
-                        assert.fail();
-                    } catch (e) {
-                        assert.include(
-                            e.message,
-                            'Unacceptable relayMaxNonce:'
-                        );
-                    }
-                });
-            });
-        });
-
-        describe('#validateVerifierGasLimits()', function () {
-            it('should fail to relay with invalid verifier', async function () {
-                const req = await env.createRelayHttpRequest();
-                req.relayRequest.relayData.callVerifier = accounts[1];
-                try {
-                    env.relayServer.validateVerifier(req);
-                    assert.fail();
-                } catch (e) {
-                    assert.include(
-                        e.message,
-                        `Invalid verifier: ${accounts[1]}`
-                    );
-                }
-            });
-
-            describe('relay max exposure to verifier rejections', function () {
-                let rejectingVerifier: TestVerifierConfigurableMisbehaviorInstance;
-                let req: RelayTransactionRequest;
-
-                before(async function () {
-                    rejectingVerifier =
-                        await TestVerifierConfigurableMisbehavior.new();
-                    req = await env.createRelayHttpRequest();
-                    req.relayRequest.relayData.callVerifier =
-                        rejectingVerifier.address;
-                });
-
-                it('should accept a transaction from trusted verifier returning above configured max exposure', async function () {
-                    const req = await env.createRelayHttpRequest();
-                    try {
-                        await env.relayServer._initTrustedVerifiers([
-                            rejectingVerifier.address
-                        ]);
-                        env.relayServer.validateVerifier(req);
-                    } finally {
-                        await env.relayServer._initTrustedVerifiers([]);
-                    }
-                });
-            });
-        });
-
-        describe('#findMaxPossibleGasWithViewCall()', function () {
-            // RelayHub contract
-            it('should fail to relay rejected transaction', async function () {
-                const req = await env.createRelayHttpRequest();
-
-                req.metadata.signature = INCORRECT_ECDSA_SIGNATURE;
-                const method = env.relayHub.contract.methods.relayCall(
-                    req.relayRequest,
-                    req.metadata.signature
-                );
-
-                try {
-                    await env.relayServer.findMaxPossibleGasWithViewCall(
-                        method,
-                        req,
-                        '2000000'
-                    );
-                    assert.fail();
-                } catch (e) {
-                    if (revertReasonSupported) {
-                        const message = e.message ?? e;
-                        assert.include(message, 'Signature mismatch');
-                    } else {
-                        assert.include(
-                            e.message,
-                            'relayCall (local call) reverted in server: Returned error: VM execution error: transaction reverted'
-                        );
-                    }
-                }
-            });
-
-            it('should estimate the transaction max gas properly for subsidized transactions', async function () {
-                let estimatedGas = await env.contractInteractor.estimateGas({
-                    from: env.forwarder.address,
-                    to: env.recipient.address,
-                    gasPrice: toHex(60000000),
-                    data: env.encodedFunction
-                });
-
-                estimatedGas =
-                    estimatedGas >
-                    constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        ? estimatedGas -
-                          constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        : estimatedGas;
-
-                const req = await env.createRelayHttpRequest({
-                    gas: toHex(estimatedGas)
-                });
-
-                assert.equal(
-                    (await env.relayServer.txStoreManager.getAll()).length,
-                    0
-                );
-
-                const result =
-                    await env.relayServer.validateRequestWithVerifier(req);
-                const txDetails: SignedTransactionDetails =
-                    await env.relayServer.createRelayTransaction(req);
-
-                const pendingTransactions =
-                    await env.relayServer.txStoreManager.getAll();
-                assert.equal(pendingTransactions.length, 1);
-                assert.equal(
-                    pendingTransactions[0].serverAction,
-                    ServerAction.RELAY_CALL
-                );
-
-                const receipt = await web3.eth.getTransactionReceipt(
-                    txDetails.transactionHash
-                );
-
-                console.log(
-                    'Estimated gas is:',
-                    result.maxPossibleGas.toNumber()
-                );
-                console.log('Actual gas used is: ', receipt.cumulativeGasUsed);
-                assert.equal(
-                    receipt.cumulativeGasUsed,
-                    result.maxPossibleGas.toNumber()
-                );
-
-                const topic: string =
-                    web3.utils.sha3(
-                        'SampleRecipientEmitted(string,address,address,uint256,uint256)'
-                    ) ?? '';
-                assert(
-                    receipt.logs.find((log) => log.topics.includes(topic)),
-                    'SampleRecipientEmitted event not found'
-                );
-            });
-
-            it('should estimate the transaction max gas properly', async function () {
-                let estimatedGas = await env.contractInteractor.estimateGas({
-                    from: env.forwarder.address,
-                    to: env.recipient.address,
-                    gasPrice: toHex(60000000),
-                    data: env.encodedFunction
-                });
-
-                estimatedGas =
-                    estimatedGas >
-                    constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        ? estimatedGas -
-                          constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        : estimatedGas;
-
-                const encodedFunction =
-                    env.contractInteractor.web3.eth.abi.encodeFunctionCall(
-                        {
-                            name: 'transfer',
-                            type: 'function',
-                            inputs: [
-                                {
-                                    type: 'address',
-                                    name: 'recipient'
-                                },
-                                {
-                                    type: 'uint256',
-                                    name: 'amount'
-                                }
-                            ]
-                        },
-                        [env.relayServer.workerAddress, '1']
-                    );
-
-                let tokenGasCost = await env.contractInteractor.estimateGas({
-                    from: env.forwarder.address, // token holder is the smart wallet
-                    to: token.address,
-                    gasPrice: toHex(60000000),
-                    data: encodedFunction
-                });
-
-                tokenGasCost =
-                    tokenGasCost >
-                    constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        ? tokenGasCost -
-                          constants.INTERNAL_TRANSACTION_ESTIMATE_CORRECTION
-                        : tokenGasCost;
-
-                const req = await env.createRelayHttpRequest({
-                    tokenContract: token.address,
-                    tokenAmount: '1',
-                    gas: toHex(estimatedGas),
-                    tokenGas: toHex(tokenGasCost)
-                });
-
-                assert.equal(
-                    (await env.relayServer.txStoreManager.getAll()).length,
-                    0
-                );
-
-                const result =
-                    await env.relayServer.validateRequestWithVerifier(req);
-                const txDetails: SignedTransactionDetails =
-                    await env.relayServer.createRelayTransaction(req);
-
-                const pendingTransactions =
-                    await env.relayServer.txStoreManager.getAll();
-                assert.equal(pendingTransactions.length, 1);
-                assert.equal(
-                    pendingTransactions[0].serverAction,
-                    ServerAction.RELAY_CALL
-                );
-
-                const receipt = await web3.eth.getTransactionReceipt(
-                    txDetails.transactionHash
-                );
-
-                // console.log("Estimated gas is:", result.maxPossibleGas.toNumber())
-                // console.log("Actual gas used is: ", receipt.cumulativeGasUsed)
-                assert.equal(
-                    receipt.cumulativeGasUsed,
-                    result.maxPossibleGas.toNumber()
-                );
-
-                const topic: string =
-                    web3.utils.sha3(
-                        'SampleRecipientEmitted(string,address,address,uint256,uint256)'
-                    ) ?? '';
-                assert(
-                    receipt.logs.find((log) => log.topics.includes(topic)),
-                    'SampleRecipientEmitted event not found'
-                );
-            });
-        });
-    });
-
-    describe('#createRelayTransaction()', function () {
-        before(async function () {
-            await env.relayServer.txStoreManager.clearAll();
-        });
-
-        it('should relay transaction', async function () {
-            const req = await env.createRelayHttpRequest();
-            assert.equal(
-                (await env.relayServer.txStoreManager.getAll()).length,
-                0
-            );
-            await env.relayServer.createRelayTransaction(req);
-            const pendingTransactions =
-                await env.relayServer.txStoreManager.getAll();
-            assert.equal(pendingTransactions.length, 1);
-            assert.equal(
-                pendingTransactions[0].serverAction,
-                ServerAction.RELAY_CALL
-            );
-            // TODO: add asserts here!!!
-        });
-    });
-
-    describe('relay workers/manager rebalancing', function () {
-        let relayServer: RelayServer;
-        const workerIndex = 0;
-        const gasPrice = (1e9).toString();
-        let beforeDescribeId: string;
-        const txCost = toBN(
-            defaultEnvironment.mintxgascost * parseInt(gasPrice)
-        );
-
-        // TODO: not needed, worker is not funded at this point!
-        before('deplete worker balance', async function () {
-            relayServer = env.relayServer;
-            beforeDescribeId = (await snapshot()).result;
-            await relayServer.transactionManager.sendTransaction({
-                signer: relayServer.workerAddress,
-                serverAction: ServerAction.VALUE_TRANSFER,
-                destination: accounts[0],
-                gasLimit: defaultEnvironment.mintxgascost,
-                gasPrice: gasPrice,
-                creationBlockNumber: 0,
-                value: toHex(
-                    (
-                        await relayServer.getWorkerBalance(workerIndex)
-                    ).sub(txCost)
-                )
-            });
-            const workerBalanceAfter = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            assert.isTrue(
-                workerBalanceAfter.lt(
-                    toBN(relayServer.config.workerMinBalance)
-                ),
-                'worker balance should be lower than min balance'
-            );
-        });
-
-        after(async function () {
-            await revert(beforeDescribeId);
-        });
-
-        beforeEach(async function () {
-            id = (await snapshot()).result;
-            await relayServer.transactionManager.txStoreManager.clearAll();
-        });
-
-        afterEach(async function () {
-            await revert(id);
-            relayServer.transactionManager._initNonces();
-            await relayServer.transactionManager.txStoreManager.clearAll();
-        });
-
-        it('should not replenish when all balances are sufficient', async function () {
-            await env.web3.eth.sendTransaction({
-                from: accounts[0],
-                to: relayServer.managerAddress,
-                value: relayServer.config.managerTargetBalance
-            });
-            await env.web3.eth.sendTransaction({
-                from: accounts[0],
-                to: relayServer.workerAddress,
-                value: relayServer.config.workerTargetBalance
-            });
-            const currentBlockNumber = await env.web3.eth.getBlockNumber();
-            const receipts = await relayServer.replenishServer(workerIndex, 0);
-            assert.deepEqual(receipts, []);
-            assert.equal(
-                currentBlockNumber,
-                await env.web3.eth.getBlockNumber()
-            );
-        });
-
-        it('should use RBTC balance to fund workers', async function () {
-            await relayServer.transactionManager.sendTransaction({
-                signer: relayServer.managerAddress,
-                serverAction: ServerAction.VALUE_TRANSFER,
-                creationBlockNumber: 0,
-                destination: accounts[0],
-                gasLimit: defaultEnvironment.mintxgascost,
-                gasPrice: gasPrice,
-                value: toHex(
-                    (await relayServer.getManagerBalance()).sub(txCost)
-                )
-            });
-            assert.equal(
-                (await relayServer.getManagerBalance()).toString(),
-                '0'
-            );
-            const workerBalanceBefore = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            const refill = toBN(
-                relayServer.config.workerTargetBalance.toString()
-            ).sub(workerBalanceBefore);
-
-            await env.web3.eth.sendTransaction({
-                from: accounts[0],
-                to: relayServer.managerAddress,
-                value: toBN(relayServer.config.managerTargetBalance).add(
-                    refill
-                ),
-                gasPrice: 1
-            });
-            const managerEthBalanceBefore =
-                await relayServer.getManagerBalance();
-            assert.isTrue(
-                managerEthBalanceBefore.gt(
-                    toBN(relayServer.config.managerTargetBalance.toString())
-                ),
-                'manager RBTC balance should be greater than target'
-            );
-            const receipts = await relayServer.replenishServer(workerIndex, 0);
-            const totalTxCosts = await getTotalTxCosts(
-                receipts,
-                await env.web3.eth.getGasPrice()
-            );
-            const workerBalanceAfter = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            assert.isTrue(
-                workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
-                `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()})`
-            );
-            const managerEthBalanceAfter =
-                await relayServer.getManagerBalance();
-            assert.isTrue(
-                managerEthBalanceAfter.eq(
-                    managerEthBalanceBefore.sub(refill).sub(totalTxCosts)
-                ),
-                'manager RBTC balance should increase by hub balance minus txs costs'
-            );
-        });
-
-        it('should fund from manager RBTC balance when balance is too low', async function () {
-            await env.web3.eth.sendTransaction({
-                from: accounts[0],
-                to: relayServer.managerAddress,
-                value: 1e18
-            });
-            const managerEthBalance = await relayServer.getManagerBalance();
-            const workerBalanceBefore = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            const refill = toBN(relayServer.config.workerTargetBalance).sub(
-                workerBalanceBefore
-            );
-            assert.isTrue(
-                managerEthBalance.gte(refill),
-                'manager RBTC balance should be sufficient to replenish worker'
-            );
-            await relayServer.replenishServer(workerIndex, 0);
-            const workerBalanceAfter = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            assert.isTrue(
-                workerBalanceAfter.eq(workerBalanceBefore.add(refill)),
-                `workerBalanceAfter (${workerBalanceAfter.toString()}) != workerBalanceBefore (${workerBalanceBefore.toString()}) + refill (${refill.toString()}`
-            );
-        });
-
-        it("should emit 'funding needed' when both rbtc and hub balances are too low", async function () {
-            await relayServer.transactionManager.sendTransaction({
-                signer: relayServer.managerAddress,
-                serverAction: ServerAction.VALUE_TRANSFER,
-                creationBlockNumber: 0,
-                destination: accounts[0],
-                gasLimit: defaultEnvironment.mintxgascost,
-                gasPrice: gasPrice.toString(),
-                value: toHex(
-                    (await relayServer.getManagerBalance()).sub(txCost)
-                )
-            });
-            const managerEthBalance = await relayServer.getManagerBalance();
-            const workerBalanceBefore = await relayServer.getWorkerBalance(
-                workerIndex
-            );
-            const refill = toBN(relayServer.config.workerTargetBalance).sub(
-                workerBalanceBefore
-            );
-            assert.isTrue(
-                managerEthBalance.lt(refill),
-                'manager RBTC balance should be insufficient to replenish worker'
-            );
-            let fundingNeededEmitted = false;
-            relayServer.on('fundingNeeded', () => {
-                fundingNeededEmitted = true;
-            });
-            await relayServer.replenishServer(workerIndex, 0);
-            assert.isTrue(fundingNeededEmitted, 'fundingNeeded not emitted');
-        });
-    });
-
-    describe('server keepalive re-registration', function () {
-        const registrationBlockRate = 100;
-        const refreshStateTimeoutBlocks = 1;
-        let relayServer: RelayServer;
-
-        before(async function () {
-            await env.newServerInstance({
-                registrationBlockRate,
-                refreshStateTimeoutBlocks,
-                workerTargetBalance: 0.6e18
-            });
-            relayServer = env.relayServer;
-            sinon.spy(relayServer.registrationManager, 'handlePastEvents');
-        });
-
-        it('should re-register server only if registrationBlockRate passed from any tx', async function () {
-            let latestBlock = await env.web3.eth.getBlock('latest');
-            let receipts = await relayServer._worker(latestBlock.number);
-            const receipts2 = await relayServer._worker(latestBlock.number + 1);
-            expect(
-                relayServer.registrationManager.handlePastEvents
-            ).to.have.been.calledWith(
-                sinon.match.any,
-                sinon.match.any,
-                sinon.match.any,
-                false
-            );
-            assert.equal(
-                receipts.length,
-                0,
-                'should not re-register if already registered'
-            );
-            assert.equal(
-                receipts2.length,
-                0,
-                'should not re-register if already registered'
-            );
-            await evmMineMany(registrationBlockRate);
-            latestBlock = await env.web3.eth.getBlock('latest');
-            receipts = await relayServer._worker(latestBlock.number);
-            expect(
-                relayServer.registrationManager.handlePastEvents
-            ).to.have.been.calledWith(
-                sinon.match.any,
-                sinon.match.any,
-                sinon.match.any,
-                true
-            );
-            await assertRelayAdded(receipts, relayServer, false);
-        });
-    });
-
-    describe('Function testing', function () {
-        let relayServer: RelayServer;
-
-        before(function () {
-            relayServer = env.relayServer;
-        });
-        it('_workerSemaphore', async function () {
-            assert.isFalse(
-                relayServer._workerSemaphoreOn,
-                '_workerSemaphoreOn should be false first'
-            );
-            const workerOrig = relayServer._worker;
-            let shouldRun = true;
-            try {
-                relayServer._worker = async function (): Promise<
-                    PrefixedHexString[]
-                > {
-                    // eslint-disable-next-line no-unmodified-loop-condition
-                    while (shouldRun) {
-                        await sleep(200);
-                    }
-                    return [];
-                };
-                const latestBlock = await env.web3.eth.getBlock('latest');
-                // eslint-disable-next-line
-                relayServer._workerSemaphore(latestBlock.number);
-                assert.isTrue(
-                    relayServer._workerSemaphoreOn,
-                    '_workerSemaphoreOn should be true after'
-                );
-                shouldRun = false;
-                await sleep(200);
-                assert.isFalse(
-                    relayServer._workerSemaphoreOn,
-                    '_workerSemaphoreOn should be false after'
-                );
-            } finally {
-                relayServer._worker = workerOrig;
-            }
-        });
-    });
-
-    describe('alerted state as griefing mitigation', function () {
-        const alertedBlockDelay = 100;
-        const refreshStateTimeoutBlocks = 1;
-        let rejectingVerifier: TestVerifierConfigurableMisbehaviorInstance;
-        let rejectingDeployVerifier: TestDeployVerifierConfigurableMisbehaviorInstance;
-        let newServer: RelayServer;
-        const TestRecipient = artifacts.require('TestRecipient');
-        let recipient: TestRecipientInstance;
-
-        beforeEach(
-            'should enter an alerted state for a configured blocks delay after verifier rejecting an on-chain tx',
-            async function () {
-                id = (await snapshot()).result;
-                rejectingVerifier =
-                    await TestVerifierConfigurableMisbehavior.new();
-                rejectingDeployVerifier =
-                    await TestDeployVerifierConfigurableMisbehavior.new();
-                recipient = await TestRecipient.new();
-
-                await env.newServerInstance({
-                    alertedBlockDelay,
-                    refreshStateTimeoutBlocks,
-                    relayVerifierAddress: rejectingVerifier.address,
-                    deployVerifierAddress: rejectingDeployVerifier.address,
-                    workerTargetBalance: 0.6e18
-                });
-                newServer = env.relayServer;
-                await attackTheServer(newServer);
-            }
-        );
-        afterEach(async function () {
-            await revert(id);
-            newServer.transactionManager._initNonces();
-        });
-
-        async function attackTheServer(server: RelayServer): Promise<void> {
-            const _sendTransactionOrig =
-                server.transactionManager.sendTransaction;
-
-            server.transactionManager.sendTransaction = async function ({
-                signer,
-                method,
-                destination,
-                value = '0x',
-                gasLimit,
-                gasPrice,
-                creationBlockNumber,
-                serverAction
-            }: SendTransactionDetails): Promise<SignedTransactionDetails> {
-                await recipient.setNextRevert();
-                return await _sendTransactionOrig.call(
-                    server.transactionManager,
-                    {
-                        signer,
-                        method,
-                        destination,
-                        value,
-                        gasLimit,
-                        gasPrice,
-                        creationBlockNumber,
-                        serverAction
-                    }
-                );
-            };
-
-            const req = await env.createRelayHttpRequest({
-                callVerifier: rejectingVerifier.address,
-                to: recipient.address,
-                data: recipient.contract.methods.testNextRevert().encodeABI()
-            });
-
-            await env.relayServer.createRelayTransaction(req);
-            const currentBlock = await env.web3.eth.getBlock('latest');
-
-            await server._worker(currentBlock.number);
-            assert.isTrue(server.alerted, 'server not alerted');
-            assert.equal(
-                server.alertedBlock,
-                currentBlock.number,
-                'server alerted block incorrect'
-            );
+      };
+
+      encodedData = recipient.interface.encodeFunctionData('testNextRevert');
+
+      const userDefinedRelayRequest = createUserDefinedRequest(
+        IS_DEPLOY_REQUEST,
+        {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+        },
+        {
+          callForwarder: smartWallet.address,
         }
+      );
 
-        it('should delay transactions in alerted state', async function () {
-            newServer.config.minAlertedDelayMS = 300;
-            newServer.config.maxAlertedDelayMS = 350;
-            const timeBefore = Date.now();
-            const req = await env.createRelayHttpRequest();
-            await env.relayServer.createRelayTransaction(req);
-            // await relayTransaction(relayTransactionParams, options)
-            const timeAfter = Date.now();
-            assert.isTrue(
-                timeAfter - timeBefore > 300,
-                'checking that enough time passed'
-            );
-        });
+      const hubInfo = server.getChainInfo();
 
-        it('should exit alerted state after the configured blocks delay', async function () {
-            await evmMineMany(newServer.config.alertedBlockDelay - 1);
-            let latestBlock = await env.web3.eth.getBlock('latest');
-            await newServer._worker(latestBlock.number);
-            assert.isTrue(newServer.alerted, 'server not alerted');
-            await evmMineMany(2);
-            latestBlock = await env.web3.eth.getBlock('latest');
-            await newServer._worker(latestBlock.number);
-            assert.isFalse(newServer.alerted, 'server alerted');
-        });
+      const envelopingTxRequest = await createEnvelopingTxRequest(
+        userDefinedRelayRequest,
+        relayClient,
+        hubInfo
+      );
+
+      await relayServer.createRelayTransaction(
+        stringifyEnvelopingTx(envelopingTxRequest)
+      );
+
+      const currentBlock = await provider.getBlock('latest');
+
+      await server._worker(currentBlock.number);
+
+      expect(server.alertedBlock).to.be.equal(
+        currentBlock.number,
+        'server alerted block incorrect'
+      );
+    }
+
+    it('should delay transactions in alerted state', async function () {
+      const timeBefore = Date.now();
+
+      const userDefinedRelayRequest = createUserDefinedRequest(
+        IS_DEPLOY_REQUEST,
+        {
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+        },
+        {
+          callForwarder: smartWallet.address,
+        }
+      );
+
+      const hubInfo = relayServer.getChainInfo();
+
+      const envelopingTxRequest = await createEnvelopingTxRequest(
+        userDefinedRelayRequest,
+        relayClient,
+        hubInfo
+      );
+
+      await relayServer.createRelayTransaction(
+        stringifyEnvelopingTx(envelopingTxRequest)
+      );
+
+      const timeAfter = Date.now();
+
+      expect(timeAfter - timeBefore > 300, 'checking that enough time passed')
+        .to.be.true;
     });
 
-    describe('Custom replenish function', function () {
-        let relayServer: RelayServer;
-        const workerIndex = 0;
+    it('should exit alerted state after the configured blocks delay', async function () {
+      const { alertedBlockDelay } = config.get<BlockchainConfig>('blockchain');
 
-        before(async function () {
-            await env.newServerInstanceNoInit({
-                customReplenish: true
-            });
-            relayServer = env.relayServer;
-        });
-        // This test should be skipped in the case a custom replenish is implemented
-        it('should throw an errror if there is no custom replenish function', async function () {
-            try {
-                await relayServer.replenishServer(workerIndex, 0);
-            } catch (error) {
-                assert.equal(
-                    error.message,
-                    'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.'
-                );
-            }
-        });
+      const localServer = relayServer as unknown as RelayServerExposed;
+
+      await evmMineMany(alertedBlockDelay - 1);
+      let latestBlock = await provider.getBlock('latest');
+      await relayServer._worker(latestBlock.number);
+
+      expect(localServer._alerted).to.be.true;
+
+      await evmMineMany(2);
+      latestBlock = await provider.getBlock('latest');
+      await relayServer._worker(latestBlock.number);
+
+      expect(localServer._alerted).to.be.false;
+    });
+  });
+
+  describe('Custom replenish function', function () {
+    let relayServer: RelayServer;
+    const workerIndex = 0;
+
+    beforeEach(async function () {
+      const [relayOwner] = (await ethers.getSigners()) as [SignerWithAddress];
+      loadConfiguration({
+        app: { ...basicAppConfig, customReplenish: true },
+      });
+      relayServer = getServerInstance({ relayOwner });
     });
 
-    describe('acceptTokens', function () {
-        const testToken1 = String('0xAbCeBBc80e1a11bD4e2F692A75dFF73753aABF5f');
-        const testToken2 = String('0x85d55E6228C9a6bA73567926f0A0EB3e5f191803');
-
-        afterEach(async function () {
-            // reset verifiers for each test
-            await env.relayServer.trustedVerifiers.clear();
-        });
-
-        it('should return empty if there are no trusted verifiers', async function () {
-            const res = await env.relayServer.tokenHandler();
-            assert.isEmpty(res);
-        });
-
-        it('should return error if verifier is not trusted', async function () {
-            // trust relay verifier, but query deploy verifier
-            env.relayServer.trustedVerifiers.add(
-                env.relayVerifier.address.toLowerCase()
-            );
-            try {
-                await env.relayServer.tokenHandler(env.deployVerifier.address);
-                assert.fail(); // previous line should throw exception
-            } catch (error) {
-                assert.equal(error.message, 'supplied verifier is not trusted');
-            }
-        });
-
-        it('should return no tokens for verifiers when none were allowed', async function () {
-            env.relayServer.trustedVerifiers.add(
-                env.relayVerifier.address.toLowerCase()
-            );
-
-            const exp: TokenResponse = {};
-            exp[env.relayVerifier.address] = [];
-            const res = await env.relayServer.tokenHandler(
-                env.relayVerifier.address
-            );
-
-            assert.deepEqual(res, exp);
-        });
-
-        it('should return allowed tokens for one trusted verifier', async function () {
-            env.relayServer.trustedVerifiers.add(
-                env.deployVerifier.address.toLowerCase()
-            );
-
-            // add token 1 to deploy verifier
-            await env.deployVerifier.acceptToken(testToken1);
-
-            const exp: TokenResponse = {};
-            exp[env.deployVerifier.address] = [testToken1];
-            let res = await env.relayServer.tokenHandler(
-                env.deployVerifier.address
-            );
-
-            assert.deepEqual(res, exp);
-
-            // add token 2 to deploy verifier
-            await env.deployVerifier.acceptToken(testToken2);
-
-            exp[env.deployVerifier.address].push(testToken2);
-            res = await env.relayServer.tokenHandler(
-                env.deployVerifier.address
-            );
-
-            assert.deepEqual(res, exp);
-        });
-
-        it('should return allowed tokens for all trusted verifiers', async function () {
-            env.relayServer.trustedVerifiers.add(
-                env.relayVerifier.address.toLowerCase()
-            );
-            env.relayServer.trustedVerifiers.add(
-                env.deployVerifier.address.toLowerCase()
-            );
-
-            const exp: TokenResponse = {};
-            exp[env.deployVerifier.address] = [testToken1, testToken2];
-            exp[env.relayVerifier.address] = [];
-            let res = await env.relayServer.tokenHandler();
-
-            assert.deepEqual(res, exp);
-
-            // add token 1 to relay verifier
-            await env.relayVerifier.acceptToken(testToken1);
-
-            exp[env.relayVerifier.address] = [testToken1];
-            res = await env.relayServer.tokenHandler();
-            assert.deepEqual(res, exp);
-
-            // add token 2 to relay verifier
-            await env.relayVerifier.acceptToken(testToken2);
-
-            exp[env.relayVerifier.address].push(testToken2);
-            res = await env.relayServer.tokenHandler();
-            assert.deepEqual(res, exp);
-        });
+    it('should throw an error if there is no custom replenish function', async function () {
+      await expect(
+        replenishStrategy(relayServer, workerIndex, 0)
+      ).to.be.rejectedWith(
+        'No custom replenish function found, to remove this error please add the custom replenish implementation here deleting this line.'
+      );
     });
+  });
+
+  describe('tokenHandler', function () {
+    let relayServer: RelayServer;
+    let deployVerifier: DeployVerifier;
+    let relayVerifier: RelayVerifier;
+
+    beforeEach(async function () {
+      const [relayOwner, fundedAccount] = (await ethers.getSigners()) as [
+        SignerWithAddress,
+        SignerWithAddress
+      ];
+      const relayHub = await deployRelayHub();
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        false,
+        fundedAccount
+      );
+      ({ deployVerifier, relayVerifier } = await deployVerifiers(
+        smartWalletFactory
+      ));
+
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          relayVerifierAddress: relayVerifier.address,
+          deployVerifierAddress: deployVerifier.address,
+        },
+      });
+      relayServer = await getInitiatedServer({ relayOwner });
+    });
+
+    it('should return empty if there are no trusted verifiers', async function () {
+      relayServer.trustedVerifiers.clear();
+      const verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.be.empty;
+    });
+
+    it('should return error if verifier is not trusted', async function () {
+      const wrongVerifierAddress = generateRandomAddress();
+
+      await expect(
+        relayServer.tokenHandler(wrongVerifierAddress)
+      ).to.be.rejectedWith('supplied verifier is not trusted');
+    });
+
+    it('should return no tokens for verifiers when none were allowed', async function () {
+      const verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [],
+        [relayVerifier.address]: [],
+      });
+    });
+
+    it('should return allowed tokens for one trusted verifier', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptToken(token1.address);
+
+      let verifiers = await relayServer.tokenHandler(deployVerifier.address);
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptToken(token2.address);
+
+      verifiers = await relayServer.tokenHandler(deployVerifier.address);
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+      });
+    });
+
+    it('should return allowed tokens for all trusted verifiers', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptToken(token1.address);
+      await relayVerifier.acceptToken(token1.address);
+
+      let verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+        [relayVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptToken(token2.address);
+      await relayVerifier.acceptToken(token2.address);
+
+      verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+        [relayVerifier.address]: [token1.address, token2.address],
+      });
+    });
+  });
 });

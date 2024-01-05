@@ -1,17 +1,25 @@
-version: '3'
+version: "3"
 services:
-    rskj:
-        container_name: rsk-node
-        image: rsksmart/rskj:IRIS-3
-        ports:
-            - '127.0.0.1:4444:4444'
-            - '127.0.0.1:4445:4445'
-        networks:
-            - 'rif-relay-testing'
-        volumes:
-            - ./logback.xml:/etc/rsk/logback.xml
-            - ./node.conf:/etc/rsk/node.conf
+  rskj:
+    container_name: rsk-node
+    image: rsksmart/rskj:FINGERROOT-5.0.0
+    ports:
+      - "127.0.0.1:4444:4444"
+      - "127.0.0.1:4445:4445"
+    networks:
+      - "rif-relay-testing"
+    volumes:
+      - ./logback.xml:/etc/rsk/logback.xml
+      - ./node.conf:/etc/rsk/node.conf
+    entrypoint:
+      [
+        "java",
+        "-Dlogback.configurationFile=/etc/rsk/logback.xml",
+        "-cp",
+        "rsk.jar",
+        "co.rsk.Start",
+      ]
 
 networks:
-    rif-relay-testing:
-        external: true
+  rif-relay-testing:
+    external: true

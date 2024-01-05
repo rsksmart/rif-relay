@@ -1,0 +1,4 @@
+#!/bin/bash
+npx husky install
+
+npm run build
