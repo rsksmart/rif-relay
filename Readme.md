@@ -16,7 +16,7 @@ It is important to recall that - as a security measure - the version 1 contracts
 
 RIF Relay is built in modules, the entire system is made up by 3 modules.
 
-1. [Rif Relay Contracts](https://github.com/rsksmart/rif-relay-contracts) contains all the contracts used by the Rif Relay System.
+1. [RIF Relay Contracts](https://github.com/rsksmart/rif-relay-contracts) contains all the contracts used by the Rif Relay System.
 2. [Rif Relay Client](https://github.com/rsksmart/rif-relay-client) contains a library to interact with the relay server.
 3. [Rif Relay Server](https://github.com/rsksmart/rif-relay-server) has all the relay server code. You can run the server directly from there.
 
