@@ -359,7 +359,7 @@ async function estimateDeployCost(tokenAmount = '0') {
       relayHub: relayHub.address,
       to: constants.AddressZero,
       tokenAmount,
-      tokenContract: constants.AddressZero,
+     tokenContract: token.address,
       tokenGas,
       value: '0',
       validUntilTime: 0,
