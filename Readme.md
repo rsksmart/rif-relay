@@ -1,8 +1,6 @@
-# Rif Relay
+# RIF Relay
 
 A secure transaction relay system to enable users to pay fees using ERC-20 tokens.
-
-[![CircleCI](https://circleci.com/gh/rsksmart/rif-relay/tree/master.svg?style=shield)](https://circleci.com/gh/rsksmart/rif-relay/tree/master)
 
 ## Description
 
@@ -16,7 +14,7 @@ It is important to recall that - as a security measure - the version 1 contracts
 
 RIF Relay is built in modules, the entire system is made up by 3 modules.
 
-1. [RIF Relay Contracts](https://github.com/rsksmart/rif-relay-contracts) contains all the contracts used by the Rif Relay System.
+1. [RIF Relay Contracts](https://github.com/rsksmart/rif-relay-contracts) contains all the contracts used by the RIF Relay System.
 2. [RIF Relay Client](https://github.com/rsksmart/rif-relay-client) contains a library to interact with the relay server.
 3. [RIF Relay Server](https://github.com/rsksmart/rif-relay-server) has all the relay server code. You can run the server directly from there.
 
@@ -24,7 +22,7 @@ Each module has instructions for development and usage.
 
 ## Testing
 
-This repository contains all the integration tests. These tests verify the behaviour of the entire system.
+This repository contains all the integration tests. These tests verify the behavior of the entire system.
 You have two ways to run tests:
 
 1. Executing `npm test` will run all the test suite and verify all the system. This could take 
@@ -34,7 +32,7 @@ that contains the test code inside will execute only that test and make the veri
 
 **Important Note**: when you run the tests you will see folders like `contracts`, `migrations` and some other files
 appearing during the tests and disappearing after, that’s because we need to have the contracts
-on the same context as this repository during tests, this is a normal behaviour. 
+on the same context as this repository during tests, this is a normal behavior. 
 
 ## Scripts
 
