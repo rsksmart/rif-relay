@@ -11,6 +11,7 @@ import {
   RelayHub,
   TestDeployVerifierEverythingAccepted,
   TestRecipient,
+  TestSwap,
   TestVerifierEverythingAccepted,
   UtilToken,
 } from 'typechain-types';
@@ -555,6 +556,54 @@ describe('RelayClient', function () {
         });
         expect(to).to.be.equal(relayHub.address);
       });
+
+      describe('with contract execution', function () {
+        let data: string;
+        let swap: TestSwap;
+
+        beforeEach(async function () {
+          swap = await deployContract<TestSwap>('TestSwap');
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('0.5'),
+            constants.AddressZero,
+            500,
+          ]);
+        });
+
+        it('without gas - tokenGas', async function () {
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+
+          const updatedDeployRequest = {
+            ...envelopingDeployRequest,
+            request: {
+              ...envelopingDeployRequest.request,
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+              tokenAmount: ethers.utils.parseEther('0.1'),
+            },
+          };
+
+          const { hash, to } = await deployClient.relayTransaction(
+            updatedDeployRequest
+          );
+
+          const filter = smartWalletFactory.filters.Deployed();
+          await assertLog({
+            filter,
+            hash,
+            contract: smartWalletFactory,
+            index: 0,
+            value: smartWalletAddress,
+          });
+
+          expect(to).to.be.equal(relayHub.address);
+        });
+      });
     });
   });
 
@@ -570,7 +619,7 @@ describe('RelayClient', function () {
     }
 
     before(async function () {
-      const smartWalletTemplate: SmartWallet = await deployContract(
+      const smartWalletTemplate = await deployContract<SmartWallet>(
         'SmartWallet'
       );
       const smartWalletFactory = await createSmartWalletFactory(
@@ -584,7 +633,7 @@ describe('RelayClient', function () {
         owner: gaslessAccount,
         factory: smartWalletFactory,
       });
-      testRecipient = await deployContract('TestRecipient');
+      testRecipient = await deployContract<TestRecipient>('TestRecipient');
       const encodeData = testRecipient.interface.encodeFunctionData(
         'emitMessage',
         [message]

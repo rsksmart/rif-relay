@@ -17,7 +17,7 @@ import {
   getSuffixDataAndSignature,
   deployContract,
 } from '../test/utils/TestUtils';
-import { TestVerifierEverythingAccepted } from 'typechain-types';
+import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
 import {
   SmartWalletFactory,
   Penalizer,
@@ -72,18 +72,27 @@ async function setupRelayHub(relayHub: RelayHub) {
 
 async function deployAndSetup() {
   const owner = Wallet.createRandom().connect(ethers.provider);
+  const swap = await deployContract<TestSwap>('TestSwap');
   const penalizer = await deployContract<Penalizer>('Penalizer');
   const verifier = await deployContract<TestVerifierEverythingAccepted>(
     'TestVerifierEverythingAccepted'
   );
+
   const token = await deployContract<UtilToken>('UtilToken');
   const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
   const relayHub = await deployRelayHub(penalizer.address);
   await setupRelayHub(relayHub);
 
+  const oneEther = ethers.utils.parseEther('1');
+
+  await fundedAccount.sendTransaction({
+    to: swap.address,
+    value: oneEther,
+  });
+
   await fundedAccount.sendTransaction({
     to: owner.address,
-    value: ethers.utils.parseEther('1'),
+    value: oneEther,
   });
 
   const smartWalletFactory = (await createSmartWalletFactory(
@@ -98,10 +107,11 @@ async function deployAndSetup() {
     smartWalletFactory,
     token,
     verifier,
+    swap,
   };
 }
 
-async function getTransferEstimationWithoutRelay(token: UtilToken) {
+async function executeTransferEstimationWithoutRelay(token: UtilToken) {
   const [senderAccount, receiverAccount] = (await ethers.getSigners()) as [
     SignerWithAddress,
     SignerWithAddress
@@ -120,6 +130,25 @@ async function getTransferEstimationWithoutRelay(token: UtilToken) {
   return await noRelayCall.wait();
 }
 
+async function executeSwapEstimationWithoutRelay(swap: TestSwap) {
+  const [senderAccount] = (await ethers.getSigners()) as [
+    SignerWithAddress,
+    SignerWithAddress
+  ];
+
+  const noRelayCall = await swap.claim(
+    constants.HashZero,
+    ethers.utils.parseEther('0.5'),
+    constants.AddressZero,
+    500,
+    {
+      from: senderAccount.address,
+    }
+  );
+
+  return await noRelayCall.wait();
+}
+
 function printRelayGasAnalysis(
   txReceiptWithRelay: ContractReceipt,
   txReceiptWithoutRelay: ContractReceipt
@@ -129,10 +158,10 @@ function printRelayGasAnalysis(
   );
 
   console.log(
-    `\tToken transfer WITHOUT RIFRelay. Gas used: ${txReceiptWithoutRelay.gasUsed.toString()}`
+    `\tExecution WITHOUT RIFRelay. Gas used: ${txReceiptWithoutRelay.gasUsed.toString()}`
   );
   console.log(
-    `\tToken transfer WITH RIFRelay. Gas used:\t ${txReceiptWithRelay.gasUsed.toString()}`
+    `\tExecution WITH RIFRelay. Gas used:\t ${txReceiptWithRelay.gasUsed.toString()}`
   );
   console.log(`\t\t\tGas overhead:\t\t ${gasOverhead.toString()}`);
 }
@@ -212,22 +241,7 @@ async function completeRelayRequest(
       encodedFunction
     );
 
-  let tokenGas = '0';
-
-  if (!isSponsored) {
-    const dataForTransfer = token.interface.encodeFunctionData('transfer', [
-      relayWorker.address,
-      fees,
-    ]);
-
-    tokenGas = (
-      await getEstimatedGasWithCorrection(
-        forwarder.address,
-        token.address,
-        dataForTransfer
-      )
-    ).toString();
-  }
+  const tokenGas = await getTokenGas(token, fees, forwarder.address);
 
   return combineTwoRelayRequests(relayRequest, {
     request: {
@@ -237,7 +251,7 @@ async function completeRelayRequest(
       tokenAmount: fees,
       tokenContract,
       gas: estimatedDestinationCallGasCorrected.toString(),
-      tokenGas,
+      tokenGas: tokenGas.toString(),
     },
   });
 }
@@ -253,7 +267,7 @@ async function estimateRelayCost(fees = '0') {
     sender: relayHubSigner,
   })) as SmartWallet;
 
-  const baseRelayRequest = {
+  const baseRelayRequest: RelayRequest = {
     request: {
       relayHub: relayHub.address,
       to: constants.AddressZero,
@@ -317,51 +331,41 @@ async function estimateRelayCost(fees = '0') {
     BigNumber.from(fees)
   );
 
-  const txReceiptWithoutRelay = await getTransferEstimationWithoutRelay(token);
+  const txReceiptWithoutRelay = await executeTransferEstimationWithoutRelay(
+    token
+  );
 
   printRelayGasAnalysis(txReceiptWithRelay, txReceiptWithoutRelay);
 }
 
-async function estimateDeployCost(tokenAmount = '0') {
+async function prepareDeployRequest(fees = '0', native: boolean) {
   const SMART_WALLET_INDEX = '1';
-  const { relayHub, owner, smartWalletFactory, token, verifier } =
+
+  const { relayHub, owner, smartWalletFactory, token, verifier, swap } =
     await deployAndSetup();
 
-  let tokenGas = '0';
+  const swAddress = await smartWalletFactory.getSmartWalletAddress(
+    owner.address,
+    constants.AddressZero,
+    SMART_WALLET_INDEX
+  );
 
-  if (tokenAmount !== '0') {
-    const swAddress = await smartWalletFactory.getSmartWalletAddress(
-      owner.address,
-      constants.AddressZero,
-      SMART_WALLET_INDEX
-    );
-    await token.mint(tokenAmount, swAddress);
+  await token.mint(fees, swAddress);
 
-    const dataForTransfer = token.interface.encodeFunctionData('transfer', [
-      relayWorker.address,
-      tokenAmount,
-    ]);
+  const tokenGas = await getTokenGas(token, fees, swAddress, native);
 
-    tokenGas = (
-      await getEstimatedGasWithCorrection(
-        swAddress,
-        token.address,
-        dataForTransfer
-      )
-    ).toString();
-  }
-
-  const deployRequest = {
+  const deployRequest: DeployRequest = {
     request: {
       data: '0x00',
       from: owner.address,
       nonce: '0',
       relayHub: relayHub.address,
       to: constants.AddressZero,
-      tokenAmount,
-      tokenContract: token.address,
-      tokenGas,
+      tokenAmount: fees,
+      tokenContract: native ? constants.AddressZero : token.address,
+      tokenGas: tokenGas.toString(),
       value: '0',
+      gas: '0',
       validUntilTime: 0,
       index: SMART_WALLET_INDEX,
       recoverer: constants.AddressZero,
@@ -372,7 +376,21 @@ async function estimateDeployCost(tokenAmount = '0') {
       feesReceiver: relayWorker.address,
       gasPrice: GAS_PRICE,
     },
-  } as DeployRequest;
+  };
+
+  return {
+    deployRequest,
+    smartWalletFactory,
+    owner,
+    relayHub,
+    swap,
+    swAddress,
+  };
+}
+
+async function estimateDeployCost(fees = '0', native = false) {
+  const { deployRequest, smartWalletFactory, owner, relayHub } =
+    await prepareDeployRequest(fees, native);
 
   const { signature } = await getSuffixDataAndSignature(
     smartWalletFactory,
@@ -384,9 +402,102 @@ async function estimateDeployCost(tokenAmount = '0') {
     .connect(relayWorker)
     .deployCall(deployRequest, signature, { gasPrice: GAS_PRICE });
 
-  const { gasUsed } = await txResponse.wait();
+  const txReceipt = await txResponse.wait();
 
-  console.log('\tTotal gas used on deploy: ', gasUsed.toString());
+  console.log('\tTotal gas used on deploy: ', txReceipt.gasUsed.toString());
+}
+
+async function estimateDeployCostWithExecution(fees = '0', native = false) {
+  const {
+    deployRequest,
+    smartWalletFactory,
+    owner,
+    relayHub,
+    swap,
+    swAddress,
+  } = await prepareDeployRequest(fees, native);
+
+  const { to, data, gas } = await getExecutionParameters(swap, swAddress);
+
+  const updatedDeployRequest = {
+    request: {
+      ...deployRequest.request,
+      to,
+      data,
+      gas: gas.toString(),
+    },
+    relayData: {
+      ...deployRequest.relayData,
+    },
+  };
+
+  const { signature } = await getSuffixDataAndSignature(
+    smartWalletFactory,
+    updatedDeployRequest,
+    owner
+  );
+
+  const txResponse = await relayHub
+    .connect(relayWorker)
+    .deployCall(updatedDeployRequest, signature, { gasPrice: GAS_PRICE });
+
+  const txReceipt = await txResponse.wait();
+
+  const txReceiptWithoutRelay = await executeSwapEstimationWithoutRelay(swap);
+
+  printRelayGasAnalysis(txReceipt, txReceiptWithoutRelay);
+}
+
+async function getExecutionParameters(swap: TestSwap, swAddress: string) {
+  const encodedFunction = swap.interface.encodeFunctionData('claim', [
+    constants.HashZero,
+    ethers.utils.parseEther('0.5'),
+    constants.AddressZero,
+    500,
+  ]);
+
+  const estimatedDestinationCallGasCorrected =
+    await getEstimatedGasWithCorrection(
+      swAddress,
+      swap.address,
+      encodedFunction
+    );
+
+  return {
+    to: swap.address,
+    data: encodedFunction,
+    gas: estimatedDestinationCallGasCorrected,
+  };
+}
+
+async function getTokenGas(
+  token: UtilToken,
+  fees: string,
+  address: string,
+  native = false
+) {
+  if (fees === '0') {
+    return constants.Zero;
+  }
+
+  if (native) {
+    return await getEstimatedGasWithCorrection(
+      address,
+      relayWorker.address,
+      ''
+    );
+  }
+
+  const dataForTransfer = token.interface.encodeFunctionData('transfer', [
+    relayWorker.address,
+    fees,
+  ]);
+
+  return await getEstimatedGasWithCorrection(
+    address,
+    token.address,
+    dataForTransfer
+  );
 }
 
 async function estimateGas() {
@@ -407,11 +518,29 @@ async function estimateGas() {
   logTitle('Relay estimation with token payment (not sponsored)');
   await estimateRelayCost(RELAY_FEES);
 
-  logTitle('Deploy estimation without token payment (sponsored)');
+  logTitle('Deploy estimation without payment (sponsored)');
   await estimateDeployCost();
 
   logTitle('Deploy estimation with token payment (not sponsored)');
   await estimateDeployCost(TOKEN_AMOUNT_TO_TRANSFER);
+
+  logTitle(
+    'Deploy estimation without payment (sponsored) and contract execution'
+  );
+  await estimateDeployCostWithExecution('0', true);
+
+  logTitle(
+    'Deploy estimation with token payment (not sponsored) and contract execution'
+  );
+  await estimateDeployCostWithExecution(TOKEN_AMOUNT_TO_TRANSFER);
+
+  logTitle('Deploy estimation with native payment (not sponsored)');
+  await estimateDeployCost('0', false);
+
+  logTitle(
+    'Deploy estimation with native payment (not sponsored) and contract execution'
+  );
+  await estimateDeployCostWithExecution('0', true);
 }
 
 estimateGas().catch((error) => {

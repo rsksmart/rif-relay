@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
-import { BigNumber, Wallet, providers } from 'ethers';
+import { BigNumber, Wallet, constants, providers } from 'ethers';
 import {
   UtilToken,
   SmartWalletFactory,
@@ -21,6 +21,7 @@ import {
   TestDeployVerifierConfigurableMisbehavior,
   TestDeployVerifierEverythingAccepted,
   TestRecipient,
+  TestSwap,
   TestVerifierConfigurableMisbehavior,
   TestVerifierEverythingAccepted,
 } from '../typechain-types';
@@ -834,6 +835,7 @@ describe('RelayHub', function () {
           recoverer: ethers.constants.AddressZero,
           index: '0',
           validUntilTime: '0',
+          gas: '30000',
         },
         relayData: {
           gasPrice,
@@ -910,6 +912,7 @@ describe('RelayHub', function () {
 
         await expect(deployCall).to.be.rejectedWith('RelayManager not staked');
       });
+
       it('should not accept a deploy call with a disabled relay worker', async function () {
         await relayHub
           .connect(relayManager)
@@ -975,6 +978,215 @@ describe('RelayHub', function () {
           });
         }
       );
+
+      context('with contract execution', function () {
+        let data: string;
+        let swap: TestSwap;
+
+        beforeEach(async function () {
+          swap = await deployContract<TestSwap>('TestSwap');
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('0.5'),
+            constants.AddressZero,
+            500,
+          ]);
+        });
+
+        it('should fail if revert from destination contract', async function () {
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('2'),
+            constants.AddressZero,
+            500,
+          ]);
+
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Could not transfer Ether'
+          );
+        });
+
+        it('should fail if not enough gas', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              gas: 0,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith('Unable to execute');
+        });
+
+        it('should fail if not enough native token to pay', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenAmount: ethers.utils.parseEther('1'),
+              tokenContract: constants.AddressZero,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should succeed paying with native token', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+              tokenAmount: ethers.utils.parseEther('0.01'),
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+
+        it('should fail if not enough token to pay', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should fail if not enough gas to pay for token transfer', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenGas: 0,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should succeed paying with token', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+          });
+
+          const calculatedAddr = await factory.getSmartWalletAddress(
+            owner.address,
+            constants.AddressZero,
+            deployRequest.request.index
+          );
+
+          await token.mint('1', calculatedAddr);
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+      });
 
       context('with funded verifier', function () {
         let misbehavingVerifier: TestDeployVerifierConfigurableMisbehavior;

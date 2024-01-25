@@ -444,6 +444,7 @@ const baseDeployRequest: DeployRequestBody = {
   validUntilTime: '0',
   index: '0',
   data: '0x00',
+  gas: '0',
 };
 
 const baseRelayRequest: RelayRequestBody = {
