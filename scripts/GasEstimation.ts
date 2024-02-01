@@ -224,11 +224,6 @@ async function completeRelayRequest(
   relayRequest: RelayRequest,
   forwarder: SmartWallet
 ) {
-  const isSponsored = fees === '0';
-  const tokenContract = isSponsored
-    ? ethers.constants.AddressZero
-    : token.address;
-
   const encodedFunction = token.interface.encodeFunctionData('transfer', [
     transferReceiver,
     balanceToTransfer,
@@ -249,14 +244,13 @@ async function completeRelayRequest(
       to: token.address,
       nonce: (await forwarder.nonce()).toString(),
       tokenAmount: fees,
-      tokenContract,
       gas: estimatedDestinationCallGasCorrected.toString(),
       tokenGas: tokenGas.toString(),
     },
   });
 }
 
-async function estimateRelayCost(fees = '0') {
+async function estimateRelayCost(fees = '0', _native = false) {
   const { relayHub, smartWalletFactory, owner, token, verifier } =
     await deployAndSetup();
 
@@ -276,7 +270,7 @@ async function estimateRelayCost(fees = '0') {
       nonce: (await smartWallet.nonce()).toString(),
       value: '0',
       gas: '0',
-      tokenContract: token.address,
+      tokenContract: constants.AddressZero,
       tokenAmount: '0',
       tokenGas: '0',
       validUntilTime: '0',
@@ -288,8 +282,6 @@ async function estimateRelayCost(fees = '0') {
       callVerifier: verifier.address,
     },
   };
-
-  await token.mint(TOKEN_AMOUNT_TO_TRANSFER + '00', smartWallet.address);
 
   const smartWalletInitialBalance = await token.balanceOf(smartWallet.address);
   const relayWorkerInitialBalance = await token.balanceOf(relayWorker.address);
@@ -517,6 +509,9 @@ async function estimateGas() {
 
   logTitle('Relay estimation with token payment (not sponsored)');
   await estimateRelayCost(RELAY_FEES);
+
+  logTitle('Relay estimation with native payment (not sponsored)');
+  await estimateRelayCost(RELAY_FEES, true);
 
   logTitle('Deploy estimation without payment (sponsored)');
   await estimateDeployCost();

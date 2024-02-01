@@ -57,36 +57,39 @@ contract BoltzDeployVerifier is IDeployVerifier, TokenHandler {
 
         require(!_isContract(contractAddr), "Address already created!");
 
-        if (relayRequest.request.tokenContract != address(0)) {
-            require(
-                tokens[relayRequest.request.tokenContract],
-                "Token contract not allowed"
-            );
-            
-            require(
-                relayRequest.request.tokenAmount <=
-                    IERC20(relayRequest.request.tokenContract).balanceOf(
-                        contractAddr
-                    ),
-                "Token balance too low"
-            );
-        } else {
-            if(relayRequest.request.to != address(0)){
-                ClaimInfo memory claim = abi.decode(
-                    relayRequest.request.data[4:],
-                    (ClaimInfo)
-                );
-    
+        if(relayRequest.request.tokenAmount > 0){
+            if (relayRequest.request.tokenContract != address(0)) {
                 require(
-                    relayRequest.request.tokenAmount <= claim.amount,
-                    "Native balance too low"
+                    tokens[relayRequest.request.tokenContract],
+                    "Token contract not allowed"
                 );
-            }else{
+                
                 require(
-                    relayRequest.request.tokenAmount <= address(contractAddr).balance,
-                    "Native balance too low"
+                    relayRequest.request.tokenAmount <=
+                        IERC20(relayRequest.request.tokenContract).balanceOf(
+                            contractAddr
+                        ),
+                    "Token balance too low"
                 );
+            } else {
+                if(relayRequest.request.to != address(0)){
+                    ClaimInfo memory claim = abi.decode(
+                        relayRequest.request.data[4:],
+                        (ClaimInfo)
+                    );
+        
+                    require(
+                        relayRequest.request.tokenAmount <= claim.amount,
+                        "Native balance too low"
+                    );
+                }else{
+                    require(
+                        relayRequest.request.tokenAmount <= address(contractAddr).balance,
+                        "Native balance too low"
+                    );
+                }
             }
+    
         }
 
         return (

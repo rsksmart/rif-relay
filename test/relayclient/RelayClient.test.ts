@@ -199,6 +199,12 @@ describe('RelayClient', function () {
         });
         await token.mint(1000, smartWallet.address);
         testRecipient = await deployContract('TestRecipient');
+        loadConfiguration({
+          app: {
+            ...basicAppConfig,
+            allowedDestinations: [testRecipient.address],
+          },
+        });
         const encodeData = testRecipient.interface.encodeFunctionData(
           'emitMessage',
           [message]
@@ -563,6 +569,12 @@ describe('RelayClient', function () {
 
         beforeEach(async function () {
           swap = await deployContract<TestSwap>('TestSwap');
+          loadConfiguration({
+            app: {
+              ...basicAppConfig,
+              allowedDestinations: [swap.address],
+            },
+          });
           data = swap.interface.encodeFunctionData('claim', [
             constants.HashZero,
             ethers.utils.parseEther('0.5'),
@@ -634,6 +646,12 @@ describe('RelayClient', function () {
         factory: smartWalletFactory,
       });
       testRecipient = await deployContract<TestRecipient>('TestRecipient');
+      loadConfiguration({
+        app: {
+          ...basicAppConfig,
+          allowedDestinations: [testRecipient.address],
+        },
+      });
       const encodeData = testRecipient.interface.encodeFunctionData(
         'emitMessage',
         [message]

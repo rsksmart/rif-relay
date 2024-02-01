@@ -406,7 +406,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             relayHub: forwarder.address,
             from: owner.address,
             tokenContract: token.address,
-            gas: 10000,
+            gas: 1000,
           }) as RelayRequest;
 
           const { suffixData, signature } = await getSuffixDataAndSignature(
