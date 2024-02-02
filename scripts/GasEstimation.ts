@@ -97,7 +97,7 @@ async function deployAndSetup() {
 
   const smartWalletFactory = (await createSmartWalletFactory(
     smartWalletTemplate,
-    false,
+    'Default',
     owner
   )) as SmartWalletFactory;
 

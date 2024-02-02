@@ -7,6 +7,8 @@ import {
   Penalizer,
   RelayHub,
   SmartWallet,
+  BoltzSmartWalletFactory,
+  BoltzSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   CommonEnvelopingRequestBody,
@@ -109,7 +111,7 @@ describe('RelayHub', function () {
 
     factory = (await createSmartWalletFactory(
       smartWalletTemplate,
-      false,
+      'Default',
       owner
     )) as SmartWalletFactory;
   });
@@ -979,11 +981,20 @@ describe('RelayHub', function () {
         }
       );
 
-      context('with contract execution', function () {
+      context('with boltz', function () {
         let data: string;
         let swap: TestSwap;
+        let boltzFactory: BoltzSmartWalletFactory;
 
         beforeEach(async function () {
+          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
+            'BoltzSmartWallet'
+          );
+          boltzFactory = (await createSmartWalletFactory(
+            smartWalletTemplate,
+            'Boltz',
+            owner
+          )) as BoltzSmartWalletFactory;
           swap = await deployContract<TestSwap>('TestSwap');
           await fundedAccount.sendTransaction({
             to: swap.address,
@@ -1011,6 +1022,9 @@ describe('RelayHub', function () {
               to: swap.address,
               data,
             },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
           });
 
           const { signature } = await signEnvelopingRequest(
@@ -1037,6 +1051,9 @@ describe('RelayHub', function () {
               data,
               gas: 0,
             },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
           });
 
           const { signature } = await signEnvelopingRequest(
@@ -1061,6 +1078,9 @@ describe('RelayHub', function () {
               data,
               tokenAmount: ethers.utils.parseEther('1'),
               tokenContract: constants.AddressZero,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
             },
           });
 
@@ -1089,6 +1109,9 @@ describe('RelayHub', function () {
               tokenContract: constants.AddressZero,
               tokenAmount: ethers.utils.parseEther('0.01'),
             },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
           });
 
           const { signature } = await signEnvelopingRequest(
@@ -1111,6 +1134,9 @@ describe('RelayHub', function () {
               index: nextWalletIndex.toString(),
               to: swap.address,
               data,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
             },
           });
 
@@ -1138,6 +1164,9 @@ describe('RelayHub', function () {
               data,
               tokenGas: 0,
             },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
           });
 
           const { signature } = await signEnvelopingRequest(
@@ -1163,9 +1192,12 @@ describe('RelayHub', function () {
               to: swap.address,
               data,
             },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
           });
 
-          const calculatedAddr = await factory.getSmartWalletAddress(
+          const calculatedAddr = await boltzFactory.getSmartWalletAddress(
             owner.address,
             constants.AddressZero,
             deployRequest.request.index

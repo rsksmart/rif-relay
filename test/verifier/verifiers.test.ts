@@ -1,5 +1,9 @@
 import { BaseProvider } from '@ethersproject/providers';
-import { DeployVerifier, RelayVerifier } from '@rsksmart/rif-relay-contracts';
+import {
+  BoltzSmartWalletFactory,
+  DeployVerifier,
+  RelayVerifier,
+} from '@rsksmart/rif-relay-contracts';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
@@ -109,7 +113,7 @@ describe('Verifiers tests', function () {
         owner,
         factory: smartWalletFactory,
         tokenContract: testToken.address,
-        isCustomSmartWallet: false,
+        type: 'Default',
       });
 
       const deployRequest = createEnvelopingRequest(
@@ -235,7 +239,7 @@ describe('Verifiers tests', function () {
         owner,
         factory: smartWalletFactory,
         tokenContract: testToken.address,
-        isCustomSmartWallet: false,
+        type: 'Default',
       })) as SmartWallet;
 
       await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, smartWallet.address);
@@ -363,7 +367,7 @@ describe('Verifiers tests', function () {
     let deployVerifier: BoltzDeployVerifier;
     let owner: Wallet;
     let relayHub: SignerWithAddress;
-    let smartWalletFactory: SmartWalletFactory;
+    let smartWalletFactory: BoltzSmartWalletFactory;
 
     beforeEach(async function () {
       const [, localRelayHub] = await hardhat.getSigners();
@@ -372,12 +376,12 @@ describe('Verifiers tests', function () {
       owner = Wallet.createRandom().connect(rskProvider);
 
       const hardHatSmartWalletFactory = await hardhat.getContractFactory(
-        'SmartWallet'
+        'BoltzSmartWallet'
       );
       const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
-        'SmartWalletFactory'
+        'BoltzSmartWalletFactory'
       );
 
       smartWalletFactory = await hardHatWalletFactory.deploy(
@@ -398,7 +402,7 @@ describe('Verifiers tests', function () {
         sender: relayHub,
         owner,
         factory: smartWalletFactory,
-        isCustomSmartWallet: false,
+        type: 'Default',
       });
 
       const deployRequest = createEnvelopingRequest(

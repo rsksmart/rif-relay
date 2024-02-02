@@ -6,6 +6,7 @@ import {
   deployRelayHub,
   RSK_URL,
   SupportedSmartWallet,
+  SupportedSmartWalletFactory,
 } from '../utils/TestUtils';
 import {
   RelayHub,
@@ -40,7 +41,12 @@ import {
   RelayServer,
   ServerConfigParams,
 } from '@rsksmart/rif-relay-server';
-import { SmartWallet, SmartWalletFactory } from '@rsksmart/rif-relay-contracts';
+import {
+  BoltzSmartWallet,
+  BoltzSmartWalletFactory,
+  SmartWallet,
+  SmartWalletFactory,
+} from '@rsksmart/rif-relay-contracts';
 import { Server } from 'http';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -179,7 +185,7 @@ describe('RelayClient', function () {
       );
       smartWalletFactory = (await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
+        'Default',
         fundedAccount
       )) as SmartWalletFactory;
     });
@@ -563,12 +569,21 @@ describe('RelayClient', function () {
         expect(to).to.be.equal(relayHub.address);
       });
 
-      describe('with contract execution', function () {
+      describe('with boltz', function () {
         let data: string;
         let swap: TestSwap;
+        let boltzFactory: BoltzSmartWalletFactory;
 
         beforeEach(async function () {
           swap = await deployContract<TestSwap>('TestSwap');
+          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
+            'BoltzSmartWallet'
+          );
+          boltzFactory = (await createSmartWalletFactory(
+            smartWalletTemplate,
+            'Boltz',
+            fundedAccount
+          )) as BoltzSmartWalletFactory;
           loadConfiguration({
             app: {
               ...basicAppConfig,
@@ -598,17 +613,27 @@ describe('RelayClient', function () {
               tokenContract: constants.AddressZero,
               tokenAmount: ethers.utils.parseEther('0.1'),
             },
+            relayData: {
+              ...envelopingDeployRequest.relayData,
+              callForwarder: boltzFactory.address,
+            },
           };
 
           const { hash, to } = await deployClient.relayTransaction(
             updatedDeployRequest
           );
 
-          const filter = smartWalletFactory.filters.Deployed();
+          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            gaslessAccount.address,
+            constants.AddressZero,
+            nextWalletIndex
+          );
+
+          const filter = boltzFactory.filters.Deployed();
           await assertLog({
             filter,
             hash,
-            contract: smartWalletFactory,
+            contract: boltzFactory,
             index: 0,
             value: smartWalletAddress,
           });
@@ -634,11 +659,11 @@ describe('RelayClient', function () {
       const smartWalletTemplate = await deployContract<SmartWallet>(
         'SmartWallet'
       );
-      const smartWalletFactory = await createSmartWalletFactory(
+      const smartWalletFactory = (await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
+        'Default',
         fundedAccount
-      );
+      )) as SupportedSmartWalletFactory;
       smartWallet = await createSupportedSmartWallet({
         relayHub: relayWorker.address,
         sender: relayWorker,
@@ -726,11 +751,11 @@ describe('RelayClient', function () {
       const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      const smartWalletFactory = await createSmartWalletFactory(
+      const smartWalletFactory = (await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
+        'Default',
         fundedAccount
-      );
+      )) as SmartWalletFactory;
       smartWallet = await createSupportedSmartWallet({
         relayHub: relayWorker.address,
         sender: relayWorker,
@@ -771,11 +796,11 @@ describe('RelayClient', function () {
       const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      const smartWalletFactory = await createSmartWalletFactory(
+      const smartWalletFactory = (await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
+        'Default',
         fundedAccount
-      );
+      )) as SmartWalletFactory;
       const mockServer = express();
 
       mockServer.use(bodyParser.urlencoded({ extended: false }));

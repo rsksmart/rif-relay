@@ -28,6 +28,7 @@ import {
   getSuffixData,
   SupportedSmartWallet,
   RSK_URL,
+  SupportedSmartWalletFactory,
 } from '../utils/TestUtils';
 import {
   RelayRequest,
@@ -44,12 +45,8 @@ const INITIAL_SMART_WALLET_RBTC_AMOUNT = 50;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
 
-const CUSTOM_SMART_WALLET_TYPE: TypeOfWallet = 'CustomSmartWallet';
-const SMART_WALLET_TYPE: TypeOfWallet = 'SmartWallet';
-const TYPES_OF_WALLETS: TypeOfWallet[] = [
-  CUSTOM_SMART_WALLET_TYPE,
-  SMART_WALLET_TYPE,
-];
+type TypeOfWallet = 'Custom' | 'Default';
+const TYPES_OF_WALLETS: TypeOfWallet[] = ['Default', 'Custom'];
 
 const TOKENS: TokenName[] = [
   TEST_TOKEN_NAME,
@@ -59,14 +56,7 @@ const TOKENS: TokenName[] = [
 
 const IS_DEPLOY_REQUEST = false;
 
-const isCustomSmartWallet = (smartWalletType: string) =>
-  smartWalletType === CUSTOM_SMART_WALLET_TYPE;
-
-type TypeOfWallet = 'CustomSmartWallet' | 'SmartWallet';
-
 TYPES_OF_WALLETS.forEach((typeOfWallet) => {
-  const isCustom = isCustomSmartWallet(typeOfWallet);
-
   describe(`Base SmartWallet tests using ${typeOfWallet}`, function () {
     let provider: BaseProvider;
     let owner: Wallet;
@@ -76,16 +66,24 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
     before(async function () {
       //Create the any of the supported smart wallet templates
-      if (isCustom) {
-        const customSmartWalletFactory = (await hardhat.getContractFactory(
-          `${typeOfWallet}`
-        )) as CustomSmartWallet__factory;
-        supportedSmartWalletTemplate = await customSmartWalletFactory.deploy();
-      } else {
-        const smartWalletFactory = (await hardhat.getContractFactory(
-          `${typeOfWallet}`
-        )) as SmartWallet__factory;
-        supportedSmartWalletTemplate = await smartWalletFactory.deploy();
+      switch (typeOfWallet) {
+        case 'Default':
+          {
+            const smartWalletFactory = (await hardhat.getContractFactory(
+              'SmartWallet'
+            )) as SmartWallet__factory;
+            supportedSmartWalletTemplate = await smartWalletFactory.deploy();
+          }
+          break;
+        case 'Custom':
+          {
+            const customSmartWalletFactory = (await hardhat.getContractFactory(
+              'CustomSmartWallet'
+            )) as CustomSmartWallet__factory;
+            supportedSmartWalletTemplate =
+              await customSmartWalletFactory.deploy();
+          }
+          break;
       }
       // We couldn't use hardhat.provider, because we couldn't retrieve the revert reason.
       provider = new providers.JsonRpcProvider(RSK_URL);
@@ -103,14 +101,14 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         value: hardhat.utils.parseEther('10'),
       });
 
-      const supportedSmartWalletFactory = await createSmartWalletFactory(
+      const supportedSmartWalletFactory = (await createSmartWalletFactory(
         supportedSmartWalletTemplate,
-        isCustom,
+        typeOfWallet,
         owner
-      );
+      )) as SupportedSmartWalletFactory;
 
       supportedSmartWallet = await createSupportedSmartWallet({
-        isCustomSmartWallet: isCustom,
+        type: typeOfWallet,
         owner,
         index: 0,
         factory: supportedSmartWalletFactory,

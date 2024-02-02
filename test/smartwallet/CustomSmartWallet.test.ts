@@ -148,7 +148,11 @@ describe('Custom Smart Wallet using TestToken', function () {
       value: ethers.utils.parseEther('1'),
     });
 
-    factory = await createSmartWalletFactory(template, true, owner);
+    factory = (await createSmartWalletFactory(
+      template,
+      'Custom',
+      owner
+    )) as CustomSmartWalletFactory;
     token = await utilTokenFactory.deploy();
   });
 
@@ -159,7 +163,7 @@ describe('Custom Smart Wallet using TestToken', function () {
       sender: relayHub,
       factory,
       logicAddr: customLogic.address,
-      isCustomSmartWallet: true,
+      type: 'Custom',
     })) as CustomSmartWallet;
 
     await fillTokens(token, smartWallet.address, '1000');
