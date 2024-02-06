@@ -985,6 +985,7 @@ describe('RelayHub', function () {
         let data: string;
         let swap: TestSwap;
         let boltzFactory: BoltzSmartWalletFactory;
+        let claimedValue: BigNumber;
 
         beforeEach(async function () {
           const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
@@ -1000,9 +1001,11 @@ describe('RelayHub', function () {
             to: swap.address,
             value: ethers.utils.parseEther('1'),
           });
+
+          claimedValue = ethers.utils.parseEther('0.5');
           data = swap.interface.encodeFunctionData('claim', [
             constants.HashZero,
-            ethers.utils.parseEther('0.5'),
+            claimedValue,
             constants.AddressZero,
             500,
           ]);
@@ -1076,7 +1079,7 @@ describe('RelayHub', function () {
               index: nextWalletIndex.toString(),
               to: swap.address,
               data,
-              tokenAmount: ethers.utils.parseEther('1'),
+              tokenAmount: claimedValue.add(ethers.utils.parseEther('0.5')),
               tokenContract: constants.AddressZero,
             },
             relayData: {

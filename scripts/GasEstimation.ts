@@ -121,22 +121,22 @@ async function executeTransferEstimationWithoutRelay(token: UtilToken) {
   const amountToMint = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER).add(1);
   await token.mint(amountToMint, senderAccount.address);
 
-  const noRelayCall = await token.transfer(
+  const transferTx = await token.transfer(
     receiverAccount.address,
     TOKEN_AMOUNT_TO_TRANSFER,
     { from: senderAccount.address }
   );
 
-  return await noRelayCall.wait();
+  return await transferTx.wait();
 }
 
-async function executeSwapEstimationWithoutRelay(swap: TestSwap) {
+async function executeSwapWithoutRelay(swap: TestSwap) {
   const [senderAccount] = (await ethers.getSigners()) as [
     SignerWithAddress,
     SignerWithAddress
   ];
 
-  const noRelayCall = await swap.claim(
+  const claimTx = await swap.claim(
     constants.HashZero,
     ethers.utils.parseEther('0.5'),
     constants.AddressZero,
@@ -146,7 +146,7 @@ async function executeSwapEstimationWithoutRelay(swap: TestSwap) {
     }
   );
 
-  return await noRelayCall.wait();
+  return await claimTx.wait();
 }
 
 function printRelayGasAnalysis(
@@ -435,7 +435,7 @@ async function estimateDeployCostWithExecution(fees = '0', native = false) {
 
   const txReceipt = await txResponse.wait();
 
-  const txReceiptWithoutRelay = await executeSwapEstimationWithoutRelay(swap);
+  const txReceiptWithoutRelay = await executeSwapWithoutRelay(swap);
 
   printRelayGasAnalysis(txReceipt, txReceiptWithoutRelay);
 }
