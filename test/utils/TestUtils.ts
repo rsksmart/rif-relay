@@ -1,4 +1,11 @@
-import { BigNumberish, constants, Contract, utils, Wallet } from 'ethers';
+import {
+  BigNumberish,
+  constants,
+  Contract,
+  ContractInterface,
+  utils,
+  Wallet,
+} from 'ethers';
 import chaiAsPromised from 'chai-as-promised';
 import { expect, use } from 'chai';
 import {
@@ -13,6 +20,8 @@ import {
   BoltzDeployVerifier,
   RelayVerifier,
   BoltzRelayVerifier,
+  MinimalBoltzSmartWallet,
+  MinimalBoltzSmartWalletFactory,
 } from '@rsksmart/rif-relay-contracts';
 import {
   defaultEnvironment,
@@ -49,6 +58,7 @@ import nodeConfig from 'config';
 import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
 import BoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/BoltzSmartWallet.sol/BoltzSmartWallet.json';
+import MinimalBoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalBoltzSmartWallet.sol/MinimalBoltzSmartWallet.json';
 
 use(chaiAsPromised);
 
@@ -56,12 +66,22 @@ const ONE_FIELD_IN_BYTES = 32;
 const CHARS_PER_FIELD = 64;
 const PREFIX_HEX = '0x';
 
-type SupportedSmartWallet = CustomSmartWallet | SmartWallet | BoltzSmartWallet;
+type SupportedSmartWalletName =
+  | 'CustomSmartWallet'
+  | 'SmartWallet'
+  | 'BoltzSmartWallet'
+  | 'MinimalBoltzSmartWallet';
+type SupportedSmartWallet =
+  | CustomSmartWallet
+  | SmartWallet
+  | BoltzSmartWallet
+  | MinimalBoltzSmartWallet;
 type SupportedSmartWalletFactory =
   | CustomSmartWalletFactory
   | SmartWalletFactory
-  | BoltzSmartWalletFactory;
-type SupportedType = 'Custom' | 'Boltz' | 'Default';
+  | BoltzSmartWalletFactory
+  | MinimalBoltzSmartWalletFactory;
+type SupportedType = 'Custom' | 'Boltz' | 'MinimalBoltz' | 'Default';
 
 type CreateSmartWalletParams = {
   relayHub: string;
@@ -276,39 +296,25 @@ const createSupportedSmartWallet = async ({
     );
   }
 
-  const swAddress =
-    type === 'Custom'
-      ? await (factory as CustomSmartWalletFactory).getSmartWalletAddress(
-          owner.address,
-          recoverer,
-          logicAddr,
-          keccak256(initParams),
-          index
-        )
-      : await (factory as SmartWalletFactory).getSmartWalletAddress(
-          owner.address,
-          recoverer,
-          index
-        );
+  const swAddress = await getSmartWalletAddress({
+    type,
+    factory,
+    owner,
+    recoverer,
+    logicAddr,
+    initParams,
+    index,
+  });
 
   // We couldn't use ethers.at(...) because we couldn't retrieve the revert reason.
+  const abis: Record<SupportedType, ContractInterface> = {
+    Default: SmartWalletJson.abi,
+    Custom: CustomSmartWalletJson.abi,
+    Boltz: BoltzSmartWalletJson.abi,
+    MinimalBoltz: MinimalBoltzSmartWalletJson.abi,
+  };
 
-  switch (type) {
-    case 'Default':
-      return new Contract(swAddress, SmartWalletJson.abi, owner) as SmartWallet;
-    case 'Custom':
-      return new Contract(
-        swAddress,
-        CustomSmartWalletJson.abi,
-        owner
-      ) as CustomSmartWallet;
-    case 'Boltz':
-      return new Contract(
-        swAddress,
-        BoltzSmartWalletJson.abi,
-        owner
-      ) as BoltzSmartWallet;
-  }
+  return new Contract(swAddress, abis[type], owner) as SupportedSmartWallet;
 };
 
 const prepareRelayTransaction = async ({
@@ -389,7 +395,7 @@ export const signEnvelopingRequest = async (
 };
 
 const getSuffixDataAndSignature = async (
-  forwarder: SupportedSmartWallet | SmartWalletFactory,
+  forwarder: SupportedSmartWallet | SupportedSmartWalletFactory,
   relayRequest: EnvelopingRequest,
   owner: Wallet
 ) => {
@@ -549,6 +555,39 @@ const createUserDefinedRequest = (
         },
       };
 };
+type GetSmartWalletAddressParams = {
+  type: SupportedType;
+  factory: SupportedSmartWalletFactory;
+  owner: Wallet;
+  recoverer: string;
+  index: number;
+  logicAddr?: string;
+  initParams?: string;
+};
+
+async function getSmartWalletAddress({
+  type,
+  factory,
+  owner,
+  recoverer,
+  index,
+  logicAddr = constants.AddressZero,
+  initParams = '0x',
+}: GetSmartWalletAddressParams) {
+  return type === 'Custom'
+    ? await (factory as CustomSmartWalletFactory).getSmartWalletAddress(
+        owner.address,
+        recoverer,
+        logicAddr,
+        keccak256(initParams),
+        index
+      )
+    : await (factory as SmartWalletFactory).getSmartWalletAddress(
+        owner.address,
+        recoverer,
+        index
+      );
+}
 
 async function deployContract<T>(contract: string) {
   const contractFactory = await ethers.getContractFactory(contract);
@@ -576,11 +615,14 @@ export {
   createSupportedSmartWallet,
   RSK_URL,
   deployContract,
+  getSmartWalletAddress,
 };
 
 export type {
   CreateSmartWalletParams,
   PrepareRelayTransactionParams,
+  SupportedSmartWalletName,
   SupportedSmartWallet,
   SupportedSmartWalletFactory,
+  SupportedType,
 };

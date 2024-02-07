@@ -8,10 +8,7 @@ import {
   RelayRequestBody,
   DeployRequest,
 } from '@rsksmart/rif-relay-client';
-import {
-  BoltzSmartWalletFactory,
-  UtilToken,
-} from '@rsksmart/rif-relay-contracts';
+import { UtilToken } from '@rsksmart/rif-relay-contracts';
 import {
   BigNumber,
   BigNumberish,
@@ -26,10 +23,14 @@ import {
   deployRelayHub,
   getSuffixDataAndSignature,
   deployContract,
+  SupportedType,
+  SupportedSmartWallet,
+  SupportedSmartWalletName,
+  SupportedSmartWalletFactory,
+  getSmartWalletAddress,
 } from '../test/utils/TestUtils';
 import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
 import {
-  SmartWalletFactory,
   Penalizer,
   RelayHub,
   SmartWallet,
@@ -82,7 +83,7 @@ async function setupRelayHub(relayHub: RelayHub) {
   await relayHub.connect(relayManager).registerRelayServer(RELAY_URL);
 }
 
-async function deployAndSetup() {
+async function deployAndSetup(payment: Payment = 'erc20') {
   const owner = Wallet.createRandom().connect(ethers.provider);
   const swap = await deployContract<TestSwap>('TestSwap');
   const penalizer = await deployContract<Penalizer>('Penalizer');
@@ -91,10 +92,16 @@ async function deployAndSetup() {
   );
 
   const token = await deployContract<UtilToken>('UtilToken');
-  const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
-  const boltzSmartWalletTemplate = await deployContract<SmartWallet>(
-    'BoltzSmartWallet'
+
+  const templateNames: Record<Payment, SupportedSmartWalletName> = {
+    native: 'BoltzSmartWallet',
+    minimalNative: 'MinimalBoltzSmartWallet',
+    erc20: 'SmartWallet',
+  };
+  const template = await deployContract<SupportedSmartWallet>(
+    templateNames[payment]
   );
+
   const relayHub = await deployRelayHub(penalizer.address);
   await setupRelayHub(relayHub);
 
@@ -110,27 +117,33 @@ async function deployAndSetup() {
     value: oneEther,
   });
 
-  const smartWalletFactory = (await createSmartWalletFactory(
-    smartWalletTemplate,
-    'Default',
-    owner
-  )) as SmartWalletFactory;
+  const supportedTypes: Record<Payment, SupportedType> = {
+    native: 'Boltz',
+    minimalNative: 'MinimalBoltz',
+    erc20: 'Default',
+  };
 
-  const boltzSmartWalletFactory = (await createSmartWalletFactory(
-    boltzSmartWalletTemplate,
-    'Boltz',
+  const factory = (await createSmartWalletFactory(
+    template,
+    supportedTypes[payment],
     owner
-  )) as BoltzSmartWalletFactory;
+  )) as SupportedSmartWalletFactory;
+
+  const tokenContracts: Record<Payment, string> = {
+    native: constants.AddressZero,
+    minimalNative: constants.AddressZero,
+    erc20: token.address,
+  };
 
   return {
     relayHub,
     owner,
-    smartWalletFactory,
     token,
     verifier,
     swap,
-    boltzSmartWalletTemplate,
-    boltzSmartWalletFactory,
+    factory,
+    tokenContractAddress: tokenContracts[payment],
+    type: supportedTypes[payment],
   };
 }
 
@@ -304,27 +317,30 @@ interface DestinationContractCallParams {
   data: BytesLike;
 }
 
-async function estimateRelayCost(fees = NO_FEES, native = false) {
+async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
   const {
     relayHub,
-    smartWalletFactory,
     owner,
     token,
     verifier,
     swap,
-    boltzSmartWalletFactory,
-  } = await deployAndSetup();
+    factory,
+    tokenContractAddress,
+    type,
+  } = await deployAndSetup(payment);
+
+  const isNative = ['native', 'minimalNative'].includes(payment);
 
   const smartWallet = (await createSupportedSmartWallet({
     relayHub: relayHubSigner.address,
-    factory: native ? boltzSmartWalletFactory : smartWalletFactory,
+    factory,
     owner,
     sender: relayHubSigner,
-    type: native ? 'Boltz' : 'Default',
+    type,
   })) as SmartWallet;
 
   // FIXME: apparently we need a high value for this
-  // const tokenGas = await getTokenGas(token, fees, smartWallet.address, native);
+  // const tokenGas = await getTokenGas(token, fees, smartWallet.address, isNative);
   const tokenGas = '50000';
   const baseRelayRequest: RelayRequest = {
     request: {
@@ -335,7 +351,7 @@ async function estimateRelayCost(fees = NO_FEES, native = false) {
       nonce: (await smartWallet.nonce()).toString(),
       value: '0',
       gas: '0',
-      tokenContract: native ? constants.AddressZero : token.address,
+      tokenContract: tokenContractAddress,
       tokenAmount: fees,
       tokenGas: tokenGas.toString(),
       validUntilTime: '0',
@@ -366,7 +382,7 @@ async function estimateRelayCost(fees = NO_FEES, native = false) {
     TOKEN_AMOUNT_TO_TRANSFER,
     token,
     smartWallet,
-    native,
+    isNative,
     swap
   );
   const completeReq = combineTwoRelayRequests(baseRelayRequest, {
@@ -398,7 +414,7 @@ async function estimateRelayCost(fees = NO_FEES, native = false) {
 
   const feesBigNumber = BigNumber.from(fees);
 
-  if (!native) {
+  if (!isNative) {
     assertRelayedTransaction(
       smartWalletInitialBalance,
       relayWorkerInitialBalance,
@@ -428,21 +444,43 @@ async function estimateRelayCost(fees = NO_FEES, native = false) {
   printRelayGasAnalysis(txReceiptWithRelay, txReceiptWithoutRelay);
 }
 
-async function prepareDeployRequest(fees = NO_FEES, native: boolean) {
-  const SMART_WALLET_INDEX = '1';
+async function prepareDeployRequest(
+  fees = NO_FEES,
+  payment: Payment = 'erc20'
+) {
+  const SMART_WALLET_INDEX = 1;
 
-  const { relayHub, owner, smartWalletFactory, token, verifier, swap } =
-    await deployAndSetup();
+  const {
+    relayHub,
+    owner,
+    factory,
+    token,
+    verifier,
+    swap,
+    tokenContractAddress,
+    type,
+  } = await deployAndSetup(payment);
 
-  const swAddress = await smartWalletFactory.getSmartWalletAddress(
-    owner.address,
-    constants.AddressZero,
-    SMART_WALLET_INDEX
-  );
+  const isNative = ['native', 'minimalNative'].includes(payment);
+  const swAddress = await getSmartWalletAddress({
+    type,
+    factory,
+    owner: owner,
+    recoverer: constants.AddressZero,
+    index: SMART_WALLET_INDEX,
+  });
 
-  await token.mint(fees, swAddress);
+  if (payment === 'erc20') {
+    await token.mint(fees, swAddress);
+  } else {
+    const sendTx = await owner.sendTransaction({
+      value: BigNumber.from(fees),
+      to: swAddress,
+    });
+    await sendTx.wait();
+  }
 
-  const tokenGas = await getTokenGas(token, fees, swAddress, native);
+  const tokenGas = await getTokenGas(token, fees, swAddress, isNative);
 
   const deployRequest: DeployRequest = {
     request: {
@@ -452,7 +490,7 @@ async function prepareDeployRequest(fees = NO_FEES, native: boolean) {
       relayHub: relayHub.address,
       to: constants.AddressZero,
       tokenAmount: fees,
-      tokenContract: native ? constants.AddressZero : token.address,
+      tokenContract: tokenContractAddress,
       tokenGas: tokenGas.toString(),
       value: '0',
       gas: '0',
@@ -461,7 +499,7 @@ async function prepareDeployRequest(fees = NO_FEES, native: boolean) {
       recoverer: constants.AddressZero,
     },
     relayData: {
-      callForwarder: smartWalletFactory.address,
+      callForwarder: factory.address,
       callVerifier: verifier.address,
       feesReceiver: relayWorker.address,
       gasPrice: GAS_PRICE,
@@ -470,7 +508,7 @@ async function prepareDeployRequest(fees = NO_FEES, native: boolean) {
 
   return {
     deployRequest,
-    smartWalletFactory,
+    factory,
     owner,
     relayHub,
     swap,
@@ -478,34 +516,37 @@ async function prepareDeployRequest(fees = NO_FEES, native: boolean) {
   };
 }
 
-async function estimateDeployCost(fees = NO_FEES, native = false) {
-  const { deployRequest, smartWalletFactory, owner, relayHub } =
-    await prepareDeployRequest(fees, native);
+async function estimateDeployCost(fees = NO_FEES, payment: Payment = 'erc20') {
+  const { deployRequest, factory, owner, relayHub } =
+    await prepareDeployRequest(fees, payment);
+  deployRequest.request.tokenGas = 50_000;
 
   const { signature } = await getSuffixDataAndSignature(
-    smartWalletFactory,
+    factory,
     deployRequest,
     owner
   );
 
   const txResponse = await relayHub
     .connect(relayWorker)
-    .deployCall(deployRequest, signature, { gasPrice: GAS_PRICE });
+    .deployCall(deployRequest, signature, {
+      gasPrice: GAS_PRICE,
+      gasLimit: 1_000_000,
+    });
 
   const txReceipt = await txResponse.wait();
+
+  // FIXME: Check the deployment is correct, see relay call
 
   console.log('\tTotal gas used on deploy: ', txReceipt.gasUsed.toString());
 }
 
-async function estimateDeployCostWithExecution(fees = NO_FEES, native = false) {
-  const {
-    deployRequest,
-    smartWalletFactory,
-    owner,
-    relayHub,
-    swap,
-    swAddress,
-  } = await prepareDeployRequest(fees, native);
+async function estimateDeployCostWithExecution(
+  fees = NO_FEES,
+  payment: Payment = 'erc20'
+) {
+  const { deployRequest, factory, owner, relayHub, swap, swAddress } =
+    await prepareDeployRequest(fees, payment);
 
   const { to, data, gas } = await getExecutionParameters(swap, swAddress);
 
@@ -522,7 +563,7 @@ async function estimateDeployCostWithExecution(fees = NO_FEES, native = false) {
   };
 
   const { signature } = await getSuffixDataAndSignature(
-    smartWalletFactory,
+    factory,
     updatedDeployRequest,
     owner
   );
@@ -592,9 +633,22 @@ async function getTokenGas(
     dataForTransfer
   );
 }
+async function runEstimation({ operation, payment, fees }: EstimationRun) {
+  logTitle(
+    `Operation: ${operation} estimation ${
+      fees === NO_FEES ? 'without' : 'with'
+    } ${payment} payment`
+  );
+  const operations: Record<Operation, () => Promise<void>> = {
+    relay: () => estimateRelayCost(fees, payment),
+    deploy: () => estimateDeployCost(fees, payment),
+    deployWithExecution: () => estimateDeployCostWithExecution(fees, payment),
+  };
+  await operations[operation]();
+}
 
 type Operation = 'relay' | 'deploy' | 'deployWithExecution';
-type Payment = 'erc20' | 'native';
+type Payment = 'erc20' | 'native' | 'minimalNative';
 
 interface EstimationRun {
   operation: Operation;
@@ -614,7 +668,7 @@ async function estimateGas() {
       SignerWithAddress
     ];
   const runs: EstimationRun[] = [
-    {
+    /* {
       operation: 'relay',
       payment: 'erc20',
       fees: NO_FEES,
@@ -655,8 +709,19 @@ async function estimateGas() {
       fees: RELAY_FEES,
     },
     {
+      operation: 'deploy',
+      payment: 'minimalNative',
+      fees: RELAY_FEES,
+    }, */
+    {
       operation: 'deployWithExecution',
       payment: 'native',
+      fees: RELAY_FEES,
+    },
+
+    {
+      operation: 'deployWithExecution',
+      payment: 'minimalNative',
       fees: RELAY_FEES,
     },
   ];
@@ -669,24 +734,3 @@ estimateGas().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
-
-async function runEstimation({ operation, payment, fees }: EstimationRun) {
-  logTitle(
-    `Operation: ${operation} estimation ${
-      fees === NO_FEES ? 'without' : 'with'
-    } ${payment} payment`
-  );
-  switch (operation) {
-    case 'relay':
-      await estimateRelayCost(fees, payment === 'native');
-      break;
-    case 'deploy':
-      await estimateDeployCost(fees, payment === 'native');
-      break;
-    case 'deployWithExecution':
-      await estimateDeployCostWithExecution(fees, payment === 'native');
-      break;
-    default:
-      break;
-  }
-}
