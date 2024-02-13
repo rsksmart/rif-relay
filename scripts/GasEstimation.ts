@@ -26,15 +26,10 @@ import {
   SupportedType,
   SupportedSmartWallet,
   SupportedSmartWalletName,
-  SupportedSmartWalletFactory,
   getSmartWalletAddress,
 } from '../test/utils/TestUtils';
 import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
-import {
-  Penalizer,
-  RelayHub,
-  SmartWallet,
-} from '@rsksmart/rif-relay-contracts';
+import { Penalizer, RelayHub } from '@rsksmart/rif-relay-contracts';
 import { expect } from 'chai';
 
 const GAS_PRICE = '60000000';
@@ -123,11 +118,11 @@ async function deployAndSetup(payment: Payment = 'erc20') {
     erc20: 'Default',
   };
 
-  const factory = (await createSmartWalletFactory(
+  const factory = await createSmartWalletFactory(
     template,
     supportedTypes[payment],
     owner
-  )) as SupportedSmartWalletFactory;
+  );
 
   const tokenContracts: Record<Payment, string> = {
     native: constants.AddressZero,
@@ -288,7 +283,7 @@ async function getDestinationContractCallParams(
   transferReceiver: string,
   balanceToTransfer: string,
   token: UtilToken,
-  forwarder: SmartWallet,
+  forwarder: SupportedSmartWallet,
   native: boolean,
   swap: TestSwap
 ): Promise<DestinationContractCallParams> {
@@ -334,13 +329,13 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
 
   const isNative = isNativePayment(payment);
 
-  const smartWallet = (await createSupportedSmartWallet({
+  const smartWallet: SupportedSmartWallet = await createSupportedSmartWallet({
     relayHub: relayHubSigner.address,
     factory,
     owner,
     sender: relayHubSigner,
     type,
-  })) as SmartWallet;
+  });
 
   // provide the SW with some tokens
   await token.mint(
@@ -544,7 +539,6 @@ async function prepareDeployRequest(
       tokenContract: tokenContractAddress,
       tokenGas: tokenGas.toString(),
       value: '0',
-      gas: '0',
       validUntilTime: 0,
       index: SMART_WALLET_INDEX,
       recoverer: constants.AddressZero,
@@ -580,14 +574,13 @@ async function estimateDeployCost(
     ...deployRequest,
   };
   if (withExecution) {
-    const { to, data, gas } = await getExecutionParameters(swap, swAddress);
+    const { to, data } = await getExecutionParameters(swap, swAddress);
 
     updatedDeployRequest = {
       request: {
         ...deployRequest.request,
         to,
         data,
-        gas,
       },
       relayData: {
         ...deployRequest.relayData,

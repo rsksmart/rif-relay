@@ -12,7 +12,6 @@ import {
   RelayHub,
   SmartWalletFactory,
   CustomSmartWalletFactory,
-  IForwarder,
   SmartWallet,
   BoltzSmartWalletFactory,
   DeployVerifier,
@@ -20,8 +19,12 @@ import {
   BoltzDeployVerifier,
   RelayVerifier,
   BoltzRelayVerifier,
-  MinimalBoltzSmartWallet,
   MinimalBoltzSmartWalletFactory,
+  BoltzSmartWallet,
+  CustomSmartWallet,
+  MinimalBoltzDeployVerifier,
+  MinimalBoltzRelayVerifier,
+  MinimalBoltzSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   defaultEnvironment,
@@ -46,7 +49,6 @@ import {
 } from '@rsksmart/rif-relay-client';
 import { ethers } from 'hardhat';
 import { keccak256, _TypedDataEncoder } from 'ethers/lib/utils';
-import { BoltzSmartWallet, CustomSmartWallet } from 'typechain-types';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { SignTypedDataVersion, TypedDataUtils } from '@metamask/eth-sig-util';
 import {
@@ -71,17 +73,18 @@ type SupportedSmartWalletName =
   | 'SmartWallet'
   | 'BoltzSmartWallet'
   | 'MinimalBoltzSmartWallet';
-type SupportedSmartWallet =
-  | CustomSmartWallet
-  | SmartWallet
-  | BoltzSmartWallet
-  | MinimalBoltzSmartWallet;
+type SupportedSmartWallet = CustomSmartWallet | SmartWallet | BoltzSmartWallet;
 type SupportedSmartWalletFactory =
   | CustomSmartWalletFactory
   | SmartWalletFactory
   | BoltzSmartWalletFactory
   | MinimalBoltzSmartWalletFactory;
 type SupportedType = 'Custom' | 'Boltz' | 'MinimalBoltz' | 'Default';
+type SupportedDeployVerifier =
+  | DeployVerifier
+  | CustomSmartWalletDeployVerifier
+  | BoltzDeployVerifier
+  | MinimalBoltzDeployVerifier;
 
 type CreateSmartWalletParams = {
   relayHub: string;
@@ -196,11 +199,8 @@ const deployRelayHub = async (
 };
 
 const deployVerifiers = async <
-  C1 extends
-    | DeployVerifier
-    | CustomSmartWalletDeployVerifier
-    | BoltzDeployVerifier,
-  C2 extends RelayVerifier | BoltzRelayVerifier
+  C1 extends SupportedDeployVerifier,
+  C2 extends RelayVerifier | BoltzRelayVerifier | MinimalBoltzRelayVerifier
 >(
   smartWalletFactory: SupportedSmartWalletFactory,
   type: SupportedType = 'Default'
@@ -228,19 +228,21 @@ const deployVerifiers = async <
   };
 };
 
-const createSmartWalletFactory = async (
-  template: IForwarder,
+const createSmartWalletFactory = async <T extends SupportedSmartWalletFactory>(
+  template: SupportedSmartWallet | MinimalBoltzSmartWallet,
   type: SupportedType = 'Default',
   owner: Wallet | SignerWithAddress
-) => {
+): Promise<T> => {
   const factory = await ethers.getContractFactory(
     `${type === 'Default' ? '' : type}SmartWalletFactory`
   );
 
-  return factory.connect(owner).deploy(template.address);
+  return (await factory.connect(owner).deploy(template.address)) as T;
 };
 
-const createSupportedSmartWallet = async ({
+const createSupportedSmartWallet = async <
+  T extends SupportedSmartWallet | MinimalBoltzSmartWallet
+>({
   relayHub,
   sender,
   owner,
@@ -255,7 +257,7 @@ const createSupportedSmartWallet = async ({
   initParams = SHA3_NULL_S,
   type = 'Default',
   logGas = false,
-}: CreateSmartWalletParams): Promise<SupportedSmartWallet> => {
+}: CreateSmartWalletParams): Promise<T> => {
   const envelopingRequest = createEnvelopingRequest(
     true,
     {
@@ -314,7 +316,7 @@ const createSupportedSmartWallet = async ({
     MinimalBoltz: MinimalBoltzSmartWalletJson.abi,
   };
 
-  return new Contract(swAddress, abis[type], owner) as SupportedSmartWallet;
+  return new Contract(swAddress, abis[type], owner) as T;
 };
 
 const prepareRelayTransaction = async ({
@@ -466,7 +468,6 @@ const baseDeployRequest: DeployRequestBody = {
   validUntilTime: '0',
   index: '0',
   data: '0x00',
-  gas: '0',
 };
 
 const baseRelayRequest: RelayRequestBody = {
@@ -625,4 +626,5 @@ export type {
   SupportedSmartWallet,
   SupportedSmartWalletFactory,
   SupportedType,
+  SupportedDeployVerifier,
 };

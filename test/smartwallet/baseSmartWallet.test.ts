@@ -1,8 +1,4 @@
 import { BaseProvider } from '@ethersproject/providers';
-import {
-  CustomSmartWallet__factory,
-  SmartWallet__factory,
-} from '@rsksmart/rif-relay-contracts';
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
@@ -28,7 +24,6 @@ import {
   getSuffixData,
   SupportedSmartWallet,
   RSK_URL,
-  SupportedSmartWalletFactory,
 } from '../utils/TestUtils';
 import {
   RelayRequest,
@@ -69,17 +64,17 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
       switch (typeOfWallet) {
         case 'Default':
           {
-            const smartWalletFactory = (await hardhat.getContractFactory(
+            const smartWalletFactory = await hardhat.getContractFactory(
               'SmartWallet'
-            )) as SmartWallet__factory;
+            );
             supportedSmartWalletTemplate = await smartWalletFactory.deploy();
           }
           break;
         case 'Custom':
           {
-            const customSmartWalletFactory = (await hardhat.getContractFactory(
+            const customSmartWalletFactory = await hardhat.getContractFactory(
               'CustomSmartWallet'
-            )) as CustomSmartWallet__factory;
+            );
             supportedSmartWalletTemplate =
               await customSmartWalletFactory.deploy();
           }
@@ -101,11 +96,11 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         value: hardhat.utils.parseEther('10'),
       });
 
-      const supportedSmartWalletFactory = (await createSmartWalletFactory(
+      const supportedSmartWalletFactory = await createSmartWalletFactory(
         supportedSmartWalletTemplate,
         typeOfWallet,
         owner
-      )) as SupportedSmartWalletFactory;
+      );
 
       supportedSmartWallet = await createSupportedSmartWallet({
         type: typeOfWallet,

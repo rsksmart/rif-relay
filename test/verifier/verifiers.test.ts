@@ -2,6 +2,9 @@ import { BaseProvider } from '@ethersproject/providers';
 import {
   BoltzSmartWalletFactory,
   DeployVerifier,
+  MinimalBoltzDeployVerifier,
+  MinimalBoltzRelayVerifier,
+  MinimalBoltzSmartWalletFactory,
   RelayVerifier,
 } from '@rsksmart/rif-relay-contracts';
 import chai, { expect } from 'chai';
@@ -19,6 +22,7 @@ import {
 import { RelayRequest, DeployRequest } from '@rsksmart/rif-relay-client';
 import {
   BoltzDeployVerifier,
+  MinimalBoltzSmartWallet,
   SmartWallet,
   SmartWalletFactory,
   TestSwap,
@@ -233,14 +237,14 @@ describe('Verifiers tests', function () {
         smartWalletTemplate.address
       );
 
-      smartWallet = (await createSupportedSmartWallet({
+      smartWallet = await createSupportedSmartWallet({
         relayHub: relayHub.address,
         sender: relayHub,
         owner,
         factory: smartWalletFactory,
         tokenContract: testToken.address,
         type: 'Default',
-      })) as SmartWallet;
+      });
 
       await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, smartWallet.address);
 
@@ -614,6 +618,306 @@ describe('Verifiers tests', function () {
           deployVerifier.verifyRelayedCall(deployRequest, signature)
         ).to.be.rejectedWith('Native balance too low');
       });
+    });
+  });
+
+  describe('Minimal boltz deploy verifier', function () {
+    let swap: TestSwap;
+    let data: string;
+    let owner: Wallet;
+    let relayHub: SignerWithAddress;
+    let deployVerifier: MinimalBoltzDeployVerifier;
+    let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+
+    beforeEach(async function () {
+      swap = await deployContract('TestSwap');
+      data = swap.interface.encodeFunctionData('claim', [
+        constants.HashZero,
+        2,
+        constants.AddressZero,
+        500,
+      ]);
+
+      const [, localRelayHub] = await hardhat.getSigners();
+      relayHub = localRelayHub as SignerWithAddress;
+
+      owner = Wallet.createRandom().connect(rskProvider);
+
+      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWallet'
+      );
+      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
+
+      const hardHatWalletFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWalletFactory'
+      );
+
+      smartWalletFactory = await hardHatWalletFactory.deploy(
+        smartWalletTemplate.address
+      );
+
+      const deployVerifierFactory = await hardhat.getContractFactory(
+        'MinimalBoltzDeployVerifier'
+      );
+      deployVerifier = await deployVerifierFactory.deploy(
+        smartWalletFactory.address
+      );
+    });
+
+    it('Should fail if there is a smartWallet already deployed at that address', async function () {
+      await createSupportedSmartWallet({
+        relayHub: relayHub.address,
+        sender: relayHub,
+        owner,
+        factory: smartWalletFactory,
+        type: 'Default',
+      });
+
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Address already created');
+    });
+
+    it('Should fail if the factory is incorrect', async function () {
+      const wrongFactory = constants.AddressZero;
+
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+        },
+        {
+          callForwarder: wrongFactory,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Invalid factory');
+    });
+
+    it('Should fail if payment is with ERC20 token', async function () {
+      const fakeToken = Wallet.createRandom();
+
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+          tokenContract: fakeToken.address,
+          tokenAmount: 10000,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('RBTC necessary for payment');
+    });
+
+    it('Should fail if not enough native token for payment', async function () {
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+          tokenAmount: 3,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Native balance too low');
+    });
+
+    it('Should succeed in sponsored transactions', async function () {
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
+        .not.to.be.rejected;
+    });
+
+    it('Should succeed destination contract provide enough balance', async function () {
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+          tokenAmount: 1,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
+        .not.to.be.rejected;
+    });
+  });
+
+  describe('Minimal boltz relay verifier', function () {
+    let owner: Wallet;
+    let relayHub: SignerWithAddress;
+    let relayVerifier: MinimalBoltzRelayVerifier;
+    let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+    let smartWallet: MinimalBoltzSmartWallet;
+
+    async function prepareSmartWallet() {
+      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWallet'
+      );
+      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
+
+      const hardHatSmartWalletFactoryFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWalletFactory'
+      );
+      smartWalletFactory = await hardHatSmartWalletFactoryFactory.deploy(
+        smartWalletTemplate.address
+      );
+
+      const smartWallet = await createSupportedSmartWallet({
+        relayHub: relayHub.address,
+        sender: relayHub,
+        owner,
+        factory: smartWalletFactory,
+        type: 'Default',
+      });
+
+      return smartWallet;
+    }
+
+    beforeEach(async function () {
+      const [, localRelayHub] = await hardhat.getSigners();
+      relayHub = localRelayHub as SignerWithAddress;
+
+      owner = Wallet.createRandom().connect(rskProvider);
+
+      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWallet'
+      );
+      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
+
+      const hardHatWalletFactory = await hardhat.getContractFactory(
+        'MinimalBoltzSmartWalletFactory'
+      );
+
+      smartWalletFactory = await hardHatWalletFactory.deploy(
+        smartWalletTemplate.address
+      );
+
+      const relayVerifierFactory = await hardhat.getContractFactory(
+        'MinimalBoltzRelayVerifier'
+      );
+
+      relayVerifier = await relayVerifierFactory.deploy(
+        smartWalletFactory.address
+      );
+
+      smartWallet = await createSupportedSmartWallet({
+        relayHub: relayHub.address,
+        sender: relayHub,
+        owner,
+        factory: smartWalletFactory,
+        type: 'Default',
+      });
+    });
+
+    it('Should fail if the factory is incorrect', async function () {
+      const wrongSmartWallet = await prepareSmartWallet();
+
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+        },
+        {
+          callForwarder: wrongSmartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        relayVerifier.verifyRelayedCall(relayRequest, signature)
+      ).to.be.rejectedWith('SW different to template');
+    });
+
+    it('Should always fail', async function () {
+      const relayRequest = createEnvelopingRequest(
+        false,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+        },
+        {
+          callForwarder: smartWallet.address,
+          callVerifier: relayVerifier.address,
+        }
+      ) as RelayRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        relayVerifier.verifyRelayedCall(relayRequest, signature)
+      ).to.be.rejectedWith('Deploy request accepted only');
     });
   });
 });

@@ -15,6 +15,8 @@ import '@rsksmart/rif-relay-contracts/contracts/verifier/DeployVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/RelayVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/BoltzRelayVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/BoltzDeployVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalBoltzRelayVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalBoltzDeployVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/Penalizer.sol';
 import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 import '@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol';
