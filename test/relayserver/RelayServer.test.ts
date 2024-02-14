@@ -16,6 +16,8 @@ import {
   BoltzSmartWalletFactory,
   MinimalBoltzDeployVerifier,
   MinimalBoltzSmartWalletFactory,
+  BoltzRelayVerifier,
+  BoltzSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   createSupportedSmartWallet,
@@ -477,10 +479,7 @@ describe('RelayServer', function () {
         >(fundedAccount, 'Boltz'));
 
       loadConfiguration({
-        app: {
-          ...basicAppConfig,
-          allowedDestinations: [recipient.address],
-        },
+        app: basicAppConfig,
         contracts: {
           relayHubAddress: relayHub.address,
           trustedVerifiers: [
@@ -675,32 +674,6 @@ describe('RelayServer', function () {
         );
       });
 
-      it('should fail if destination contract is not allowed', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
-          {
-            from: owner.address,
-            to: owner.address,
-            data: encodedData,
-          },
-          {
-            callForwarder: smartWallet.address,
-          }
-        );
-
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
-        await expect(
-          relayServer.createRelayTransaction(
-            stringifyEnvelopingTx(envelopingTxRequest)
-          )
-        ).to.be.rejectedWith('Destination contract is not allowed');
-      });
-
       it('should relay transaction', async function () {
         const userDefinedRelayRequest = createUserDefinedRequest(
           false,
@@ -739,12 +712,7 @@ describe('RelayServer', function () {
             constants.AddressZero,
             500,
           ]);
-          loadConfiguration({
-            app: {
-              ...basicAppConfig,
-              allowedDestinations: [swap.address],
-            },
-          });
+          await boltzVerifier.acceptContract(swap.address);
           index++;
         });
 
@@ -810,7 +778,7 @@ describe('RelayServer', function () {
             relayServer.createRelayTransaction(
               stringifyEnvelopingTx(envelopingTxRequest)
             )
-          ).to.be.rejectedWith('Native balance too low');
+          ).to.be.rejectedWith('Claiming value lower than fees');
         });
 
         // TODO - Should bubble up error but its failing
@@ -855,12 +823,7 @@ describe('RelayServer', function () {
             constants.AddressZero,
             500,
           ]);
-          loadConfiguration({
-            app: {
-              ...basicAppConfig,
-              allowedDestinations: [swap.address],
-            },
-          });
+          await minimalBoltzVerifier.acceptContract(swap.address);
           index++;
         });
 
@@ -926,7 +889,7 @@ describe('RelayServer', function () {
             relayServer.createRelayTransaction(
               stringifyEnvelopingTx(envelopingTxRequest)
             )
-          ).to.be.rejectedWith('Native balance too low');
+          ).to.be.rejectedWith('Claiming value lower than fees');
         });
       });
     });
@@ -1176,10 +1139,7 @@ describe('RelayServer', function () {
       relayHub = await deployRelayHub();
       recipient = await deployContract('TestRecipient');
       loadConfiguration({
-        app: {
-          ...basicAppConfig,
-          allowedDestinations: [recipient.address],
-        },
+        app: basicAppConfig,
         contracts: {
           relayHubAddress: relayHub.address,
           deployVerifierAddress: rejectingDeployVerifier.address,
@@ -1468,6 +1428,114 @@ describe('RelayServer', function () {
       await relayVerifier.acceptToken(token2.address);
 
       verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+        [relayVerifier.address]: [token1.address, token2.address],
+      });
+    });
+  });
+
+  describe('destinationContractHandler', function () {
+    let relayServer: RelayServer;
+    let deployVerifier: BoltzDeployVerifier;
+    let relayVerifier: BoltzRelayVerifier;
+
+    beforeEach(async function () {
+      const [relayOwner, fundedAccount] = (await ethers.getSigners()) as [
+        SignerWithAddress,
+        SignerWithAddress
+      ];
+      const relayHub = await deployRelayHub();
+      const smartWalletTemplate: BoltzSmartWallet = await deployContract(
+        'BoltzSmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        'Boltz',
+        fundedAccount
+      );
+      ({ deployVerifier, relayVerifier } = await deployVerifiers<
+        BoltzDeployVerifier,
+        BoltzRelayVerifier
+      >(smartWalletFactory, 'Boltz'));
+
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          relayVerifierAddress: relayVerifier.address,
+          deployVerifierAddress: deployVerifier.address,
+        },
+      });
+      relayServer = await getInitiatedServer({ relayOwner });
+    });
+
+    it('should return empty if there are no trusted verifiers', async function () {
+      relayServer.trustedVerifiers.clear();
+      const verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.be.empty;
+    });
+
+    it('should return error if verifier is not trusted', async function () {
+      const wrongVerifierAddress = generateRandomAddress();
+
+      await expect(
+        relayServer.destinationContractHandler(wrongVerifierAddress)
+      ).to.be.rejectedWith('supplied verifier is not trusted');
+    });
+
+    it('should return no contracts for verifiers when none were allowed', async function () {
+      const verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [],
+        [relayVerifier.address]: [],
+      });
+    });
+
+    it('should return allowed contracts for one trusted verifier', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token1.address);
+
+      let verifiers = await relayServer.destinationContractHandler(
+        deployVerifier.address
+      );
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token2.address);
+
+      verifiers = await relayServer.destinationContractHandler(
+        deployVerifier.address
+      );
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+      });
+    });
+
+    it('should return allowed contracts for all trusted verifiers', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token1.address);
+      await relayVerifier.acceptContract(token1.address);
+
+      let verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+        [relayVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token2.address);
+      await relayVerifier.acceptContract(token2.address);
+
+      verifiers = await relayServer.destinationContractHandler();
 
       expect(verifiers).to.deep.eq({
         [deployVerifier.address]: [token1.address, token2.address],

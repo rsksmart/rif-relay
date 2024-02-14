@@ -449,7 +449,6 @@ describe('Verifiers tests', function () {
         deployVerifier.verifyRelayedCall(deployRequest, signature)
       ).to.be.rejectedWith('Invalid factory');
     });
-
     describe('Token', function () {
       let testToken: TestToken;
 
@@ -548,6 +547,7 @@ describe('Verifiers tests', function () {
           constants.AddressZero,
           500,
         ]);
+        await deployVerifier.acceptContract(swap.address);
       });
 
       it('Should succeed when the deploy is correct', async function () {
@@ -571,6 +571,32 @@ describe('Verifiers tests', function () {
 
         await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
           .not.to.be.rejected;
+      });
+
+      it('Should fail if the destination contract is not allowed', async function () {
+        await deployVerifier.removeContract(swap.address, 0);
+
+        const deployRequest = createEnvelopingRequest(
+          true,
+          {
+            relayHub: relayHub.address,
+            from: owner.address,
+            tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+            tokenGas: TOKEN_GAS,
+            to: swap.address,
+            data,
+          },
+          {
+            callForwarder: smartWalletFactory.address,
+            callVerifier: deployVerifier.address,
+          }
+        ) as DeployRequest;
+
+        const signature = '0x00';
+
+        await expect(
+          deployVerifier.verifyRelayedCall(deployRequest, signature)
+        ).to.be.rejectedWith('Destination contract not allowed');
       });
 
       it('Should fail if the token balance is too low', async function () {
@@ -616,7 +642,7 @@ describe('Verifiers tests', function () {
 
         await expect(
           deployVerifier.verifyRelayedCall(deployRequest, signature)
-        ).to.be.rejectedWith('Native balance too low');
+        ).to.be.rejectedWith('Claiming value lower than fees');
       });
     });
   });
@@ -662,6 +688,8 @@ describe('Verifiers tests', function () {
       deployVerifier = await deployVerifierFactory.deploy(
         smartWalletFactory.address
       );
+
+      await deployVerifier.acceptContract(swap.address);
     });
 
     it('Should fail if there is a smartWallet already deployed at that address', async function () {
@@ -764,7 +792,31 @@ describe('Verifiers tests', function () {
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
-      ).to.be.rejectedWith('Native balance too low');
+      ).to.be.rejectedWith('Claiming value lower than fees');
+    });
+
+    it('Should fail if the destination contract is not allowed', async function () {
+      await deployVerifier.removeContract(swap.address, 0);
+
+      const deployRequest = createEnvelopingRequest(
+        true,
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Destination contract not allowed');
     });
 
     it('Should succeed in sponsored transactions', async function () {
