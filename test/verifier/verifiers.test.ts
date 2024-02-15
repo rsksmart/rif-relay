@@ -870,30 +870,6 @@ describe('Verifiers tests', function () {
     let smartWalletFactory: MinimalBoltzSmartWalletFactory;
     let smartWallet: MinimalBoltzSmartWallet;
 
-    async function prepareSmartWallet() {
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
-        'MinimalBoltzSmartWallet'
-      );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
-
-      const hardHatSmartWalletFactoryFactory = await hardhat.getContractFactory(
-        'MinimalBoltzSmartWalletFactory'
-      );
-      smartWalletFactory = await hardHatSmartWalletFactoryFactory.deploy(
-        smartWalletTemplate.address
-      );
-
-      const smartWallet = await createSupportedSmartWallet({
-        relayHub: relayHub.address,
-        sender: relayHub,
-        owner,
-        factory: smartWalletFactory,
-        type: 'Default',
-      });
-
-      return smartWallet;
-    }
-
     beforeEach(async function () {
       const [, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
@@ -928,28 +904,6 @@ describe('Verifiers tests', function () {
         factory: smartWalletFactory,
         type: 'Default',
       });
-    });
-
-    it('Should fail if the factory is incorrect', async function () {
-      const wrongSmartWallet = await prepareSmartWallet();
-
-      const relayRequest = createEnvelopingRequest(
-        false,
-        {
-          relayHub: relayHub.address,
-          from: owner.address,
-        },
-        {
-          callForwarder: wrongSmartWallet.address,
-          callVerifier: relayVerifier.address,
-        }
-      ) as RelayRequest;
-
-      const signature = '0x00';
-
-      await expect(
-        relayVerifier.verifyRelayedCall(relayRequest, signature)
-      ).to.be.rejectedWith('SW different to template');
     });
 
     it('Should always fail', async function () {

@@ -1379,7 +1379,7 @@ describe('RelayServer', function () {
 
       await expect(
         relayServer.tokenHandler(wrongVerifierAddress)
-      ).to.be.rejectedWith('supplied verifier is not trusted');
+      ).to.be.rejectedWith('Supplied verifier is not trusted');
     });
 
     it('should return no tokens for verifiers when none were allowed', async function () {
@@ -1483,7 +1483,7 @@ describe('RelayServer', function () {
 
       await expect(
         relayServer.destinationContractHandler(wrongVerifierAddress)
-      ).to.be.rejectedWith('supplied verifier is not trusted');
+      ).to.be.rejectedWith('Supplied verifier is not trusted');
     });
 
     it('should return no contracts for verifiers when none were allowed', async function () {
