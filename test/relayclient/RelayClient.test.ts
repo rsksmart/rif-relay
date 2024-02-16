@@ -184,7 +184,6 @@ describe('RelayClient', function () {
       );
       smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
     });
@@ -562,7 +561,7 @@ describe('RelayClient', function () {
         expect(to).to.be.equal(relayHub.address);
       });
 
-      describe('with contract execution during deploy', function () {
+      describe('with contract execution', function () {
         let data: string;
         let swap: TestSwap;
         let boltzFactory: BoltzSmartWalletFactory;
@@ -574,8 +573,8 @@ describe('RelayClient', function () {
           );
           boltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
-            'Boltz',
-            fundedAccount
+            fundedAccount,
+            'Boltz'
           );
           data = swap.interface.encodeFunctionData('claim', [
             constants.HashZero,
@@ -648,7 +647,6 @@ describe('RelayClient', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -734,7 +732,6 @@ describe('RelayClient', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -779,7 +776,6 @@ describe('RelayClient', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
       const mockServer = express();

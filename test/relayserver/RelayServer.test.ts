@@ -27,11 +27,13 @@ import {
   createSmartWalletFactory,
   deployVerifiers,
   generateRandomAddress,
-  createUserDefinedRequest,
   deployContract,
   SupportedType,
   SupportedSmartWalletFactory,
   SupportedDeployVerifier,
+  createRelayUserDefinedRequest,
+  createDeployUserDefinedRequest,
+  getSmartWalletTemplate,
 } from '../utils/TestUtils';
 import config from 'config';
 import {
@@ -54,7 +56,6 @@ import {
   RelayRequest,
   RelayRequestBody,
   setEnvelopingConfig,
-  UserDefinedRelayRequest,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
@@ -177,7 +178,7 @@ describe('RelayServer', function () {
 
     describe('validateInputTypes', function () {
       it('should throw if relayHub is undefined', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -200,7 +201,7 @@ describe('RelayServer', function () {
 
     describe('validateInput', function () {
       it('should throw on wrong hub address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -220,7 +221,7 @@ describe('RelayServer', function () {
       });
 
       it('should throw on wrong fees receiver address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -241,7 +242,7 @@ describe('RelayServer', function () {
       });
 
       it('should throw if gas price is equal to zero', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -262,7 +263,7 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request expired', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -282,7 +283,7 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request too close', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -320,7 +321,7 @@ describe('RelayServer', function () {
 
     describe('validateVerifier', function () {
       it('should validate verifier in enveloping request', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(false, {
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
           from: owner.address,
           to: recipient.address,
           data: encodedData,
@@ -351,8 +352,7 @@ describe('RelayServer', function () {
       it('should throw if wrong verifier in enveloping request', async function () {
         const wrongVerifierAddress = generateRandomAddress();
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -431,12 +431,12 @@ describe('RelayServer', function () {
       type: SupportedType
     ): Promise<{ factory: F; verifier: V }> {
       const smartWalletTemplate: SupportedSmartWallet = await deployContract(
-        `${type === 'Default' ? '' : type}SmartWallet`
+        getSmartWalletTemplate(type)
       );
       const factory = await createSmartWalletFactory<F>(
         smartWalletTemplate,
-        'Boltz',
-        fundedAccount
+        fundedAccount,
+        'Boltz'
       );
       const verifierFactory = await ethers.getContractFactory(
         'BoltzDeployVerifier'
@@ -463,7 +463,6 @@ describe('RelayServer', function () {
       );
       smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
 
@@ -520,8 +519,7 @@ describe('RelayServer', function () {
 
     describe('maxPossibleGasWithViewCall', function () {
       it('should fail to relay rejected transaction', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -531,7 +529,7 @@ describe('RelayServer', function () {
           {
             callForwarder: smartWallet.address,
           }
-        ) as UserDefinedRelayRequest;
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -585,8 +583,7 @@ describe('RelayServer', function () {
           data: encodedData,
         });
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -635,8 +632,7 @@ describe('RelayServer', function () {
         const token = await prepareToken(tokenName);
         await mintTokens(token, tokenName, 100, smartWallet.address);
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -675,8 +671,7 @@ describe('RelayServer', function () {
       });
 
       it('should relay transaction', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          false,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -724,8 +719,7 @@ describe('RelayServer', function () {
             to: swap.address,
             value: ethers.utils.parseEther('1'),
           });
-          const userDefinedRelayRequest = createUserDefinedRequest(
-            true,
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
               to: swap.address,
@@ -752,8 +746,7 @@ describe('RelayServer', function () {
         });
 
         it('should fail if verifier throws error', async function () {
-          const userDefinedRelayRequest = createUserDefinedRequest(
-            true,
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
               to: swap.address,
@@ -781,10 +774,9 @@ describe('RelayServer', function () {
           ).to.be.rejectedWith('Claiming value lower than fees');
         });
 
-        // TODO - Should bubble up error but its failing
-        it.skip('should fail if destination contract throws error', async function () {
-          const userDefinedRelayRequest = createUserDefinedRequest(
-            true,
+        // FIXME - Should bubble up error but its failing with a different error
+        it('should fail if destination contract throws error', async function () {
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
               to: swap.address,
@@ -807,7 +799,7 @@ describe('RelayServer', function () {
             relayServer.createRelayTransaction(
               stringifyEnvelopingTx(envelopingTxRequest)
             )
-          ).to.be.rejectedWith('Could not transfer Ether');
+          ).to.be.rejectedWith('transaction reverted');
         });
       });
 
@@ -835,8 +827,7 @@ describe('RelayServer', function () {
             to: swap.address,
             value: ethers.utils.parseEther('1'),
           });
-          const userDefinedRelayRequest = createUserDefinedRequest(
-            true,
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
               to: swap.address,
@@ -863,8 +854,7 @@ describe('RelayServer', function () {
         });
 
         it('should fail if verifier throws error', async function () {
-          const userDefinedRelayRequest = createUserDefinedRequest(
-            true,
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
               to: swap.address,
@@ -1179,7 +1169,6 @@ describe('RelayServer', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -1225,8 +1214,7 @@ describe('RelayServer', function () {
 
       encodedData = recipient.interface.encodeFunctionData('testNextRevert');
 
-      const userDefinedRelayRequest = createUserDefinedRequest(
-        false,
+      const userDefinedRelayRequest = createRelayUserDefinedRequest(
         {
           from: owner.address,
           to: recipient.address,
@@ -1262,8 +1250,7 @@ describe('RelayServer', function () {
     it('should delay transactions in alerted state', async function () {
       const timeBefore = Date.now();
 
-      const userDefinedRelayRequest = createUserDefinedRequest(
-        false,
+      const userDefinedRelayRequest = createRelayUserDefinedRequest(
         {
           from: owner.address,
           to: recipient.address,
@@ -1348,7 +1335,6 @@ describe('RelayServer', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Default',
         fundedAccount
       );
       ({ deployVerifier, relayVerifier } = await deployVerifiers<
@@ -1452,8 +1438,8 @@ describe('RelayServer', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        'Boltz',
-        fundedAccount
+        fundedAccount,
+        'Boltz'
       );
       ({ deployVerifier, relayVerifier } = await deployVerifiers<
         BoltzDeployVerifier,

@@ -111,12 +111,9 @@ describe('RelayHub', function () {
       value: ethers.utils.parseEther('1'),
     });
 
-    factory = await createSmartWalletFactory(
-      smartWalletTemplate,
-      'Default',
-      owner
-    );
+    factory = await createSmartWalletFactory(smartWalletTemplate, owner);
   });
+
   describe('#add/disable relay workers', function () {
     const expectRelayWorkersAddedEvent = (
       relayWorkersAddedEvent?: RelayWorkersAddedEvent
@@ -994,8 +991,8 @@ describe('RelayHub', function () {
           );
           boltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
-            'Boltz',
-            owner
+            owner,
+            'Boltz'
           );
           swap = await deployContract<TestSwap>('TestSwap');
           await fundedAccount.sendTransaction({
@@ -1210,8 +1207,8 @@ describe('RelayHub', function () {
             );
           minimalBoltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
-            'MinimalBoltz',
-            owner
+            owner,
+            'MinimalBoltz'
           );
           swap = await deployContract<TestSwap>('TestSwap');
           await fundedAccount.sendTransaction({
@@ -1322,7 +1319,10 @@ describe('RelayHub', function () {
           await expect(deployCall).not.to.be.rejected;
         });
 
-        it.skip('should fail if not enough gas to pay for native transfer', async function () {
+        // When the tokenGas is set to 0, we should expect to fail but the VM provide a minimum gas of 2300 by default
+        // that covers the transfer cost, this will only fail if the destination, its a contract that consumes more than
+        // this amount https://ethereum.stackexchange.com/questions/70208/gas-is-0-when-executing-call-opcode
+        it('should fail if not enough gas to pay for native transfer', async function () {
           const deployRequest = cloneDeployRequest({
             request: {
               index: nextWalletIndex.toString(),
@@ -1347,9 +1347,7 @@ describe('RelayHub', function () {
             .connect(relayWorker)
             .deployCall(deployRequest, signature, { gasLimit });
 
-          await expect(deployCall).to.be.rejectedWith(
-            'Unable to pay for deployment'
-          );
+          await expect(deployCall).not.to.be.rejected;
         });
       });
 

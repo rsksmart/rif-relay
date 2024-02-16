@@ -19,11 +19,14 @@ import {
 import {
   createSmartWalletFactory,
   createSupportedSmartWallet,
-  createEnvelopingRequest,
   getSuffixDataAndSignature,
   getSuffixData,
   SupportedSmartWallet,
   RSK_URL,
+  deployContract,
+  createRelayEnvelopingRequest,
+  SupportedType,
+  getSmartWalletTemplate,
 } from '../utils/TestUtils';
 import {
   RelayRequest,
@@ -40,16 +43,13 @@ const INITIAL_SMART_WALLET_RBTC_AMOUNT = 50;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
 
-type TypeOfWallet = 'Custom' | 'Default';
-const TYPES_OF_WALLETS: TypeOfWallet[] = ['Default', 'Custom'];
+const TYPES_OF_WALLETS: SupportedType[] = ['Default', 'Custom', 'Boltz'];
 
 const TOKENS: TokenName[] = [
   TEST_TOKEN_NAME,
   NON_REVERT_TEST_TOKEN_NAME,
   TETHER_TOKEN_NAME,
 ];
-
-const IS_DEPLOY_REQUEST = false;
 
 TYPES_OF_WALLETS.forEach((typeOfWallet) => {
   describe(`Base SmartWallet tests using ${typeOfWallet}`, function () {
@@ -61,25 +61,11 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
     before(async function () {
       //Create the any of the supported smart wallet templates
-      switch (typeOfWallet) {
-        case 'Default':
-          {
-            const smartWalletFactory = await hardhat.getContractFactory(
-              'SmartWallet'
-            );
-            supportedSmartWalletTemplate = await smartWalletFactory.deploy();
-          }
-          break;
-        case 'Custom':
-          {
-            const customSmartWalletFactory = await hardhat.getContractFactory(
-              'CustomSmartWallet'
-            );
-            supportedSmartWalletTemplate =
-              await customSmartWalletFactory.deploy();
-          }
-          break;
-      }
+
+      supportedSmartWalletTemplate = await deployContract<SupportedSmartWallet>(
+        getSmartWalletTemplate(typeOfWallet)
+      );
+
       // We couldn't use hardhat.provider, because we couldn't retrieve the revert reason.
       provider = new providers.JsonRpcProvider(RSK_URL);
     });
@@ -98,8 +84,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
 
       const supportedSmartWalletFactory = await createSmartWalletFactory(
         supportedSmartWalletTemplate,
-        typeOfWallet,
-        owner
+        owner,
+        typeOfWallet
       );
 
       supportedSmartWallet = await createSupportedSmartWallet({
@@ -115,8 +101,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
     describe('Verify', function () {
       describe('Verify success', function () {
         it('Should verify valid signature', async function () {
-          const relayRequest = createEnvelopingRequest(
-            IS_DEPLOY_REQUEST,
+          const relayRequest = createRelayEnvelopingRequest(
             {
               from: owner.address,
               relayHub: relayHub.address,
@@ -152,8 +137,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         it('Should fail when the domain separator is wrong', async function () {
           //The signature should be obtained manually here to be able to inject a
           //wrong domain separator name
-          const relayRequest = createEnvelopingRequest(
-            IS_DEPLOY_REQUEST,
+          const relayRequest = createRelayEnvelopingRequest(
             {
               from: owner.address,
               relayHub: relayHub.address,
@@ -196,7 +180,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         it('Should fail when the nonce is wrong', async function () {
           const WRONG_NONCE = '123';
 
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             from: owner.address,
             relayHub: relayHub.address,
             nonce: WRONG_NONCE,
@@ -218,7 +202,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
         });
 
         it('Should fail when the signature is invalid', async function () {
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             from: owner.address,
             relayHub: relayHub.address,
           }) as RelayRequest;
@@ -312,7 +296,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             await target.estimateGas.emitMessage(TEST_MESSAGE)
           ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
             to: target.address,
             nonce: initialNonce.toString(),
@@ -390,7 +374,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             feesReceiver.address
           );
 
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
             to: target.address,
             nonce: (await supportedSmartWallet.nonce()).toString(),
@@ -452,7 +436,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
           );
 
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
             to: target.address,
             nonce: (await supportedSmartWallet.nonce()).toString(),
@@ -530,7 +514,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
           );
 
-          const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+          const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
             to: target.address,
             nonce: (await supportedSmartWallet.nonce()).toString(),
@@ -641,7 +625,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
-            const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+            const relayRequest = createRelayEnvelopingRequest({
               data: targetFunction,
               to: target.address,
               nonce: (await supportedSmartWallet.nonce()).toString(),
@@ -723,7 +707,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
-            const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+            const relayRequest = createRelayEnvelopingRequest({
               data: targetFunction,
               to: target.address,
               nonce: (await supportedSmartWallet.nonce()).toString(),
@@ -790,7 +774,7 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
               await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
-            const relayRequest = createEnvelopingRequest(IS_DEPLOY_REQUEST, {
+            const relayRequest = createRelayEnvelopingRequest({
               data: targetFunction,
               to: target.address,
               nonce: (await supportedSmartWallet.nonce()).toString(),

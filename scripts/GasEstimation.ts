@@ -120,8 +120,8 @@ async function deployAndSetup(payment: Payment = 'erc20') {
 
   const factory = await createSmartWalletFactory(
     template,
-    supportedTypes[payment],
-    owner
+    owner,
+    supportedTypes[payment]
   );
 
   const tokenContracts: Record<Payment, string> = {

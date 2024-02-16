@@ -148,7 +148,7 @@ describe('Custom Smart Wallet using TestToken', function () {
       value: ethers.utils.parseEther('1'),
     });
 
-    factory = await createSmartWalletFactory(template, 'Custom', owner);
+    factory = await createSmartWalletFactory(template, owner, 'Custom');
     token = await utilTokenFactory.deploy();
   });
 

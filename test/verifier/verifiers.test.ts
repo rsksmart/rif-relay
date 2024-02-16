@@ -1,5 +1,6 @@
 import { BaseProvider } from '@ethersproject/providers';
 import {
+  BoltzSmartWallet,
   BoltzSmartWalletFactory,
   DeployVerifier,
   MinimalBoltzDeployVerifier,
@@ -14,7 +15,8 @@ import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { Wallet, providers, constants } from 'ethers';
 import { prepareToken } from '../smartwallet/utils';
 import {
-  createEnvelopingRequest,
+  createDeployEnvelopingRequest,
+  createRelayEnvelopingRequest,
   createSupportedSmartWallet,
   deployContract,
   RSK_URL,
@@ -55,10 +57,9 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+      const smartWalletTemplate = await deployContract<SmartWallet>(
         'SmartWallet'
       );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
         'SmartWalletFactory'
@@ -89,8 +90,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should succeed when the deploy is correct', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -120,8 +120,7 @@ describe('Verifiers tests', function () {
         type: 'Default',
       });
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -143,8 +142,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should fail if the token balance is too low', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -168,8 +166,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the token is not allowed', async function () {
       await deployVerifier.removeToken(testToken.address, 0);
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -193,8 +190,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the factory is incorrect', async function () {
       const wrongFactory = constants.AddressZero;
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -225,10 +221,9 @@ describe('Verifiers tests', function () {
     let smartWallet: SmartWallet;
 
     async function prepareSmartWallet(testToken: TestToken) {
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+      const smartWalletTemplate = await deployContract<SmartWallet>(
         'SmartWallet'
       );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatSmartWalletFactoryFactory = await hardhat.getContractFactory(
         'SmartWalletFactory'
@@ -272,8 +267,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should succeed when the relay is correct', async function () {
-      const relayRequest = createEnvelopingRequest(
-        false,
+      const relayRequest = createRelayEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -294,8 +288,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should fail if the token balance is too low', async function () {
-      const relayRequest = createEnvelopingRequest(
-        false,
+      const relayRequest = createRelayEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -319,8 +312,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the token is not allowed', async function () {
       await relayVerifier.removeToken(testToken.address, 0);
 
-      const relayRequest = createEnvelopingRequest(
-        false,
+      const relayRequest = createRelayEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -344,8 +336,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the factory is incorrect', async function () {
       const wrongSmartWallet = await prepareSmartWallet(testToken);
 
-      const relayRequest = createEnvelopingRequest(
-        false,
+      const relayRequest = createRelayEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -379,10 +370,9 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+      const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
         'BoltzSmartWallet'
       );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
         'BoltzSmartWalletFactory'
@@ -409,8 +399,7 @@ describe('Verifiers tests', function () {
         type: 'Default',
       });
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -431,8 +420,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the factory is incorrect', async function () {
       const wrongFactory = constants.AddressZero;
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -449,6 +437,7 @@ describe('Verifiers tests', function () {
         deployVerifier.verifyRelayedCall(deployRequest, signature)
       ).to.be.rejectedWith('Invalid factory');
     });
+
     describe('Token', function () {
       let testToken: TestToken;
 
@@ -465,8 +454,7 @@ describe('Verifiers tests', function () {
       });
 
       it('Should succeed when the deploy is correct', async function () {
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -487,8 +475,7 @@ describe('Verifiers tests', function () {
       });
 
       it('Should fail if the token balance is too low', async function () {
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -512,8 +499,7 @@ describe('Verifiers tests', function () {
       it('Should fail if the token is not allowed', async function () {
         await deployVerifier.removeToken(testToken.address, 0);
 
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -551,8 +537,7 @@ describe('Verifiers tests', function () {
       });
 
       it('Should succeed when the deploy is correct', async function () {
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -576,8 +561,7 @@ describe('Verifiers tests', function () {
       it('Should fail if the destination contract is not allowed', async function () {
         await deployVerifier.removeContract(swap.address, 0);
 
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -600,8 +584,7 @@ describe('Verifiers tests', function () {
       });
 
       it('Should fail if the token balance is too low', async function () {
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -622,8 +605,7 @@ describe('Verifiers tests', function () {
       });
 
       it('Should fail if the token balance is too low (claim)', async function () {
-        const deployRequest = createEnvelopingRequest(
-          true,
+        const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
             from: owner.address,
@@ -669,10 +651,9 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+      const smartWalletTemplate = await deployContract<MinimalBoltzSmartWallet>(
         'MinimalBoltzSmartWallet'
       );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
         'MinimalBoltzSmartWalletFactory'
@@ -701,8 +682,7 @@ describe('Verifiers tests', function () {
         type: 'Default',
       });
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -725,8 +705,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the factory is incorrect', async function () {
       const wrongFactory = constants.AddressZero;
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -749,8 +728,7 @@ describe('Verifiers tests', function () {
     it('Should fail if payment is with ERC20 token', async function () {
       const fakeToken = Wallet.createRandom();
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -773,8 +751,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should fail if not enough native token for payment', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -798,8 +775,7 @@ describe('Verifiers tests', function () {
     it('Should fail if the destination contract is not allowed', async function () {
       await deployVerifier.removeContract(swap.address, 0);
 
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -820,8 +796,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should succeed in sponsored transactions', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -841,8 +816,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should succeed destination contract provide enough balance', async function () {
-      const deployRequest = createEnvelopingRequest(
-        true,
+      const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,
@@ -876,10 +850,9 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const hardHatSmartWalletFactory = await hardhat.getContractFactory(
+      const smartWalletTemplate = await deployContract<MinimalBoltzSmartWallet>(
         'MinimalBoltzSmartWallet'
       );
-      const smartWalletTemplate = await hardHatSmartWalletFactory.deploy();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
         'MinimalBoltzSmartWalletFactory'
@@ -907,8 +880,7 @@ describe('Verifiers tests', function () {
     });
 
     it('Should always fail', async function () {
-      const relayRequest = createEnvelopingRequest(
-        false,
+      const relayRequest = createRelayEnvelopingRequest(
         {
           relayHub: relayHub.address,
           from: owner.address,

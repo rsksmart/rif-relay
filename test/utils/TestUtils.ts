@@ -230,8 +230,8 @@ const deployVerifiers = async <
 
 const createSmartWalletFactory = async <T extends SupportedSmartWalletFactory>(
   template: SupportedSmartWallet | MinimalBoltzSmartWallet,
-  type: SupportedType = 'Default',
-  owner: Wallet | SignerWithAddress
+  owner: Wallet | SignerWithAddress,
+  type: SupportedType = 'Default'
 ): Promise<T> => {
   const factory = await ethers.getContractFactory(
     `${type === 'Default' ? '' : type}SmartWalletFactory`
@@ -258,8 +258,7 @@ const createSupportedSmartWallet = async <
   type = 'Default',
   logGas = false,
 }: CreateSmartWalletParams): Promise<T> => {
-  const envelopingRequest = createEnvelopingRequest(
-    true,
+  const envelopingRequest = createDeployEnvelopingRequest(
     {
       relayHub,
       from: owner.address,
@@ -331,8 +330,7 @@ const prepareRelayTransaction = async ({
   gas = 0,
   swAddress,
 }: PrepareRelayTransactionParams) => {
-  const envelopingRequest = createEnvelopingRequest(
-    true,
+  const envelopingRequest = createDeployEnvelopingRequest(
     {
       relayHub,
       from: owner.address,
@@ -484,32 +482,36 @@ const baseRelayRequest: RelayRequestBody = {
   tokenGas: '0',
 };
 
-const createEnvelopingRequest = (
-  isDeploy: boolean,
+const createRelayEnvelopingRequest = (
   request?: Partial<RelayRequestBody> | Partial<DeployRequestBody>,
   relayData?: Partial<EnvelopingRequestData>
 ): EnvelopingRequest => {
-  return isDeploy
-    ? {
-        request: {
-          ...baseDeployRequest,
-          ...request,
-        } as DeployRequestBody,
-        relayData: {
-          ...baseRelayData,
-          ...relayData,
-        },
-      }
-    : {
-        request: {
-          ...baseRelayRequest,
-          ...request,
-        } as RelayRequestBody,
-        relayData: {
-          ...baseRelayData,
-          ...relayData,
-        },
-      };
+  return {
+    request: {
+      ...baseRelayRequest,
+      ...request,
+    } as RelayRequestBody,
+    relayData: {
+      ...baseRelayData,
+      ...relayData,
+    },
+  };
+};
+
+const createDeployEnvelopingRequest = (
+  request?: Partial<RelayRequestBody> | Partial<DeployRequestBody>,
+  relayData?: Partial<EnvelopingRequestData>
+): EnvelopingRequest => {
+  return {
+    request: {
+      ...baseDeployRequest,
+      ...request,
+    } as DeployRequestBody,
+    relayData: {
+      ...baseRelayData,
+      ...relayData,
+    },
+  };
 };
 
 const baseUserDefinedDeployBody: UserDefinedDeployRequestBody = {
@@ -529,33 +531,38 @@ const baseUserDefinedRelayData: UserDefinedRelayData = {
   callForwarder: constants.AddressZero,
 };
 
-const createUserDefinedRequest = (
-  isDeploy: boolean,
-  request?: Partial<UserDefinedDeployRequestBody | UserDefinedRelayRequestBody>,
-  relayData?: Partial<UserDefinedDeployData | UserDefinedRelayData>
-): UserDefinedRelayRequest | UserDefinedDeployRequest => {
-  return isDeploy
-    ? {
-        request: {
-          ...baseUserDefinedDeployBody,
-          ...request,
-        },
-        relayData: {
-          ...baseUserDefinedRelayData,
-          ...relayData,
-        },
-      }
-    : {
-        request: {
-          ...baseUserDefinedRelayBody,
-          ...request,
-        },
-        relayData: {
-          ...baseUserDefinedRelayData,
-          ...relayData,
-        },
-      };
+const createRelayUserDefinedRequest = (
+  request?: Partial<UserDefinedRelayRequestBody>,
+  relayData?: Partial<UserDefinedRelayData>
+): UserDefinedRelayRequest => {
+  return {
+    request: {
+      ...baseUserDefinedRelayBody,
+      ...request,
+    },
+    relayData: {
+      ...baseUserDefinedRelayData,
+      ...relayData,
+    },
+  };
 };
+
+const createDeployUserDefinedRequest = (
+  request?: Partial<UserDefinedDeployRequestBody>,
+  relayData?: Partial<UserDefinedDeployData>
+): UserDefinedDeployRequest => {
+  return {
+    request: {
+      ...baseUserDefinedDeployBody,
+      ...request,
+    },
+    relayData: {
+      ...baseUserDefinedRelayData,
+      ...relayData,
+    },
+  };
+};
+
 type GetSmartWalletAddressParams = {
   type: SupportedType;
   factory: SupportedSmartWalletFactory;
@@ -596,6 +603,9 @@ async function deployContract<T>(contract: string) {
   return contractFactory.deploy() as T;
 }
 
+const getSmartWalletTemplate = (type: SupportedType) =>
+  `${type === 'Default' ? '' : type}SmartWallet`;
+
 export {
   evmMine,
   evmMineMany,
@@ -607,8 +617,10 @@ export {
   prepareRelayTransaction,
   deployRelayHub,
   deployVerifiers,
-  createEnvelopingRequest,
-  createUserDefinedRequest,
+  createRelayEnvelopingRequest,
+  createDeployEnvelopingRequest,
+  createRelayUserDefinedRequest,
+  createDeployUserDefinedRequest,
   getSuffixData,
   signData,
   generateRandomAddress,
@@ -617,6 +629,7 @@ export {
   RSK_URL,
   deployContract,
   getSmartWalletAddress,
+  getSmartWalletTemplate,
 };
 
 export type {
@@ -628,3 +641,5 @@ export type {
   SupportedType,
   SupportedDeployVerifier,
 };
+
+// delete prepareRelayTransaction
