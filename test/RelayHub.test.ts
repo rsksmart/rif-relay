@@ -1320,7 +1320,7 @@ describe('RelayHub', function () {
         });
 
         // When the tokenGas is set to 0, we should expect to fail but the VM provide a minimum gas of 2300 by default
-        // that covers the transfer cost, this will only fail if the destination, its a contract that consumes more than
+        // that covers the transfer cost, this will only fail if the destination, is a contract that consumes more than
         // this amount https://ethereum.stackexchange.com/questions/70208/gas-is-0-when-executing-call-opcode
         it('should fail if not enough gas to pay for native transfer', async function () {
           const deployRequest = cloneDeployRequest({

@@ -103,19 +103,6 @@ type CreateSmartWalletParams = {
   logGas?: boolean;
 };
 
-type PrepareRelayTransactionParams = {
-  relayHub: string;
-  owner: Wallet;
-  tokenContract: string;
-  tokenAmount: BigNumberish;
-  tokenGas: BigNumberish;
-  validUntilTime: number;
-  logicAddr: string;
-  initParams: string;
-  gas: BigNumberish;
-  swAddress: string;
-};
-
 const CONFIG_BLOCKCHAIN = 'blockchain';
 const CONFIG_RSK_URL = 'rskNodeUrl';
 
@@ -316,43 +303,6 @@ const createSupportedSmartWallet = async <
   };
 
   return new Contract(swAddress, abis[type], owner) as T;
-};
-
-const prepareRelayTransaction = async ({
-  relayHub,
-  owner,
-  tokenContract = constants.AddressZero,
-  tokenAmount = 0,
-  tokenGas = 0,
-  validUntilTime = 0,
-  logicAddr = constants.AddressZero,
-  initParams = '0x00',
-  gas = 0,
-  swAddress,
-}: PrepareRelayTransactionParams) => {
-  const envelopingRequest = createDeployEnvelopingRequest(
-    {
-      relayHub,
-      from: owner.address,
-      to: logicAddr,
-      data: initParams,
-      tokenContract,
-      tokenAmount,
-      tokenGas,
-      validUntilTime,
-      gas,
-    },
-    {
-      callForwarder: swAddress,
-    }
-  );
-
-  const { signature } = await signEnvelopingRequest(envelopingRequest, owner);
-
-  return {
-    envelopingRequest,
-    signature,
-  };
 };
 
 export const signEnvelopingRequest = async (
@@ -614,7 +564,6 @@ export {
   revertEvmSnapshot,
   getExistingGaslessAccount,
   createSmartWalletFactory,
-  prepareRelayTransaction,
   deployRelayHub,
   deployVerifiers,
   createRelayEnvelopingRequest,
@@ -634,12 +583,9 @@ export {
 
 export type {
   CreateSmartWalletParams,
-  PrepareRelayTransactionParams,
   SupportedSmartWalletName,
   SupportedSmartWallet,
   SupportedSmartWalletFactory,
   SupportedType,
   SupportedDeployVerifier,
 };
-
-// delete prepareRelayTransaction
