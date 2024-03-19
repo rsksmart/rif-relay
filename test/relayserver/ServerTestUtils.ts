@@ -109,7 +109,7 @@ const stringifyEnvelopingTx = (
         nonce: nonce.toString(),
         value: value.toString(),
         tokenAmount: tokenAmount.toString(),
-        gas: gas?.toString(),
+        ...(gas && { gas: gas.toString() }),
       },
       relayData: {
         ...envelopingTx.relayRequest.relayData,

@@ -88,6 +88,7 @@
     "@metamask/eth-sig-util": "^5.0.2",
     "@nomicfoundation/hardhat-toolbox": "^2.0.0",
     "@nomiclabs/hardhat-ethers": "^2.2.1",
+    "@openzeppelin/contracts": "^3.4.0",
     "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client",
     "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts",
     "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server",
@@ -115,6 +116,7 @@
   "devDependencies": {
     "@types/express": "^4.17.17",
     "@types/sinon-chai": "^3.2.10",
+    "axios": "^1.6.7",
     "sinon": "^16.0.0",
     "sinon-chai": "^3.7.0"
   }

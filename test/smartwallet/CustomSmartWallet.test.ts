@@ -148,19 +148,19 @@ describe('Custom Smart Wallet using TestToken', function () {
       value: ethers.utils.parseEther('1'),
     });
 
-    factory = await createSmartWalletFactory(template, true, owner);
+    factory = await createSmartWalletFactory(template, owner, 'Custom');
     token = await utilTokenFactory.deploy();
   });
 
   async function createCustomSmartWallet(customLogic: IWalletCustomLogic) {
-    const smartWallet = (await createSupportedSmartWallet({
+    const smartWallet: CustomSmartWallet = await createSupportedSmartWallet({
       relayHub: relayHub.address,
       owner,
       sender: relayHub,
       factory,
       logicAddr: customLogic.address,
-      isCustomSmartWallet: true,
-    })) as CustomSmartWallet;
+      type: 'Custom',
+    });
 
     await fillTokens(token, smartWallet.address, '1000');
 

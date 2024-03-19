@@ -14,6 +14,7 @@ const isBigNumber = (value: any) =>
 
 describe('TxStoreManager', function () {
   const workdir = '/tmp/env-test';
+
   it('should return transactions with gasLimit and gasPrice as BigNumber', async function () {
     const workersKeyManager = new KeyManager(1, workdir);
     const workerAddress = workersKeyManager.getAddress(0)!;

@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import {
+  assertLog,
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployContract,
@@ -11,6 +12,7 @@ import {
   RelayHub,
   TestDeployVerifierEverythingAccepted,
   TestRecipient,
+  TestSwap,
   TestVerifierEverythingAccepted,
   UtilToken,
 } from 'typechain-types';
@@ -27,7 +29,7 @@ import {
   HttpClient,
   HttpWrapper,
 } from '@rsksmart/rif-relay-client';
-import { constants, Contract, EventFilter, Wallet } from 'ethers';
+import { constants, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
@@ -39,7 +41,12 @@ import {
   RelayServer,
   ServerConfigParams,
 } from '@rsksmart/rif-relay-server';
-import { SmartWallet, SmartWalletFactory } from '@rsksmart/rif-relay-contracts';
+import {
+  BoltzSmartWallet,
+  BoltzSmartWalletFactory,
+  SmartWallet,
+  SmartWalletFactory,
+} from '@rsksmart/rif-relay-contracts';
 import { Server } from 'http';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -75,28 +82,6 @@ class MockHttpClient extends HttpClient {
     return relayUrl.replace(`:${serverPort}`, `:${this.mockPort}`);
   }
 }
-
-type AssertLogParams = {
-  filter: EventFilter;
-  hash?: string;
-  contract: Contract;
-  index: number;
-  value: unknown;
-};
-
-const assertLog = async ({
-  filter,
-  hash,
-  contract,
-  index,
-  value,
-}: AssertLogParams) => {
-  const logs = await contract.queryFilter(filter);
-  const log = logs.find((x) => x.transactionHash === hash);
-
-  expect(log).to.not.be.undefined;
-  expect(log?.args?.at(index)).to.be.equal(value);
-};
 
 describe('RelayClient', function () {
   let relayClient: RelayClient;
@@ -176,11 +161,10 @@ describe('RelayClient', function () {
       const smartWalletTemplate: SmartWallet = await deployContract(
         'SmartWallet'
       );
-      smartWalletFactory = (await createSmartWalletFactory(
+      smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
-      )) as SmartWalletFactory;
+      );
     });
 
     describe('should relay transaction', function () {
@@ -555,6 +539,73 @@ describe('RelayClient', function () {
         });
         expect(to).to.be.equal(relayHub.address);
       });
+
+      describe('with contract execution', function () {
+        let data: string;
+        let swap: TestSwap;
+        let boltzFactory: BoltzSmartWalletFactory;
+
+        beforeEach(async function () {
+          swap = await deployContract<TestSwap>('TestSwap');
+          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
+            'BoltzSmartWallet'
+          );
+          boltzFactory = await createSmartWalletFactory(
+            smartWalletTemplate,
+            fundedAccount,
+            'Boltz'
+          );
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('0.5'),
+            constants.AddressZero,
+            500,
+          ]);
+        });
+
+        it('without tokenGas', async function () {
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+
+          const updatedDeployRequest = {
+            ...envelopingDeployRequest,
+            request: {
+              ...envelopingDeployRequest.request,
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+              tokenAmount: ethers.utils.parseEther('0.1'),
+            },
+            relayData: {
+              ...envelopingDeployRequest.relayData,
+              callForwarder: boltzFactory.address,
+            },
+          };
+
+          const { hash, to } = await deployClient.relayTransaction(
+            updatedDeployRequest
+          );
+
+          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            gaslessAccount.address,
+            constants.AddressZero,
+            nextWalletIndex
+          );
+
+          const filter = boltzFactory.filters.Deployed();
+          await assertLog({
+            filter,
+            hash,
+            contract: boltzFactory,
+            index: 0,
+            value: smartWalletAddress,
+          });
+
+          expect(to).to.be.equal(relayHub.address);
+        });
+      });
     });
   });
 
@@ -570,12 +621,11 @@ describe('RelayClient', function () {
     }
 
     before(async function () {
-      const smartWalletTemplate: SmartWallet = await deployContract(
+      const smartWalletTemplate = await deployContract<SmartWallet>(
         'SmartWallet'
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -584,7 +634,7 @@ describe('RelayClient', function () {
         owner: gaslessAccount,
         factory: smartWalletFactory,
       });
-      testRecipient = await deployContract('TestRecipient');
+      testRecipient = await deployContract<TestRecipient>('TestRecipient');
       const encodeData = testRecipient.interface.encodeFunctionData(
         'emitMessage',
         [message]
@@ -661,7 +711,6 @@ describe('RelayClient', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -706,7 +755,6 @@ describe('RelayClient', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
       );
       const mockServer = express();

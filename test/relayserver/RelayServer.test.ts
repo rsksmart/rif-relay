@@ -11,6 +11,13 @@ import {
   RelayHub,
   RelayVerifier,
   SmartWallet,
+  SmartWalletFactory,
+  BoltzDeployVerifier,
+  BoltzSmartWalletFactory,
+  MinimalBoltzDeployVerifier,
+  MinimalBoltzSmartWalletFactory,
+  BoltzRelayVerifier,
+  BoltzSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   createSupportedSmartWallet,
@@ -20,8 +27,13 @@ import {
   createSmartWalletFactory,
   deployVerifiers,
   generateRandomAddress,
-  createUserDefinedRequest,
   deployContract,
+  SupportedType,
+  SupportedSmartWalletFactory,
+  SupportedDeployVerifier,
+  createRelayUserDefinedRequest,
+  createDeployUserDefinedRequest,
+  getSmartWalletTemplate,
 } from '../utils/TestUtils';
 import config from 'config';
 import {
@@ -44,13 +56,13 @@ import {
   RelayRequest,
   RelayRequestBody,
   setEnvelopingConfig,
-  UserDefinedRelayRequest,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
 import {
   TestDeployVerifierConfigurableMisbehavior,
   TestRecipient,
+  TestSwap,
   TestVerifierConfigurableMisbehavior,
 } from '../../typechain-types';
 import {
@@ -70,8 +82,6 @@ const basicAppConfig: Partial<AppConfig> = {
   logLevel: 5,
   workdir: SERVER_WORK_DIR,
 };
-
-const IS_DEPLOY_REQUEST = false;
 
 const provider = ethers.provider;
 
@@ -168,15 +178,12 @@ describe('RelayServer', function () {
 
     describe('validateInputTypes', function () {
       it('should throw if relayHub is undefined', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -194,16 +201,13 @@ describe('RelayServer', function () {
 
     describe('validateInput', function () {
       it('should throw on wrong hub address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-            relayHub: constants.AddressZero,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          relayHub: constants.AddressZero,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -217,15 +221,12 @@ describe('RelayServer', function () {
       });
 
       it('should throw on wrong fees receiver address', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         hubInfo.feesReceiver = generateRandomAddress();
 
@@ -241,15 +242,12 @@ describe('RelayServer', function () {
       });
 
       it('should throw if gas price is equal to zero', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -265,16 +263,13 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request expired', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-            validUntilTime: 1000,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          validUntilTime: 1000,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -288,16 +283,13 @@ describe('RelayServer', function () {
       });
 
       it('should throw on request too close', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-            validUntilTime: Math.round(Date.now() / 1000),
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+          validUntilTime: Math.round(Date.now() / 1000),
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -329,15 +321,12 @@ describe('RelayServer', function () {
 
     describe('validateVerifier', function () {
       it('should validate verifier in enveloping request', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
-          {
-            from: owner.address,
-            to: recipient.address,
-            data: encodedData,
-            nonce: 1,
-          }
-        );
+        const userDefinedRelayRequest = createRelayUserDefinedRequest({
+          from: owner.address,
+          to: recipient.address,
+          data: encodedData,
+          nonce: 1,
+        });
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -363,8 +352,7 @@ describe('RelayServer', function () {
       it('should throw if wrong verifier in enveloping request', async function () {
         const wrongVerifierAddress = generateRandomAddress();
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -429,20 +417,78 @@ describe('RelayServer', function () {
     let smartWallet: SupportedSmartWallet;
     let hubInfo: HubInfo;
     let encodedData: string;
+    let smartWalletFactory: SmartWalletFactory;
+    let boltzVerifier: BoltzDeployVerifier;
+    let boltzFactory: BoltzSmartWalletFactory;
+    let minimalBoltzVerifier: MinimalBoltzDeployVerifier;
+    let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
+
+    async function prepareVerifier<
+      F extends SupportedSmartWalletFactory,
+      V extends SupportedDeployVerifier
+    >(
+      fundedAccount: SignerWithAddress,
+      type: SupportedType
+    ): Promise<{ factory: F; verifier: V }> {
+      const smartWalletTemplate: SupportedSmartWallet = await deployContract(
+        getSmartWalletTemplate(type)
+      );
+      const factory = await createSmartWalletFactory<F>(
+        smartWalletTemplate,
+        fundedAccount,
+        'Boltz'
+      );
+      const verifierFactory = await ethers.getContractFactory(
+        'BoltzDeployVerifier'
+      );
+      const verifier = (await verifierFactory.deploy(factory.address)) as V;
+
+      return { factory, verifier };
+    }
 
     beforeEach(async function () {
+      const [worker, fundedAccount, relayOwner] =
+        (await ethers.getSigners()) as [
+          SignerWithAddress,
+          SignerWithAddress,
+          SignerWithAddress
+        ];
       const fakeDeployVerifierAddress = generateRandomAddress();
       const fakeRelayVerifierAddress = generateRandomAddress();
       relayHub = await deployRelayHub();
+      recipient = await deployContract('TestRecipient');
+
+      const smartWalletTemplate: SmartWallet = await deployContract(
+        'SmartWallet'
+      );
+      smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        fundedAccount
+      );
+
+      ({ factory: boltzFactory, verifier: boltzVerifier } =
+        await prepareVerifier<BoltzSmartWalletFactory, BoltzDeployVerifier>(
+          fundedAccount,
+          'Boltz'
+        ));
+      ({ factory: minimalBoltzFactory, verifier: minimalBoltzVerifier } =
+        await prepareVerifier<
+          MinimalBoltzSmartWalletFactory,
+          MinimalBoltzDeployVerifier
+        >(fundedAccount, 'Boltz'));
+
       loadConfiguration({
         app: basicAppConfig,
         contracts: {
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: fakeDeployVerifierAddress,
-          relayVerifierAddress: fakeRelayVerifierAddress,
+          trustedVerifiers: [
+            fakeDeployVerifierAddress,
+            fakeRelayVerifierAddress,
+            boltzVerifier.address,
+            minimalBoltzVerifier.address,
+          ],
         },
       });
-      recipient = await deployContract('TestRecipient');
       const { chainId } = provider.network;
       const {
         app: { url: serverUrl },
@@ -456,12 +502,6 @@ describe('RelayServer', function () {
         logLevel: 5,
       });
       relayClient = new RelayClient();
-      const [worker, fundedAccount, relayOwner] =
-        (await ethers.getSigners()) as [
-          SignerWithAddress,
-          SignerWithAddress,
-          SignerWithAddress
-        ];
       relayServer = await getInitiatedServer({ relayOwner });
       owner = ethers.Wallet.createRandom();
       hubInfo = relayServer.getChainInfo();
@@ -469,14 +509,6 @@ describe('RelayServer', function () {
       encodedData = recipient.interface.encodeFunctionData('emitMessage', [
         'hello',
       ]);
-      const smartWalletTemplate: SmartWallet = await deployContract(
-        'SmartWallet'
-      );
-      const smartWalletFactory = await createSmartWalletFactory(
-        smartWalletTemplate,
-        false,
-        fundedAccount
-      );
       smartWallet = await createSupportedSmartWallet({
         relayHub: worker.address,
         sender: worker,
@@ -487,8 +519,7 @@ describe('RelayServer', function () {
 
     describe('maxPossibleGasWithViewCall', function () {
       it('should fail to relay rejected transaction', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -498,7 +529,7 @@ describe('RelayServer', function () {
           {
             callForwarder: smartWallet.address,
           }
-        ) as UserDefinedRelayRequest;
+        );
 
         const envelopingTxRequest = await createEnvelopingTxRequest(
           userDefinedRelayRequest,
@@ -552,8 +583,7 @@ describe('RelayServer', function () {
           data: encodedData,
         });
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -602,8 +632,7 @@ describe('RelayServer', function () {
         const token = await prepareToken(tokenName);
         await mintTokens(token, tokenName, 100, smartWallet.address);
 
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -642,8 +671,7 @@ describe('RelayServer', function () {
       });
 
       it('should relay transaction', async function () {
-        const userDefinedRelayRequest = createUserDefinedRequest(
-          IS_DEPLOY_REQUEST,
+        const userDefinedRelayRequest = createRelayUserDefinedRequest(
           {
             from: owner.address,
             to: recipient.address,
@@ -665,6 +693,194 @@ describe('RelayServer', function () {
             stringifyEnvelopingTx(envelopingTxRequest)
           )
         ).to.be.fulfilled;
+      });
+
+      describe('with boltz verifier', function () {
+        let swap: TestSwap;
+        let index = 1;
+
+        beforeEach(async function () {
+          swap = await deployContract<TestSwap>('TestSwap');
+          encodedData = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('0.5'),
+            constants.AddressZero,
+            500,
+          ]);
+          await boltzVerifier.acceptContract(swap.address);
+          index++;
+        });
+
+        it('should relay deploy transaction with contract execution', async function () {
+          const [fundedAccount] = (await ethers.getSigners()) as [
+            SignerWithAddress
+          ];
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
+            {
+              from: owner.address,
+              to: swap.address,
+              data: encodedData,
+              index,
+            },
+            {
+              callForwarder: boltzFactory.address,
+              callVerifier: boltzVerifier.address,
+            }
+          );
+
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.fulfilled;
+        });
+
+        it('should fail if verifier throws error', async function () {
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
+            {
+              from: owner.address,
+              to: swap.address,
+              data: encodedData,
+              tokenGas: 5000,
+              tokenAmount: ethers.utils.parseEther('5'),
+              index,
+            },
+            {
+              callForwarder: boltzFactory.address,
+              callVerifier: boltzVerifier.address,
+            }
+          );
+
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.rejectedWith('Claiming value lower than fees');
+        });
+
+        // FIXME - Should bubble up error but its failing with a different error
+        it('should fail if destination contract throws error', async function () {
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
+            {
+              from: owner.address,
+              to: swap.address,
+              data: encodedData,
+              index,
+            },
+            {
+              callForwarder: boltzFactory.address,
+              callVerifier: boltzVerifier.address,
+            }
+          );
+
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.rejectedWith('transaction reverted');
+        });
+      });
+
+      describe('with minimal boltz verifier', function () {
+        let swap: TestSwap;
+        let index = 1;
+
+        beforeEach(async function () {
+          swap = await deployContract<TestSwap>('TestSwap');
+          encodedData = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('0.5'),
+            constants.AddressZero,
+            500,
+          ]);
+          await minimalBoltzVerifier.acceptContract(swap.address);
+          index++;
+        });
+
+        it('should relay deploy transaction with contract execution', async function () {
+          const [fundedAccount] = (await ethers.getSigners()) as [
+            SignerWithAddress
+          ];
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
+            {
+              from: owner.address,
+              to: swap.address,
+              data: encodedData,
+              index,
+            },
+            {
+              callForwarder: minimalBoltzFactory.address,
+              callVerifier: minimalBoltzVerifier.address,
+            }
+          );
+
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.fulfilled;
+        });
+
+        it('should fail if verifier throws error', async function () {
+          const userDefinedRelayRequest = createDeployUserDefinedRequest(
+            {
+              from: owner.address,
+              to: swap.address,
+              data: encodedData,
+              tokenGas: 5000,
+              tokenAmount: ethers.utils.parseEther('5'),
+              index,
+            },
+            {
+              callForwarder: minimalBoltzFactory.address,
+              callVerifier: minimalBoltzVerifier.address,
+            }
+          );
+
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.rejectedWith('Claiming value lower than fees');
+        });
       });
     });
   });
@@ -911,6 +1127,7 @@ describe('RelayServer', function () {
       );
 
       relayHub = await deployRelayHub();
+      recipient = await deployContract('TestRecipient');
       loadConfiguration({
         app: basicAppConfig,
         contracts: {
@@ -925,7 +1142,6 @@ describe('RelayServer', function () {
           maxAlertedDelayMS: 350,
         },
       });
-      recipient = await deployContract('TestRecipient');
       const [worker, fundedAccount, relayOwner] =
         (await ethers.getSigners()) as [
           SignerWithAddress,
@@ -953,7 +1169,6 @@ describe('RelayServer', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
       );
       smartWallet = await createSupportedSmartWallet({
@@ -999,8 +1214,7 @@ describe('RelayServer', function () {
 
       encodedData = recipient.interface.encodeFunctionData('testNextRevert');
 
-      const userDefinedRelayRequest = createUserDefinedRequest(
-        IS_DEPLOY_REQUEST,
+      const userDefinedRelayRequest = createRelayUserDefinedRequest(
         {
           from: owner.address,
           to: recipient.address,
@@ -1036,8 +1250,7 @@ describe('RelayServer', function () {
     it('should delay transactions in alerted state', async function () {
       const timeBefore = Date.now();
 
-      const userDefinedRelayRequest = createUserDefinedRequest(
-        IS_DEPLOY_REQUEST,
+      const userDefinedRelayRequest = createRelayUserDefinedRequest(
         {
           from: owner.address,
           to: recipient.address,
@@ -1122,12 +1335,12 @@ describe('RelayServer', function () {
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
-        false,
         fundedAccount
       );
-      ({ deployVerifier, relayVerifier } = await deployVerifiers(
-        smartWalletFactory
-      ));
+      ({ deployVerifier, relayVerifier } = await deployVerifiers<
+        DeployVerifier,
+        RelayVerifier
+      >(smartWalletFactory));
 
       loadConfiguration({
         app: basicAppConfig,
@@ -1152,7 +1365,7 @@ describe('RelayServer', function () {
 
       await expect(
         relayServer.tokenHandler(wrongVerifierAddress)
-      ).to.be.rejectedWith('supplied verifier is not trusted');
+      ).to.be.rejectedWith('Supplied verifier is not trusted');
     });
 
     it('should return no tokens for verifiers when none were allowed', async function () {
@@ -1201,6 +1414,114 @@ describe('RelayServer', function () {
       await relayVerifier.acceptToken(token2.address);
 
       verifiers = await relayServer.tokenHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+        [relayVerifier.address]: [token1.address, token2.address],
+      });
+    });
+  });
+
+  describe('destinationContractHandler', function () {
+    let relayServer: RelayServer;
+    let deployVerifier: BoltzDeployVerifier;
+    let relayVerifier: BoltzRelayVerifier;
+
+    beforeEach(async function () {
+      const [relayOwner, fundedAccount] = (await ethers.getSigners()) as [
+        SignerWithAddress,
+        SignerWithAddress
+      ];
+      const relayHub = await deployRelayHub();
+      const smartWalletTemplate: BoltzSmartWallet = await deployContract(
+        'BoltzSmartWallet'
+      );
+      const smartWalletFactory = await createSmartWalletFactory(
+        smartWalletTemplate,
+        fundedAccount,
+        'Boltz'
+      );
+      ({ deployVerifier, relayVerifier } = await deployVerifiers<
+        BoltzDeployVerifier,
+        BoltzRelayVerifier
+      >(smartWalletFactory, 'Boltz'));
+
+      loadConfiguration({
+        app: basicAppConfig,
+        contracts: {
+          relayHubAddress: relayHub.address,
+          relayVerifierAddress: relayVerifier.address,
+          deployVerifierAddress: deployVerifier.address,
+        },
+      });
+      relayServer = await getInitiatedServer({ relayOwner });
+    });
+
+    it('should return empty if there are no trusted verifiers', async function () {
+      relayServer.trustedVerifiers.clear();
+      const verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.be.empty;
+    });
+
+    it('should return error if verifier is not trusted', async function () {
+      const wrongVerifierAddress = generateRandomAddress();
+
+      await expect(
+        relayServer.destinationContractHandler(wrongVerifierAddress)
+      ).to.be.rejectedWith('Supplied verifier is not trusted');
+    });
+
+    it('should return no contracts for verifiers when none were allowed', async function () {
+      const verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [],
+        [relayVerifier.address]: [],
+      });
+    });
+
+    it('should return allowed contracts for one trusted verifier', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token1.address);
+
+      let verifiers = await relayServer.destinationContractHandler(
+        deployVerifier.address
+      );
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token2.address);
+
+      verifiers = await relayServer.destinationContractHandler(
+        deployVerifier.address
+      );
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address, token2.address],
+      });
+    });
+
+    it('should return allowed contracts for all trusted verifiers', async function () {
+      const token1 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token1.address);
+      await relayVerifier.acceptContract(token1.address);
+
+      let verifiers = await relayServer.destinationContractHandler();
+
+      expect(verifiers).to.deep.eq({
+        [deployVerifier.address]: [token1.address],
+        [relayVerifier.address]: [token1.address],
+      });
+
+      const token2 = await prepareToken('TestToken');
+      await deployVerifier.acceptContract(token2.address);
+      await relayVerifier.acceptContract(token2.address);
+
+      verifiers = await relayServer.destinationContractHandler();
 
       expect(verifiers).to.deep.eq({
         [deployVerifier.address]: [token1.address, token2.address],

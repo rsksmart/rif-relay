@@ -1,12 +1,16 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
-import { BigNumber, Wallet, providers } from 'ethers';
+import { BigNumber, Wallet, constants, providers } from 'ethers';
 import {
   UtilToken,
   SmartWalletFactory,
   Penalizer,
   RelayHub,
   SmartWallet,
+  BoltzSmartWalletFactory,
+  BoltzSmartWallet,
+  MinimalBoltzSmartWalletFactory,
+  MinimalBoltzSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   CommonEnvelopingRequestBody,
@@ -21,6 +25,7 @@ import {
   TestDeployVerifierConfigurableMisbehavior,
   TestDeployVerifierEverythingAccepted,
   TestRecipient,
+  TestSwap,
   TestVerifierConfigurableMisbehavior,
   TestVerifierEverythingAccepted,
 } from '../typechain-types';
@@ -106,12 +111,9 @@ describe('RelayHub', function () {
       value: ethers.utils.parseEther('1'),
     });
 
-    factory = (await createSmartWalletFactory(
-      smartWalletTemplate,
-      false,
-      owner
-    )) as SmartWalletFactory;
+    factory = await createSmartWalletFactory(smartWalletTemplate, owner);
   });
+
   describe('#add/disable relay workers', function () {
     const expectRelayWorkersAddedEvent = (
       relayWorkersAddedEvent?: RelayWorkersAddedEvent
@@ -360,12 +362,12 @@ describe('RelayHub', function () {
     let forwarder: SmartWallet;
 
     beforeEach(async function () {
-      forwarder = (await createSupportedSmartWallet({
+      forwarder = await createSupportedSmartWallet({
         relayHub: relayHubSigner.address,
         factory,
         owner,
         sender: relayHubSigner,
-      })) as SmartWallet;
+      });
 
       await token.mint('1000', forwarder.address);
 
@@ -910,6 +912,7 @@ describe('RelayHub', function () {
 
         await expect(deployCall).to.be.rejectedWith('RelayManager not staked');
       });
+
       it('should not accept a deploy call with a disabled relay worker', async function () {
         await relayHub
           .connect(relayManager)
@@ -975,6 +978,378 @@ describe('RelayHub', function () {
           });
         }
       );
+
+      context('with boltz', function () {
+        let data: string;
+        let swap: TestSwap;
+        let boltzFactory: BoltzSmartWalletFactory;
+        let claimedValue: BigNumber;
+
+        beforeEach(async function () {
+          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
+            'BoltzSmartWallet'
+          );
+          boltzFactory = await createSmartWalletFactory(
+            smartWalletTemplate,
+            owner,
+            'Boltz'
+          );
+          swap = await deployContract<TestSwap>('TestSwap');
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+
+          claimedValue = ethers.utils.parseEther('0.5');
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            claimedValue,
+            constants.AddressZero,
+            500,
+          ]);
+        });
+
+        it('should fail if revert from destination contract', async function () {
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('2'),
+            constants.AddressZero,
+            500,
+          ]);
+
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Could not transfer Ether'
+          );
+        });
+
+        it('should fail if not enough native token to pay', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenAmount: claimedValue.add(ethers.utils.parseEther('0.5')),
+              tokenContract: constants.AddressZero,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should succeed paying with native token', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+              tokenAmount: ethers.utils.parseEther('0.01'),
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+
+        it('should fail if not enough token to pay', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should fail if not enough gas to pay for token transfer', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenGas: 0,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should succeed paying with token', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+            },
+            relayData: {
+              callForwarder: boltzFactory.address,
+            },
+          });
+
+          const calculatedAddr = await boltzFactory.getSmartWalletAddress(
+            owner.address,
+            constants.AddressZero,
+            deployRequest.request.index
+          );
+
+          await token.mint('1', calculatedAddr);
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+      });
+
+      context('with minimal boltz', function () {
+        let data: string;
+        let swap: TestSwap;
+        let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
+        let claimedValue: BigNumber;
+
+        beforeEach(async function () {
+          const smartWalletTemplate =
+            await deployContract<MinimalBoltzSmartWallet>(
+              'MinimalBoltzSmartWallet'
+            );
+          minimalBoltzFactory = await createSmartWalletFactory(
+            smartWalletTemplate,
+            owner,
+            'MinimalBoltz'
+          );
+          swap = await deployContract<TestSwap>('TestSwap');
+          await fundedAccount.sendTransaction({
+            to: swap.address,
+            value: ethers.utils.parseEther('1'),
+          });
+
+          claimedValue = ethers.utils.parseEther('0.5');
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            claimedValue,
+            constants.AddressZero,
+            500,
+          ]);
+        });
+
+        it('should fail if revert from destination contract', async function () {
+          data = swap.interface.encodeFunctionData('claim', [
+            constants.HashZero,
+            ethers.utils.parseEther('2'),
+            constants.AddressZero,
+            500,
+          ]);
+
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+            },
+            relayData: {
+              callForwarder: minimalBoltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Could not transfer Ether'
+          );
+        });
+
+        it('should fail if not enough native token to pay', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenAmount: claimedValue.add(ethers.utils.parseEther('0.5')),
+              tokenContract: constants.AddressZero,
+            },
+            relayData: {
+              callForwarder: minimalBoltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).to.be.rejectedWith(
+            'Unable to pay for deployment'
+          );
+        });
+
+        it('should succeed paying with native token', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenContract: constants.AddressZero,
+              tokenAmount: ethers.utils.parseEther('0.01'),
+            },
+            relayData: {
+              callForwarder: minimalBoltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+
+        // When the tokenGas is set to 0, we should expect to fail but the VM provide a minimum gas of 2300 by default
+        // that covers the transfer cost, this will only fail if the destination, is a contract that consumes more than
+        // this amount https://ethereum.stackexchange.com/questions/70208/gas-is-0-when-executing-call-opcode
+        it('should fail if not enough gas to pay for native transfer', async function () {
+          const deployRequest = cloneDeployRequest({
+            request: {
+              index: nextWalletIndex.toString(),
+              to: swap.address,
+              data,
+              tokenGas: 0,
+              tokenContract: constants.AddressZero,
+            },
+            relayData: {
+              callForwarder: minimalBoltzFactory.address,
+            },
+          });
+
+          const { signature } = await signEnvelopingRequest(
+            deployRequest,
+            owner
+          );
+
+          nextWalletIndex++;
+
+          const deployCall = relayHub
+            .connect(relayWorker)
+            .deployCall(deployRequest, signature, { gasLimit });
+
+          await expect(deployCall).not.to.be.rejected;
+        });
+      });
 
       context('with funded verifier', function () {
         let misbehavingVerifier: TestDeployVerifierConfigurableMisbehavior;

@@ -9,21 +9,27 @@ import {
   DeployRequest,
 } from '@rsksmart/rif-relay-client';
 import { UtilToken } from '@rsksmart/rif-relay-contracts';
-import { BigNumber, ContractReceipt, Wallet, constants } from 'ethers';
+import {
+  BigNumber,
+  BigNumberish,
+  BytesLike,
+  ContractReceipt,
+  Wallet,
+  constants,
+} from 'ethers';
 import {
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployRelayHub,
   getSuffixDataAndSignature,
   deployContract,
+  SupportedType,
+  SupportedSmartWallet,
+  SupportedSmartWalletName,
+  getSmartWalletAddress,
 } from '../test/utils/TestUtils';
-import { TestVerifierEverythingAccepted } from 'typechain-types';
-import {
-  SmartWalletFactory,
-  Penalizer,
-  RelayHub,
-  SmartWallet,
-} from '@rsksmart/rif-relay-contracts';
+import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
+import { Penalizer, RelayHub } from '@rsksmart/rif-relay-contracts';
 import { expect } from 'chai';
 
 const GAS_PRICE = '60000000';
@@ -32,6 +38,8 @@ const UNDERLINE = '\x1b[4m';
 const RESET = '\x1b[0m';
 const TOKEN_AMOUNT_TO_TRANSFER = ethers.utils.parseUnits('100').toString();
 const RELAY_URL = 'http://relay.com';
+const CLAIMED_AMOUNT = ethers.utils.parseEther('0.5');
+const NO_FEES = '0';
 
 let relayWorker: SignerWithAddress;
 let relayManager: SignerWithAddress;
@@ -70,38 +78,71 @@ async function setupRelayHub(relayHub: RelayHub) {
   await relayHub.connect(relayManager).registerRelayServer(RELAY_URL);
 }
 
-async function deployAndSetup() {
+async function deployAndSetup(payment: Payment = 'erc20') {
   const owner = Wallet.createRandom().connect(ethers.provider);
+  const swap = await deployContract<TestSwap>('TestSwap');
   const penalizer = await deployContract<Penalizer>('Penalizer');
   const verifier = await deployContract<TestVerifierEverythingAccepted>(
     'TestVerifierEverythingAccepted'
   );
+
   const token = await deployContract<UtilToken>('UtilToken');
-  const smartWalletTemplate = await deployContract<SmartWallet>('SmartWallet');
+
+  const templateNames: Record<Payment, SupportedSmartWalletName> = {
+    native: 'BoltzSmartWallet',
+    minimalNative: 'MinimalBoltzSmartWallet',
+    erc20: 'SmartWallet',
+  };
+  const template = await deployContract<SupportedSmartWallet>(
+    templateNames[payment]
+  );
+
   const relayHub = await deployRelayHub(penalizer.address);
   await setupRelayHub(relayHub);
 
+  const oneEther = ethers.utils.parseEther('1');
+
   await fundedAccount.sendTransaction({
-    to: owner.address,
-    value: ethers.utils.parseEther('1'),
+    to: swap.address,
+    value: oneEther,
   });
 
-  const smartWalletFactory = (await createSmartWalletFactory(
-    smartWalletTemplate,
-    false,
-    owner
-  )) as SmartWalletFactory;
+  await fundedAccount.sendTransaction({
+    to: owner.address,
+    value: oneEther,
+  });
+
+  const supportedTypes: Record<Payment, SupportedType> = {
+    native: 'Boltz',
+    minimalNative: 'MinimalBoltz',
+    erc20: 'Default',
+  };
+
+  const factory = await createSmartWalletFactory(
+    template,
+    owner,
+    supportedTypes[payment]
+  );
+
+  const tokenContracts: Record<Payment, string> = {
+    native: constants.AddressZero,
+    minimalNative: constants.AddressZero,
+    erc20: token.address,
+  };
 
   return {
     relayHub,
     owner,
-    smartWalletFactory,
     token,
     verifier,
+    swap,
+    factory,
+    tokenContractAddress: tokenContracts[payment],
+    type: supportedTypes[payment],
   };
 }
 
-async function getTransferEstimationWithoutRelay(token: UtilToken) {
+async function executeTransferEstimationWithoutRelay(token: UtilToken) {
   const [senderAccount, receiverAccount] = (await ethers.getSigners()) as [
     SignerWithAddress,
     SignerWithAddress
@@ -111,13 +152,32 @@ async function getTransferEstimationWithoutRelay(token: UtilToken) {
   const amountToMint = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER).add(1);
   await token.mint(amountToMint, senderAccount.address);
 
-  const noRelayCall = await token.transfer(
+  const transferTx = await token.transfer(
     receiverAccount.address,
     TOKEN_AMOUNT_TO_TRANSFER,
     { from: senderAccount.address }
   );
 
-  return await noRelayCall.wait();
+  return await transferTx.wait();
+}
+
+async function executeSwapWithoutRelay(swap: TestSwap) {
+  const [senderAccount] = (await ethers.getSigners()) as [
+    SignerWithAddress,
+    SignerWithAddress
+  ];
+
+  const claimTx = await swap.claim(
+    constants.HashZero,
+    ethers.utils.parseEther('0.5'),
+    constants.AddressZero,
+    500,
+    {
+      from: senderAccount.address,
+    }
+  );
+
+  return await claimTx.wait();
 }
 
 function printRelayGasAnalysis(
@@ -129,34 +189,66 @@ function printRelayGasAnalysis(
   );
 
   console.log(
-    `\tToken transfer WITHOUT RIFRelay. Gas used: ${txReceiptWithoutRelay.gasUsed.toString()}`
+    `\tExecution WITHOUT RIFRelay. Gas used: ${txReceiptWithoutRelay.gasUsed.toString()}`
   );
   console.log(
-    `\tToken transfer WITH RIFRelay. Gas used:\t ${txReceiptWithRelay.gasUsed.toString()}`
+    `\tExecution WITH RIFRelay. Gas used:\t ${txReceiptWithRelay.gasUsed.toString()}`
   );
   console.log(`\t\t\tGas overhead:\t\t ${gasOverhead.toString()}`);
 }
-
-function assertRelayedTransaction(
-  forwarderInitialBalance: BigNumber,
+function assertWorkerReceivedTokenPayment(
   relayWorkerInitialBalance: BigNumber,
-  forwarderFinalBalance: BigNumber,
   relayWorkerFinalBalance: BigNumber,
-  balanceToTransfer: BigNumber,
-  fees?: BigNumber
+  fees: BigNumber | undefined,
+  balanceToTransfer: BigNumber
 ) {
-  expect(
-    forwarderInitialBalance.eq(
-      forwarderFinalBalance
-        .add(balanceToTransfer)
-        .add(BigNumber.from(fees ?? 0))
-    )
-  ).to.equal(true, 'SW Payment did not occur');
   expect(
     relayWorkerFinalBalance.eq(
       relayWorkerInitialBalance.add(fees ?? balanceToTransfer)
     )
   ).to.equal(true, 'Worker did not receive payment');
+}
+
+function assertSmartWalletPayment(
+  forwarderInitialBalance: BigNumber,
+  forwarderFinalBalance: BigNumber,
+  balanceToTransfer: BigNumber,
+  fees: BigNumber | undefined
+) {
+  expect(
+    forwarderInitialBalance.eq(
+      forwarderFinalBalance.add(balanceToTransfer).add(BigNumber.from(fees))
+    )
+  ).to.equal(true, 'SW Payment did not occur');
+}
+
+function assertRelayWorkerReceivedPayment(
+  relayWorkerInitialBalanceRBTC: BigNumber,
+  relayWorkerFinalBalanceRBTC: BigNumber,
+  feesBigNumber: BigNumber,
+  gasUsed: BigNumber
+) {
+  // worker final balance = initial balance + fees - (gas used * gas price)
+  expect(
+    relayWorkerFinalBalanceRBTC.eq(
+      relayWorkerInitialBalanceRBTC
+        .add(feesBigNumber)
+        .sub(gasUsed.mul(GAS_PRICE))
+    )
+  ).to.equal(true, 'Worker did not receive payment');
+}
+
+function assertSWOwnerReceivedClaimedRBTC(
+  ownerInitialBalanceRBTC: BigNumber,
+  ownerFinalBalanceRBTC: BigNumber,
+  feesBigNumber: BigNumber
+) {
+  // owner final balance = initial balance + claimed amount - fees
+  expect(
+    ownerFinalBalanceRBTC.eq(
+      ownerInitialBalanceRBTC.add(CLAIMED_AMOUNT).sub(feesBigNumber)
+    )
+  ).to.equal(true, 'Owner did not receive claimed amount');
 }
 
 function correctEstimatedCallCost(estimation: BigNumber) {
@@ -187,19 +279,17 @@ async function getEstimatedGasWithCorrection(
   return correctEstimatedCallCost(estimatedDestinationCallGas);
 }
 
-async function completeRelayRequest(
+async function getDestinationContractCallParams(
   transferReceiver: string,
   balanceToTransfer: string,
-  fees: string,
   token: UtilToken,
-  relayRequest: RelayRequest,
-  forwarder: SmartWallet
-) {
-  const isSponsored = fees === '0';
-  const tokenContract = isSponsored
-    ? ethers.constants.AddressZero
-    : token.address;
-
+  forwarder: SupportedSmartWallet,
+  native: boolean,
+  swap: TestSwap
+): Promise<DestinationContractCallParams> {
+  if (native) {
+    return getExecutionParameters(swap, forwarder.address);
+  }
   const encodedFunction = token.interface.encodeFunctionData('transfer', [
     transferReceiver,
     balanceToTransfer,
@@ -212,48 +302,54 @@ async function completeRelayRequest(
       encodedFunction
     );
 
-  let tokenGas = '0';
-
-  if (!isSponsored) {
-    const dataForTransfer = token.interface.encodeFunctionData('transfer', [
-      relayWorker.address,
-      fees,
-    ]);
-
-    tokenGas = (
-      await getEstimatedGasWithCorrection(
-        forwarder.address,
-        token.address,
-        dataForTransfer
-      )
-    ).toString();
-  }
-
-  return combineTwoRelayRequests(relayRequest, {
-    request: {
-      data: encodedFunction,
-      to: token.address,
-      nonce: (await forwarder.nonce()).toString(),
-      tokenAmount: fees,
-      tokenContract,
-      gas: estimatedDestinationCallGasCorrected.toString(),
-      tokenGas,
-    },
-  });
+  return {
+    data: encodedFunction,
+    to: token.address,
+    gas: estimatedDestinationCallGasCorrected.toString(),
+  };
 }
 
-async function estimateRelayCost(fees = '0') {
-  const { relayHub, smartWalletFactory, owner, token, verifier } =
-    await deployAndSetup();
+interface DestinationContractCallParams {
+  to: string;
+  gas: BigNumberish;
+  data: BytesLike;
+}
 
-  const smartWallet = (await createSupportedSmartWallet({
+async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
+  const {
+    relayHub,
+    owner,
+    token,
+    verifier,
+    swap,
+    factory,
+    tokenContractAddress,
+    type,
+  } = await deployAndSetup(payment);
+
+  const isNative = isNativePayment(payment);
+
+  const smartWallet: SupportedSmartWallet = await createSupportedSmartWallet({
     relayHub: relayHubSigner.address,
-    factory: smartWalletFactory,
+    factory,
     owner,
     sender: relayHubSigner,
-  })) as SmartWallet;
+    type,
+  });
 
-  const baseRelayRequest = {
+  // provide the SW with some tokens
+  await token.mint(
+    BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER).mul(100),
+    smartWallet.address
+  );
+
+  const tokenGas = await getTokenGas(
+    token,
+    fees,
+    smartWallet.address,
+    isNative
+  );
+  const baseRelayRequest: RelayRequest = {
     request: {
       relayHub: relayHub.address,
       to: constants.AddressZero,
@@ -262,9 +358,9 @@ async function estimateRelayCost(fees = '0') {
       nonce: (await smartWallet.nonce()).toString(),
       value: '0',
       gas: '0',
-      tokenContract: token.address,
-      tokenAmount: '0',
-      tokenGas: '0',
+      tokenContract: tokenContractAddress,
+      tokenAmount: fees,
+      tokenGas: tokenGas.toString(),
       validUntilTime: '0',
     },
     relayData: {
@@ -275,21 +371,35 @@ async function estimateRelayCost(fees = '0') {
     },
   };
 
-  await token.mint(TOKEN_AMOUNT_TO_TRANSFER + '00', smartWallet.address);
-
-  const smartWalletInitialBalance = await token.balanceOf(smartWallet.address);
-  const relayWorkerInitialBalance = await token.balanceOf(relayWorker.address);
+  const {
+    smartWalletTokenBalance: smartWalletInitialBalance,
+    relayWorkerTokenBalance: workerInitialBalance,
+    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
+    ownerRBTCBalance: ownerInitialBalanceRBTC,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: smartWallet.address,
+    token,
+    relayWorker,
+  });
 
   const transferReceiver = ethers.Wallet.createRandom();
 
-  const completeReq: RelayRequest = await completeRelayRequest(
+  const { data, to, gas } = await getDestinationContractCallParams(
     transferReceiver.address,
     TOKEN_AMOUNT_TO_TRANSFER,
-    fees,
     token,
-    baseRelayRequest,
-    smartWallet
+    smartWallet,
+    isNative,
+    swap
   );
+  const completeReq = combineTwoRelayRequests(baseRelayRequest, {
+    request: {
+      data,
+      to,
+      gas,
+    },
+  });
 
   const { signature } = await getSuffixDataAndSignature(
     smartWallet,
@@ -305,88 +415,345 @@ async function estimateRelayCost(fees = '0') {
     });
   const txReceiptWithRelay = await relayCallResult.wait();
 
-  const smartWalletFinalBalance = await token.balanceOf(smartWallet.address);
-  const relayWorkerFinalBalance = await token.balanceOf(relayWorker.address);
+  const {
+    smartWalletTokenBalance: swTokenFinalBalance,
+    relayWorkerTokenBalance: workerTokenFinalBalance,
+    relayWorkerRBTCBalance: workerRBTCFinalBalance,
+    ownerRBTCBalance: ownerRBTCFinalBalance,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: smartWallet.address,
+    token,
+    relayWorker,
+  });
 
-  assertRelayedTransaction(
-    smartWalletInitialBalance,
-    relayWorkerInitialBalance,
-    smartWalletFinalBalance,
-    relayWorkerFinalBalance,
-    BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER),
-    BigNumber.from(fees)
+  const feesBigNumber = BigNumber.from(fees);
+  const balanceToTransfer = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER);
+
+  if (!isNative) {
+    assertSmartWalletPayment(
+      smartWalletInitialBalance,
+      swTokenFinalBalance,
+      balanceToTransfer,
+      feesBigNumber
+    );
+    assertWorkerReceivedTokenPayment(
+      workerInitialBalance,
+      workerTokenFinalBalance,
+      feesBigNumber,
+      balanceToTransfer
+    );
+  } else {
+    assertRelayWorkerReceivedPayment(
+      workerInitialBalanceRBTC,
+      workerRBTCFinalBalance,
+      feesBigNumber,
+      txReceiptWithRelay.gasUsed
+    );
+    assertSWOwnerReceivedClaimedRBTC(
+      ownerInitialBalanceRBTC,
+      ownerRBTCFinalBalance,
+      feesBigNumber
+    );
+  }
+
+  const txReceiptWithoutRelay = await executeTransferEstimationWithoutRelay(
+    token
   );
-
-  const txReceiptWithoutRelay = await getTransferEstimationWithoutRelay(token);
 
   printRelayGasAnalysis(txReceiptWithRelay, txReceiptWithoutRelay);
 }
 
-async function estimateDeployCost(tokenAmount = '0') {
-  const SMART_WALLET_INDEX = '1';
-  const { relayHub, owner, smartWalletFactory, token, verifier } =
-    await deployAndSetup();
+async function getBalances({
+  owner,
+  token,
+  smartWalletAddress,
+  relayWorker,
+}: {
+  owner: Wallet;
+  token: UtilToken;
+  smartWalletAddress: string;
+  relayWorker: SignerWithAddress;
+}) {
+  const ownerRBTCBalance = await owner.getBalance();
+  const relayWorkerRBTCBalance = await relayWorker.getBalance();
+  const smartWalletTokenBalance = await token.balanceOf(smartWalletAddress);
+  const relayWorkerTokenBalance = await token.balanceOf(relayWorker.address);
 
-  let tokenGas = '0';
+  return {
+    smartWalletTokenBalance,
+    relayWorkerTokenBalance,
+    relayWorkerRBTCBalance,
+    ownerRBTCBalance,
+  };
+}
 
-  if (tokenAmount !== '0') {
-    const swAddress = await smartWalletFactory.getSmartWalletAddress(
-      owner.address,
-      constants.AddressZero,
-      SMART_WALLET_INDEX
-    );
-    await token.mint(tokenAmount, swAddress);
+async function prepareDeployRequest(
+  fees = NO_FEES,
+  payment: Payment = 'erc20',
+  withExecution: boolean
+) {
+  const SMART_WALLET_INDEX = 1;
 
-    const dataForTransfer = token.interface.encodeFunctionData('transfer', [
-      relayWorker.address,
-      tokenAmount,
-    ]);
+  const {
+    relayHub,
+    owner,
+    factory,
+    token,
+    verifier,
+    swap,
+    tokenContractAddress,
+    type,
+  } = await deployAndSetup(payment);
 
-    tokenGas = (
-      await getEstimatedGasWithCorrection(
-        swAddress,
-        token.address,
-        dataForTransfer
-      )
-    ).toString();
+  const isNative = isNativePayment(payment);
+  const swAddress = await getSmartWalletAddress({
+    type,
+    factory,
+    owner: owner,
+    recoverer: constants.AddressZero,
+    index: SMART_WALLET_INDEX,
+  });
+
+  if (payment === 'erc20') {
+    await token.mint(fees, swAddress);
+  } else if (!withExecution) {
+    // if there is no final contract execution, the SW needs to have some RBTC to pay the fees
+    const sendTx = await owner.sendTransaction({
+      value: BigNumber.from(fees),
+      to: swAddress,
+    });
+    await sendTx.wait();
   }
 
-  const deployRequest = {
+  const tokenGas = await getTokenGas(token, fees, swAddress, isNative);
+
+  const deployRequest: DeployRequest = {
     request: {
       data: '0x00',
       from: owner.address,
       nonce: '0',
       relayHub: relayHub.address,
       to: constants.AddressZero,
-      tokenAmount,
-      tokenContract: token.address,
-      tokenGas,
+      tokenAmount: fees,
+      tokenContract: tokenContractAddress,
+      tokenGas: tokenGas.toString(),
       value: '0',
       validUntilTime: 0,
       index: SMART_WALLET_INDEX,
       recoverer: constants.AddressZero,
     },
     relayData: {
-      callForwarder: smartWalletFactory.address,
+      callForwarder: factory.address,
       callVerifier: verifier.address,
       feesReceiver: relayWorker.address,
       gasPrice: GAS_PRICE,
     },
-  } as DeployRequest;
+  };
+
+  return {
+    deployRequest,
+    factory,
+    owner,
+    relayHub,
+    swap,
+    swAddress,
+    token,
+  };
+}
+
+async function estimateDeployCost(
+  fees = NO_FEES,
+  payment: Payment = 'erc20',
+  withExecution = false
+) {
+  const { deployRequest, factory, owner, relayHub, swAddress, token, swap } =
+    await prepareDeployRequest(fees, payment, withExecution);
+
+  let updatedDeployRequest = {
+    ...deployRequest,
+  };
+  if (withExecution) {
+    const { to, data } = await getExecutionParameters(swap, swAddress);
+
+    updatedDeployRequest = {
+      request: {
+        ...deployRequest.request,
+        to,
+        data,
+      },
+      relayData: {
+        ...deployRequest.relayData,
+      },
+    };
+  }
 
   const { signature } = await getSuffixDataAndSignature(
-    smartWalletFactory,
-    deployRequest,
+    factory,
+    updatedDeployRequest,
     owner
   );
 
+  const {
+    smartWalletTokenBalance: swInitialBalance,
+    relayWorkerTokenBalance: workerInitialBalance,
+    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: swAddress,
+    token,
+    relayWorker,
+  });
+
+  await assertSmartWalletNotDeployed(swAddress);
+
   const txResponse = await relayHub
     .connect(relayWorker)
-    .deployCall(deployRequest, signature, { gasPrice: GAS_PRICE });
+    .deployCall(updatedDeployRequest, signature, {
+      gasPrice: GAS_PRICE,
+    });
 
-  const { gasUsed } = await txResponse.wait();
+  const txReceipt = await txResponse.wait();
 
-  console.log('\tTotal gas used on deploy: ', gasUsed.toString());
+  const {
+    smartWalletTokenBalance: swTokenFinalBalance,
+    relayWorkerTokenBalance: workerTokenFinalBalance,
+    relayWorkerRBTCBalance: workerRBTCFinalBalance,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: swAddress,
+    token,
+    relayWorker,
+  });
+
+  await assertSmartWalletDeployed(swAddress);
+  const feesBigNumber = BigNumber.from(fees);
+  const balanceToTransfer = BigNumber.from(0);
+
+  if (!isNativePayment(payment)) {
+    assertSmartWalletPayment(
+      swInitialBalance,
+      swTokenFinalBalance,
+      balanceToTransfer,
+      feesBigNumber
+    );
+    assertWorkerReceivedTokenPayment(
+      workerInitialBalance,
+      workerTokenFinalBalance,
+      feesBigNumber,
+      balanceToTransfer
+    );
+  } else {
+    assertRelayWorkerReceivedPayment(
+      workerInitialBalanceRBTC,
+      workerRBTCFinalBalance,
+      feesBigNumber,
+      txReceipt.gasUsed
+    );
+  }
+  console.log('\tTotal gas used on deploy: ', txReceipt.gasUsed.toString());
+
+  if (withExecution) {
+    const txReceiptWithoutRelay = await executeSwapWithoutRelay(swap);
+    printRelayGasAnalysis(txReceipt, txReceiptWithoutRelay);
+  }
+}
+
+async function assertSmartWalletNotDeployed(swAddress: string) {
+  const swCodeBefore = await ethers.provider.getCode(swAddress);
+  expect(swCodeBefore).to.be.eq(
+    '0x',
+    `Smart Wallet already deployed at address ${swAddress}`
+  );
+}
+
+async function assertSmartWalletDeployed(swAddress: string) {
+  const swCode = await ethers.provider.getCode(swAddress);
+  expect(swCode).not.to.be.eq(
+    '0x',
+    `Smart Wallet not deployed at address ${swAddress}`
+  );
+}
+
+async function getExecutionParameters(
+  swap: TestSwap,
+  swAddress: string
+): Promise<DestinationContractCallParams> {
+  const encodedFunction = swap.interface.encodeFunctionData('claim', [
+    constants.HashZero,
+    CLAIMED_AMOUNT,
+    constants.AddressZero,
+    500,
+  ]);
+
+  const estimatedDestinationCallGasCorrected =
+    await getEstimatedGasWithCorrection(
+      swAddress,
+      swap.address,
+      encodedFunction
+    );
+
+  return {
+    to: swap.address,
+    data: encodedFunction,
+    gas: estimatedDestinationCallGasCorrected.toString(),
+  };
+}
+
+async function getTokenGas(
+  token: UtilToken,
+  fees: string,
+  senderAddress: string,
+  native = false
+) {
+  if (fees === NO_FEES) {
+    return constants.Zero;
+  }
+
+  if (native) {
+    return await getEstimatedGasWithCorrection(
+      senderAddress,
+      relayWorker.address,
+      ''
+    );
+  }
+
+  const dataForTransfer = token.interface.encodeFunctionData('transfer', [
+    relayWorker.address,
+    fees,
+  ]);
+
+  return await getEstimatedGasWithCorrection(
+    senderAddress,
+    token.address,
+    dataForTransfer
+  );
+}
+async function runEstimation({ operation, payment, fees }: EstimationRun) {
+  logTitle(
+    `Operation: ${operation} estimation ${
+      fees === NO_FEES ? 'without' : 'with'
+    } ${payment} payment`
+  );
+  const operations: Record<Operation, () => Promise<void>> = {
+    relay: () => estimateRelayCost(fees, payment),
+    deploy: () => estimateDeployCost(fees, payment),
+    deployWithExecution: () => estimateDeployCost(fees, payment, true),
+  };
+  await operations[operation]();
+}
+
+type Operation = 'relay' | 'deploy' | 'deployWithExecution';
+type Payment = 'erc20' | 'native' | 'minimalNative';
+
+function isNativePayment(payment: Payment) {
+  return ['native', 'minimalNative'].includes(payment);
+}
+
+interface EstimationRun {
+  operation: Operation;
+  payment: Payment;
+  fees?: string;
 }
 
 async function estimateGas() {
@@ -400,18 +767,67 @@ async function estimateGas() {
       SignerWithAddress,
       SignerWithAddress
     ];
+  const runs: EstimationRun[] = [
+    {
+      operation: 'relay',
+      payment: 'erc20',
+      fees: NO_FEES,
+    },
+    {
+      operation: 'relay',
+      payment: 'erc20',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'relay',
+      payment: 'native',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'deploy',
+      payment: 'erc20',
+      fees: NO_FEES,
+    },
+    {
+      operation: 'deploy',
+      payment: 'erc20',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'deployWithExecution',
+      payment: 'erc20',
+      fees: NO_FEES,
+    },
+    {
+      operation: 'deployWithExecution',
+      payment: 'erc20',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'deploy',
+      payment: 'native',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'deploy',
+      payment: 'minimalNative',
+      fees: RELAY_FEES,
+    },
+    {
+      operation: 'deployWithExecution',
+      payment: 'native',
+      fees: RELAY_FEES,
+    },
 
-  logTitle('Relay estimation without token payment (sponsored)');
-  await estimateRelayCost();
-
-  logTitle('Relay estimation with token payment (not sponsored)');
-  await estimateRelayCost(RELAY_FEES);
-
-  logTitle('Deploy estimation without token payment (sponsored)');
-  await estimateDeployCost();
-
-  logTitle('Deploy estimation with token payment (not sponsored)');
-  await estimateDeployCost(TOKEN_AMOUNT_TO_TRANSFER);
+    {
+      operation: 'deployWithExecution',
+      payment: 'minimalNative',
+      fees: RELAY_FEES,
+    },
+  ];
+  for (const runConfig of runs) {
+    await runEstimation(runConfig);
+  }
 }
 
 estimateGas().catch((error) => {
