@@ -3,6 +3,7 @@ import {
   constants,
   Contract,
   ContractInterface,
+  EventFilter,
   utils,
   Wallet,
 } from 'ethers';
@@ -556,6 +557,28 @@ async function deployContract<T>(contract: string) {
 const getSmartWalletTemplate = (type: SupportedType) =>
   `${type === 'Default' ? '' : type}SmartWallet`;
 
+type AssertLogParams = {
+  filter: EventFilter;
+  hash?: string;
+  contract: Contract;
+  index: number;
+  value: unknown;
+};
+
+const assertLog = async ({
+  filter,
+  hash,
+  contract,
+  index,
+  value,
+}: AssertLogParams) => {
+  const logs = await contract.queryFilter(filter);
+  const log = logs.find((x) => x.transactionHash === hash);
+
+  expect(log, 'Log expected').to.not.be.undefined;
+  expect(log?.args?.at(index), 'Log value expected').to.be.equal(value);
+};
+
 export {
   evmMine,
   evmMineMany,
@@ -579,6 +602,7 @@ export {
   deployContract,
   getSmartWalletAddress,
   getSmartWalletTemplate,
+  assertLog,
 };
 
 export type {

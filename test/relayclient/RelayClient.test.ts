@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import {
+  assertLog,
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployContract,
@@ -28,7 +29,7 @@ import {
   HttpClient,
   HttpWrapper,
 } from '@rsksmart/rif-relay-client';
-import { constants, Contract, EventFilter, Wallet } from 'ethers';
+import { constants, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
@@ -81,28 +82,6 @@ class MockHttpClient extends HttpClient {
     return relayUrl.replace(`:${serverPort}`, `:${this.mockPort}`);
   }
 }
-
-type AssertLogParams = {
-  filter: EventFilter;
-  hash?: string;
-  contract: Contract;
-  index: number;
-  value: unknown;
-};
-
-const assertLog = async ({
-  filter,
-  hash,
-  contract,
-  index,
-  value,
-}: AssertLogParams) => {
-  const logs = await contract.queryFilter(filter);
-  const log = logs.find((x) => x.transactionHash === hash);
-
-  expect(log).to.not.be.undefined;
-  expect(log?.args?.at(index)).to.be.equal(value);
-};
 
 describe('RelayClient', function () {
   let relayClient: RelayClient;
