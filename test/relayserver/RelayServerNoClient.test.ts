@@ -15,7 +15,7 @@ import {
 import axios, { AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import config from 'config';
-import { Wallet, constants } from 'ethers';
+import { Wallet, constants, utils } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   EnvelopingRequestOptional,
@@ -141,12 +141,6 @@ describe('RelayServerNoClient', function () {
         to: swap.address,
         value: ethers.utils.parseEther('1'),
       });
-      data = swap.interface.encodeFunctionData('claim', [
-        constants.HashZero,
-        ethers.utils.parseEther('0.5'),
-        constants.AddressZero,
-        500,
-      ]);
     });
 
     async function prepareRequest(options: EnvelopingRequestOptional) {
@@ -194,6 +188,36 @@ describe('RelayServerNoClient', function () {
           fundedAccount,
           'Boltz'
         );
+        const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          0
+        );
+        const claimedValue = ethers.utils.parseEther('0.5');
+        const refundAddress = Wallet.createRandom().address;
+        const timelock = 500;
+        const preimageHash = utils.soliditySha256(
+          ['bytes32'],
+          [constants.HashZero]
+        );
+        data = swap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,address,uint256)',
+          [
+            constants.HashZero,
+            claimedValue,
+            smartWalletAddress,
+            refundAddress,
+            timelock,
+          ]
+        );
+        const hash = await swap.hashValues(
+          preimageHash,
+          claimedValue,
+          smartWalletAddress,
+          refundAddress,
+          timelock
+        );
+        await swap.addSwap(hash);
 
         baseRequestFields = {
           request: {
@@ -262,6 +286,36 @@ describe('RelayServerNoClient', function () {
           fundedAccount,
           'MinimalBoltz'
         );
+        const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          0
+        );
+        const claimedValue = ethers.utils.parseEther('0.5');
+        const refundAddress = Wallet.createRandom().address;
+        const timelock = 500;
+        const preimageHash = utils.soliditySha256(
+          ['bytes32'],
+          [constants.HashZero]
+        );
+        data = swap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,address,uint256)',
+          [
+            constants.HashZero,
+            claimedValue,
+            smartWalletAddress,
+            refundAddress,
+            timelock,
+          ]
+        );
+        const hash = await swap.hashValues(
+          preimageHash,
+          claimedValue,
+          smartWalletAddress,
+          refundAddress,
+          timelock
+        );
+        await swap.addSwap(hash);
 
         baseRequestFields = {
           request: {

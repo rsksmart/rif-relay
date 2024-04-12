@@ -29,7 +29,7 @@ import {
   HttpClient,
   HttpWrapper,
 } from '@rsksmart/rif-relay-client';
-import { constants, Wallet } from 'ethers';
+import { constants, utils, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
@@ -555,12 +555,36 @@ describe('RelayClient', function () {
             fundedAccount,
             'Boltz'
           );
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('0.5'),
+          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            gaslessAccount.address,
             constants.AddressZero,
-            500,
-          ]);
+            nextWalletIndex
+          );
+          const refundAddress = Wallet.createRandom().address;
+          const claimedValue = ethers.utils.parseEther('0.5');
+          const preimageHash = utils.soliditySha256(
+            ['bytes32'],
+            [constants.HashZero]
+          );
+          const timelock = 500;
+          data = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,address,uint256)',
+            [
+              constants.HashZero,
+              claimedValue,
+              smartWalletAddress,
+              refundAddress,
+              timelock,
+            ]
+          );
+          const hash = await swap.hashValues(
+            preimageHash,
+            claimedValue,
+            smartWalletAddress,
+            refundAddress,
+            timelock
+          );
+          await swap.addSwap(hash);
         });
 
         it('without tokenGas', async function () {
@@ -586,12 +610,6 @@ describe('RelayClient', function () {
 
           const { hash, to } = await deployClient.relayTransaction(
             updatedDeployRequest
-          );
-
-          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
-            gaslessAccount.address,
-            constants.AddressZero,
-            nextWalletIndex
           );
 
           const filter = boltzFactory.filters.Deployed();

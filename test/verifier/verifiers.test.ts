@@ -12,7 +12,7 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { Wallet, providers, constants } from 'ethers';
+import { Wallet, providers, constants, utils } from 'ethers';
 import { prepareToken } from '../smartwallet/utils';
 import {
   createDeployEnvelopingRequest,
@@ -31,7 +31,7 @@ import {
   TestToken,
 } from 'typechain-types';
 
-const TOKEN_AMOUNT_TO_TRANSFER = 1;
+const TOKEN_AMOUNT_TO_TRANSFER = 1000000;
 const SMART_WALLET_INDEX = '0';
 const TOKEN_GAS = 50000;
 
@@ -524,19 +524,45 @@ describe('Verifiers tests', function () {
     describe('Native token', function () {
       let swap: TestSwap;
       let data: string;
+      let refundAddress: string;
+      let timelock: number;
 
       beforeEach(async function () {
-        swap = await deployContract('TestSwap');
-        data = swap.interface.encodeFunctionData('claim', [
-          constants.HashZero,
+        swap = await deployContract<TestSwap>('TestSwap');
+        const smartWalletAddress =
+          await smartWalletFactory.getSmartWalletAddress(
+            owner.address,
+            constants.AddressZero,
+            SMART_WALLET_INDEX
+          );
+        refundAddress = Wallet.createRandom().address;
+        timelock = 500;
+        const preimageHash = utils.soliditySha256(
+          ['bytes32'],
+          [constants.HashZero]
+        );
+        data = swap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,address,uint256)',
+          [
+            constants.HashZero,
+            TOKEN_AMOUNT_TO_TRANSFER,
+            smartWalletAddress,
+            refundAddress,
+            timelock,
+          ]
+        );
+        const hash = await swap.hashValues(
+          preimageHash,
           TOKEN_AMOUNT_TO_TRANSFER,
-          constants.AddressZero,
-          500,
-        ]);
+          smartWalletAddress,
+          refundAddress,
+          timelock
+        );
+        await swap.addSwap(hash);
         await deployVerifier.acceptContract(swap.address);
       });
 
-      it('Should succeed when the deploy is correct', async function () {
+      it('Should succeed destination contract provide enough balance (public method)', async function () {
         const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
@@ -556,6 +582,64 @@ describe('Verifiers tests', function () {
 
         await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
           .not.to.be.rejected;
+      });
+
+      it('Should succeed destination contract provide enough balance (external method)', async function () {
+        data = swap.interface.encodeFunctionData(
+          'claim(bytes32,uint256,address,uint256)',
+          [
+            constants.HashZero,
+            TOKEN_AMOUNT_TO_TRANSFER,
+            refundAddress,
+            timelock,
+          ]
+        );
+        const deployRequest = createDeployEnvelopingRequest(
+          {
+            relayHub: relayHub.address,
+            from: owner.address,
+            tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+            tokenGas: TOKEN_GAS,
+            to: swap.address,
+            data,
+          },
+          {
+            callForwarder: smartWalletFactory.address,
+            callVerifier: deployVerifier.address,
+          }
+        ) as DeployRequest;
+
+        const signature = '0x00';
+
+        await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
+          .not.to.be.rejected;
+      });
+
+      it('Should fail if the method is not allowed', async function () {
+        data = swap.interface.encodeFunctionData('addSwap', [
+          constants.HashZero,
+        ]);
+
+        const deployRequest = createDeployEnvelopingRequest(
+          {
+            relayHub: relayHub.address,
+            from: owner.address,
+            tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+            tokenGas: TOKEN_GAS,
+            to: swap.address,
+            data,
+          },
+          {
+            callForwarder: smartWalletFactory.address,
+            callVerifier: deployVerifier.address,
+          }
+        ) as DeployRequest;
+
+        const signature = '0x00';
+
+        await expect(
+          deployVerifier.verifyRelayedCall(deployRequest, signature)
+        ).to.be.rejectedWith('Method not allowed');
       });
 
       it('Should fail if the destination contract is not allowed', async function () {
@@ -636,15 +720,11 @@ describe('Verifiers tests', function () {
     let relayHub: SignerWithAddress;
     let deployVerifier: MinimalBoltzDeployVerifier;
     let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+    let refundAddress: string;
+    let timelock: number;
 
     beforeEach(async function () {
       swap = await deployContract('TestSwap');
-      data = swap.interface.encodeFunctionData('claim', [
-        constants.HashZero,
-        2,
-        constants.AddressZero,
-        500,
-      ]);
 
       const [, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
@@ -669,6 +749,35 @@ describe('Verifiers tests', function () {
       deployVerifier = await deployVerifierFactory.deploy(
         smartWalletFactory.address
       );
+      const smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+        owner.address,
+        constants.AddressZero,
+        SMART_WALLET_INDEX
+      );
+      refundAddress = Wallet.createRandom().address;
+      timelock = 500;
+      const preimageHash = utils.soliditySha256(
+        ['bytes32'],
+        [constants.HashZero]
+      );
+      data = swap.interface.encodeFunctionData(
+        'claim(bytes32,uint256,address,address,uint256)',
+        [
+          constants.HashZero,
+          TOKEN_AMOUNT_TO_TRANSFER,
+          smartWalletAddress,
+          refundAddress,
+          timelock,
+        ]
+      );
+      const hash = await swap.hashValues(
+        preimageHash,
+        TOKEN_AMOUNT_TO_TRANSFER,
+        smartWalletAddress,
+        refundAddress,
+        timelock
+      );
+      await swap.addSwap(hash);
 
       await deployVerifier.acceptContract(swap.address);
     });
@@ -757,7 +866,7 @@ describe('Verifiers tests', function () {
           from: owner.address,
           to: swap.address,
           data,
-          tokenAmount: 3,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER + 3,
         },
         {
           callForwarder: smartWalletFactory.address,
@@ -815,7 +924,58 @@ describe('Verifiers tests', function () {
         .not.to.be.rejected;
     });
 
-    it('Should succeed destination contract provide enough balance', async function () {
+    it('Should fail if the method is not allowed', async function () {
+      data = swap.interface.encodeFunctionData('addSwap', [constants.HashZero]);
+
+      const deployRequest = createDeployEnvelopingRequest(
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          tokenAmount: TOKEN_AMOUNT_TO_TRANSFER,
+          tokenGas: TOKEN_GAS,
+          to: swap.address,
+          data,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(
+        deployVerifier.verifyRelayedCall(deployRequest, signature)
+      ).to.be.rejectedWith('Method not allowed');
+    });
+
+    it('Should succeed destination contract provide enough balance (public method)', async function () {
+      const deployRequest = createDeployEnvelopingRequest(
+        {
+          relayHub: relayHub.address,
+          from: owner.address,
+          to: swap.address,
+          data,
+          tokenAmount: 1,
+        },
+        {
+          callForwarder: smartWalletFactory.address,
+          callVerifier: deployVerifier.address,
+        }
+      ) as DeployRequest;
+
+      const signature = '0x00';
+
+      await expect(deployVerifier.verifyRelayedCall(deployRequest, signature))
+        .not.to.be.rejected;
+    });
+
+    it('Should succeed destination contract provide enough balance (external method)', async function () {
+      data = swap.interface.encodeFunctionData(
+        'claim(bytes32,uint256,address,uint256)',
+        [constants.HashZero, TOKEN_AMOUNT_TO_TRANSFER, refundAddress, timelock]
+      );
+
       const deployRequest = createDeployEnvelopingRequest(
         {
           relayHub: relayHub.address,

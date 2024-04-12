@@ -16,6 +16,7 @@ import {
   ContractReceipt,
   Wallet,
   constants,
+  utils,
 } from 'ethers';
 import {
   createSmartWalletFactory,
@@ -167,14 +168,26 @@ async function executeSwapWithoutRelay(swap: TestSwap) {
     SignerWithAddress
   ];
 
-  const claimTx = await swap.claim(
-    constants.HashZero,
-    ethers.utils.parseEther('0.5'),
+  const claimedValue = ethers.utils.parseEther('0.5');
+  const timelock = 500;
+  const preimageHash = utils.soliditySha256(['bytes32'], [constants.HashZero]);
+
+  const hash = await swap.hashValues(
+    preimageHash,
+    claimedValue,
+    senderAccount.address,
     constants.AddressZero,
-    500,
-    {
-      from: senderAccount.address,
-    }
+    timelock
+  );
+
+  await swap.addSwap(hash);
+
+  const claimTx = await swap['claim(bytes32,uint256,address,address,uint256)'](
+    constants.HashZero,
+    claimedValue,
+    senderAccount.address,
+    constants.AddressZero,
+    timelock
   );
 
   return await claimTx.wait();
@@ -349,6 +362,7 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
     smartWallet.address,
     isNative
   );
+
   const baseRelayRequest: RelayRequest = {
     request: {
       relayHub: relayHub.address,
@@ -428,9 +442,10 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
   });
 
   const feesBigNumber = BigNumber.from(fees);
-  const balanceToTransfer = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER);
 
   if (!isNative) {
+    const balanceToTransfer = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER);
+
     assertSmartWalletPayment(
       smartWalletInitialBalance,
       swTokenFinalBalance,
@@ -679,12 +694,22 @@ async function getExecutionParameters(
   swap: TestSwap,
   swAddress: string
 ): Promise<DestinationContractCallParams> {
-  const encodedFunction = swap.interface.encodeFunctionData('claim', [
-    constants.HashZero,
+  const timelock = 500;
+  const preimageHash = utils.soliditySha256(['bytes32'], [constants.HashZero]);
+
+  const encodedFunction = swap.interface.encodeFunctionData(
+    'claim(bytes32,uint256,address,uint256)',
+    [constants.HashZero, CLAIMED_AMOUNT, constants.AddressZero, timelock]
+  );
+
+  const hash = await swap.hashValues(
+    preimageHash,
     CLAIMED_AMOUNT,
+    swAddress,
     constants.AddressZero,
-    500,
-  ]);
+    timelock
+  );
+  await swap.addSwap(hash);
 
   const estimatedDestinationCallGasCorrected =
     await getEstimatedGasWithCorrection(
@@ -759,7 +784,7 @@ interface EstimationRun {
 async function estimateGas() {
   const RELAY_FEES = '100000';
 
-  [relayWorker, relayManager, relayOwner, fundedAccount, relayHubSigner] =
+  [relayManager, relayOwner, fundedAccount, relayHubSigner, relayWorker] =
     (await ethers.getSigners()) as [
       SignerWithAddress,
       SignerWithAddress,
@@ -777,6 +802,11 @@ async function estimateGas() {
       operation: 'relay',
       payment: 'erc20',
       fees: RELAY_FEES,
+    },
+    {
+      operation: 'relay',
+      payment: 'native',
+      fees: NO_FEES,
     },
     {
       operation: 'relay',
@@ -818,7 +848,6 @@ async function estimateGas() {
       payment: 'native',
       fees: RELAY_FEES,
     },
-
     {
       operation: 'deployWithExecution',
       payment: 'minimalNative',

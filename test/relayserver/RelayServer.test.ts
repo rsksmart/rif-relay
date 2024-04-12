@@ -7,7 +7,6 @@ import {
 } from './ServerTestEnvironments';
 import {
   DeployVerifier,
-  PromiseOrValue,
   RelayHub,
   RelayVerifier,
   SmartWallet,
@@ -57,7 +56,7 @@ import {
   RelayRequestBody,
   setEnvelopingConfig,
 } from '@rsksmart/rif-relay-client';
-import { BigNumber, constants, Wallet } from 'ethers';
+import { BigNumber, constants, utils, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
 import {
   TestDeployVerifierConfigurableMisbehavior,
@@ -190,11 +189,15 @@ describe('RelayServer', function () {
           relayClient,
           hubInfo
         );
-        envelopingTxRequest.metadata.relayHubAddress =
-          undefined as unknown as PromiseOrValue<string>;
+
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
+        httpEnvelopingTxRequest.metadata.relayHubAddress =
+          undefined as unknown as string;
 
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Cannot read properties of undefined');
       });
     });
@@ -215,8 +218,11 @@ describe('RelayServer', function () {
           hubInfo
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Wrong hub address.');
       });
 
@@ -236,8 +242,11 @@ describe('RelayServer', function () {
           hubInfo
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Wrong fees receiver address');
       });
 
@@ -257,8 +266,11 @@ describe('RelayServer', function () {
 
         envelopingTxRequest.relayRequest.relayData.gasPrice = 0;
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Unacceptable gasPrice');
       });
 
@@ -277,8 +289,11 @@ describe('RelayServer', function () {
           hubInfo
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Request expired (or too close)');
       });
 
@@ -297,8 +312,11 @@ describe('RelayServer', function () {
           hubInfo
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
-          relayServer.validateInput(envelopingTxRequest)
+          relayServer.validateInput(httpEnvelopingTxRequest)
         ).to.be.rejectedWith('Request expired (or too close)');
       });
     });
@@ -334,9 +352,12 @@ describe('RelayServer', function () {
           hubInfo
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         const trustedVerifierSpy = spy(relayServer, 'isTrustedVerifier');
 
-        await relayServer.validateVerifier(envelopingTxRequest);
+        relayServer.validateVerifier(httpEnvelopingTxRequest);
 
         const {
           relayRequest: {
@@ -370,9 +391,12 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        await expect(
-          relayServer.validateVerifier(envelopingTxRequest)
-        ).to.be.rejectedWith('Invalid verifier');
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
+        expect(() =>
+          relayServer.validateVerifier(httpEnvelopingTxRequest)
+        ).to.throw('Invalid verifier');
       });
     });
 
@@ -558,10 +582,13 @@ describe('RelayServer', function () {
           signature
         );
 
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
+
         await expect(
           relayServer.maxPossibleGasWithViewCall(
             method,
-            envelopingTxRequest,
+            httpEnvelopingTxRequest,
             BigNumber.from(2000000)
           )
         ).to.be.rejectedWith('revert Signature mismatch');
@@ -601,14 +628,15 @@ describe('RelayServer', function () {
           hubInfo
         );
 
-        const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
+        const httpEnvelopingTxRequest =
+          stringifyEnvelopingTx(envelopingTxRequest);
 
         const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
-          stringifyRequest
+          httpEnvelopingTxRequest
         );
 
         const { txHash } = await relayServer.createRelayTransaction(
-          stringifyRequest
+          httpEnvelopingTxRequest
         );
 
         const receipt = await provider.getTransactionReceipt(txHash);
@@ -701,12 +729,36 @@ describe('RelayServer', function () {
 
         beforeEach(async function () {
           swap = await deployContract<TestSwap>('TestSwap');
-          encodedData = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('0.5'),
+          const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            owner.address,
             constants.AddressZero,
-            500,
-          ]);
+            index
+          );
+          const claimedValue = ethers.utils.parseEther('0.5');
+          const refundAddress = Wallet.createRandom().address;
+          const timelock = 500;
+          const preimageHash = utils.soliditySha256(
+            ['bytes32'],
+            [constants.HashZero]
+          );
+          encodedData = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,address,uint256)',
+            [
+              constants.HashZero,
+              claimedValue,
+              smartWalletAddress,
+              refundAddress,
+              timelock,
+            ]
+          );
+          const hash = await swap.hashValues(
+            preimageHash,
+            claimedValue,
+            smartWalletAddress,
+            refundAddress,
+            timelock
+          );
+          await swap.addSwap(hash);
           await boltzVerifier.acceptContract(swap.address);
           index++;
         });
@@ -809,12 +861,37 @@ describe('RelayServer', function () {
 
         beforeEach(async function () {
           swap = await deployContract<TestSwap>('TestSwap');
-          encodedData = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('0.5'),
-            constants.AddressZero,
-            500,
-          ]);
+          const smartWalletAddress =
+            await minimalBoltzFactory.getSmartWalletAddress(
+              owner.address,
+              constants.AddressZero,
+              index
+            );
+          const claimedValue = ethers.utils.parseEther('0.5');
+          const refundAddress = Wallet.createRandom().address;
+          const timelock = 500;
+          const preimageHash = utils.soliditySha256(
+            ['bytes32'],
+            [constants.HashZero]
+          );
+          encodedData = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,address,uint256)',
+            [
+              constants.HashZero,
+              claimedValue,
+              smartWalletAddress,
+              refundAddress,
+              timelock,
+            ]
+          );
+          const hash = await swap.hashValues(
+            preimageHash,
+            claimedValue,
+            smartWalletAddress,
+            refundAddress,
+            timelock
+          );
+          await swap.addSwap(hash);
           await minimalBoltzVerifier.acceptContract(swap.address);
           index++;
         });

@@ -90,7 +90,7 @@
     "@nomiclabs/hardhat-ethers": "^2.2.1",
     "@openzeppelin/contracts": "^3.4.0",
     "@rsksmart/rif-relay-client": "github:rsksmart/rif-relay-client",
-    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts",
+    "@rsksmart/rif-relay-contracts": "github:rsksmart/rif-relay-contracts#RREL-020/insufficient-verification",
     "@rsksmart/rif-relay-server": "github:rsksmart/rif-relay-server",
     "@tsconfig/node16-strictest": "^1.0.4",
     "@types/config": "^3.3.0",
