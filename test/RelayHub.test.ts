@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
-import { BigNumber, Wallet, constants, providers, utils } from 'ethers';
+import { BigNumber, Wallet, constants, providers } from 'ethers';
 import {
   UtilToken,
   SmartWalletFactory,
@@ -39,6 +39,7 @@ import {
   evmMineMany,
   deployRelayHub,
   deployContract,
+  addSwapHash,
 } from './utils/TestUtils';
 import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
 
@@ -1006,32 +1007,13 @@ describe('RelayHub', function () {
             constants.AddressZero,
             nextWalletIndex
           );
-
           claimedValue = ethers.utils.parseEther('0.5');
-          const refundAddress = Wallet.createRandom().address;
-          const timelock = 500;
-          const preimageHash = utils.soliditySha256(
-            ['bytes32'],
-            [constants.HashZero]
-          );
-          data = swap.interface.encodeFunctionData(
-            'claim(bytes32,uint256,address,address,uint256)',
-            [
-              constants.HashZero,
-              claimedValue,
-              smartWalletAddress,
-              refundAddress,
-              timelock,
-            ]
-          );
-          const hash = await swap.hashValues(
-            preimageHash,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock
-          );
-          await swap.addSwap(hash);
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('should fail if revert from destination contract', async function () {
@@ -1223,9 +1205,6 @@ describe('RelayHub', function () {
         let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
         let claimedValue: BigNumber;
         let smartWalletAddress: string;
-        const timelock = 500;
-        let refundAddress: string;
-        let preimageHash: string;
 
         beforeEach(async function () {
           const smartWalletTemplate =
@@ -1248,42 +1227,24 @@ describe('RelayHub', function () {
             constants.AddressZero,
             nextWalletIndex
           );
-
-          refundAddress = Wallet.createRandom().address;
           claimedValue = ethers.utils.parseEther('0.5');
-          preimageHash = utils.soliditySha256(
-            ['bytes32'],
-            [constants.HashZero]
-          );
-          data = swap.interface.encodeFunctionData(
-            'claim(bytes32,uint256,address,address,uint256)',
-            [
-              constants.HashZero,
-              claimedValue,
-              smartWalletAddress,
-              refundAddress,
-              timelock,
-            ]
-          );
-          const hash = await swap.hashValues(
-            preimageHash,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock
-          );
-          await swap.addSwap(hash);
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('should fail if revert from destination contract', async function () {
           data = swap.interface.encodeFunctionData(
             'claim(bytes32,uint256,address,address,uint256)',
             [
-              preimageHash,
+              constants.HashZero,
               ethers.utils.parseEther('2'),
               smartWalletAddress,
-              refundAddress,
-              timelock,
+              constants.AddressZero,
+              500,
             ]
           );
 

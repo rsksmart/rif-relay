@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import {
+  addSwapHash,
   assertLog,
   createSmartWalletFactory,
   createSupportedSmartWallet,
@@ -29,7 +30,7 @@ import {
   HttpClient,
   HttpWrapper,
 } from '@rsksmart/rif-relay-client';
-import { constants, utils, Wallet } from 'ethers';
+import { constants, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
@@ -560,31 +561,13 @@ describe('RelayClient', function () {
             constants.AddressZero,
             nextWalletIndex
           );
-          const refundAddress = Wallet.createRandom().address;
           const claimedValue = ethers.utils.parseEther('0.5');
-          const preimageHash = utils.soliditySha256(
-            ['bytes32'],
-            [constants.HashZero]
-          );
-          const timelock = 500;
-          data = swap.interface.encodeFunctionData(
-            'claim(bytes32,uint256,address,address,uint256)',
-            [
-              constants.HashZero,
-              claimedValue,
-              smartWalletAddress,
-              refundAddress,
-              timelock,
-            ]
-          );
-          const hash = await swap.hashValues(
-            preimageHash,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock
-          );
-          await swap.addSwap(hash);
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('without tokenGas', async function () {

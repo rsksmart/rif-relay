@@ -16,7 +16,6 @@ import {
   ContractReceipt,
   Wallet,
   constants,
-  utils,
 } from 'ethers';
 import {
   createSmartWalletFactory,
@@ -28,6 +27,7 @@ import {
   SupportedSmartWallet,
   SupportedSmartWalletName,
   getSmartWalletAddress,
+  addSwapHash,
 } from '../test/utils/TestUtils';
 import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
 import { Penalizer, RelayHub } from '@rsksmart/rif-relay-contracts';
@@ -170,23 +170,20 @@ async function executeSwapWithoutRelay(swap: TestSwap) {
 
   const claimedValue = ethers.utils.parseEther('0.5');
   const timelock = 500;
-  const preimageHash = utils.soliditySha256(['bytes32'], [constants.HashZero]);
-
-  const hash = await swap.hashValues(
-    preimageHash,
-    claimedValue,
-    senderAccount.address,
-    constants.AddressZero,
-    timelock
-  );
-
-  await swap.addSwap(hash);
+  const refundAddress = Wallet.createRandom().address;
+  await addSwapHash({
+    swap,
+    amount: CLAIMED_AMOUNT,
+    claimAddress: senderAccount.address,
+    refundAddress,
+    external: true,
+  });
 
   const claimTx = await swap['claim(bytes32,uint256,address,address,uint256)'](
     constants.HashZero,
     claimedValue,
     senderAccount.address,
-    constants.AddressZero,
+    refundAddress,
     timelock
   );
 
@@ -385,18 +382,6 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
     },
   };
 
-  const {
-    smartWalletTokenBalance: smartWalletInitialBalance,
-    relayWorkerTokenBalance: workerInitialBalance,
-    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
-    ownerRBTCBalance: ownerInitialBalanceRBTC,
-  } = await getBalances({
-    owner,
-    smartWalletAddress: smartWallet.address,
-    token,
-    relayWorker,
-  });
-
   const transferReceiver = ethers.Wallet.createRandom();
 
   const { data, to, gas } = await getDestinationContractCallParams(
@@ -420,6 +405,18 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
     completeReq,
     owner
   );
+
+  const {
+    smartWalletTokenBalance: smartWalletInitialBalance,
+    relayWorkerTokenBalance: workerInitialBalance,
+    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
+    ownerRBTCBalance: ownerInitialBalanceRBTC,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: smartWallet.address,
+    token,
+    relayWorker,
+  });
 
   const relayCallResult = await relayHub
     .connect(relayWorker)
@@ -694,22 +691,13 @@ async function getExecutionParameters(
   swap: TestSwap,
   swAddress: string
 ): Promise<DestinationContractCallParams> {
-  const timelock = 500;
-  const preimageHash = utils.soliditySha256(['bytes32'], [constants.HashZero]);
-
-  const encodedFunction = swap.interface.encodeFunctionData(
-    'claim(bytes32,uint256,address,uint256)',
-    [constants.HashZero, CLAIMED_AMOUNT, constants.AddressZero, timelock]
-  );
-
-  const hash = await swap.hashValues(
-    preimageHash,
-    CLAIMED_AMOUNT,
-    swAddress,
-    constants.AddressZero,
-    timelock
-  );
-  await swap.addSwap(hash);
+  const encodedFunction = await addSwapHash({
+    swap,
+    amount: CLAIMED_AMOUNT,
+    claimAddress: swAddress,
+    refundAddress: Wallet.createRandom().address,
+    external: true,
+  });
 
   const estimatedDestinationCallGasCorrected =
     await getEstimatedGasWithCorrection(
@@ -802,11 +790,6 @@ async function estimateGas() {
       operation: 'relay',
       payment: 'erc20',
       fees: RELAY_FEES,
-    },
-    {
-      operation: 'relay',
-      payment: 'native',
-      fees: NO_FEES,
     },
     {
       operation: 'relay',

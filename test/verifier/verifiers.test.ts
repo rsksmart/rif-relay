@@ -12,9 +12,10 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
-import { Wallet, providers, constants, utils } from 'ethers';
+import { Wallet, providers, constants } from 'ethers';
 import { prepareToken } from '../smartwallet/utils';
 import {
+  addSwapHash,
   createDeployEnvelopingRequest,
   createRelayEnvelopingRequest,
   createSupportedSmartWallet,
@@ -451,6 +452,7 @@ describe('Verifiers tests', function () {
         testToken = (await prepareToken('TestToken')) as TestToken;
         await testToken.mint(TOKEN_AMOUNT_TO_TRANSFER + 10, expectedAddress);
         await deployVerifier.acceptToken(testToken.address);
+        await deployVerifier.acceptContract(constants.AddressZero);
       });
 
       it('Should succeed when the deploy is correct', async function () {
@@ -525,7 +527,7 @@ describe('Verifiers tests', function () {
       let swap: TestSwap;
       let data: string;
       let refundAddress: string;
-      let timelock: number;
+      const timelock = 500;
 
       beforeEach(async function () {
         swap = await deployContract<TestSwap>('TestSwap');
@@ -536,30 +538,15 @@ describe('Verifiers tests', function () {
             SMART_WALLET_INDEX
           );
         refundAddress = Wallet.createRandom().address;
-        timelock = 500;
-        const preimageHash = utils.soliditySha256(
-          ['bytes32'],
-          [constants.HashZero]
-        );
-        data = swap.interface.encodeFunctionData(
-          'claim(bytes32,uint256,address,address,uint256)',
-          [
-            constants.HashZero,
-            TOKEN_AMOUNT_TO_TRANSFER,
-            smartWalletAddress,
-            refundAddress,
-            timelock,
-          ]
-        );
-        const hash = await swap.hashValues(
-          preimageHash,
-          TOKEN_AMOUNT_TO_TRANSFER,
-          smartWalletAddress,
+        data = await addSwapHash({
+          swap,
+          amount: TOKEN_AMOUNT_TO_TRANSFER,
+          claimAddress: smartWalletAddress,
           refundAddress,
-          timelock
-        );
-        await swap.addSwap(hash);
+          timelock,
+        });
         await deployVerifier.acceptContract(swap.address);
+        await deployVerifier.acceptContract(constants.AddressZero);
       });
 
       it('Should succeed destination contract provide enough balance (public method)', async function () {
@@ -708,7 +695,7 @@ describe('Verifiers tests', function () {
 
         await expect(
           deployVerifier.verifyRelayedCall(deployRequest, signature)
-        ).to.be.rejectedWith('Claiming value lower than fees');
+        ).to.be.rejectedWith('Native balance too low');
       });
     });
   });
@@ -721,7 +708,7 @@ describe('Verifiers tests', function () {
     let deployVerifier: MinimalBoltzDeployVerifier;
     let smartWalletFactory: MinimalBoltzSmartWalletFactory;
     let refundAddress: string;
-    let timelock: number;
+    const timelock = 500;
 
     beforeEach(async function () {
       swap = await deployContract('TestSwap');
@@ -755,29 +742,13 @@ describe('Verifiers tests', function () {
         SMART_WALLET_INDEX
       );
       refundAddress = Wallet.createRandom().address;
-      timelock = 500;
-      const preimageHash = utils.soliditySha256(
-        ['bytes32'],
-        [constants.HashZero]
-      );
-      data = swap.interface.encodeFunctionData(
-        'claim(bytes32,uint256,address,address,uint256)',
-        [
-          constants.HashZero,
-          TOKEN_AMOUNT_TO_TRANSFER,
-          smartWalletAddress,
-          refundAddress,
-          timelock,
-        ]
-      );
-      const hash = await swap.hashValues(
-        preimageHash,
-        TOKEN_AMOUNT_TO_TRANSFER,
-        smartWalletAddress,
+      data = await addSwapHash({
+        swap,
+        amount: TOKEN_AMOUNT_TO_TRANSFER,
+        claimAddress: smartWalletAddress,
         refundAddress,
-        timelock
-      );
-      await swap.addSwap(hash);
+        timelock,
+      });
 
       await deployVerifier.acceptContract(swap.address);
     });
@@ -878,7 +849,7 @@ describe('Verifiers tests', function () {
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
-      ).to.be.rejectedWith('Claiming value lower than fees');
+      ).to.be.rejectedWith('Native balance too low');
     });
 
     it('Should fail if the destination contract is not allowed', async function () {

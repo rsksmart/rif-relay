@@ -15,7 +15,7 @@ import {
 import axios, { AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import config from 'config';
-import { Wallet, constants, utils } from 'ethers';
+import { Wallet, constants } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   EnvelopingRequestOptional,
@@ -31,6 +31,7 @@ import {
 } from 'typechain-types';
 import {
   RSK_URL,
+  addSwapHash,
   assertLog,
   createSmartWalletFactory,
   deployContract,
@@ -194,30 +195,12 @@ describe('RelayServerNoClient', function () {
           0
         );
         const claimedValue = ethers.utils.parseEther('0.5');
-        const refundAddress = Wallet.createRandom().address;
-        const timelock = 500;
-        const preimageHash = utils.soliditySha256(
-          ['bytes32'],
-          [constants.HashZero]
-        );
-        data = swap.interface.encodeFunctionData(
-          'claim(bytes32,uint256,address,address,uint256)',
-          [
-            constants.HashZero,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock,
-          ]
-        );
-        const hash = await swap.hashValues(
-          preimageHash,
-          claimedValue,
-          smartWalletAddress,
-          refundAddress,
-          timelock
-        );
-        await swap.addSwap(hash);
+        data = await addSwapHash({
+          swap,
+          amount: claimedValue,
+          claimAddress: smartWalletAddress,
+          refundAddress: Wallet.createRandom().address,
+        });
 
         baseRequestFields = {
           request: {
@@ -292,30 +275,12 @@ describe('RelayServerNoClient', function () {
           0
         );
         const claimedValue = ethers.utils.parseEther('0.5');
-        const refundAddress = Wallet.createRandom().address;
-        const timelock = 500;
-        const preimageHash = utils.soliditySha256(
-          ['bytes32'],
-          [constants.HashZero]
-        );
-        data = swap.interface.encodeFunctionData(
-          'claim(bytes32,uint256,address,address,uint256)',
-          [
-            constants.HashZero,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock,
-          ]
-        );
-        const hash = await swap.hashValues(
-          preimageHash,
-          claimedValue,
-          smartWalletAddress,
-          refundAddress,
-          timelock
-        );
-        await swap.addSwap(hash);
+        data = await addSwapHash({
+          swap,
+          amount: claimedValue,
+          claimAddress: smartWalletAddress,
+          refundAddress: Wallet.createRandom().address,
+        });
 
         baseRequestFields = {
           request: {

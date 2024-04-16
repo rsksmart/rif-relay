@@ -33,6 +33,7 @@ import {
   createRelayUserDefinedRequest,
   createDeployUserDefinedRequest,
   getSmartWalletTemplate,
+  addSwapHash,
 } from '../utils/TestUtils';
 import config from 'config';
 import {
@@ -56,7 +57,7 @@ import {
   RelayRequestBody,
   setEnvelopingConfig,
 } from '@rsksmart/rif-relay-client';
-import { BigNumber, constants, utils, Wallet } from 'ethers';
+import { BigNumber, constants, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
 import {
   TestDeployVerifierConfigurableMisbehavior,
@@ -728,39 +729,20 @@ describe('RelayServer', function () {
         let index = 1;
 
         beforeEach(async function () {
+          index++;
           swap = await deployContract<TestSwap>('TestSwap');
           const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
             owner.address,
             constants.AddressZero,
             index
           );
-          const claimedValue = ethers.utils.parseEther('0.5');
-          const refundAddress = Wallet.createRandom().address;
-          const timelock = 500;
-          const preimageHash = utils.soliditySha256(
-            ['bytes32'],
-            [constants.HashZero]
-          );
-          encodedData = swap.interface.encodeFunctionData(
-            'claim(bytes32,uint256,address,address,uint256)',
-            [
-              constants.HashZero,
-              claimedValue,
-              smartWalletAddress,
-              refundAddress,
-              timelock,
-            ]
-          );
-          const hash = await swap.hashValues(
-            preimageHash,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock
-          );
-          await swap.addSwap(hash);
+          encodedData = await addSwapHash({
+            swap,
+            amount: ethers.utils.parseEther('0.5'),
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
           await boltzVerifier.acceptContract(swap.address);
-          index++;
         });
 
         it('should relay deploy transaction with contract execution', async function () {
@@ -823,7 +805,7 @@ describe('RelayServer', function () {
             relayServer.createRelayTransaction(
               stringifyEnvelopingTx(envelopingTxRequest)
             )
-          ).to.be.rejectedWith('Claiming value lower than fees');
+          ).to.be.rejectedWith('Native balance too lo');
         });
 
         // FIXME - Should bubble up error but its failing with a different error
@@ -868,30 +850,12 @@ describe('RelayServer', function () {
               index
             );
           const claimedValue = ethers.utils.parseEther('0.5');
-          const refundAddress = Wallet.createRandom().address;
-          const timelock = 500;
-          const preimageHash = utils.soliditySha256(
-            ['bytes32'],
-            [constants.HashZero]
-          );
-          encodedData = swap.interface.encodeFunctionData(
-            'claim(bytes32,uint256,address,address,uint256)',
-            [
-              constants.HashZero,
-              claimedValue,
-              smartWalletAddress,
-              refundAddress,
-              timelock,
-            ]
-          );
-          const hash = await swap.hashValues(
-            preimageHash,
-            claimedValue,
-            smartWalletAddress,
-            refundAddress,
-            timelock
-          );
-          await swap.addSwap(hash);
+          encodedData = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
           await minimalBoltzVerifier.acceptContract(swap.address);
           index++;
         });
@@ -956,7 +920,7 @@ describe('RelayServer', function () {
             relayServer.createRelayTransaction(
               stringifyEnvelopingTx(envelopingTxRequest)
             )
-          ).to.be.rejectedWith('Claiming value lower than fees');
+          ).to.be.rejectedWith('Native balance too low');
         });
       });
     });
