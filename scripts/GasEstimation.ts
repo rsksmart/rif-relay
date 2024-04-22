@@ -781,7 +781,7 @@ async function estimateGas() {
       SignerWithAddress
     ];
   const runs: EstimationRun[] = [
-    /*  {
+    {
       operation: 'relay',
       payment: 'erc20',
       fees: NO_FEES,
@@ -822,15 +822,10 @@ async function estimateGas() {
       fees: RELAY_FEES,
     },
     {
-      operation: 'deploy',
-      payment: 'minimalNative',
-      fees: RELAY_FEES,
-    },
-    {
       operation: 'deployWithExecution',
       payment: 'native',
       fees: RELAY_FEES,
-    }, */
+    },
     {
       operation: 'deployWithExecution',
       payment: 'minimalNative',

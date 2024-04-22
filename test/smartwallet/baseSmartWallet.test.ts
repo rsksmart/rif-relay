@@ -43,7 +43,7 @@ const INITIAL_SMART_WALLET_RBTC_AMOUNT = 50;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
 
-const TYPES_OF_WALLETS: SupportedType[] = ['Default', 'Custom' /* 'Boltz' */];
+const TYPES_OF_WALLETS: SupportedType[] = ['Default', 'Custom', 'Boltz'];
 
 const TOKENS: TokenName[] = [
   TEST_TOKEN_NAME,
