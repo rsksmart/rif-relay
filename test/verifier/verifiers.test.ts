@@ -360,12 +360,16 @@ describe('Verifiers tests', function () {
   });
 
   describe('Boltz deploy verifier', function () {
+    let swap: TestSwap;
+    let data: string;
     let deployVerifier: BoltzDeployVerifier;
     let owner: Wallet;
     let relayHub: SignerWithAddress;
     let smartWalletFactory: BoltzSmartWalletFactory;
 
     beforeEach(async function () {
+      swap = await deployContract('TestSwap');
+
       const [, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
 
@@ -389,6 +393,21 @@ describe('Verifiers tests', function () {
       deployVerifier = await deployVerifierFactory.deploy(
         smartWalletFactory.address
       );
+
+      const smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+        owner.address,
+        constants.AddressZero,
+        SMART_WALLET_INDEX
+      );
+      data = await addSwapHash({
+        swap,
+        amount: TOKEN_AMOUNT_TO_TRANSFER,
+        claimAddress: smartWalletAddress,
+        refundAddress: Wallet.createRandom().address,
+        timelock: 500,
+      });
+
+      await deployVerifier.acceptContract(swap.address);
     });
 
     it('Should fail if there is a smartWallet already deployed at that address', async function () {
@@ -404,6 +423,8 @@ describe('Verifiers tests', function () {
         {
           relayHub: relayHub.address,
           from: owner.address,
+          to: swap.address,
+          data,
         },
         {
           callForwarder: smartWalletFactory.address,
@@ -626,7 +647,7 @@ describe('Verifiers tests', function () {
 
         await expect(
           deployVerifier.verifyRelayedCall(deployRequest, signature)
-        ).to.be.rejectedWith('Method not allowed');
+        ).to.be.rejectedWith('Signature not allowed');
       });
 
       it('Should fail if the destination contract is not allowed', async function () {
@@ -917,7 +938,7 @@ describe('Verifiers tests', function () {
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
-      ).to.be.rejectedWith('Method not allowed');
+      ).to.be.rejectedWith('Signature not allowed');
     });
 
     it('Should succeed destination contract provide enough balance (public method)', async function () {

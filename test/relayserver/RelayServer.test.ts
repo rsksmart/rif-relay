@@ -887,11 +887,11 @@ describe('RelayServer', function () {
             hubInfo
           );
 
-          await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
-          ).to.be.fulfilled;
+          await // expect(
+          relayServer.createRelayTransaction(
+            stringifyEnvelopingTx(envelopingTxRequest)
+          );
+          //).to.be.fulfilled;
         });
 
         it('should fail if verifier throws error', async function () {

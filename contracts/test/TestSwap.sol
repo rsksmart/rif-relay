@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.12;
 
-import "@rsksmart/rif-relay-contracts/contracts/interfaces/BoltzVerifier.sol";
+import "@rsksmart/rif-relay-contracts/contracts/interfaces/NativeSwap.sol";
 
 contract TestSwap is NativeSwap {
 

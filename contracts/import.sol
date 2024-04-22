@@ -20,5 +20,5 @@ import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalBoltzDeployVerif
 import '@rsksmart/rif-relay-contracts/contracts/Penalizer.sol';
 import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 import '@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol';
-import '@rsksmart/rif-relay-contracts/contracts/interfaces/BoltzVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/interfaces/NativeSwap.sol';
 
