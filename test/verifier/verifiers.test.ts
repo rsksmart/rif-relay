@@ -862,7 +862,7 @@ describe('Verifiers tests', function () {
 
       await expect(
         deployVerifier.verifyRelayedCall(deployRequest, signature)
-      ).to.be.rejectedWith('Signature not allowed');
+      ).to.be.rejectedWith('Method not allowed');
     });
 
     it('Should succeed destination contract provide enough balance (public method)', async function () {
