@@ -39,6 +39,7 @@ import {
   evmMineMany,
   deployRelayHub,
   deployContract,
+  addSwapHash,
 } from './utils/TestUtils';
 import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
 
@@ -984,6 +985,7 @@ describe('RelayHub', function () {
         let swap: TestSwap;
         let boltzFactory: BoltzSmartWalletFactory;
         let claimedValue: BigNumber;
+        let smartWalletAddress: string;
 
         beforeEach(async function () {
           const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
@@ -1000,22 +1002,31 @@ describe('RelayHub', function () {
             value: ethers.utils.parseEther('1'),
           });
 
-          claimedValue = ethers.utils.parseEther('0.5');
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            claimedValue,
+          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            owner.address,
             constants.AddressZero,
-            500,
-          ]);
+            nextWalletIndex
+          );
+          claimedValue = ethers.utils.parseEther('0.5');
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('should fail if revert from destination contract', async function () {
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('2'),
-            constants.AddressZero,
-            500,
-          ]);
+          data = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,address,uint256)',
+            [
+              constants.HashZero,
+              ethers.utils.parseEther('2'),
+              smartWalletAddress,
+              constants.AddressZero,
+              600,
+            ]
+          );
 
           const deployRequest = cloneDeployRequest({
             request: {
@@ -1040,7 +1051,7 @@ describe('RelayHub', function () {
             .deployCall(deployRequest, signature, { gasLimit });
 
           await expect(deployCall).to.be.rejectedWith(
-            'Could not transfer Ether'
+            'NativeSwap: swap has no RBTC'
           );
         });
 
@@ -1171,13 +1182,7 @@ describe('RelayHub', function () {
             },
           });
 
-          const calculatedAddr = await boltzFactory.getSmartWalletAddress(
-            owner.address,
-            constants.AddressZero,
-            deployRequest.request.index
-          );
-
-          await token.mint('1', calculatedAddr);
+          await token.mint('1', smartWalletAddress);
 
           const { signature } = await signEnvelopingRequest(
             deployRequest,
@@ -1199,6 +1204,7 @@ describe('RelayHub', function () {
         let swap: TestSwap;
         let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
         let claimedValue: BigNumber;
+        let smartWalletAddress: string;
 
         beforeEach(async function () {
           const smartWalletTemplate =
@@ -1216,22 +1222,31 @@ describe('RelayHub', function () {
             value: ethers.utils.parseEther('1'),
           });
 
-          claimedValue = ethers.utils.parseEther('0.5');
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            claimedValue,
+          smartWalletAddress = await minimalBoltzFactory.getSmartWalletAddress(
+            owner.address,
             constants.AddressZero,
-            500,
-          ]);
+            nextWalletIndex
+          );
+          claimedValue = ethers.utils.parseEther('0.5');
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('should fail if revert from destination contract', async function () {
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('2'),
-            constants.AddressZero,
-            500,
-          ]);
+          data = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,address,uint256)',
+            [
+              constants.HashZero,
+              ethers.utils.parseEther('2'),
+              smartWalletAddress,
+              constants.AddressZero,
+              500,
+            ]
+          );
 
           const deployRequest = cloneDeployRequest({
             request: {
@@ -1257,7 +1272,7 @@ describe('RelayHub', function () {
             .deployCall(deployRequest, signature, { gasLimit });
 
           await expect(deployCall).to.be.rejectedWith(
-            'Could not transfer Ether'
+            'NativeSwap: swap has no RBTC'
           );
         });
 

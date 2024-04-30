@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import {
+  addSwapHash,
   assertLog,
   createSmartWalletFactory,
   createSupportedSmartWallet,
@@ -555,12 +556,18 @@ describe('RelayClient', function () {
             fundedAccount,
             'Boltz'
           );
-          data = swap.interface.encodeFunctionData('claim', [
-            constants.HashZero,
-            ethers.utils.parseEther('0.5'),
+          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+            gaslessAccount.address,
             constants.AddressZero,
-            500,
-          ]);
+            nextWalletIndex
+          );
+          const claimedValue = ethers.utils.parseEther('0.5');
+          data = await addSwapHash({
+            swap,
+            amount: claimedValue,
+            claimAddress: smartWalletAddress,
+            refundAddress: Wallet.createRandom().address,
+          });
         });
 
         it('without tokenGas', async function () {
@@ -586,12 +593,6 @@ describe('RelayClient', function () {
 
           const { hash, to } = await deployClient.relayTransaction(
             updatedDeployRequest
-          );
-
-          smartWalletAddress = await boltzFactory.getSmartWalletAddress(
-            gaslessAccount.address,
-            constants.AddressZero,
-            nextWalletIndex
           );
 
           const filter = boltzFactory.filters.Deployed();

@@ -62,6 +62,7 @@ import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contr
 import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
 import BoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/BoltzSmartWallet.sol/BoltzSmartWallet.json';
 import MinimalBoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalBoltzSmartWallet.sol/MinimalBoltzSmartWallet.json';
+import { TestSwap } from '../../typechain-types';
 
 use(chaiAsPromised);
 
@@ -306,7 +307,7 @@ const createSupportedSmartWallet = async <
   return new Contract(swAddress, abis[type], owner) as T;
 };
 
-export const signEnvelopingRequest = async (
+const signEnvelopingRequest = async (
   envelopingRequest: EnvelopingRequest,
   signer: Wallet
 ) => {
@@ -579,6 +580,48 @@ const assertLog = async ({
   expect(log?.args?.at(index), 'Log value expected').to.be.equal(value);
 };
 
+type AddSwapParams = {
+  swap: TestSwap;
+  amount: BigNumberish;
+  claimAddress: string;
+  refundAddress: string;
+  preimage?: string;
+  timelock?: BigNumberish;
+  external?: boolean;
+};
+
+const addSwapHash = async ({
+  swap,
+  amount,
+  claimAddress,
+  refundAddress,
+  preimage = constants.HashZero,
+  timelock = 500,
+  external = false,
+}: AddSwapParams): Promise<string> => {
+  const preimageHash = utils.soliditySha256(['bytes32'], [preimage]);
+  const hash = await swap.hashValues(
+    preimageHash,
+    amount,
+    claimAddress,
+    refundAddress,
+    timelock
+  );
+  await swap.addSwap(hash);
+
+  if (external) {
+    return swap.interface.encodeFunctionData(
+      'claim(bytes32,uint256,address,uint256)',
+      [preimage, amount, refundAddress, timelock]
+    );
+  }
+
+  return swap.interface.encodeFunctionData(
+    'claim(bytes32,uint256,address,address,uint256)',
+    [preimage, amount, claimAddress, refundAddress, timelock]
+  );
+};
+
 export {
   evmMine,
   evmMineMany,
@@ -598,11 +641,13 @@ export {
   generateRandomAddress,
   getSuffixDataAndSignature,
   createSupportedSmartWallet,
+  signEnvelopingRequest,
   RSK_URL,
   deployContract,
   getSmartWalletAddress,
   getSmartWalletTemplate,
   assertLog,
+  addSwapHash,
 };
 
 export type {

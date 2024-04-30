@@ -31,6 +31,7 @@ import {
 } from 'typechain-types';
 import {
   RSK_URL,
+  addSwapHash,
   assertLog,
   createSmartWalletFactory,
   deployContract,
@@ -141,12 +142,6 @@ describe('RelayServerNoClient', function () {
         to: swap.address,
         value: ethers.utils.parseEther('1'),
       });
-      data = swap.interface.encodeFunctionData('claim', [
-        constants.HashZero,
-        ethers.utils.parseEther('0.5'),
-        constants.AddressZero,
-        500,
-      ]);
     });
 
     async function prepareRequest(options: EnvelopingRequestOptional) {
@@ -194,6 +189,18 @@ describe('RelayServerNoClient', function () {
           fundedAccount,
           'Boltz'
         );
+        const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          0
+        );
+        const claimedValue = ethers.utils.parseEther('0.5');
+        data = await addSwapHash({
+          swap,
+          amount: claimedValue,
+          claimAddress: smartWalletAddress,
+          refundAddress: Wallet.createRandom().address,
+        });
 
         baseRequestFields = {
           request: {
@@ -262,6 +269,18 @@ describe('RelayServerNoClient', function () {
           fundedAccount,
           'MinimalBoltz'
         );
+        const smartWalletAddress = await boltzFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          0
+        );
+        const claimedValue = ethers.utils.parseEther('0.5');
+        data = await addSwapHash({
+          swap,
+          amount: claimedValue,
+          claimAddress: smartWalletAddress,
+          refundAddress: Wallet.createRandom().address,
+        });
 
         baseRequestFields = {
           request: {

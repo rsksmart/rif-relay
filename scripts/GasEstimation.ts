@@ -27,6 +27,7 @@ import {
   SupportedSmartWallet,
   SupportedSmartWalletName,
   getSmartWalletAddress,
+  addSwapHash,
 } from '../test/utils/TestUtils';
 import { TestSwap, TestVerifierEverythingAccepted } from 'typechain-types';
 import { Penalizer, RelayHub } from '@rsksmart/rif-relay-contracts';
@@ -167,14 +168,23 @@ async function executeSwapWithoutRelay(swap: TestSwap) {
     SignerWithAddress
   ];
 
-  const claimTx = await swap.claim(
+  const claimedValue = ethers.utils.parseEther('0.5');
+  const timelock = 500;
+  const refundAddress = Wallet.createRandom().address;
+  await addSwapHash({
+    swap,
+    amount: CLAIMED_AMOUNT,
+    claimAddress: senderAccount.address,
+    refundAddress,
+    external: true,
+  });
+
+  const claimTx = await swap['claim(bytes32,uint256,address,address,uint256)'](
     constants.HashZero,
-    ethers.utils.parseEther('0.5'),
-    constants.AddressZero,
-    500,
-    {
-      from: senderAccount.address,
-    }
+    claimedValue,
+    senderAccount.address,
+    refundAddress,
+    timelock
   );
 
   return await claimTx.wait();
@@ -349,6 +359,7 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
     smartWallet.address,
     isNative
   );
+
   const baseRelayRequest: RelayRequest = {
     request: {
       relayHub: relayHub.address,
@@ -370,18 +381,6 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
       callVerifier: verifier.address,
     },
   };
-
-  const {
-    smartWalletTokenBalance: smartWalletInitialBalance,
-    relayWorkerTokenBalance: workerInitialBalance,
-    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
-    ownerRBTCBalance: ownerInitialBalanceRBTC,
-  } = await getBalances({
-    owner,
-    smartWalletAddress: smartWallet.address,
-    token,
-    relayWorker,
-  });
 
   const transferReceiver = ethers.Wallet.createRandom();
 
@@ -407,6 +406,18 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
     owner
   );
 
+  const {
+    smartWalletTokenBalance: smartWalletInitialBalance,
+    relayWorkerTokenBalance: workerInitialBalance,
+    relayWorkerRBTCBalance: workerInitialBalanceRBTC,
+    ownerRBTCBalance: ownerInitialBalanceRBTC,
+  } = await getBalances({
+    owner,
+    smartWalletAddress: smartWallet.address,
+    token,
+    relayWorker,
+  });
+
   const relayCallResult = await relayHub
     .connect(relayWorker)
     .relayCall(completeReq, signature, {
@@ -428,9 +439,10 @@ async function estimateRelayCost(fees = NO_FEES, payment: Payment = 'erc20') {
   });
 
   const feesBigNumber = BigNumber.from(fees);
-  const balanceToTransfer = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER);
 
   if (!isNative) {
+    const balanceToTransfer = BigNumber.from(TOKEN_AMOUNT_TO_TRANSFER);
+
     assertSmartWalletPayment(
       smartWalletInitialBalance,
       swTokenFinalBalance,
@@ -679,12 +691,13 @@ async function getExecutionParameters(
   swap: TestSwap,
   swAddress: string
 ): Promise<DestinationContractCallParams> {
-  const encodedFunction = swap.interface.encodeFunctionData('claim', [
-    constants.HashZero,
-    CLAIMED_AMOUNT,
-    constants.AddressZero,
-    500,
-  ]);
+  const encodedFunction = await addSwapHash({
+    swap,
+    amount: CLAIMED_AMOUNT,
+    claimAddress: swAddress,
+    refundAddress: Wallet.createRandom().address,
+    external: true,
+  });
 
   const estimatedDestinationCallGasCorrected =
     await getEstimatedGasWithCorrection(
@@ -759,7 +772,7 @@ interface EstimationRun {
 async function estimateGas() {
   const RELAY_FEES = '100000';
 
-  [relayWorker, relayManager, relayOwner, fundedAccount, relayHubSigner] =
+  [relayManager, relayOwner, fundedAccount, relayHubSigner, relayWorker] =
     (await ethers.getSigners()) as [
       SignerWithAddress,
       SignerWithAddress,
@@ -809,16 +822,10 @@ async function estimateGas() {
       fees: RELAY_FEES,
     },
     {
-      operation: 'deploy',
-      payment: 'minimalNative',
-      fees: RELAY_FEES,
-    },
-    {
       operation: 'deployWithExecution',
       payment: 'native',
       fees: RELAY_FEES,
     },
-
     {
       operation: 'deployWithExecution',
       payment: 'minimalNative',

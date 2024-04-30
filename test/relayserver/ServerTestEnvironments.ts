@@ -17,6 +17,7 @@ import {
   assertEventHub,
   getTemporaryWorkdirs,
   ServerWorkdirs,
+  stringifyEnvelopingTx,
 } from './ServerTestUtils';
 import {
   RelayHubInterface,
@@ -149,8 +150,11 @@ const relayTransaction = async (
     relayClient,
     hubInfo
   );
+
+  const httpEnvelopingTx = stringifyEnvelopingTx(envelopingTx);
+
   const relayTransaction = await relayServer.createRelayTransaction(
-    envelopingTx
+    httpEnvelopingTx
   );
 
   if (assertRelayed) {

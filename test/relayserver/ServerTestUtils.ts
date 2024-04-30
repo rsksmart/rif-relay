@@ -14,6 +14,7 @@ import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import config from 'config';
 import { EnvelopingTxRequest } from '@rsksmart/rif-relay-client';
+import { HttpEnvelopingRequest } from '@rsksmart/rif-relay-server';
 
 type ServerWorkdirs = {
   workdir: string;
@@ -91,7 +92,7 @@ const getTemporaryWorkdirs = (): ServerWorkdirs => {
 
 const stringifyEnvelopingTx = (
   envelopingTx: EnvelopingTxRequest
-): EnvelopingTxRequest => {
+): HttpEnvelopingRequest => {
   const {
     relayRequest: {
       request: { tokenGas, nonce, value, tokenAmount, gas },
@@ -116,7 +117,7 @@ const stringifyEnvelopingTx = (
         gasPrice: gasPrice.toString(),
       },
     },
-  } as EnvelopingTxRequest;
+  } as HttpEnvelopingRequest;
 };
 
 const loadConfiguration = ({
