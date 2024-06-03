@@ -51,13 +51,15 @@ import {
 import {
   AccountManager,
   estimateInternalCallGas,
+  estimateRelayMaxPossibleGas,
   HubInfo,
   RelayClient,
   RelayRequest,
   RelayRequestBody,
   setEnvelopingConfig,
+  standardMaxPossibleGasEstimation,
 } from '@rsksmart/rif-relay-client';
-import { BigNumber, constants, Wallet } from 'ethers';
+import { BigNumber, constants, utils, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
 import {
   TestDeployVerifierConfigurableMisbehavior,
@@ -887,11 +889,11 @@ describe('RelayServer', function () {
             hubInfo
           );
 
-          await // expect(
-          relayServer.createRelayTransaction(
-            stringifyEnvelopingTx(envelopingTxRequest)
-          );
-          //).to.be.fulfilled;
+          await expect(
+            relayServer.createRelayTransaction(
+              stringifyEnvelopingTx(envelopingTxRequest)
+            )
+          ).to.be.fulfilled;
         });
 
         it('should fail if verifier throws error', async function () {
@@ -922,6 +924,196 @@ describe('RelayServer', function () {
             )
           ).to.be.rejectedWith('Native balance too low');
         });
+      });
+    });
+  });
+
+  describe('estimateRelayTransaction', function () {
+    let relayHub: RelayHub;
+    let relayServer: RelayServer;
+    let hubInfo: HubInfo;
+    let relayClient: RelayClient;
+    let owner: Wallet;
+
+    beforeEach(async function () {
+      const [, relayOwner] = (await ethers.getSigners()) as [
+        SignerWithAddress,
+        SignerWithAddress
+      ];
+      const fakeDeployVerifierAddress = generateRandomAddress();
+      const fakeRelayVerifierAddress = generateRandomAddress();
+      relayHub = await deployRelayHub();
+
+      loadConfiguration({
+        app: { ...basicAppConfig, disableSponsoredTx: true },
+        contracts: {
+          relayHubAddress: relayHub.address,
+          relayVerifierAddress: fakeRelayVerifierAddress,
+          deployVerifierAddress: fakeDeployVerifierAddress,
+        },
+      });
+      const { chainId } = provider.network;
+      const {
+        app: { url: serverUrl },
+      } = getServerConfig();
+      setEnvelopingConfig({
+        preferredRelays: [serverUrl],
+        chainId,
+        relayHubAddress: relayHub.address,
+        deployVerifierAddress: fakeDeployVerifierAddress,
+        relayVerifierAddress: fakeRelayVerifierAddress,
+        logLevel: 1,
+      });
+      relayClient = new RelayClient();
+      relayServer = await getInitiatedServer({ relayOwner });
+      hubInfo = relayServer.getChainInfo();
+      owner = ethers.Wallet.createRandom();
+      AccountManager.getInstance().addAccount(owner);
+    });
+
+    describe.only('with boltz smart wallet', function () {
+      let smartWallet: BoltzSmartWallet;
+      let smartWalletFactory: BoltzSmartWalletFactory;
+      let recipient: TestRecipient;
+      let encodedData: string;
+      /*  const minIndex = 0;
+      const maxIndex = 1000000000; */
+
+      beforeEach(async function () {
+        const [worker, fundedAccount] = (await ethers.getSigners()) as [
+          SignerWithAddress,
+          SignerWithAddress
+        ];
+        /*  nextWalletIndex = Math.floor(
+          Math.random() * (maxIndex - minIndex + 1) + minIndex
+        ); */
+        const smartWalletTemplate: BoltzSmartWallet = await deployContract(
+          'BoltzSmartWallet'
+        );
+        smartWalletFactory = await createSmartWalletFactory(
+          smartWalletTemplate,
+          fundedAccount,
+          'Boltz'
+        );
+        smartWallet = await createSupportedSmartWallet({
+          relayHub: worker.address,
+          sender: worker,
+          owner,
+          factory: smartWalletFactory,
+          type: 'Boltz',
+        });
+        await fundedAccount.sendTransaction({
+          to: smartWallet.address,
+          value: utils.parseEther('1'),
+        });
+        recipient = await deployContract('TestRecipient');
+        encodedData = recipient.interface.encodeFunctionData('emitMessage', [
+          'hello',
+        ]);
+      });
+
+      describe('with native', function () {
+        it.only('should estimate relay transaction', async function () {
+          const token = await prepareToken('TestToken');
+
+          await mintTokens(
+            token,
+            'TestToken',
+            utils.parseEther('1'),
+            smartWallet.address
+          );
+
+          const userDefinedRelayRequest = createRelayUserDefinedRequest(
+            {
+              from: owner.address,
+              to: recipient.address,
+              data: encodedData,
+              tokenContract: token.address,
+            },
+            {
+              callForwarder: smartWallet.address,
+            }
+          );
+
+          const balance = await provider.getBalance(smartWallet.address);
+
+          console.log('---------------balance');
+          console.log(balance);
+
+          let envelopingTxRequest = await createEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          console.log('--------------envelopingTxRequest');
+          console.log(envelopingTxRequest);
+
+          // 143849 -> arrowhead
+          // 157502 -> fingerrot
+
+          const envelopingTxRequest1 = await createEnvelopingTxRequest(
+            {
+              ...userDefinedRelayRequest,
+              request: {
+                ...userDefinedRelayRequest.request,
+                tokenAmount: BigNumber.from(143849).mul(60000000),
+              },
+            },
+            relayClient,
+            hubInfo
+          );
+
+          console.log('--------------envelopingTxRequest1');
+          console.log(envelopingTxRequest1);
+
+          const estimation1 = await standardMaxPossibleGasEstimation(
+            envelopingTxRequest1,
+            hubInfo.relayWorkerAddress
+          );
+          const estimation2 = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+          console.log('-----estimation1', estimation1);
+          console.log('-----estimation2', estimation2);
+
+          const httpEnvelopingTxRequest =
+            stringifyEnvelopingTx(envelopingTxRequest1);
+
+          const estimation = await relayServer.createRelayTransaction(
+            httpEnvelopingTxRequest
+          );
+
+          console.log('-----estimation', estimation);
+          /* 
+          envelopingTxRequest = await createEnvelopingTxRequest(
+            {
+              ...userDefinedRelayRequest,
+              request: {
+                ...userDefinedRelayRequest.request,
+                tokenAmount: estimation.requiredTokenAmount
+              }
+            },
+            relayClient,
+            hubInfo
+          );
+
+          console.log("--------------envelopingTxRequest");
+          console.log(envelopingTxRequest);
+
+          httpEnvelopingTxRequest = stringifyEnvelopingTx(envelopingTxRequest);
+
+          await relayServer.createRelayTransaction(httpEnvelopingTxRequest); */
+        });
+
+        it('should estimate deploy transaction', function () {});
+      });
+
+      describe('with token', function () {
+        it('should estimate relay transaction', function () {});
+
+        it('should estimate deploy transaction', function () {});
       });
     });
   });
