@@ -51,13 +51,11 @@ import {
 import {
   AccountManager,
   estimateInternalCallGas,
-  estimateRelayMaxPossibleGas,
   HubInfo,
   RelayClient,
   RelayRequest,
   RelayRequestBody,
   setEnvelopingConfig,
-  standardMaxPossibleGasEstimation,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, utils, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
@@ -1019,7 +1017,7 @@ describe('RelayServer', function () {
           await mintTokens(
             token,
             'TestToken',
-            utils.parseEther('1'),
+            utils.parseEther('100'),
             smartWallet.address
           );
 
@@ -1035,39 +1033,37 @@ describe('RelayServer', function () {
             }
           );
 
-          const balance = await provider.getBalance(smartWallet.address);
-
-          console.log('---------------balance');
-          console.log(balance);
-
           let envelopingTxRequest = await createEnvelopingTxRequest(
             userDefinedRelayRequest,
             relayClient,
             hubInfo
           );
 
-          console.log('--------------envelopingTxRequest');
-          console.log(envelopingTxRequest);
+          const httpEnvelopingTxRequest =
+            stringifyEnvelopingTx(envelopingTxRequest);
 
-          // 143849 -> arrowhead
-          // 157502 -> fingerrot
+          const estimation = await relayServer.estimateMaxPossibleGas(
+            httpEnvelopingTxRequest
+          );
 
           const envelopingTxRequest1 = await createEnvelopingTxRequest(
             {
               ...userDefinedRelayRequest,
               request: {
                 ...userDefinedRelayRequest.request,
-                tokenAmount: BigNumber.from(143849).mul(60000000),
+                tokenAmount: estimation.requiredTokenAmount,
               },
             },
             relayClient,
             hubInfo
           );
 
-          console.log('--------------envelopingTxRequest1');
-          console.log(envelopingTxRequest1);
+          const httpEnvelopingTxRequest1 =
+            stringifyEnvelopingTx(envelopingTxRequest1);
 
-          const estimation1 = await standardMaxPossibleGasEstimation(
+          await relayServer.createRelayTransaction(httpEnvelopingTxRequest1);
+
+          /*   const estimation1 = await standardMaxPossibleGasEstimation(
             envelopingTxRequest1,
             hubInfo.relayWorkerAddress
           );
@@ -1076,16 +1072,8 @@ describe('RelayServer', function () {
             hubInfo.relayWorkerAddress
           );
           console.log('-----estimation1', estimation1);
-          console.log('-----estimation2', estimation2);
+          console.log('-----estimation2', estimation2); */
 
-          const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest1);
-
-          const estimation = await relayServer.createRelayTransaction(
-            httpEnvelopingTxRequest
-          );
-
-          console.log('-----estimation', estimation);
           /* 
           envelopingTxRequest = await createEnvelopingTxRequest(
             {
