@@ -1,4 +1,4 @@
-import { AccountManager } from '@rsksmart/rif-relay-client';
+import { AccountManager, isDataEmpty } from '@rsksmart/rif-relay-client';
 import {
   EnvelopingTypes,
   IERC20__factory,
@@ -470,7 +470,7 @@ const isContractCallInvalid = (
 ): boolean => {
   return (
     to != constants.AddressZero &&
-    data === '0x00' &&
+    isDataEmpty(data.toString()) &&
     BigNumber.from(value).isZero()
   );
 };
