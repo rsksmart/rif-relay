@@ -64,13 +64,17 @@ import { BigNumber, constants, utils, Wallet } from 'ethers';
 import { spy, match } from 'sinon';
 import {
   SuccessCustomLogic,
+  TestBoltzDeployVerifierEverythingAccepted,
   TestDeployVerifierConfigurableMisbehavior,
+  TestDeployVerifierEverythingAccepted,
   TestRecipient,
   TestSwap,
   TestVerifierConfigurableMisbehavior,
+  TestVerifierEverythingAccepted,
 } from '../../typechain-types';
 import {
   assertEventHub,
+  createAndStringifyEnvelopingTxRequest,
   getTotalTxCosts,
   loadConfiguration,
   stringifyEnvelopingTx,
@@ -189,14 +193,12 @@ describe('RelayServer', function () {
           nonce: 1,
         });
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         httpEnvelopingTxRequest.metadata.relayHubAddress =
           undefined as unknown as string;
@@ -217,14 +219,12 @@ describe('RelayServer', function () {
           relayHub: constants.AddressZero,
         });
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         await expect(
           relayServer.validateInput(httpEnvelopingTxRequest)
@@ -241,14 +241,12 @@ describe('RelayServer', function () {
 
         hubInfo.feesReceiver = generateRandomAddress();
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         await expect(
           relayServer.validateInput(httpEnvelopingTxRequest)
@@ -288,14 +286,12 @@ describe('RelayServer', function () {
           validUntilTime: 1000,
         });
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         await expect(
           relayServer.validateInput(httpEnvelopingTxRequest)
@@ -311,14 +307,12 @@ describe('RelayServer', function () {
           validUntilTime: Math.round(Date.now() / 1000),
         });
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         await expect(
           relayServer.validateInput(httpEnvelopingTxRequest)
@@ -351,14 +345,12 @@ describe('RelayServer', function () {
           nonce: 1,
         });
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         const trustedVerifierSpy = spy(relayServer, 'isTrustedVerifier');
 
@@ -368,7 +360,7 @@ describe('RelayServer', function () {
           relayRequest: {
             relayData: { callVerifier },
           },
-        } = envelopingTxRequest;
+        } = httpEnvelopingTxRequest;
 
         expect(trustedVerifierSpy.calledOnce).to.be.true;
         expect(trustedVerifierSpy.calledWith(callVerifier.toString())).to.be
@@ -390,14 +382,12 @@ describe('RelayServer', function () {
           }
         );
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         expect(() =>
           relayServer.validateVerifier(httpEnvelopingTxRequest)
@@ -627,14 +617,12 @@ describe('RelayServer', function () {
           }
         );
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
-          userDefinedRelayRequest,
-          relayClient,
-          hubInfo
-        );
-
         const httpEnvelopingTxRequest =
-          stringifyEnvelopingTx(envelopingTxRequest);
+          await createAndStringifyEnvelopingTxRequest(
+            userDefinedRelayRequest,
+            relayClient,
+            hubInfo
+          );
 
         const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           httpEnvelopingTxRequest
@@ -679,13 +667,11 @@ describe('RelayServer', function () {
           }
         );
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
+        const stringifyRequest = await createAndStringifyEnvelopingTxRequest(
           userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
-
-        const stringifyRequest = stringifyEnvelopingTx(envelopingTxRequest);
 
         const { maxPossibleGasWithFee } = await relayServer.getMaxPossibleGas(
           stringifyRequest
@@ -715,17 +701,14 @@ describe('RelayServer', function () {
           }
         );
 
-        const envelopingTxRequest = await createEnvelopingTxRequest(
+        const stringifyRequest = await createAndStringifyEnvelopingTxRequest(
           userDefinedRelayRequest,
           relayClient,
           hubInfo
         );
 
-        await expect(
-          relayServer.createRelayTransaction(
-            stringifyEnvelopingTx(envelopingTxRequest)
-          )
-        ).to.be.fulfilled;
+        await expect(relayServer.createRelayTransaction(stringifyRequest)).to.be
+          .fulfilled;
       });
 
       describe('with boltz verifier', function () {
@@ -770,16 +753,15 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
+          const httpEnvelopingTxRequest =
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
+            relayServer.createRelayTransaction(httpEnvelopingTxRequest)
           ).to.be.fulfilled;
         });
 
@@ -799,16 +781,15 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
+          const httpEnvelopingTxRequest =
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
+            relayServer.createRelayTransaction(httpEnvelopingTxRequest)
           ).to.be.rejectedWith('Native balance too lo');
         });
 
@@ -827,16 +808,15 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
+          const httpEnvelopingTxRequest =
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
+            relayServer.createRelayTransaction(httpEnvelopingTxRequest)
           ).to.be.rejectedWith('transaction reverted');
         });
       });
@@ -885,16 +865,15 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
+          const httpEnvelopingTxRequest =
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
+            relayServer.createRelayTransaction(httpEnvelopingTxRequest)
           ).to.be.fulfilled;
         });
 
@@ -914,16 +893,15 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
+          const httpEnvelopingTxRequest =
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           await expect(
-            relayServer.createRelayTransaction(
-              stringifyEnvelopingTx(envelopingTxRequest)
-            )
+            relayServer.createRelayTransaction(httpEnvelopingTxRequest)
           ).to.be.rejectedWith('Native balance too low');
         });
       });
@@ -937,16 +915,22 @@ describe('RelayServer', function () {
     let relayClient: RelayClient;
     let owner: Wallet;
     let feesReceiverAddress: string;
-    let deployVerifierAddress: string;
-    let relayVerifierAddress: string;
+    let boltzDeployVerifier: TestBoltzDeployVerifierEverythingAccepted;
+    let deployVerifier: TestDeployVerifierEverythingAccepted;
+    let relayVerifier: TestVerifierEverythingAccepted;
 
     beforeEach(async function () {
       const [, relayOwner] = (await ethers.getSigners()) as [
         SignerWithAddress,
         SignerWithAddress
       ];
-      deployVerifierAddress = generateRandomAddress();
-      relayVerifierAddress = generateRandomAddress();
+      boltzDeployVerifier = await deployContract(
+        'TestBoltzDeployVerifierEverythingAccepted'
+      );
+      deployVerifier = await deployContract(
+        'TestDeployVerifierEverythingAccepted'
+      );
+      relayVerifier = await deployContract('TestVerifierEverythingAccepted');
       relayHub = await deployRelayHub();
       owner = ethers.Wallet.createRandom();
       feesReceiverAddress = ethers.Wallet.createRandom().address;
@@ -958,8 +942,11 @@ describe('RelayServer', function () {
         app: { ...basicAppConfig, disableSponsoredTx: true },
         contracts: {
           relayHubAddress: relayHub.address,
-          relayVerifierAddress: relayVerifierAddress,
-          deployVerifierAddress: deployVerifierAddress,
+          trustedVerifiers: [
+            boltzDeployVerifier.address,
+            deployVerifier.address,
+            relayVerifier.address,
+          ],
           feesReceiver: feesReceiverAddress,
         },
       });
@@ -994,8 +981,8 @@ describe('RelayServer', function () {
           preferredRelays: [serverUrl],
           chainId,
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: deployVerifierAddress,
-          relayVerifierAddress: relayVerifierAddress,
+          deployVerifierAddress: boltzDeployVerifier.address,
+          relayVerifierAddress: relayVerifier.address,
           smartWalletFactoryAddress: smartWalletFactory.address,
           logLevel: 1,
         });
@@ -1042,21 +1029,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1067,10 +1052,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await provider.getBalance(feesReceiverAddress);
 
@@ -1109,21 +1090,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1134,10 +1113,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWallet.address);
 
@@ -1195,21 +1170,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1220,10 +1193,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await provider.getBalance(feesReceiverAddress);
 
@@ -1263,21 +1232,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1288,10 +1255,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWalletAddress);
 
@@ -1333,8 +1296,8 @@ describe('RelayServer', function () {
           preferredRelays: [serverUrl],
           chainId,
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: deployVerifierAddress,
-          relayVerifierAddress: relayVerifierAddress,
+          deployVerifierAddress: boltzDeployVerifier.address,
+          relayVerifierAddress: relayVerifier.address,
           smartWalletFactoryAddress: smartWalletFactory.address,
           logLevel: 1,
         });
@@ -1390,21 +1353,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1415,10 +1376,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await provider.getBalance(feesReceiverAddress);
 
@@ -1463,8 +1420,8 @@ describe('RelayServer', function () {
           preferredRelays: [serverUrl],
           chainId,
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: deployVerifierAddress,
-          relayVerifierAddress: relayVerifierAddress,
+          deployVerifierAddress: deployVerifier.address,
+          relayVerifierAddress: relayVerifier.address,
           smartWalletFactoryAddress: smartWalletFactory.address,
           logLevel: 1,
         });
@@ -1511,21 +1468,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1536,10 +1491,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWallet.address);
 
@@ -1595,21 +1546,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1620,10 +1569,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWalletAddress);
 
@@ -1669,8 +1614,8 @@ describe('RelayServer', function () {
           preferredRelays: [serverUrl],
           chainId,
           relayHubAddress: relayHub.address,
-          deployVerifierAddress: deployVerifierAddress,
-          relayVerifierAddress: relayVerifierAddress,
+          deployVerifierAddress: deployVerifier.address,
+          relayVerifierAddress: relayVerifier.address,
           smartWalletFactoryAddress: smartWalletFactory.address,
           logLevel: 1,
         });
@@ -1719,21 +1664,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1744,10 +1687,6 @@ describe('RelayServer', function () {
               relayClient,
               hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWallet.address);
 
@@ -1806,22 +1745,19 @@ describe('RelayServer', function () {
             }
           );
 
-          const envelopingTxRequest = await createEnvelopingTxRequest(
-            userDefinedRelayRequest,
-            relayClient,
-            hubInfo,
-            { isCustom: true }
-          );
-
           const httpEnvelopingTxRequest =
-            stringifyEnvelopingTx(envelopingTxRequest);
+            await createAndStringifyEnvelopingTxRequest(
+              userDefinedRelayRequest,
+              relayClient,
+              hubInfo
+            );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
             httpEnvelopingTxRequest
           );
 
-          const envelopingTxRequestWithEstimation =
-            await createEnvelopingTxRequest(
+          const httpEnvelopingTxRequestWithEstimation =
+            await createAndStringifyEnvelopingTxRequest(
               {
                 ...userDefinedRelayRequest,
                 request: {
@@ -1830,13 +1766,8 @@ describe('RelayServer', function () {
                 },
               },
               relayClient,
-              hubInfo,
-              { isCustom: true }
+              hubInfo
             );
-
-          const httpEnvelopingTxRequestWithEstimation = stringifyEnvelopingTx(
-            envelopingTxRequestWithEstimation
-          );
 
           const balanceBefore = await token.balanceOf(smartWalletAddress);
 
@@ -2198,15 +2129,14 @@ describe('RelayServer', function () {
 
       const hubInfo = server.getChainInfo();
 
-      const envelopingTxRequest = await createEnvelopingTxRequest(
-        userDefinedRelayRequest,
-        relayClient,
-        hubInfo
-      );
+      const httpEnvelopingTxRequest =
+        await createAndStringifyEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
 
-      await relayServer.createRelayTransaction(
-        stringifyEnvelopingTx(envelopingTxRequest)
-      );
+      await relayServer.createRelayTransaction(httpEnvelopingTxRequest);
 
       const currentBlock = await provider.getBlock('latest');
 
@@ -2234,15 +2164,14 @@ describe('RelayServer', function () {
 
       const hubInfo = relayServer.getChainInfo();
 
-      const envelopingTxRequest = await createEnvelopingTxRequest(
-        userDefinedRelayRequest,
-        relayClient,
-        hubInfo
-      );
+      const httpEnvelopingTxRequest =
+        await createAndStringifyEnvelopingTxRequest(
+          userDefinedRelayRequest,
+          relayClient,
+          hubInfo
+        );
 
-      await relayServer.createRelayTransaction(
-        stringifyEnvelopingTx(envelopingTxRequest)
-      );
+      await relayServer.createRelayTransaction(httpEnvelopingTxRequest);
 
       const timeAfter = Date.now();
 

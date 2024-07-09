@@ -11,7 +11,7 @@ import {
 } from '../utils/TestUtils';
 import {
   RelayHub,
-  TestDeployVerifierEverythingAccepted,
+  TestBoltzDeployVerifierEverythingAccepted,
   TestRecipient,
   TestSwap,
   TestVerifierEverythingAccepted,
@@ -90,7 +90,7 @@ describe('RelayClient', function () {
   let httpServer: HttpServer;
   let relayHub: RelayHub;
   let relayVerifier: TestVerifierEverythingAccepted;
-  let deployVerifier: TestDeployVerifierEverythingAccepted;
+  let deployVerifier: TestBoltzDeployVerifierEverythingAccepted;
   let token: UtilToken;
   let gaslessAccount: Wallet;
   let relayWorker: SignerWithAddress;
@@ -112,7 +112,7 @@ describe('RelayClient', function () {
     relayHub = await deployRelayHub();
     relayVerifier = await deployContract('TestVerifierEverythingAccepted');
     deployVerifier = await deployContract(
-      'TestDeployVerifierEverythingAccepted'
+      'TestBoltzDeployVerifierEverythingAccepted'
     );
     loadConfiguration({
       app: basicAppConfig,
