@@ -1749,7 +1749,8 @@ describe('RelayServer', function () {
             await createAndStringifyEnvelopingTxRequest(
               userDefinedRelayRequest,
               relayClient,
-              hubInfo
+              hubInfo,
+              { isCustom: true }
             );
 
           const estimation = await relayServer.estimateMaxPossibleGas(
@@ -1766,7 +1767,8 @@ describe('RelayServer', function () {
                 },
               },
               relayClient,
-              hubInfo
+              hubInfo,
+              { isCustom: true }
             );
 
           const balanceBefore = await token.balanceOf(smartWalletAddress);

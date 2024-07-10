@@ -120,7 +120,8 @@ const createEnvelopingTxRequest = async (
 ): Promise<EnvelopingTxRequest> => {
   type RelayClientExposed = {
     _getEnvelopingRequestDetails: (
-      envelopingRequest: UserDefinedEnvelopingRequest
+      envelopingRequest: UserDefinedEnvelopingRequest,
+      isCustom?: boolean
     ) => Promise<EnvelopingRequest>;
     _prepareHttpRequest: (
       hubInfo: HubInfo,
@@ -132,7 +133,10 @@ const createEnvelopingTxRequest = async (
   const localClient = relayClient as unknown as RelayClientExposed;
 
   const envelopingRequestDetails =
-    await localClient._getEnvelopingRequestDetails(userDefined);
+    await localClient._getEnvelopingRequestDetails(
+      userDefined,
+      options?.isCustom
+    );
 
   return await localClient._prepareHttpRequest(
     hubInfo,
