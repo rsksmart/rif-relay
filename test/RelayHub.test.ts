@@ -827,7 +827,7 @@ describe('RelayHub', function () {
         request: {
           relayHub: relayHub.address,
           to: ethers.constants.AddressZero,
-          data: '0x',
+          data: '0x00',
           from: owner.address,
           nonce: (await factory.nonce(owner.address)).toString(),
           value: '0',

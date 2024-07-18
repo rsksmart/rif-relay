@@ -11,7 +11,7 @@ import {
 } from '../utils/TestUtils';
 import {
   RelayHub,
-  TestDeployVerifierEverythingAccepted,
+  TestBoltzDeployVerifierEverythingAccepted,
   TestRecipient,
   TestSwap,
   TestVerifierEverythingAccepted,
@@ -90,7 +90,7 @@ describe('RelayClient', function () {
   let httpServer: HttpServer;
   let relayHub: RelayHub;
   let relayVerifier: TestVerifierEverythingAccepted;
-  let deployVerifier: TestDeployVerifierEverythingAccepted;
+  let deployVerifier: TestBoltzDeployVerifierEverythingAccepted;
   let token: UtilToken;
   let gaslessAccount: Wallet;
   let relayWorker: SignerWithAddress;
@@ -112,7 +112,7 @@ describe('RelayClient', function () {
     relayHub = await deployRelayHub();
     relayVerifier = await deployContract('TestVerifierEverythingAccepted');
     deployVerifier = await deployContract(
-      'TestDeployVerifierEverythingAccepted'
+      'TestBoltzDeployVerifierEverythingAccepted'
     );
     loadConfiguration({
       app: basicAppConfig,
@@ -833,102 +833,4 @@ describe('RelayClient', function () {
       await localClient.relayTransaction(envelopingRelayRequest);
     });
   });
-
-  /* describe.only('estimateRelayTransaction', function () {
- 
-    let smartWalletFactory: SmartWalletFactory;
-
-    before(async function () {
-      const smartWalletTemplate: SmartWallet = await deployContract(
-        'SmartWallet'
-      );
-      smartWalletFactory = (await createSmartWalletFactory(
-        smartWalletTemplate,
-        false,
-        fundedAccount
-      )) as SmartWalletFactory;
-    });
- 
-    
-     describe('should estimate relay transaction', function(){
-      
-      let smartWallet: SupportedSmartWallet;
-      let testRecipient: TestRecipient;
-      let envelopingRelayRequest: UserDefinedRelayRequest;
-
-      before(async function () {
-        smartWallet = await createSupportedSmartWallet({
-          relayHub: relayWorker.address,
-          sender: relayWorker,
-          owner: gaslessAccount,
-          factory: smartWalletFactory,
-        });
-        await token.mint(1000, smartWallet.address);
-        testRecipient = await deployContract('TestRecipient');
-        const encodeData = testRecipient.interface.encodeFunctionData(
-          'emitMessage',
-          ['hello world']
-        );
-        envelopingRelayRequest = {
-          request: {
-            to: testRecipient.address,
-            data: encodeData,
-            from: gaslessAccount.address,
-            tokenContract: token.address,
-          },
-          relayData: {
-            callForwarder: smartWallet.address,
-            callVerifier: relayVerifier.address,
-          },
-        };
-      });
-
-      it('without tokenGas/gasLimit/gasPrice estimation', async function(){
-        console.log('--------estimation');
-        console.log('-----------')
-        console.log(await relayClient.estimateRelayTransaction(envelopingRelayRequest));
-      });
-
-       it('with tokenGas estimation', function(){
- 
-       });
- 
-       it('without tokenGas estimation', function(){
- 
-       });
- 
-       it('with gasLimit estimation', function(){
- 
-       });
-  
-       it('with gasPrice', function(){
- 
-       }); 
-  
-     });
- 
-    describe('should estimate deploy transaction', function(){
-
-      it('without tokenGas/gasLimit/gasPrice/callForwarder estimation', function(){
- 
-      });
-
-       it('with token gas estimation', function(){
- 
-       });
- 
-       it('without token gas estimation', function(){
- 
-       });
- 
-       it('with gasPrice', function(){
- 
-       });
- 
-       it('with callForwarder', function(){
- 
-       });
-     }); 
-     
-   });    */
 });

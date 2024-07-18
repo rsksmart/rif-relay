@@ -9,6 +9,7 @@ import {
   EnvelopingTxRequest,
   HubInfo,
   RelayClient,
+  RelayTxOptions,
   UserDefinedEnvelopingRequest,
 } from '@rsksmart/rif-relay-client';
 import { utils, Wallet } from 'ethers';
@@ -114,26 +115,33 @@ const createKeyManager = (workdir?: string): KeyManager => {
 const createEnvelopingTxRequest = async (
   userDefined: UserDefinedEnvelopingRequest,
   relayClient: RelayClient,
-  hubInfo: HubInfo
+  hubInfo: HubInfo,
+  options?: RelayTxOptions
 ): Promise<EnvelopingTxRequest> => {
   type RelayClientExposed = {
     _getEnvelopingRequestDetails: (
-      envelopingRequest: UserDefinedEnvelopingRequest
+      envelopingRequest: UserDefinedEnvelopingRequest,
+      isCustom?: boolean
     ) => Promise<EnvelopingRequest>;
     _prepareHttpRequest: (
       hubInfo: HubInfo,
-      envelopingRequest: EnvelopingRequest
+      envelopingRequest: EnvelopingRequest,
+      options?: RelayTxOptions
     ) => Promise<EnvelopingTxRequest>;
   };
 
   const localClient = relayClient as unknown as RelayClientExposed;
 
   const envelopingRequestDetails =
-    await localClient._getEnvelopingRequestDetails(userDefined);
+    await localClient._getEnvelopingRequestDetails(
+      userDefined,
+      options?.isCustom
+    );
 
   return await localClient._prepareHttpRequest(
     hubInfo,
-    envelopingRequestDetails
+    envelopingRequestDetails,
+    options
   );
 };
 

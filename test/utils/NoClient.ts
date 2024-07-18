@@ -1,4 +1,4 @@
-import { AccountManager } from '@rsksmart/rif-relay-client';
+import { AccountManager, isDataEmpty } from '@rsksmart/rif-relay-client';
 import {
   EnvelopingTypes,
   IERC20__factory,
@@ -358,7 +358,7 @@ export const getEnvelopingRequestDetails = async ({
   const tokenAmount =
     (await envelopingRequest.request.tokenAmount)?.toString() ?? constants.Zero;
 
-  if (isContractCallInvalid(to, data, value)) {
+  if (isCallInvalid(to, data, value)) {
     throw new Error('Contract execution needs data or value to be sent.');
   }
 
@@ -463,14 +463,14 @@ export const getEnvelopingRequestDetails = async ({
   return completeRequest;
 };
 
-const isContractCallInvalid = (
+const isCallInvalid = (
   to: string,
   data: BytesLike,
   value: BigNumberish
 ): boolean => {
   return (
     to != constants.AddressZero &&
-    data === '0x00' &&
+    isDataEmpty(data.toString()) &&
     BigNumber.from(value).isZero()
   );
 };

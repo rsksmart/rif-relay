@@ -13,8 +13,15 @@ import { BigNumberish, constants } from 'ethers';
 import { expect } from 'chai';
 import { ethers } from 'hardhat';
 import config from 'config';
-import { EnvelopingTxRequest } from '@rsksmart/rif-relay-client';
+import {
+  EnvelopingTxRequest,
+  HubInfo,
+  RelayClient,
+  RelayTxOptions,
+  UserDefinedEnvelopingRequest,
+} from '@rsksmart/rif-relay-client';
 import { HttpEnvelopingRequest } from '@rsksmart/rif-relay-server';
+import { createEnvelopingTxRequest } from './ServerTestEnvironments';
 
 type ServerWorkdirs = {
   workdir: string;
@@ -120,6 +127,22 @@ const stringifyEnvelopingTx = (
   } as HttpEnvelopingRequest;
 };
 
+const createAndStringifyEnvelopingTxRequest = async (
+  userDefined: UserDefinedEnvelopingRequest,
+  relayClient: RelayClient,
+  hubInfo: HubInfo,
+  options?: RelayTxOptions
+): Promise<HttpEnvelopingRequest> => {
+  const envelopingTxRequest = await createEnvelopingTxRequest(
+    userDefined,
+    relayClient,
+    hubInfo,
+    options
+  );
+
+  return stringifyEnvelopingTx(envelopingTxRequest);
+};
+
 const loadConfiguration = ({
   app = {},
   contracts = {},
@@ -138,6 +161,7 @@ export {
   getTotalTxCosts,
   getTemporaryWorkdirs,
   stringifyEnvelopingTx,
+  createAndStringifyEnvelopingTxRequest,
   loadConfiguration,
 };
 
