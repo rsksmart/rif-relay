@@ -104,11 +104,6 @@ async function deployAndSetup(payment: Payment = 'erc20') {
   const oneEther = ethers.utils.parseEther('1');
 
   await fundedAccount.sendTransaction({
-    to: swap.address,
-    value: oneEther,
-  });
-
-  await fundedAccount.sendTransaction({
     to: owner.address,
     value: oneEther,
   });
