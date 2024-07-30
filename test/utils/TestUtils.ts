@@ -600,14 +600,10 @@ const addSwapHash = async ({
   external = false,
 }: AddSwapParams): Promise<string> => {
   const preimageHash = utils.soliditySha256(['bytes32'], [preimage]);
-  const hash = await swap.hashValues(
-    preimageHash,
-    amount,
-    claimAddress,
-    refundAddress,
-    timelock
-  );
-  await swap.addSwap(hash);
+
+  await swap.lock(preimageHash, claimAddress, refundAddress, timelock, {
+    value: amount,
+  });
 
   if (external) {
     return swap.interface.encodeFunctionData(

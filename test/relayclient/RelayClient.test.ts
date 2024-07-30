@@ -571,11 +571,6 @@ describe('RelayClient', function () {
         });
 
         it('without tokenGas', async function () {
-          await fundedAccount.sendTransaction({
-            to: swap.address,
-            value: ethers.utils.parseEther('1'),
-          });
-
           const updatedDeployRequest = {
             ...envelopingDeployRequest,
             request: {

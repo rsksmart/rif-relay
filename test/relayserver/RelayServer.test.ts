@@ -733,13 +733,6 @@ describe('RelayServer', function () {
         });
 
         it('should relay deploy transaction with contract execution', async function () {
-          const [fundedAccount] = (await ethers.getSigners()) as [
-            SignerWithAddress
-          ];
-          await fundedAccount.sendTransaction({
-            to: swap.address,
-            value: ethers.utils.parseEther('1'),
-          });
           const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
@@ -790,11 +783,14 @@ describe('RelayServer', function () {
 
           await expect(
             relayServer.createRelayTransaction(httpEnvelopingTxRequest)
-          ).to.be.rejectedWith('Native balance too lo');
+          ).to.be.rejectedWith('Native balance too low');
         });
 
-        // FIXME - Should bubble up error but its failing with a different error
         it('should fail if destination contract throws error', async function () {
+          encodedData = swap.interface.encodeFunctionData(
+            'claim(bytes32,uint256,address,uint256)',
+            [constants.HashZero, 0, constants.AddressZero, 0]
+          );
           const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
@@ -817,7 +813,7 @@ describe('RelayServer', function () {
 
           await expect(
             relayServer.createRelayTransaction(httpEnvelopingTxRequest)
-          ).to.be.rejectedWith('transaction reverted');
+          ).to.be.rejectedWith('NativeSwap: swap has no RBTC');
         });
       });
 
@@ -845,13 +841,6 @@ describe('RelayServer', function () {
         });
 
         it('should relay deploy transaction with contract execution', async function () {
-          const [fundedAccount] = (await ethers.getSigners()) as [
-            SignerWithAddress
-          ];
-          await fundedAccount.sendTransaction({
-            to: swap.address,
-            value: ethers.utils.parseEther('1'),
-          });
           const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
@@ -1331,15 +1320,6 @@ describe('RelayServer', function () {
         });
 
         it('should estimate paying with native', async function () {
-          const [fundedAccount] = (await ethers.getSigners()) as [
-            SignerWithAddress
-          ];
-
-          await fundedAccount.sendTransaction({
-            to: recipient.address,
-            value: utils.parseEther('10'),
-          });
-
           const userDefinedRelayRequest = createDeployUserDefinedRequest(
             {
               from: owner.address,
