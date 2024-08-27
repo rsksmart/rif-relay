@@ -10,6 +10,7 @@ import {
   SupportedSmartWallet,
 } from '../utils/TestUtils';
 import {
+  MinimalBoltzSmartWalletFactory,
   RelayHub,
   TestBoltzDeployVerifierEverythingAccepted,
   TestRecipient,
@@ -29,12 +30,18 @@ import {
   EnvelopingTxRequest,
   HttpClient,
   HttpWrapper,
+  estimateRelayMaxPossibleGasNoSignature,
+  estimateRelayMaxPossibleGas,
+  POST_RELAY_DEPLOY_GAS_COST,
 } from '@rsksmart/rif-relay-client';
 import { constants, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { loadConfiguration } from '../relayserver/ServerTestUtils';
-import { getInitiatedServer } from '../relayserver/ServerTestEnvironments';
+import {
+  createEnvelopingTxRequest,
+  getInitiatedServer,
+} from '../relayserver/ServerTestEnvironments';
 import {
   AppConfig,
   getServerConfig,
@@ -42,16 +49,18 @@ import {
   RelayServer,
   ServerConfigParams,
 } from '@rsksmart/rif-relay-server';
-import {
-  BoltzSmartWallet,
-  BoltzSmartWalletFactory,
-  SmartWallet,
-  SmartWalletFactory,
-} from '@rsksmart/rif-relay-contracts';
+
 import { Server } from 'http';
 import express from 'express';
 import bodyParser from 'body-parser';
 import config from 'config';
+import {
+  BoltzSmartWallet,
+  BoltzSmartWalletFactory,
+  MinimalBoltzSmartWallet,
+  SmartWallet,
+  SmartWalletFactory,
+} from '@rsksmart/rif-relay-contracts';
 
 const SERVER_WORK_DIR = './tmp/enveloping/test/server';
 
@@ -361,24 +370,7 @@ describe('RelayClient', function () {
       const minIndex = 0;
       const maxIndex = 1000000000;
       let nextWalletIndex: number;
-      let deployClient: RelayClient;
       let smartWalletAddress: string;
-
-      before(function () {
-        const {
-          app: { url: serverUrl },
-        } = getServerConfig();
-        setEnvelopingConfig({
-          preferredRelays: [serverUrl],
-          chainId,
-          relayHubAddress: relayHub.address,
-          relayVerifierAddress: relayVerifier.address,
-          deployVerifierAddress: deployVerifier.address,
-          smartWalletFactoryAddress: smartWalletFactory.address,
-          logLevel: 5,
-        });
-        deployClient = new RelayClient();
-      });
 
       beforeEach(async function () {
         nextWalletIndex = Math.floor(
@@ -390,6 +382,10 @@ describe('RelayClient', function () {
             tokenContract: token.address,
             index: nextWalletIndex,
           },
+          relayData: {
+            callForwarder: smartWalletFactory.address,
+            callVerifier: deployVerifier.address,
+          },
         };
         smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
           gaslessAccount.address,
@@ -400,7 +396,7 @@ describe('RelayClient', function () {
       });
 
       it('without gasLimit estimation - gasPrice - callForwarder', async function () {
-        const { hash, to } = await deployClient.relayTransaction(
+        const { hash, to } = await relayClient.relayTransaction(
           envelopingDeployRequest
         );
 
@@ -430,7 +426,7 @@ describe('RelayClient', function () {
         const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
         const initialSwBalance = await token.balanceOf(smartWalletAddress);
 
-        const { hash, to } = await deployClient.relayTransaction(
+        const { hash, to } = await relayClient.relayTransaction(
           updatedDeployRequest
         );
 
@@ -466,7 +462,7 @@ describe('RelayClient', function () {
         const initialWorkerBalance = await token.balanceOf(relayWorkerAddress);
         const initialSwBalance = await token.balanceOf(smartWalletAddress);
 
-        const { hash, to } = await deployClient.relayTransaction(
+        const { hash, to } = await relayClient.relayTransaction(
           updatedDeployRequest
         );
 
@@ -500,7 +496,7 @@ describe('RelayClient', function () {
           },
         };
 
-        const { gasPrice, to, hash } = await deployClient.relayTransaction(
+        const { gasPrice, to, hash } = await relayClient.relayTransaction(
           updatedDeployRequest
         );
 
@@ -526,7 +522,7 @@ describe('RelayClient', function () {
           },
         };
 
-        const { to, hash } = await deployClient.relayTransaction(
+        const { to, hash } = await relayClient.relayTransaction(
           updatedDeployRequest
         );
 
@@ -586,7 +582,7 @@ describe('RelayClient', function () {
             },
           };
 
-          const { hash, to } = await deployClient.relayTransaction(
+          const { hash, to } = await relayClient.relayTransaction(
             updatedDeployRequest
           );
 
@@ -826,6 +822,699 @@ describe('RelayClient', function () {
     // TODO update once updated
     it.skip('should return error from server', async function () {
       await localClient.relayTransaction(envelopingRelayRequest);
+    });
+  });
+
+  describe('estimation', function () {
+    const comparisonTable: Array<{
+      withSignature: number;
+      withoutSignature: number;
+      difference: number;
+    }> = [];
+
+    describe('with boltz smart wallet', function () {
+      let smartWalletFactory: BoltzSmartWalletFactory;
+
+      before(async function () {
+        const smartWalletTemplate: BoltzSmartWallet = await deployContract(
+          'BoltzSmartWallet'
+        );
+        smartWalletFactory = await createSmartWalletFactory(
+          smartWalletTemplate,
+          fundedAccount,
+          'Boltz'
+        );
+      });
+
+      describe('during a deploy transaction', function () {
+        let envelopingDeployRequest: UserDefinedDeployRequest;
+        const minIndex = 0;
+        const maxIndex = 1000000000;
+        let nextWalletIndex: number;
+        let smartWalletAddress: string;
+
+        beforeEach(async function () {
+          nextWalletIndex = Math.floor(
+            Math.random() * (maxIndex - minIndex + 1) + minIndex
+          );
+          envelopingDeployRequest = {
+            request: {
+              from: gaslessAccount.address,
+              tokenContract: token.address,
+              index: nextWalletIndex,
+            },
+            relayData: {
+              callForwarder: smartWalletFactory.address,
+            },
+          };
+          smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+            gaslessAccount.address,
+            constants.AddressZero,
+            nextWalletIndex
+          );
+        });
+
+        it('with token', async function () {
+          // We send some native token to force the smart wallet to transfer back the balance
+          await fundedAccount.sendTransaction({
+            to: smartWalletAddress,
+            value: ethers.utils.parseEther('1'),
+          });
+          await token.mint(1000, smartWalletAddress);
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            {
+              ...envelopingDeployRequest,
+              request: {
+                ...envelopingDeployRequest.request,
+                tokenContract: token.address,
+              },
+            },
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature.toNumber(),
+            difference: estimationNoSignature
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          expect(
+            estimationWithSignature.lte(estimationNoSignature),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+          ).to.be.true;
+        });
+
+        it('with native token', async function () {
+          await fundedAccount.sendTransaction({
+            to: smartWalletAddress,
+            value: ethers.utils.parseEther('1'),
+          });
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            {
+              ...envelopingDeployRequest,
+              request: {
+                ...envelopingDeployRequest.request,
+                tokenContract: constants.AddressZero,
+              },
+            },
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature.toNumber(),
+            difference: estimationNoSignature
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          expect(
+            estimationWithSignature.lte(estimationNoSignature),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+          ).to.be.true;
+        });
+
+        describe('with contract execution', function () {
+          let data: string;
+          let swap: TestSwap;
+
+          beforeEach(async function () {
+            swap = await deployContract<TestSwap>('TestSwap');
+            smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+              gaslessAccount.address,
+              constants.AddressZero,
+              nextWalletIndex
+            );
+            const claimedValue = ethers.utils.parseEther('0.5');
+            data = await addSwapHash({
+              swap,
+              amount: claimedValue,
+              claimAddress: smartWalletAddress,
+              refundAddress: Wallet.createRandom().address,
+            });
+          });
+
+          it('with token', async function () {
+            // We send some native token to force the smart wallet to transfer back the balance
+            await fundedAccount.sendTransaction({
+              to: smartWalletAddress,
+              value: ethers.utils.parseEther('1'),
+            });
+            await fundedAccount.sendTransaction({
+              to: swap.address,
+              value: ethers.utils.parseEther('1'),
+            });
+            await token.mint(1000, smartWalletAddress);
+
+            const hubInfo = relayServer.getChainInfo();
+            const envelopingTxRequest = await createEnvelopingTxRequest(
+              {
+                ...envelopingDeployRequest,
+                request: {
+                  ...envelopingDeployRequest.request,
+                  to: swap.address,
+                  data,
+                  tokenContract: token.address,
+                },
+              },
+              relayClient,
+              hubInfo
+            );
+
+            const estimationWithSignature = await estimateRelayMaxPossibleGas(
+              envelopingTxRequest,
+              hubInfo.relayWorkerAddress
+            );
+
+            const relayWorkerWallet =
+              relayServer.transactionManager.workersKeyManager.getWallet(
+                hubInfo.relayWorkerAddress
+              );
+
+            const estimationNoSignature =
+              await estimateRelayMaxPossibleGasNoSignature(
+                envelopingTxRequest.relayRequest,
+                relayWorkerWallet
+              );
+
+            comparisonTable.push({
+              withSignature: estimationWithSignature.toNumber(),
+              withoutSignature: estimationNoSignature.toNumber(),
+              difference: estimationNoSignature
+                .sub(estimationWithSignature)
+                .toNumber(),
+            });
+
+            expect(
+              estimationWithSignature.lte(estimationNoSignature),
+              `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+            ).to.be.true;
+          });
+
+          it('with native token', async function () {
+            await fundedAccount.sendTransaction({
+              to: swap.address,
+              value: ethers.utils.parseEther('1'),
+            });
+
+            const hubInfo = relayServer.getChainInfo();
+            const envelopingTxRequest = await createEnvelopingTxRequest(
+              {
+                ...envelopingDeployRequest,
+                request: {
+                  ...envelopingDeployRequest.request,
+                  to: swap.address,
+                  data,
+                  tokenContract: constants.AddressZero,
+                },
+              },
+              relayClient,
+              hubInfo
+            );
+
+            const estimationWithSignature = await estimateRelayMaxPossibleGas(
+              envelopingTxRequest,
+              hubInfo.relayWorkerAddress
+            );
+
+            const relayWorkerWallet =
+              relayServer.transactionManager.workersKeyManager.getWallet(
+                hubInfo.relayWorkerAddress
+              );
+
+            const estimationNoSignature =
+              await estimateRelayMaxPossibleGasNoSignature(
+                envelopingTxRequest.relayRequest,
+                relayWorkerWallet
+              );
+
+            comparisonTable.push({
+              withSignature: estimationWithSignature.toNumber(),
+              withoutSignature: estimationNoSignature.toNumber(),
+              difference: estimationNoSignature
+                .sub(estimationWithSignature)
+                .toNumber(),
+            });
+
+            expect(
+              estimationWithSignature.lte(estimationNoSignature),
+              `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+            ).to.be.true;
+          });
+        });
+      });
+
+      describe('during a  relay transaction', function () {
+        let smartWallet: BoltzSmartWallet;
+        let testRecipient: TestRecipient;
+        let envelopingRelayRequest: UserDefinedRelayRequest;
+        const message = 'hello world';
+
+        before(async function () {
+          smartWallet = await createSupportedSmartWallet({
+            relayHub: relayWorker.address,
+            sender: relayWorker,
+            owner: gaslessAccount,
+            factory: smartWalletFactory,
+          });
+          testRecipient = await deployContract('TestRecipient');
+          const encodeData = testRecipient.interface.encodeFunctionData(
+            'emitMessage',
+            [message]
+          );
+          envelopingRelayRequest = {
+            request: {
+              to: testRecipient.address,
+              data: encodeData,
+              from: gaslessAccount.address,
+              tokenContract: token.address,
+            },
+            relayData: {
+              callForwarder: smartWallet.address,
+            },
+          };
+        });
+
+        it('with token', async function () {
+          // We send some native token to force the smart wallet to transfer back the balance
+          await fundedAccount.sendTransaction({
+            to: smartWallet.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          await token.mint(1000, smartWallet.address);
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            {
+              ...envelopingRelayRequest,
+              request: {
+                ...envelopingRelayRequest.request,
+                tokenContract: token.address,
+              },
+            },
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature.toNumber(),
+            difference: estimationNoSignature
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          expect(
+            estimationWithSignature.lte(estimationNoSignature),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+          ).to.be.true;
+        });
+
+        it('with native token', async function () {
+          // We send some native token to force the smart wallet to transfer back the balance
+          await fundedAccount.sendTransaction({
+            to: smartWallet.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            {
+              ...envelopingRelayRequest,
+              request: {
+                ...envelopingRelayRequest.request,
+                tokenContract: constants.AddressZero,
+              },
+            },
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature.toNumber(),
+            difference: estimationNoSignature
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          expect(
+            estimationWithSignature.lte(estimationNoSignature),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+          ).to.be.true;
+        });
+      });
+    });
+
+    describe('with minimal boltz smart wallet', function () {
+      let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+
+      before(async function () {
+        const smartWalletTemplate: MinimalBoltzSmartWallet =
+          await deployContract('MinimalBoltzSmartWallet');
+        smartWalletFactory = await createSmartWalletFactory(
+          smartWalletTemplate,
+          fundedAccount,
+          'MinimalBoltz'
+        );
+      });
+
+      describe('during a  deploy transaction', function () {
+        let envelopingDeployRequest: UserDefinedDeployRequest;
+        const minIndex = 0;
+        const maxIndex = 1000000000;
+        let nextWalletIndex: number;
+        let smartWalletAddress: string;
+
+        beforeEach(async function () {
+          nextWalletIndex = Math.floor(
+            Math.random() * (maxIndex - minIndex + 1) + minIndex
+          );
+          envelopingDeployRequest = {
+            request: {
+              from: gaslessAccount.address,
+              tokenContract: token.address,
+              index: nextWalletIndex,
+            },
+            relayData: {
+              callForwarder: smartWalletFactory.address,
+            },
+          };
+          smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+            gaslessAccount.address,
+            constants.AddressZero,
+            nextWalletIndex
+          );
+        });
+
+        describe('with contract execution', function () {
+          let data: string;
+          let swap: TestSwap;
+
+          beforeEach(async function () {
+            swap = await deployContract<TestSwap>('TestSwap');
+            const claimedValue = ethers.utils.parseEther('0.5');
+            data = await addSwapHash({
+              swap,
+              amount: claimedValue,
+              claimAddress: smartWalletAddress,
+              refundAddress: Wallet.createRandom().address,
+            });
+          });
+
+          it('with native token', async function () {
+            await fundedAccount.sendTransaction({
+              to: swap.address,
+              value: ethers.utils.parseEther('1'),
+            });
+
+            const hubInfo = relayServer.getChainInfo();
+            const envelopingTxRequest = await createEnvelopingTxRequest(
+              {
+                ...envelopingDeployRequest,
+                request: {
+                  ...envelopingDeployRequest.request,
+                  to: swap.address,
+                  data,
+                  tokenContract: constants.AddressZero,
+                },
+              },
+              relayClient,
+              hubInfo
+            );
+
+            const estimationWithSignature = await estimateRelayMaxPossibleGas(
+              envelopingTxRequest,
+              hubInfo.relayWorkerAddress
+            );
+
+            const relayWorkerWallet =
+              relayServer.transactionManager.workersKeyManager.getWallet(
+                hubInfo.relayWorkerAddress
+              );
+
+            const estimationNoSignature =
+              await estimateRelayMaxPossibleGasNoSignature(
+                envelopingTxRequest.relayRequest,
+                relayWorkerWallet
+              );
+
+            comparisonTable.push({
+              withSignature: estimationWithSignature.toNumber(),
+              withoutSignature: estimationNoSignature.toNumber(),
+              difference: estimationNoSignature
+                .sub(estimationWithSignature)
+                .toNumber(),
+            });
+
+            expect(
+              estimationWithSignature.lte(estimationNoSignature),
+              `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+            ).to.be.true;
+          });
+        });
+      });
+    });
+
+    describe('with smart wallet', function () {
+      let smartWalletFactory: SmartWalletFactory;
+
+      before(async function () {
+        const smartWalletTemplate: SmartWallet = await deployContract(
+          'SmartWallet'
+        );
+        smartWalletFactory = await createSmartWalletFactory(
+          smartWalletTemplate,
+          fundedAccount
+        );
+      });
+
+      describe('during a  deploy transaction', function () {
+        let envelopingDeployRequest: UserDefinedDeployRequest;
+        const minIndex = 0;
+        const maxIndex = 1000000000;
+        let nextWalletIndex: number;
+        let smartWalletAddress: string;
+
+        beforeEach(async function () {
+          nextWalletIndex = Math.floor(
+            Math.random() * (maxIndex - minIndex + 1) + minIndex
+          );
+          envelopingDeployRequest = {
+            request: {
+              from: gaslessAccount.address,
+              tokenContract: token.address,
+              index: nextWalletIndex,
+            },
+            relayData: {
+              callForwarder: smartWalletFactory.address,
+            },
+          };
+          smartWalletAddress = await smartWalletFactory.getSmartWalletAddress(
+            gaslessAccount.address,
+            constants.AddressZero,
+            nextWalletIndex
+          );
+        });
+
+        it('with token', async function () {
+          await token.mint(1000, smartWalletAddress);
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            envelopingDeployRequest,
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature
+              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .toNumber(),
+            difference: estimationNoSignature
+              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          console.log(
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature
+              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .toString()}`
+          );
+
+          // SmartWallet cannot transfer back native token during initialization
+          // POST_RELAY_DEPLOY_GAS_COST subtracted to simulate the scenario
+          // POST_DEPLOY_NO_EXECUTION subtracted to simulate the scenario
+          expect(
+            estimationWithSignature.lte(
+              estimationNoSignature.sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+            ),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature
+              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .toString()}`
+          ).to.be.true;
+        });
+      });
+
+      describe('during a  relay transaction', function () {
+        let smartWallet: SmartWallet;
+        let testRecipient: TestRecipient;
+        let envelopingRelayRequest: UserDefinedRelayRequest;
+        const message = 'hello world';
+
+        before(async function () {
+          smartWallet = await createSupportedSmartWallet({
+            relayHub: relayWorker.address,
+            sender: relayWorker,
+            owner: gaslessAccount,
+            factory: smartWalletFactory,
+          });
+          testRecipient = await deployContract('TestRecipient');
+          const encodeData = testRecipient.interface.encodeFunctionData(
+            'emitMessage',
+            [message]
+          );
+          envelopingRelayRequest = {
+            request: {
+              to: testRecipient.address,
+              data: encodeData,
+              from: gaslessAccount.address,
+              tokenContract: token.address,
+            },
+            relayData: {
+              callForwarder: smartWallet.address,
+            },
+          };
+        });
+
+        it('with token', async function () {
+          // We send some native token to force the smart wallet to transfer back the balance
+          await fundedAccount.sendTransaction({
+            to: smartWallet.address,
+            value: ethers.utils.parseEther('1'),
+          });
+          await token.mint(1000, smartWallet.address);
+          const hubInfo = relayServer.getChainInfo();
+          const envelopingTxRequest = await createEnvelopingTxRequest(
+            envelopingRelayRequest,
+            relayClient,
+            hubInfo
+          );
+
+          const estimationWithSignature = await estimateRelayMaxPossibleGas(
+            envelopingTxRequest,
+            hubInfo.relayWorkerAddress
+          );
+          const relayWorkerWallet =
+            relayServer.transactionManager.workersKeyManager.getWallet(
+              hubInfo.relayWorkerAddress
+            );
+
+          const estimationNoSignature =
+            await estimateRelayMaxPossibleGasNoSignature(
+              envelopingTxRequest.relayRequest,
+              relayWorkerWallet
+            );
+
+          comparisonTable.push({
+            withSignature: estimationWithSignature.toNumber(),
+            withoutSignature: estimationNoSignature.toNumber(),
+            difference: estimationNoSignature
+              .sub(estimationWithSignature)
+              .toNumber(),
+          });
+
+          expect(
+            estimationWithSignature.lte(estimationNoSignature),
+            `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature.toString()}`
+          ).to.be.true;
+
+          console.table(comparisonTable);
+        });
+      });
     });
   });
 });
