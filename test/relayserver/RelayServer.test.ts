@@ -58,7 +58,6 @@ import {
   RelayClient,
   RelayRequest,
   RelayRequestBody,
-  RelayTxOptions,
   setEnvelopingConfig,
 } from '@rsksmart/rif-relay-client';
 import { BigNumber, constants, utils, Wallet } from 'ethers';
@@ -94,12 +93,18 @@ const basicAppConfig: Partial<AppConfig> = {
 
 const provider = ethers.provider;
 
-const TYPE_OF_ESTIMATIONS: RelayTxOptions[] = [
+const TYPE_OF_ESTIMATIONS = [
   {
-    serverSignature: true,
+    description: 'with signature',
+    options: {
+      serverSignature: true,
+    },
   },
   {
-    serverSignature: false,
+    description: 'without signature',
+    options: {
+      serverSignature: false,
+    },
   },
 ];
 
@@ -966,15 +971,8 @@ describe('RelayServer', function () {
       });
       relayClient = new RelayClient();
     });
-    for (const options of TYPE_OF_ESTIMATIONS) {
-      // Using [dynamically generated tests](https://mochajs.org/#dynamically-generating-tests)
-      // we needs the mocha/no-setup-in-describe rule to be disabled
-      // see: https://github.com/lo1tuma/eslint-plugin-mocha/blob/main/docs/rules/no-setup-in-describe.md#disallow-setup-in-describe-blocks-mochano-setup-in-describe
-      /* eslint-disable  mocha/no-setup-in-describe */
-      describe(`with${
-        options.serverSignature ? '' : 'out'
-      } serverSignature`, function () {
-        /* eslint-enable */
+    for (const { description, options } of TYPE_OF_ESTIMATIONS) {
+      describe(description, function () {
         describe('with boltz smart wallet', function () {
           let smartWalletFactory: BoltzSmartWalletFactory;
           let recipient: TestRecipient;
