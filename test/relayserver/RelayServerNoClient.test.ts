@@ -138,10 +138,6 @@ describe('RelayServerNoClient', function () {
 
     before(async function () {
       swap = await deployContract<TestSwap>('TestSwap');
-      await fundedAccount.sendTransaction({
-        to: swap.address,
-        value: ethers.utils.parseEther('1'),
-      });
     });
 
     async function prepareRequest(options: EnvelopingRequestOptional) {
