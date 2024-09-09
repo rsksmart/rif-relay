@@ -1489,15 +1489,6 @@ describe('RelayServer', function () {
             });
 
             it('should estimate paying with native', async function () {
-              const [fundedAccount] = (await ethers.getSigners()) as [
-                SignerWithAddress
-              ];
-
-              await fundedAccount.sendTransaction({
-                to: recipient.address,
-                value: utils.parseEther('10'),
-              });
-
               const userDefinedRelayRequest = createDeployUserDefinedRequest(
                 {
                   from: owner.address,

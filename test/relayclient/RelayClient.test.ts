@@ -998,10 +998,6 @@ describe('RelayClient', function () {
               to: smartWalletAddress,
               value: ethers.utils.parseEther('1'),
             });
-            await fundedAccount.sendTransaction({
-              to: swap.address,
-              value: ethers.utils.parseEther('1'),
-            });
             await token.mint(1000, smartWalletAddress);
 
             const hubInfo = relayServer.getChainInfo();
@@ -1050,11 +1046,6 @@ describe('RelayClient', function () {
           });
 
           it('with native token', async function () {
-            await fundedAccount.sendTransaction({
-              to: swap.address,
-              value: ethers.utils.parseEther('1'),
-            });
-
             const hubInfo = relayServer.getChainInfo();
             const envelopingTxRequest = await createEnvelopingTxRequest(
               {
@@ -1289,11 +1280,6 @@ describe('RelayClient', function () {
           });
 
           it('with native token', async function () {
-            await fundedAccount.sendTransaction({
-              to: swap.address,
-              value: ethers.utils.parseEther('1'),
-            });
-
             const hubInfo = relayServer.getChainInfo();
             const envelopingTxRequest = await createEnvelopingTxRequest(
               {
