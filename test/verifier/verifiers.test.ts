@@ -965,16 +965,10 @@ describe('Verifiers tests', function () {
     const timelock = 500;
 
     beforeEach(async function () {
-      const [, localRelayHub, funder] = await hardhat.getSigners();
+      const [, localRelayHub] = await hardhat.getSigners();
       relayHub = localRelayHub as SignerWithAddress;
 
       swap = await deployContract('TestSwap');
-
-      await funder?.sendTransaction({
-        to: swap.address,
-        value: TOKEN_AMOUNT_TO_TRANSFER,
-      });
-
       owner = Wallet.createRandom().connect(rskProvider);
 
       const smartWalletTemplate = await deployContract<MinimalBoltzSmartWallet>(
@@ -1165,7 +1159,12 @@ describe('Verifiers tests', function () {
     });
 
     it('Should fail if the method is not allowed', async function () {
-      data = swap.interface.encodeFunctionData('addSwap', [constants.HashZero]);
+      data = swap.interface.encodeFunctionData('lock', [
+        constants.HashZero,
+        constants.AddressZero,
+        constants.AddressZero,
+        constants.One,
+      ]);
 
       const deployRequest = createDeployEnvelopingRequest(
         {

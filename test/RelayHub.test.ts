@@ -997,10 +997,6 @@ describe('RelayHub', function () {
             'Boltz'
           );
           swap = await deployContract<TestSwap>('TestSwap');
-          await fundedAccount.sendTransaction({
-            to: swap.address,
-            value: ethers.utils.parseEther('1'),
-          });
 
           smartWalletAddress = await boltzFactory.getSmartWalletAddress(
             owner.address,
@@ -1217,10 +1213,6 @@ describe('RelayHub', function () {
             'MinimalBoltz'
           );
           swap = await deployContract<TestSwap>('TestSwap');
-          await fundedAccount.sendTransaction({
-            to: swap.address,
-            value: ethers.utils.parseEther('1'),
-          });
 
           smartWalletAddress = await minimalBoltzFactory.getSmartWalletAddress(
             owner.address,

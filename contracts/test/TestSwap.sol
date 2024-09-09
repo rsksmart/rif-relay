@@ -10,10 +10,48 @@ contract TestSwap is NativeSwap {
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public TYPEHASH_REFUND;
 
+    event Lockup(
+        bytes32 indexed preimageHash,
+        uint amount,
+        address claimAddress,
+        address indexed refundAddress,
+        uint timelock
+    );
+
+
     mapping (bytes32 => bool) public override swaps;
 
-    function addSwap(bytes32 hash) public {
+    function lock(
+        bytes32 preimageHash,
+        address claimAddress,
+        address refundAddress,
+        uint timelock
+    ) external payable {
+        _lockEther(preimageHash, msg.value, claimAddress, refundAddress, timelock);
+    }
+
+
+    function _lockEther(bytes32 preimageHash, uint amount, address claimAddress, address refundAddress, uint timelock) private {
+        // Locking zero WEI in the contract is pointless
+        require(amount > 0, "EtherSwap: locked amount must not be zero");
+
+        // Hash the values of the swap
+        bytes32 hash = hashValues(
+            preimageHash,
+            amount,
+            claimAddress,
+            refundAddress,
+            timelock
+        );
+
+        // Make sure no swap with this value hash exists yet
+        require(swaps[hash] == false, "EtherSwap: swap exists already");
+
+        // Save to the state that funds were locked for this swap
         swaps[hash] = true;
+
+        // Emit the "Lockup" event
+        emit Lockup(preimageHash, amount, claimAddress, refundAddress, timelock);
     }
 
     function claim(
@@ -43,7 +81,7 @@ contract TestSwap is NativeSwap {
             timelock
         );
 
-        checkSwapIsLocked(hash);
+        _checkSwapIsLocked(hash);
 
         delete swaps[hash];
 
@@ -67,11 +105,7 @@ contract TestSwap is NativeSwap {
         ));
     }
 
-    function checkSwapIsLocked(bytes32 hash) private view {
+    function _checkSwapIsLocked(bytes32 hash) private view {
         require(swaps[hash] == true, "NativeSwap: swap has no RBTC");
     }
-
-     // solhint-disable-next-line no-empty-blocks
-    receive() external payable {}
-
 }
