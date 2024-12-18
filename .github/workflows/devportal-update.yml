@@ -21,9 +21,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.DEVPORTAL_DOCS_UPDATE_TOKEN }}
         run: |
+          TIMESTAMP=$(date +'%Y%m%d-%H%M%S')
+          BRANCH_NAME="update-from-rif-relay-${TIMESTAMP}"
+          echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
+
           git clone https://github.com/rsksmart/devportal.git
           cd devportal
-          git checkout -b update-from-btc-transaction-solidity-helper || git checkout update-from-btc-transaction-solidity-helper
+          git checkout -b ${BRANCH_NAME} || git checkout ${BRANCH_NAME}
           cd ..
 
       # Step 2: Transform Each File and Copy to Devportal Repository
@@ -31,28 +35,208 @@ jobs:
         run: |
           mkdir -p transformed
 
-          # Remove the unwanted lines from README.md
-          tail -n +3 README.md > temp_README.md
+          # Remove the unwanted first lines from README.md
+          TEMP_FILE="temp_README.md"
+          tail -n +1 README.md > ${TEMP_FILE}
           
-          # Process README.md
-          echo "---" > transformed/README.md
-          echo "sidebar_label: Bitcoin Transaction Solidity Helper Library" >> transformed/README.md
-          echo "sidebar_position: 300" >> transformed/README.md
-          echo "title: How to Handle Bitcoin Transactions in Solidity" >> transformed/README.md
-          echo "description: 'This guide demonstrates to a developer how to handle Bitcoin transactions in a Solidity Smart contract, we will also learn how to parse transactions, hash transactions and validate scripts for bitcoin transactions.'" >> transformed/README.md
-          echo "tags: [rif, rootstock, solidity, bitcoin, smart contracts, libraries, bitcoin transactions]" >> transformed/README.md
-          echo "---" >> transformed/README.md
-          echo "" >> transformed/README.md
-          echo ":::info[Note]" >> transformed/README.md
-          echo "If you wish to suggest changes on this document, please open a PR on the [Bitcoin Transaction Solidity Helper](https://github.com/rsksmart/btc-transaction-solidity-helper.git)" >> transformed/README.md
-          echo ":::" >> transformed/README.md
-          echo "" >> transformed/README.md
-          cat temp_README.md >> transformed/README.md
-
+          # Process main README.md
+          TRANSFORMED_FILE="transformed/README.md"
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Overview" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 100" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay - Overview" >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Overview.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integrate, integration guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          echo ":::info[Note]" >> ${TRANSFORMED_FILE}
+          echo "If you wish to suggest changes on this document, please open a PR on the [Rif Relay Repository](https://github.com/rsksmart/rif-relay.git)" >> ${TRANSFORMED_FILE}
+          echo ":::" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
           # Clean up temporary file
-          rm temp_README.md
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/overview.md
 
-          cp transformed/README.md devportal/docs/02-developers/08-libraries/bitcoin-tx-solidity-helper.md
+          # Process integrations section
+          TEMP_FILE="temp_integrate.md"
+          TRANSFORMED_FILE="transformed/integrate.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/integrate.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Integrations" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 200" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Integration >> ${TRANSFORMED_FILE}
+          echo "description: 'Integrating RIF Relay in a dApp.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/integrate.md
+
+          # Process setup section
+          TEMP_FILE="temp_installation-requirements.md"
+          TRANSFORMED_FILE="transformed/installation-requirements.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/installation-requirements.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Setup" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 300" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Installation Requirements >> ${TRANSFORMED_FILE}
+          echo "description: 'Requirements for installing RIF Relay.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/installation-requirements.md
+
+          # Process sample dapp section
+          TEMP_FILE="temp_sample-dapp.md"
+          TRANSFORMED_FILE="transformed/sample-dapp.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/sample-dapp.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: RIF Relay Sample dApp" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 400" >> ${TRANSFORMED_FILE}
+          echo "title: How to use the RIF Relay Sample dApp SDK >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Sample dApp SDK Starter kit.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/sample-dapp.md
+
+          # Process deployment section
+          TEMP_FILE="temp_deployment.md"
+          TRANSFORMED_FILE="transformed/deployment.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/deployment.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: RIF Relay Deployment" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 500" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Deployment >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay deployment process.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/deployment.md
+
+          # Process develop section
+          TEMP_FILE="temp_develop.md"
+          TRANSFORMED_FILE="transformed/develop.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/develop.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Develop" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 600" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Develop >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay deployment process.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/develop.md
+
+          # Process contracts section
+          TEMP_FILE="temp_contracts.md"
+          TRANSFORMED_FILE="transformed/contracts.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/contracts.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Contracts" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 700" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay - Contracts >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Contracts.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/contracts.md
+
+          # Process smart wallets section
+          TEMP_FILE="temp_smart-wallets.md"
+          TRANSFORMED_FILE="transformed/smart-wallets.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/smart-wallets.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Smart Wallets" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 800" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Smart Wallets >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Smart Wallets.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/smart-wallets.md
+
+          # Process versions section
+          TEMP_FILE="temp_versions.md"
+          TRANSFORMED_FILE="transformed/versions.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/versions.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Versions" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 900" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay Versions >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Versions.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, rif relay, integration guide]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/versions.md
+
+          # Process gas costs section
+          TEMP_FILE="temp_gas-costs.md"
+          TRANSFORMED_FILE="transformed/gas-costs.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/gas-costs.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Gas Costs" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 950" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay - Gas Costs >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Gas Costs.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/gas-costs.md
+
+          # Process architecture section
+          TEMP_FILE="temp_architecture.md"
+          TRANSFORMED_FILE="transformed/architecture.md"
+          # Remove the unwanted first lines from section (title)
+          tail -n +1 docs/architecture.md > ${TEMP_FILE}
+          echo "---" > ${TRANSFORMED_FILE}
+          echo "sidebar_label: Architecture" >> ${TRANSFORMED_FILE}
+          echo "sidebar_position: 980" >> ${TRANSFORMED_FILE}
+          echo "title: RIF Relay - Architecture >> ${TRANSFORMED_FILE}
+          echo "description: 'RIF Relay Architeture.'" >> ${TRANSFORMED_FILE}
+          echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
+          echo "---" >> ${TRANSFORMED_FILE}
+          echo "" >> ${TRANSFORMED_FILE}
+          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          # Clean up temporary file
+          rm ${TEMP_FILE}
+          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/architecture.md
 
       # Step 3: Commit and Push Changes to Devportal Repository
       - name: Commit and Push Changes
@@ -62,11 +246,11 @@ jobs:
           cd devportal
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/02-developers/08-libraries/bitcoin-tx-solidity-helper.md 
+          git add docs/02-developers/06-integrate/01-rif-relay/overview.md docs/02-developers/06-integrate/01-rif-relay/integrate.md docs/02-developers/06-integrate/01-rif-relay/installation-requirements.md docs/02-developers/06-integrate/01-rif-relay/sample-dapp.md docs/02-developers/06-integrate/01-rif-relay/deployment.md docs/02-developers/06-integrate/01-rif-relay/develop.md docs/02-developers/06-integrate/01-rif-relay/contracts.md docs/02-developers/06-integrate/01-rif-relay/smart-wallets.md docs/02-developers/06-integrate/01-rif-relay/versions.md docs/02-developers/06-integrate/01-rif-relay/gas-costs.md docs/02-developers/06-integrate/01-rif-relay/architecture.md
           git commit -m "Automated update from repository"
           # Configure the remote URL with the token for authentication
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/rsksmart/devportal.git
-          git push -f origin update-from-btc-transaction-solidity-helper
+          git push -f origin ${BRANCH_NAME}
 
       # Step 4: Create a Pull Request in the Devportal Repository
       - name: Create Pull Request
@@ -78,4 +262,4 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.DEVPORTAL_DOCS_UPDATE_TOKEN }}" \
           -H "X-GitHub-Api-Version: 2022-11-28" \
           https://api.github.com/repos/rsksmart/devportal/pulls \
-          -d '{"title":"Btc-transaction-solidity-helper automated update of documentation","body":"This PR updates the Devportal documentation with the latest changes from the original repository.","head":"update-from-btc-transaction-solidity-helper","base":"main"}'
+          -d '{"title":"Rif-relay automated update of documentation ${BRANCH_NAME}","body":"This PR updates the Devportal documentation with the latest changes from the original repository.","head":"${BRANCH_NAME}","base":"main"}'
