@@ -86,8 +86,6 @@ jobs:
           cat devportal/docs/02-developers/06-integrate/01-rif-relay/integrate.md
 
           # Process setup section
-          TEMP_FILE="temp_installation-requirements.md"
-          TRANSFORMED_FILE="transformed/installation-requirements.md"
           # Remove the unwanted first lines from section (title)
           tail -n +1 docs/installation-requirements.md > temp_installation-requirements.md
           echo "---" > transformed/installation-requirements.md
