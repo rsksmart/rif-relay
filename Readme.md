@@ -1,14 +1,29 @@
 # RIF Relay
+Most blockchains have native cryptocurrency to pay for transaction fees and gas consumption; this simple design has many benefits. First, to bootstrap an economy, the native cryptocurrency model creates an initial demand for it. Second, it simplifies the interaction between users and miners because it forces them to use the same means of payment. Third, it reduces the complexity of the consensus rules. Finally, it provides Denial of Service (DoS) protection to the network as full nodes can pay what the miners expect to include a received transaction. This way nodes can decide to propagate a transaction or not, preventing the free consumption of network bandwidth, and stop spam transactions.
 
-A secure transaction relay system to enable users to pay fees using ERC-20 tokens.
+Cryptocurrencies tend to be associated with volatility and to counter measure this fact, Stablecoins were introduced. Stablecoins bridge the worlds of cryptocurrency and everyday fiat currency because their prices are pegged to a reserve asset like the U.S. dollar or gold.
 
-## Description
+But with the advent of Decentralized Finance (DeFi), several stable coins have become a preferred means of payment and savings for both users and miners, therefore, separate systems to facilitate alternative payment mechanisms. Transactions that enable paying transactions with any coin other than the native currency are named meta-transactions because in some systems the user transaction is embedded in a higher-level (or meta) transaction created by a third party. A more accessible term for these transactions is “envelopes” or, for the whole system, a relay system. A meta-transaction/relay system can serve at least two different use cases: 1) pay the transaction fees with tokens, where one new party receives the tokens (from the user) and pays the fees on behalf of the user, and 2) enable smart contract developers to subsidize the gas used to interact with their contracts.
 
-RIF Relay takes its inspiration from the [Gas Station Network (GSN) project](https://github.com/opengsn/gsn). GSN is a decentralized system that improves dApp usability without sacrificing security. In a nutshell, GSN abstracts away gas (used to pay transaction fees) to minimize onboarding and UX friction for dApps. With GSN, “gasless clients” can interact with smart contracts paying for gas with tokens instead of native-currency.
+With this in mind, the main goal of the RIF Relay Project is to **provide the Rootstock (RSK) ecosystem with the means to allow blockchain applications and end-users (wallet-apps) to transact without needing RBTC**. The system should allow Rootstock (RSK) users to pay transaction fees with methods of payment (i.e., tokens) other than RBTC while maintaining their accounts as transaction senders.
 
-Our main objective is to provide the RSK ecosystem with the means to enable blockchain applications and end-users (wallet-apps) to pay for transaction fees using tokens (e.g. RIF tokens), and thereby remove the need to acquire RBTC in advance.
+RIF Relay takes its inspiration from the [Gas Station Network (GSN) project](https://github.com/opengsn/gsn). GSN is a decentralized system that improves dApp usability without sacrificing security. In a nutshell, GSN abstracts away gas (used to pay transaction fees) to minimize onboarding and UX friction for dApps. With GSN, "gasless clients" can interact with smart contracts paying for gas with tokens instead of native-currency.
 
-It is important to recall that - as a security measure - the version 1 contracts deployed on Mainnet have limits on the staked amounts to operate, these limits were removed in version 2.
+<!--START IMPORTANT NOTE: In this region here, the information is omited in the Devportal -->
+## Index
+The project information is divided into different sections, which you can explore through the following links:
+
+- [RIF Relay Integration](./docs/integrate.md)
+- [RIF Relay Installation Requirements](./docs/installation-requirements.md)
+- [How to use the RIF Relay Sample dApp SDK](./docs/sample-dapp.md)
+- [RIF Relay Deployment](./docs/deployment.md)
+- [RIF Relay Develop](./docs/develop.md)
+- [RIF Relay - Contracts](./docs/contracts.md)
+- [RIF Relay Smart Wallets](./docs/smart-wallets.md)
+- [RIF Relay Versions](./docs/versions.md)
+- [RIF Relay - Gas Costs](./docs/gas-costs.md)
+- [RIF Relay - Architecture](./docs/architecture.md)
+<!-- IMPORTANT NOTE: In this region here, the information is omited in the Devportal END-->
 
 ## Modules
 
@@ -20,35 +35,12 @@ RIF Relay is built in modules, the entire system is made up by 3 modules.
 
 Each module has instructions for development and usage.
 
-## Getting Started with the RIF Relay Sample dApp SDK
+[Deprecated Docs](docs/README.md)
 
-We've created a sample dApp to showcase how users can submit relayed transactions to the Rootstock blockchain using the RIF Relay Sample dApp SDK. For details, see [RIF Relaying Services SDK sample dApp](https://github.com/rsksmart/rif-relay-sample-dapp).
 
-## Testing
+## Contribution Guidelines
+* Please refer to the Rootstock Contribution Guidelines for more information on how to contribute to this project.
 
-This repository contains all the integration tests. These tests verify the behavior of the entire system.
-You have two ways to run tests:
+## License:
+MIT License - Copyright (c) 2023 Rootstock
 
-1. Executing `npm test` will run all the test suite and verify all the system. This could take 
-   a few hours since executing the entire test suite is a heavy task.
-2. Running `npm run testOnly <TEST_FILE>` where `<TEST_FILE>` it’s the typescript file
-that contains the test code inside will execute only that test and make the verifications inside it. An example could be `npm run testOnly ./test/relayserver/RelayServer.test.ts`.
-
-**Important Note**: when you run the tests you will see folders like `contracts`, `migrations` and some other files
-appearing during the tests and disappearing after, that’s because we need to have the contracts
-on the same context as this repository during tests, this is a normal behavior. 
-
-## Scripts
-
-This repository contains a script that analyzes gas consumption for relay and deploy transactions. It prints different metrics related to gas usage when relaying a transaction or deploying a smart wallet.
-To run it, execute the command:
-
-`npm run analyze:gas <NETWORK_NAME>`
-
-where:
-- `<NETWORK_NAME>` is a required parameter for the network name, taken from the `hardhat.config.ts`, and must correspond to a valid RSK Node (commonly, regtest is used). Do not use this with the default network (hardhat) as it will fail.
-
-Example: 
-`npm run analyze:gas regtest`
-
-[Deprecated Doc](docs/README.md)
