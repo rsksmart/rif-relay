@@ -37,38 +37,29 @@ jobs:
           mkdir -p transformed
 
           # Remove the unwanted first lines from README.md
-          TEMP_FILE="temp_README.md"
-          tail -n +1 README.md > ${TEMP_FILE}
+          tail -n +1 README.md > temp_README.md
           # Remove the lines between <!--START and <!--END-->
-          # awk '/<!--START/,/<!--END-->/{next} {print}' README.md > ${TEMP_FILE}
+          # awk '/<!--START/,/<!--END-->/{next} {print}' README.md > temp_README.md
 
           # Process main README.md
-          TRANSFORMED_FILE="transformed/README.md"
-          echo "---" > ${TRANSFORMED_FILE}
-          echo "sidebar_label: Overview" >> ${TRANSFORMED_FILE}
-          echo "sidebar_position: 100" >> ${TRANSFORMED_FILE}
-          echo "title: RIF Relay - Overview" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Overview.'" >> ${TRANSFORMED_FILE}
-          echo "tags: [rif, envelope, relay, integrate, integration guide]" >> ${TRANSFORMED_FILE}
-          echo "---" >> ${TRANSFORMED_FILE}
-          echo "" >> ${TRANSFORMED_FILE}
-          echo ":::info[Note]" >> ${TRANSFORMED_FILE}
-          echo "If you wish to suggest changes on this document, please open a PR on the [Rif Relay Repository](https://github.com/rsksmart/rif-relay.git)" >> ${TRANSFORMED_FILE}
-          echo ":::" >> ${TRANSFORMED_FILE}
-          echo "" >> ${TRANSFORMED_FILE}
-          cat ${TEMP_FILE} >> ${TRANSFORMED_FILE}
+          echo "---" > transformed/README.md
+          echo "sidebar_label: Overview" >> transformed/README.md
+          echo "sidebar_position: 100" >> transformed/README.md
+          echo "title: RIF Relay - Overview" >> transformed/README.md
+          echo "description: 'RIF Relay Overview.'" >> transformed/README.md
+          echo "tags: [rif, envelope, relay, integrate, integration guide]" >> transformed/README.md
+          echo "---" >> transformed/README.md
+          echo "" >> transformed/README.md
+          echo ":::info[Note]" >> transformed/README.md
+          echo "If you wish to suggest changes on this document, please open a PR on the [Rif Relay Repository](https://github.com/rsksmart/rif-relay.git)" >> transformed/README.md
+          echo ":::" >> transformed/README.md
+          echo "" >> transformed/README.md
+          cat temp_README.md >> transformed/README.md
           # Clean up temporary file
-          rm ${TEMP_FILE}
-          cp ${TRANSFORMED_FILE} devportal/docs/02-developers/06-integrate/01-rif-relay/overview.md
+          rm temp_README.md
+          cp transformed/README.md devportal/docs/02-developers/06-integrate/01-rif-relay/overview.md
 
           # Process integrations section
-          TEMP_FILE="temp_integrate.md"
-          TRANSFORMED_FILE="transformed/integrate.md"
-          echo "new temp file name is" 
-          echo ${TEMP_FILE}
-          echo "new transformed file name is" 
-          echo ${TRANSFORMED_FILE}
-          
           # Remove the unwanted first lines from section (title)
           tail -n +1 docs/integrate.md > temp_integrate.md
           echo "---" > transformed/integrate.md
