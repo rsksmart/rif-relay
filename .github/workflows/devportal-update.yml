@@ -55,13 +55,12 @@ jobs:
           echo ":::" >> transformed/README.md
           echo "" >> transformed/README.md
           cat temp_README.md >> transformed/README.md
-          # Clean up temporary file
-          rm temp_README.md
           cp transformed/README.md devportal/docs/02-developers/06-integrate/01-rif-relay/overview.md
 
           # Process integrations section
           # Remove the unwanted first lines from section (title)
-          tail -n +1 docs/integrate.md > temp_integrate.md
+          tail -n +2 integrate.md > temp_integrate.md
+
           echo "---" > transformed/integrate.md
           echo "sidebar_label: Integrations" >> transformed/integrate.md
           echo "sidebar_position: 200" >> transformed/integrate.md
@@ -71,26 +70,7 @@ jobs:
           echo "---" >> transformed/integrate.md
           echo "" >> transformed/integrate.md
           cat temp_integrate.md >> transformed/integrate.md
-          # Clean up temporary file
-          rm temp_integrate.md
           cp transformed/integrate.md devportal/docs/02-developers/06-integrate/01-rif-relay/integrate.md
-          cat devportal/docs/02-developers/06-integrate/01-rif-relay/integrate.md
-
-          # Process setup section
-          # Remove the unwanted first lines from section (title)
-          tail -n +1 docs/installation-requirements.md > temp_installation-requirements.md
-          echo "---" > transformed/installation-requirements.md
-          echo "sidebar_label: Setup" >> transformed/installation-requirements.md
-          echo "sidebar_position: 300" >> transformed/installation-requirements.md
-          echo "title: RIF Relay Installation Requirements >> transformed/installation-requirements.md
-          echo "description: 'Requirements for installing RIF Relay.'" >> transformed/installation-requirements.md
-          echo "tags: [rif, envelope, relay, user, guide]" >> transformed/installation-requirements.md
-          echo "---" >> transformed/installation-requirements.md
-          echo "" >> transformed/installation-requirements.md
-          cat temp_installation-requirements.md >> transformed/installation-requirements.md
-          # Clean up temporary file
-          rm temp_installation-requirements.md
-          cp transformed/installation-requirements.md devportal/docs/02-developers/06-integrate/01-rif-relay/installation-requirements.md
 
       # Step 3: Commit and Push Changes to Devportal Repository
       - name: Commit and Push Changes
@@ -101,8 +81,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/02-developers/06-integrate/01-rif-relay/overview.md docs/02-developers/06-integrate/01-rif-relay/integrate.md
-          git diff --cached
-          # git add docs/02-developers/06-integrate/01-rif-relay/overview.md docs/02-developers/06-integrate/01-rif-relay/integrate.md docs/02-developers/06-integrate/01-rif-relay/installation-requirements.md docs/02-developers/06-integrate/01-rif-relay/sample-dapp.md docs/02-developers/06-integrate/01-rif-relay/deployment.md docs/02-developers/06-integrate/01-rif-relay/develop.md docs/02-developers/06-integrate/01-rif-relay/contracts.md docs/02-developers/06-integrate/01-rif-relay/smart-wallets.md docs/02-developers/06-integrate/01-rif-relay/versions.md docs/02-developers/06-integrate/01-rif-relay/gas-costs.md docs/02-developers/06-integrate/01-rif-relay/architecture.md
           git commit -m "Automated update from repository"
           # Configure the remote URL with the token for authentication
           git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/rsksmart/devportal.git
