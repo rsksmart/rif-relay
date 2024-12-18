@@ -59,7 +59,7 @@ jobs:
 
           # Process integrations section
           # Remove the unwanted first lines from section (title)
-          tail -n +2 integrate.md > temp_integrate.md
+          tail -n +2 docs/integrate.md > temp_integrate.md
 
           echo "---" > transformed/integrate.md
           echo "sidebar_label: Integrations" >> transformed/integrate.md
