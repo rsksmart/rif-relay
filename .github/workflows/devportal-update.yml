@@ -253,8 +253,7 @@ jobs:
           cd devportal
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/02-developers/06-integrate/01-rif-relay/overview.md 
-          git add docs/02-developers/06-integrate/01-rif-relay/integrate.md
+          git add .
           # git add docs/02-developers/06-integrate/01-rif-relay/overview.md docs/02-developers/06-integrate/01-rif-relay/integrate.md docs/02-developers/06-integrate/01-rif-relay/installation-requirements.md docs/02-developers/06-integrate/01-rif-relay/sample-dapp.md docs/02-developers/06-integrate/01-rif-relay/deployment.md docs/02-developers/06-integrate/01-rif-relay/develop.md docs/02-developers/06-integrate/01-rif-relay/contracts.md docs/02-developers/06-integrate/01-rif-relay/smart-wallets.md docs/02-developers/06-integrate/01-rif-relay/versions.md docs/02-developers/06-integrate/01-rif-relay/gas-costs.md docs/02-developers/06-integrate/01-rif-relay/architecture.md
           git commit -m "Automated update from repository"
           # Configure the remote URL with the token for authentication
