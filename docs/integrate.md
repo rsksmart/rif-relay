@@ -290,3 +290,5 @@ To implement and use your own replenish strategy:
 2. On the function `replenishStrategy` write your new replenish strategy.
 3. Re build the project `npm run build`
 4. Change the config JSON file to set `customReplenish` on true.
+
+test
