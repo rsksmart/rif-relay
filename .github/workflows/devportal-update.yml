@@ -64,7 +64,7 @@ jobs:
           echo "---" > transformed/integrate.md
           echo "sidebar_label: Integrations" >> transformed/integrate.md
           echo "sidebar_position: 200" >> transformed/integrate.md
-          echo "title: RIF Relay Integration >> transformed/integrate.md
+          echo "title: RIF Relay Integration" >> transformed/integrate.md
           echo "description: 'Integrating RIF Relay in a dApp.'" >> transformed/integrate.md
           echo "tags: [rif, envelope, relay, integration guide]" >> transformed/integrate.md
           echo "---" >> transformed/integrate.md
