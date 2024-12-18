@@ -5,7 +5,7 @@ on:
     paths:
       - 'README.md'
     branches:
-      - main
+      - devportalAutoImplem
       
 permissions: read-all
 
