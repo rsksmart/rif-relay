@@ -1096,7 +1096,7 @@ describe('RelayServer', function () {
               await mintTokens(
                 token,
                 'TestToken',
-                utils.parseEther('10'),
+                utils.parseEther('15'),
                 smartWallet.address
               );
 
@@ -1605,7 +1605,7 @@ describe('RelayServer', function () {
               await mintTokens(
                 token,
                 'TestToken',
-                utils.parseEther('10'),
+                utils.parseEther('15'),
                 smartWallet.address
               );
 
