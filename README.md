@@ -9,7 +9,8 @@ With this in mind, the main goal of the RIF Relay Project is to **provide the Ro
 
 RIF Relay takes its inspiration from the [Gas Station Network (GSN) project](https://github.com/opengsn/gsn). GSN is a decentralized system that improves dApp usability without sacrificing security. In a nutshell, GSN abstracts away gas (used to pay transaction fees) to minimize onboarding and UX friction for dApps. With GSN, "gasless clients" can interact with smart contracts paying for gas with tokens instead of native-currency.
 
-<!--START IMPORTANT NOTE: In this region here, the information is omited in the Devportal -->
+<!--START-->
+<!--IMPORTANT NOTE: In this region here, the information is omited in the Devportal -->
 ## Index
 The project information is divided into different sections, which you can explore through the following links:
 
@@ -23,7 +24,8 @@ The project information is divided into different sections, which you can explor
 - [RIF Relay Versions](./docs/versions.md)
 - [RIF Relay - Gas Costs](./docs/gas-costs.md)
 - [RIF Relay - Architecture](./docs/architecture.md)
-<!-- IMPORTANT NOTE: In this region here, the information is omited in the Devportal END-->
+<!--IMPORTANT NOTE: In this region here, the information is omited in the Devportal-->
+<!--END-->
 
 ## Modules
 

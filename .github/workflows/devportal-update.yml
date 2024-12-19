@@ -39,7 +39,7 @@ jobs:
           TEMP_FILE="temp_README.md"
           tail -n +1 README.md > ${TEMP_FILE}
           # Remove the unwanted lines between START and END comments
-          awk '/<!--START/,/<!--END-->/{next} {print}' README.md > ${TEMP_FILE}
+          sed '/<!--START-->/,/<!--END-->/d' README.md > ${TEMP_FILE}
           # Process main README.md
           TRANSFORMED_FILE="transformed/README.md"
           echo "---" > ${TRANSFORMED_FILE}
