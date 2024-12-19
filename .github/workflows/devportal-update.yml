@@ -38,14 +38,15 @@ jobs:
           # Remove the unwanted first lines from README.md
           TEMP_FILE="temp_README.md"
           tail -n +1 README.md > ${TEMP_FILE}
-          
+          # Remove the unwanted lines between START and END comments
+          awk '/<!--START/,/<!--END-->/{next} {print}' README.md > ${TEMP_FILE}
           # Process main README.md
           TRANSFORMED_FILE="transformed/README.md"
           echo "---" > ${TRANSFORMED_FILE}
           echo "sidebar_label: Overview" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 100" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay - Overview" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Overview.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Overview." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integrate, integration guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -67,7 +68,7 @@ jobs:
           echo "sidebar_label: Integrations" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 200" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Integration" >> ${TRANSFORMED_FILE}
-          echo "description: 'Integrating RIF Relay in a dApp.'" >> ${TRANSFORMED_FILE}
+          echo "description: Integrating RIF Relay in a dApp." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -85,7 +86,7 @@ jobs:
           echo "sidebar_label: Setup" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 300" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Installation Requirements" >> ${TRANSFORMED_FILE}
-          echo "description: 'Requirements for installing RIF Relay.'" >> ${TRANSFORMED_FILE}
+          echo "description: Requirements for installing RIF Relay." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -103,7 +104,7 @@ jobs:
           echo "sidebar_label: RIF Relay Sample dApp" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 400" >> ${TRANSFORMED_FILE}
           echo "title: How to use the RIF Relay Sample dApp SDK" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Sample dApp SDK Starter kit.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Sample dApp SDK Starter kit." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -121,7 +122,7 @@ jobs:
           echo "sidebar_label: RIF Relay Deployment" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 500" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Deployment" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay deployment process.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay deployment process." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integration guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -139,7 +140,7 @@ jobs:
           echo "sidebar_label: Develop" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 600" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Develop" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay deployment process.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay deployment process." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -157,7 +158,7 @@ jobs:
           echo "sidebar_label: Contracts" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 700" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay - Contracts" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Contracts.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Contracts." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -175,7 +176,7 @@ jobs:
           echo "sidebar_label: Smart Wallets" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 800" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Smart Wallets" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Smart Wallets.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Smart Wallets." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, user, guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -193,7 +194,7 @@ jobs:
           echo "sidebar_label: Versions" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 900" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay Versions" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Versions.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Versions." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, rif relay, integration guide]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -211,7 +212,7 @@ jobs:
           echo "sidebar_label: Gas Costs" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 950" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay - Gas Costs" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Gas Costs.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Gas Costs." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}
@@ -229,7 +230,7 @@ jobs:
           echo "sidebar_label: Architecture" >> ${TRANSFORMED_FILE}
           echo "sidebar_position: 980" >> ${TRANSFORMED_FILE}
           echo "title: RIF Relay - Architecture" >> ${TRANSFORMED_FILE}
-          echo "description: 'RIF Relay Architeture.'" >> ${TRANSFORMED_FILE}
+          echo "description: RIF Relay Architeture." >> ${TRANSFORMED_FILE}
           echo "tags: [rif, envelope, relay, integrate]" >> ${TRANSFORMED_FILE}
           echo "---" >> ${TRANSFORMED_FILE}
           echo "" >> ${TRANSFORMED_FILE}

@@ -34,5 +34,3 @@ For a detailed step-by-step guide on getting started with RIF Relay, refer to th
 ### Using Docker
 
 - RIF Relay components can be deployed using Docker or locally using [Hardhat](#hardhat). A guide for the [RIF Relay Server](https://github.com/rsksmart/rif-relay-server#execute-as-a-docker-container) can be found in the repository.
-
-test
