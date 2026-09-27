@@ -2300,11 +2300,15 @@ describe('RelayServer', function () {
     it('should delay transactions in alerted state', async function () {
       const timeBefore = Date.now();
 
+      // After the attack the recipient keeps reverting, and a reverting call
+      // cannot be estimated; any relayable transaction is delayed while alerted
       const userDefinedRelayRequest = createRelayUserDefinedRequest(
         {
           from: owner.address,
           to: recipient.address,
-          data: encodedData,
+          data: recipient.interface.encodeFunctionData('emitMessage', [
+            'alerted',
+          ]),
         },
         {
           callForwarder: smartWallet.address,
