@@ -6,6 +6,7 @@ import '@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol';
 import '@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol';
 import '@rsksmart/rif-relay-contracts/contracts/smartwallet/BoltzSmartWallet.sol';
 import '@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalBoltzSmartWallet.sol';
+import '@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalSwapSmartWallet.sol';
 import '@rsksmart/rif-relay-contracts/contracts/factory/SmartWalletFactory.sol';
 import '@rsksmart/rif-relay-contracts/contracts/factory/CustomSmartWalletFactory.sol';
 import '@rsksmart/rif-relay-contracts/contracts/factory/BoltzSmartWalletFactory.sol';
@@ -17,6 +18,9 @@ import '@rsksmart/rif-relay-contracts/contracts/verifier/BoltzRelayVerifier.sol'
 import '@rsksmart/rif-relay-contracts/contracts/verifier/BoltzDeployVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalBoltzRelayVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalBoltzDeployVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/verifier/LendaswapDeployVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/verifier/LendaswapRelayVerifier.sol';
+import '@rsksmart/rif-relay-contracts/contracts/verifier/MinimalLendaswapDeployVerifier.sol';
 import '@rsksmart/rif-relay-contracts/contracts/Penalizer.sol';
 import '@rsksmart/rif-relay-contracts/contracts/utils/UtilToken.sol';
 import '@rsksmart/rif-relay-contracts/contracts/interfaces/IForwarder.sol';
