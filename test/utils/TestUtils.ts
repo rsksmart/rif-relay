@@ -178,13 +178,15 @@ const deployRelayHub = async (
     minimumEntryDepositValue,
   } = relayHubConfiguration;
 
-  return relayHubFactory.deploy(
+  const relayHub = await relayHubFactory.deploy(
     penalizer,
     maxWorkerCount,
     minimumEntryDepositValue,
     minimumUnstakeDelay,
     minimumStake
   );
+
+  return relayHub.deployed();
 };
 
 const deployVerifiers = async <
@@ -210,6 +212,7 @@ const deployVerifiers = async <
   const relayVerifier = (await relayVerifierFactory.deploy(
     smartWalletFactory.address
   )) as C2;
+  await Promise.all([deployVerifier.deployed(), relayVerifier.deployed()]);
 
   return {
     deployVerifier,
@@ -226,7 +229,9 @@ const createSmartWalletFactory = async <T extends SupportedSmartWalletFactory>(
     `${type === 'Default' ? '' : type}SmartWalletFactory`
   );
 
-  return (await factory.connect(owner).deploy(template.address)) as T;
+  return (await (
+    await factory.connect(owner).deploy(template.address)
+  ).deployed()) as T;
 };
 
 const createSupportedSmartWallet = async <
@@ -552,7 +557,7 @@ async function getSmartWalletAddress({
 async function deployContract<T>(contract: string) {
   const contractFactory = await ethers.getContractFactory(contract);
 
-  return contractFactory.deploy() as T;
+  return (await (await contractFactory.deploy()).deployed()) as T;
 }
 
 const getSmartWalletTemplate = (type: SupportedType) =>

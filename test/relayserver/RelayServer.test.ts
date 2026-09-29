@@ -475,7 +475,9 @@ describe('RelayServer', function () {
       const verifierFactory = await ethers.getContractFactory(
         'BoltzDeployVerifier'
       );
-      const verifier = (await verifierFactory.deploy(factory.address)) as V;
+      const verifier = (await (
+        await verifierFactory.deploy(factory.address)
+      ).deployed()) as V;
 
       return { factory, verifier };
     }
