@@ -11,14 +11,11 @@ services:
     volumes:
       - ./logback.xml:/etc/rsk/logback.xml
       - ./node.conf:/etc/rsk/node.conf
-    entrypoint:
-      [
-        "java",
-        "-Dlogback.configurationFile=/etc/rsk/logback.xml",
-        "-cp",
-        "rsk.jar",
-        "co.rsk.Start",
-      ]
+    environment:
+      # the image default (-Xms4G) doesn't fit in Docker Desktop's default memory
+      DEFAULT_JVM_OPTS: "-Xms512m -Xmx1g"
+      RSKJ_LOG_PROPS: "-Dlogback.configurationFile=/etc/rsk/logback.xml"
+    command: ["--regtest"]
 
 networks:
   rif-relay-testing:
