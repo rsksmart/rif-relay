@@ -33,6 +33,8 @@ import {
   estimateRelayMaxPossibleGasNoSignature,
   estimateRelayMaxPossibleGas,
   POST_RELAY_DEPLOY_GAS_COST,
+  ACCOUNT_ALREADY_CREATED,
+  isAccountCreated,
 } from '@rsksmart/rif-relay-client';
 import { constants, Wallet } from 'ethers';
 import { ethers } from 'hardhat';
@@ -1394,20 +1396,27 @@ describe('RelayClient', function () {
               relayWorkerWallet
             );
 
+          // The estimation already leaves out the owner account creation
+          // part of POST_RELAY_DEPLOY_GAS_COST when the owner exists
+          const noTransferBack =
+            ((await isAccountCreated(gaslessAccount.address))
+              ? POST_RELAY_DEPLOY_GAS_COST - ACCOUNT_ALREADY_CREATED
+              : POST_RELAY_DEPLOY_GAS_COST) + 3500;
+
           comparisonTable.push({
             withSignature: estimationWithSignature.toNumber(),
             withoutSignature: estimationNoSignature
-              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .sub(noTransferBack)
               .toNumber(),
             difference: estimationNoSignature
-              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .sub(noTransferBack)
               .sub(estimationWithSignature)
               .toNumber(),
           });
 
           console.log(
             `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature
-              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .sub(noTransferBack)
               .toString()}`
           );
 
@@ -1416,10 +1425,10 @@ describe('RelayClient', function () {
           // POST_DEPLOY_NO_EXECUTION subtracted to simulate the scenario
           expect(
             estimationWithSignature.lte(
-              estimationNoSignature.sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              estimationNoSignature.sub(noTransferBack)
             ),
             `${estimationWithSignature.toString()} should less than or equal ${estimationNoSignature
-              .sub(POST_RELAY_DEPLOY_GAS_COST + 3500)
+              .sub(noTransferBack)
               .toString()}`
           ).to.be.true;
         });

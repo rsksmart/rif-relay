@@ -4,7 +4,7 @@ import chaiAsPromised from 'chai-as-promised';
 import { ethers as hardhat } from 'hardhat';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import { TestForwarder, TestTarget } from 'typechain-types';
-import { Wallet, providers } from 'ethers';
+import { BigNumber, Wallet, providers } from 'ethers';
 import {
   TEST_TOKEN_NAME,
   NON_REVERT_TEST_TOKEN_NAME,
@@ -42,6 +42,10 @@ chai.use(chaiAsPromised);
 const INITIAL_SMART_WALLET_RBTC_AMOUNT = 50;
 const TOKEN_AMOUNT_TO_TRANSFER = 1;
 const RBTC_AMOUNT_TO_TRANSFER = hardhat.utils.parseEther('1');
+// Gas limit for a destination call that always reverts, which the node cannot estimate.
+// It covers the revert with its reason, and stays small because the outer transaction is
+// estimated from the gas actually used, so it must still leave gasleft() > req.gas.
+const REVERTING_CALL_GAS = BigNumber.from(5_000);
 
 const TYPES_OF_WALLETS: SupportedType[] = ['Default', 'Custom', 'Boltz'];
 
@@ -432,9 +436,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             feesReceiver.address
           );
 
-          const estimatedGas = (await target.estimateGas.testRevert()).sub(
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-          );
+          // testRevert always reverts, so it cannot be estimated
+          const estimatedGas = REVERTING_CALL_GAS;
 
           const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
@@ -510,9 +513,8 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             feesReceiver.address
           );
 
-          const estimatedGas = (await target.estimateGas.testRevert()).sub(
-            INTERNAL_TRANSACTION_ESTIMATED_CORRECTION
-          );
+          // testRevert always reverts, so it cannot be estimated
+          const estimatedGas = REVERTING_CALL_GAS;
 
           const relayRequest = createRelayEnvelopingRequest({
             data: targetFunction,
@@ -622,7 +624,9 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const estimatedGas = (
-              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
+              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER, {
+                value: RBTC_AMOUNT_TO_TRANSFER,
+              })
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
             const relayRequest = createRelayEnvelopingRequest({
@@ -704,7 +708,9 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const estimatedGas = (
-              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
+              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER, {
+                value: RBTC_AMOUNT_TO_TRANSFER,
+              })
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
             const relayRequest = createRelayEnvelopingRequest({
@@ -771,7 +777,9 @@ TYPES_OF_WALLETS.forEach((typeOfWallet) => {
             );
 
             const estimatedGas = (
-              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER)
+              await target.estimateGas.mustReceiveEth(RBTC_AMOUNT_TO_TRANSFER, {
+                value: RBTC_AMOUNT_TO_TRANSFER,
+              })
             ).sub(INTERNAL_TRANSACTION_ESTIMATED_CORRECTION);
 
             const relayRequest = createRelayEnvelopingRequest({
