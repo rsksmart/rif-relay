@@ -1,15 +1,14 @@
 import { BaseProvider } from '@ethersproject/providers';
 import {
-  BoltzSmartWallet,
-  BoltzSmartWalletFactory,
+  SwapSmartWallet,
+  SwapSmartWalletFactory,
   DeployVerifier,
   MinimalBoltzDeployVerifier,
-  MinimalBoltzRelayVerifier,
-  MinimalBoltzSmartWalletFactory,
+  MinimalSwapRelayVerifier,
+  MinimalSwapSmartWalletFactory,
   RelayVerifier,
   BoltzDeployVerifier,
   BoltzRelayVerifier,
-  MinimalBoltzSmartWallet,
   SmartWallet,
   SmartWalletFactory,
 } from '@rsksmart/rif-relay-contracts';
@@ -25,6 +24,7 @@ import {
   createRelayEnvelopingRequest,
   createSupportedSmartWallet,
   deployContract,
+  deployMinimalSwapSmartWallet,
   RSK_URL,
 } from '../utils/TestUtils';
 import { RelayRequest, DeployRequest } from '@rsksmart/rif-relay-client';
@@ -370,7 +370,7 @@ describe('Verifiers tests', function () {
     let deployVerifier: BoltzDeployVerifier;
     let owner: Wallet;
     let relayHub: SignerWithAddress;
-    let smartWalletFactory: BoltzSmartWalletFactory;
+    let smartWalletFactory: SwapSmartWalletFactory;
 
     beforeEach(async function () {
       const [, localRelayHub] = await hardhat.getSigners();
@@ -378,12 +378,12 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-        'BoltzSmartWallet'
+      const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+        'SwapSmartWallet'
       );
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
-        'BoltzSmartWalletFactory'
+        'SwapSmartWalletFactory'
       );
 
       smartWalletFactory = await hardHatWalletFactory.deploy(
@@ -650,7 +650,8 @@ describe('Verifiers tests', function () {
         ).to.be.rejectedWith('Native balance too low');
       });
 
-      it('Should fail if method is not allowed', async function () {
+      // A call that is not a claim is charged to the wallet balance (rif-relay-contracts#178)
+      it('Should fail if a call that is not a claim cannot pay the fee from the wallet balance', async function () {
         const deployRequest = createDeployEnvelopingRequest(
           {
             relayHub: relayHub.address,
@@ -670,7 +671,7 @@ describe('Verifiers tests', function () {
 
         await expect(
           deployVerifier.verifyRelayedCall(deployRequest, signature)
-        ).to.be.rejectedWith('Method not allowed');
+        ).to.be.rejectedWith('Native balance too low');
       });
     });
   });
@@ -679,16 +680,16 @@ describe('Verifiers tests', function () {
     let relayVerifier: BoltzRelayVerifier;
     let owner: Wallet;
     let relayHub: SignerWithAddress;
-    let smartWalletFactory: BoltzSmartWalletFactory;
-    let smartWallet: BoltzSmartWallet;
+    let smartWalletFactory: SwapSmartWalletFactory;
+    let smartWallet: SwapSmartWallet;
 
     async function prepareSmartWallet() {
-      const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-        'BoltzSmartWallet'
+      const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+        'SwapSmartWallet'
       );
 
       const hardHatSmartWalletFactoryFactory = await hardhat.getContractFactory(
-        'BoltzSmartWalletFactory'
+        'SwapSmartWalletFactory'
       );
       smartWalletFactory = await hardHatSmartWalletFactoryFactory.deploy(
         smartWalletTemplate.address
@@ -929,7 +930,8 @@ describe('Verifiers tests', function () {
         ).to.be.rejectedWith('Native balance too low');
       });
 
-      it('Should fail if method is not allowed', async function () {
+      // A call that is not a claim is charged to the wallet balance (rif-relay-contracts#178)
+      it('Should fail if a call that is not a claim cannot pay the fee from the wallet balance', async function () {
         const relayRequest = createRelayEnvelopingRequest(
           {
             relayHub: relayHub.address,
@@ -949,7 +951,7 @@ describe('Verifiers tests', function () {
 
         await expect(
           relayVerifier.verifyRelayedCall(relayRequest, signature)
-        ).to.be.rejectedWith('Method not allowed');
+        ).to.be.rejectedWith('Native balance too low');
       });
     });
   });
@@ -960,7 +962,7 @@ describe('Verifiers tests', function () {
     let owner: Wallet;
     let relayHub: SignerWithAddress;
     let deployVerifier: MinimalBoltzDeployVerifier;
-    let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+    let smartWalletFactory: MinimalSwapSmartWalletFactory;
     let refundAddress: string;
     const timelock = 500;
 
@@ -971,12 +973,10 @@ describe('Verifiers tests', function () {
       swap = await deployContract('TestSwap');
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const smartWalletTemplate = await deployContract<MinimalBoltzSmartWallet>(
-        'MinimalBoltzSmartWallet'
-      );
+      const smartWalletTemplate = await deployMinimalSwapSmartWallet();
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
-        'MinimalBoltzSmartWalletFactory'
+        'MinimalSwapSmartWalletFactory'
       );
 
       smartWalletFactory = await hardHatWalletFactory.deploy(
@@ -1242,8 +1242,8 @@ describe('Verifiers tests', function () {
   describe('Minimal boltz relay verifier', function () {
     let owner: Wallet;
     let relayHub: SignerWithAddress;
-    let relayVerifier: MinimalBoltzRelayVerifier;
-    let smartWallet: BoltzSmartWallet;
+    let relayVerifier: MinimalSwapRelayVerifier;
+    let smartWallet: SwapSmartWallet;
 
     beforeEach(async function () {
       const [, localRelayHub] = await hardhat.getSigners();
@@ -1251,12 +1251,12 @@ describe('Verifiers tests', function () {
 
       owner = Wallet.createRandom().connect(rskProvider);
 
-      const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-        'BoltzSmartWallet'
+      const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+        'SwapSmartWallet'
       );
 
       const hardHatWalletFactory = await hardhat.getContractFactory(
-        'BoltzSmartWalletFactory'
+        'SwapSmartWalletFactory'
       );
 
       const smartWalletFactory = await hardHatWalletFactory.deploy(
@@ -1264,7 +1264,7 @@ describe('Verifiers tests', function () {
       );
 
       const relayVerifierFactory = await hardhat.getContractFactory(
-        'MinimalBoltzRelayVerifier'
+        'MinimalSwapRelayVerifier'
       );
 
       relayVerifier = await relayVerifierFactory.deploy(

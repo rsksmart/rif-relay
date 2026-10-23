@@ -1,0 +1,378 @@
+{
+  "contractName": "HTLCNativeCoordinator",
+  "source": "https://github.com/satoraHQ/lendaswap-contracts (verified on Rootstock testnet at 0x447a4cd711ce66d25c7008d26d5f09ca7d621f48)",
+  "compiler": "v0.8.24+commit.e11b9ed9",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "htlcNative",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        }
+      ],
+      "name": "CallFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "CallsOverspent",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes4",
+          "name": "selector",
+          "type": "bytes4"
+        }
+      ],
+      "name": "DangerousSelector",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EtherTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "InsufficientBalance",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Reentrancy",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "target",
+          "type": "address"
+        }
+      ],
+      "name": "RestrictedTarget",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "SafeERC20FailedOperation",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Unauthorized",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "UnknownHtlc",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroDestination",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "HTLC_NATIVE",
+      "outputs": [
+        {
+          "internalType": "contract HTLCNative",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "PERMIT2",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "VERSION",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "deposits",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "target",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct CallExecutor.Call[]",
+          "name": "calls",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "executeAndCreate",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimage",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "htlcSender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "target",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct CallExecutor.Call[]",
+          "name": "calls",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "address",
+          "name": "sweepToken",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minAmountOut",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "destination",
+          "type": "address"
+        },
+        {
+          "internalType": "uint8",
+          "name": "v",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        }
+      ],
+      "name": "redeemAndExecute",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        },
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "target",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "value",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes",
+              "name": "callData",
+              "type": "bytes"
+            }
+          ],
+          "internalType": "struct CallExecutor.Call[]",
+          "name": "calls",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "address",
+          "name": "sweepToken",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minAmountOut",
+          "type": "uint256"
+        }
+      ],
+      "name": "refundAndExecute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "refundTo",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "stateMutability": "payable",
+      "type": "receive"
+    }
+  ],
+  "bytecode": "0x60a0346100a357601f61105e38819003918201601f19168301916001600160401b038311848410176100a7578084926020946040528339810103126100a357516001600160a01b038116908190036100a357608052604051610fa290816100bc823960805181818160eb0152818161015e015281816101d301528181610300015281816104f40152818161079f0152818161088101528181610a400152610c440152f35b5f80fd5b634e487b7160e01b5f52604160045260245ffdfe608080604052600436101561001c575b50361561001a575f80fd5b005b5f905f3560e01c9081633d4dff7b14610a98575080636afdd85014610a6f5780636b5cc64e14610a2b578063818386151461066a57806381cf2ad514610469578063824b53cf1461028b578063a7b3be101461009a5763ffa1ad740361000f5734610097578060031936011261009757602060405160018152f35b80fd5b5034610097576080366003190112610097576100b4610ac9565b815c61027e576001825d6040516372043def60e01b815290602082806100e7606435853060243560048035908701610b5c565b03817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa91821561027357839261023b575b50818352602083905260408320546001600160a01b031680156102295791835260208390526040832080546001600160a01b031916905582917f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03163b15610225576040519163352e7c2160e01b83526004356004840152602435602484015260018060a01b0316604483015260643560648301526084820152818160a4818360018060a01b037f0000000000000000000000000000000000000000000000000000000000000000165af1801561021a57610206575b50805d80f35b61020f90610b26565b61009757805f610200565b6040513d84823e3d90fd5b5050fd5b60405163bd697b5560e01b8152600490fd5b9091506020813d60201161026b575b8161025760209383610b3a565b810103126102675751905f610123565b5f80fd5b3d915061024a565b6040513d85823e3d90fd5b63ab143c0682526004601cfd5b50346100975760e0366003190112610097576024356004356102ab610ac9565b6064359060843567ffffffffffffffff8111610465576102cf903690600401610af5565b9490916102da610adf565b93875c610458576001885d6040516372043def60e01b8152956020936001600160a01b037f0000000000000000000000000000000000000000000000000000000000000000811693919290868a80610339868a308a8960048701610b5c565b0381885afa998a1561044d578c9a61041e575b50898c528b87528060408d205416998a15610229578a330361040d578c52958b905260408b2080546001600160a01b03191690558a95843b15610409578694608493869260405198899788966335cd4ccb60e01b88526004880152602487015216604485015260648401525af1801561021a576103f1575b5050836103db946103e1575b505060c43591610dfb565b80805d80f35b6103ea91610c39565b5f806103d0565b6103fa90610b26565b61040557845f6103c4565b8480fd5b8680fd5b6040516282b42960e81b8152600490fd5b9099508681813d8311610446575b6104368183610b3a565b810103126102675751985f61034c565b503d61042c565b6040513d8e823e3d90fd5b63ab143c0688526004601cfd5b8580fd5b5060a03660031901126102675760043567ffffffffffffffff811161026757610496903690600401610af5565b604435916001600160a01b039190606435838116916024359083830361026757608435945f5c61065d576104d89060015f5d6104d23447610b92565b92610c39565b479080821061064b576104ea91610b92565b94868610610639577f00000000000000000000000000000000000000000000000000000000000000001692833b15610267576040519063292b27c160e01b825282600483015260248201528460448201525f816064818a885af1801561062e5761060e575b506040516372043def60e01b815293602093859390928492839261057a9230908c9060048701610b5c565b03915afa9081156106035784916105d1575b50835260208390526040832080546001600160a01b031916331790558181116105b7575b8280805d80f35b6105ca916105c491610b92565b33610f37565b5f806105b0565b90506020813d6020116105fb575b816105ec60209383610b3a565b8101031261026757515f61058c565b3d91506105df565b6040513d86823e3d90fd5b6020939197509161062261057a9593610b26565b5f97919350919361054f565b6040513d5f823e3d90fd5b604051631e9acf1760e31b8152600490fd5b604051630122fb6560e41b8152600490fd5b63ab143c065f526004601cfd5b6101603660031901126102675761067f610ac9565b60843567ffffffffffffffff81116102675761069f903690600401610af5565b6106aa929192610adf565b9160e4356001600160a01b038116900361026757610104359060ff82168203610267575f5c61065d5760015f5d6040518360408201602080840152526060810160608560051b8301019087905f5b87811061098057505050906107188160ff9303601f198101835282610b3a565b805160209182012060405163091266d160e21b8152600480359082015260248035908201526001600160a01b038581166044830152606480359083015260e480358216608484015289821660a484015260c4803590840152820192909252949092166101048501526101248035908501526101448035908501529083906101649082905f907f0000000000000000000000000000000000000000000000000000000000000000165af191821561062e575f9261093c575b506001600160a01b031630146107ff575b506107ee906107fa93610c39565b60c4359060e435610dfb565b5f805d005b604051600435602082015260208152604081019080821067ffffffffffffffff831117610928578160405280515f5b818110610913575091816020935f9301836040820152039060025afa1561062e575f516040516372043def60e01b8152916020918391829161087d916064359130906024359060048701610b5c565b03817f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03165afa90811561062e575f916108dd575b505f90815260208190526040902080546001600160a01b03191690556107ee6107e0565b9190506020823d60201161090b575b816108f960209383610b3a565b810103126102675790516107fa6108b9565b3d91506108ec565b8060209184016040838201519101520161082e565b634e487b7160e01b5f52604160045260245ffd5b9091506020813d602011610978575b8161095860209383610b3a565b8101031261026757516001600160a01b03811681036102675790856107cf565b3d915061094b565b909192605f198582030183528335605e198b360301811215610267578a0180356001600160a01b03811690819003610267578252602081013560208301526040810135601e19823603018112156102675701906020823592019167ffffffffffffffff8111610267578036038313610267576001928260209392606060408695015280606083015280608093848401375f828201840152601f01601f191601019501930191016106f8565b34610267575f366003190112610267576040517f00000000000000000000000000000000000000000000000000000000000000006001600160a01b03168152602090f35b34610267575f3660031901126102675760206040516e22d473030f116ddee9f6b43ac78ba38152f35b34610267576020366003190112610267576004355f90815260208181526040909120546001600160a01b0316825290f35b604435906001600160a01b038216820361026757565b60a435906001600160a01b038216820361026757565b9181601f840112156102675782359167ffffffffffffffff8311610267576020808501948460051b01011161026757565b67ffffffffffffffff811161092857604052565b90601f8019910116810190811067ffffffffffffffff82111761092857604052565b90815260208101919091525f60408201526001600160a01b0391821660608201529116608082015260a081019190915260c00190565b91908203918211610b9f57565b634e487b7160e01b5f52601160045260245ffd5b356001600160a01b03811681036102675790565b903590601e1981360301821215610267570180359067ffffffffffffffff82116102675760200191813603831361026757565b3d15610c34573d9067ffffffffffffffff82116109285760405191610c29601f8201601f191660200184610b3a565b82523d5f602084013e565b606090565b6001600160a01b03907f00000000000000000000000000000000000000000000000000000000000000008216905f5b848110610c76575050505050565b8060051b820135605e198336030181121561026757820184610c9782610bb3565b168481148015610df2575b8015610dda575b610dc25750604080820191610cbe8382610bc7565b939060049485811015610d2b575b50508160205f9392610ce8610ce18695610bb3565b9184610bc7565b92908388519485928337810186815203930135905af1610d06610bfa565b5015610d16575050600101610c68565b9160249251916307f3476960e31b8352820152fd5b851161026757356001600160e01b0319166323b872dd60e01b81148015610db2575b8015610da2575b8015610d92575b8015610d82575b610d6c5780610ccc565b84602491855191632481877160e11b8352820152fd5b50631759616b60e11b8114610d62565b50637921219560e11b8114610d5b565b50635c46a7ef60e11b8114610d54565b50632142170760e11b8114610d4d565b602490604051906318c69df560e21b82526004820152fd5b506e22d473030f116ddee9f6b43ac78ba38114610ca9565b50308114610ca2565b6001600160a01b0380821693928415610f2557169283158015610ec25747935b8410610639578315610ebb5715610e395750610e379250610f37565b565b905060405191602083019163a9059cbb60e01b83526024840152604483015260448252608082019082821067ffffffffffffffff831117610928576020925f92604052519082855af11561062e575f513d610eb25750803b155b610e9a5750565b60249060405190635274afe760e01b82526004820152fd5b60011415610e93565b5050505050565b6040516370a0823160e01b8152306004820152602081602481895afa90811561062e575f91610ef3575b5093610e1b565b90506020813d602011610f1d575b81610f0e60209383610b3a565b8101031261026757515f610eec565b3d9150610f01565b604051637d0f1ea160e01b8152600490fd5b5f918291829182916001600160a01b03165af1610f52610bfa565b5015610f5a57565b604051630ce8f45160e31b8152600490fdfea264697066735822122002b1b85f30f1b8a7c1180b26bd21103f33f9de3ab4ed9f74f65c1c45a0934a4b64736f6c63430008180033"
+}

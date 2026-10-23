@@ -7,6 +7,7 @@ import {
   IWalletFactory__factory,
 } from '@rsksmart/rif-relay-contracts';
 import { getProvider } from '@rsksmart/rif-relay-server';
+import { REGTEST_MIN_GAS_PRICE } from './TestUtils';
 import { BigNumber, BigNumberish, Wallet, constants, ethers } from 'ethers';
 import { BytesLike, isAddress } from 'ethers/lib/utils';
 import { PromiseOrValue } from 'typechain-types/common';
@@ -15,7 +16,6 @@ import { PromiseOrValue } from 'typechain-types/common';
 const INTERNAL_TRANSACTION_ESTIMATED_CORRECTION: BigNumberish = 20000;
 const ESTIMATED_GAS_CORRECTION_FACTOR: BigNumberish = 1;
 const REQUEST_VALID_SECONDS = 172800;
-const MIN_GAS_PRICE = 60000000; // 0.06 GWei
 const GAS_PRICE_FACTOR_PERCENT = 0;
 
 const MISSING_SMART_WALLET_ADDRESS =
@@ -485,7 +485,7 @@ const calculateGasPrice = async (): Promise<BigNumber> => {
   const gasPrice = networkGasPrice.mul(GAS_PRICE_FACTOR_PERCENT + 1);
 
   return BigNumber.from(
-    gasPrice.lt(MIN_GAS_PRICE) ? MIN_GAS_PRICE : gasPrice // originally we use the BigNumberJS that has the .toFixed(0) method
+    gasPrice.lt(REGTEST_MIN_GAS_PRICE) ? REGTEST_MIN_GAS_PRICE : gasPrice // originally we use the BigNumberJS that has the .toFixed(0) method
   );
 };
 

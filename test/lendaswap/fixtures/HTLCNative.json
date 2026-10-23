@@ -1,0 +1,836 @@
+{
+  "contractName": "HTLCNative",
+  "source": "https://github.com/satoraHQ/lendaswap-contracts (verified on Rootstock testnet at 0x18123a31261a76c74c82ed2f8346002caa78ab39)",
+  "compiler": "v0.8.24+commit.e11b9ed9",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "initialOwner",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "inputs": [],
+      "name": "ECDSAInvalidSignature",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "length",
+          "type": "uint256"
+        }
+      ],
+      "name": "ECDSAInvalidSignatureLength",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        }
+      ],
+      "name": "ECDSAInvalidSignatureS",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "EtherTransferFailed",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "NoExcess",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "owner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableInvalidOwner",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "OwnableUnauthorizedAccount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "OwnershipRequired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "Reentrancy",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        }
+      ],
+      "name": "SafeERC20FailedOperation",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum HTLCNative.SwapState",
+          "name": "state",
+          "type": "uint8"
+        }
+      ],
+      "name": "SwapExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum HTLCNative.SwapState",
+          "name": "state",
+          "type": "uint8"
+        }
+      ],
+      "name": "SwapNotActive",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TimelockNotExpired",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TimelockTooSoon",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "TokenMustBeZero",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroAmount",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroClaimAddress",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRecipient",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ZeroRefundAddress",
+      "type": "error"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ExcessRecovered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferStarted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "previousOwner",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "refundAddress",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapCreated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "preimage",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapRedeemed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        }
+      ],
+      "name": "SwapRefunded",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "TokenRecovered",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "DOMAIN_SEPARATOR",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "TYPEHASH_REDEEM",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "VERSION",
+      "outputs": [
+        {
+          "internalType": "uint8",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "acceptOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "computeKey",
+      "outputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "create",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "refundAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "create",
+      "outputs": [],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "isActive",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "lockedTotal",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "owner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pendingOwner",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "preimages",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address payable",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "recoverExcess",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "to",
+          "type": "address"
+        }
+      ],
+      "name": "recoverToken",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimage",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "redeem",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimage",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "destination",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "sweepToken",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "minAmountOut",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "callsHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint8",
+          "name": "v",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "r",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "s",
+          "type": "bytes32"
+        }
+      ],
+      "name": "redeemBySig",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "destination",
+          "type": "address"
+        }
+      ],
+      "name": "refund",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "preimageHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "claimAddress",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timelock",
+          "type": "uint256"
+        }
+      ],
+      "name": "refund",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "renounceOwnership",
+      "outputs": [],
+      "stateMutability": "pure",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "key",
+          "type": "bytes32"
+        }
+      ],
+      "name": "swapState",
+      "outputs": [
+        {
+          "internalType": "enum HTLCNative.SwapState",
+          "name": "state",
+          "type": "uint8"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "preimage",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "SwapKey",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "name": "swaps",
+      "outputs": [
+        {
+          "internalType": "enum HTLCNative.SwapState",
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "newOwner",
+          "type": "address"
+        }
+      ],
+      "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60a034610184576001600160401b0390601f61124338819003918201601f1916830191848311848410176101585780849260209460405283398101031261018457516001600160a01b03908181169081900361018457801561016c5760018060a01b0319918260015416600155815f54938416175f5560405192167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a360208101907f8b73c3c69bb8fe3d512ecc4cf759cc79239f7b179b0ffacaa9a75d522b39400f82527faf532db81d0105f65339beed73842ae38b015f239108888396e9635fa514cbb860408201527fc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc660608201524660808201523060a082015260a0815260c08101928184109084111761015857826040525190206080526110ba9081610189823960805181818161067501526108f10152f35b634e487b7160e01b5f52604160045260245ffd5b604051631e4fbdf760e01b81525f6004820152602490fd5b5f80fdfe6080604090808252600480361015610015575f80fd5b5f3560e01c918263160c723c14610ad25750816318addfa214610a2e57816324499b44146107ba578163292b27c11461078b57816329daf3ce1461074a578163352e7c21146106d657816335cd4ccb146106985781633644e5151461065e57816345ca0a331461061e578163715018a61461060057816372043def146105b9578163791d51591461057f57816379ba5097146104f65781638da5cb5b146104cf578163d592e483146103b6578163e30c39781461038e578163eb84e7f21461035b578163edb6c47114610335578163f145c73b14610317578163f2fde38b146102a9578163feaea58614610130575063ffa1ad7414610112575f80fd5b3461012c575f36600319011261012c576020905160018152f35b5f80fd5b90503461012c578160031936011261012c5761014a610b76565b610152610b60565b61015a610d04565b5f5c61029d5760015f5d6001600160a01b0390811691821561028d5784516370a0823160e01b815230858201529116916020918281602481875afa908115610283575f91610256575b50801561024657905f9181857f879f92dded0f26b83c3e00b12e0395dc72cfc3077343d1854ed6988edd1f9096868a51858152a38651908482019263a9059cbb60e01b845260248301526044820152604481526101ff81610c72565b519082855af11561023c575f513d6102335750803b155b61021f575f805d005b6024925191635274afe760e01b8352820152fd5b60011415610216565b82513d5f823e3d90fd5b855163360b1dbf60e11b81528590fd5b90508281813d831161027c575b61026d8183610c8e565b8101031261012c57515f6101a3565b503d610263565b86513d5f823e3d90fd5b845163d27b444360e01b81528490fd5b8263ab143c065f52601cfd5b3461012c57602036600319011261012c576102c2610b76565b6102ca610d04565b60018060a01b0380911690816bffffffffffffffffffffffff60a01b60015416176001555f54167f38d16b8cac22d99fc7c124b9cd0de2d3fa1faef420bfe791d8c362d765e227005f80a3005b823461012c575f36600319011261012c576020906003549051908152f35b823461012c57602036600319011261012c5781602092355f528252805f20549051908152f35b823461012c57602036600319011261012c57602091355f526002825260ff815f20541690519061038a81610c03565b8152f35b823461012c575f36600319011261012c5760015490516001600160a01b039091168152602090f35b90503461012c576103c636610bd5565b5f94939192945c6104c357906103fe9160015f5d86515f602094828587809501528381526103f381610c42565b8a5191828092610cb0565b039060025afa1561028357610419905f519433908887610cd9565b93845f526002835260ff875f20541661043181610c03565b6001810361049d575090610498967f935f11873f0f4154186d30d8d4181c7694ac59f800873f9c44b0a5122043660a9392865f5260028452815f20600260ff19825416179055835281815f205561048a87600354610c21565b60035551908152a333610d2f565b5f805d005b8751630a31a83360e21b8152918201869052604492506104bc81610c03565b6024820152fd5b8363ab143c065f52601cfd5b823461012c575f36600319011261012c575f5490516001600160a01b039091168152602090f35b823461012c575f36600319011261012c57600154916001600160a01b039133838516036105685750506bffffffffffffffffffffffff60a01b8092166001555f549133908316175f553391167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e05f80a3005b60249250519063118cdaa760e01b82523390820152fd5b823461012c575f36600319011261012c57602090517f74ff405c3eb2504549cab9fef588f80b9fd717e2a30387e6ff7743feeb1f80e48152f35b823461012c576105c836610b8c565b9690949193926001600160a01b03166105f25750916105eb939160209693610cd9565b9051908152f35b855163f9f0b2f960e01b8152fd5b823461012c575f36600319011261012c57516326f0c05d60e11b8152fd5b90503461012c57602036600319011261012c5780355f52600260205260ff825f20541690602052815f205482519161065581610c03565b82526020820152f35b823461012c575f36600319011261012c57602090517f00000000000000000000000000000000000000000000000000000000000000008152f35b3461012c576106a636610bd5565b935f939192935c6106cb5750926106c591836104989560015f5d610eb5565b33610d2f565b63ab143c065f52601cfd5b823461012c5760a036600319011261012c57602435906106f4610b34565b6106fc610b4a565b915f5c61073e5760015f5d6001600160a01b0383161561072f57506104989361072a91846064359235610eb5565b610d2f565b5163d27b444360e01b81528490fd5b8463ab143c065f52601cfd5b608036600319011261012c5761075e610b60565b90610767610b34565b5f5c61077f576104989260015f5d6064359235610d8d565b5063ab143c065f52601cfd5b606036600319011261012c5761079f610b60565b5f5c61077f57906104989160015f5d60443591339035610d8d565b90503461012c576101608060031936011261012c578135926024356107dd610b34565b93606435956107ea610b4a565b966001600160a01b039560a435878116919082900361012c57610104359160ff8316830361012c575f5c610a22576108459a60015f5d88515f60209d828f93848b91015283815261083a81610c42565b8c5191828092610cb0565b039060025afa15610a1857928b9289928b8d989796815f519a8a8851998a01987f74ff405c3eb2504549cab9fef588f80b9fd717e2a30387e6ff7743feeb1f80e48a528a01528d60608a01521660808801528760a08801523360c08801521660e086015261010085015260c43561012085015261014060e43581860152845283019183831067ffffffffffffffff841117610a0557828a528351902061190160f01b61018085019081527f00000000000000000000000000000000000000000000000000000000000000006101828601526101a2909401526042825261095a9392610953926109499261093782610c72565b61014435926101243592519020610f6c565b829c929391610ff9565b8786610cd9565b92835f526002895260ff865f20541661097281610c03565b600181036109e65750888493927f935f11873f0f4154186d30d8d4181c7694ac59f800873f9c44b0a5122043660a926109dc97965f5260028352885f20600260ff19825416179055825280885f20556109cd86600354610c21565b6003558751908152a333610d2f565b5f805d5191168152f35b8651630a31a83360e21b8152918201859052604492506104bc81610c03565b604188634e487b7160e01b5f525260245ffd5b88513d5f823e3d90fd5b8563ab143c065f52601cfd5b823461012c57602036600319011261012c5781356001600160a01b0381169081900361012c57610a5c610d04565b5f5c61029d5760015f5d8015610ac457476003549384821115610ab657507fbca5f6269c0fc542b997b81cb7dafe7fc75eb784295a0c1a42a6b8ef826b3c386020610aab610498968594610c21565b9451858152a2610d2f565b835163360b1dbf60e11b8152fd5b505163d27b444360e01b8152fd5b83903461012c57610ae236610b8c565b9790959194929091906001600160a01b0316610b2857602087610b088a89898989610cd9565b5f5260028252600160ff825f20541691610b2183610c03565b5191148152f35b63f9f0b2f960e01b8152fd5b604435906001600160a01b038216820361012c57565b608435906001600160a01b038216820361012c57565b602435906001600160a01b038216820361012c57565b600435906001600160a01b038216820361012c57565b60c090600319011261012c5760043590602435906001600160a01b03604435818116810361012c5791606435828116810361012c5791608435908116810361012c579060a43590565b608090600319011261012c5760043590602435906044356001600160a01b038116810361012c579060643590565b60041115610c0d57565b634e487b7160e01b5f52602160045260245ffd5b91908203918211610c2e57565b634e487b7160e01b5f52601160045260245ffd5b6040810190811067ffffffffffffffff821117610c5e57604052565b634e487b7160e01b5f52604160045260245ffd5b6080810190811067ffffffffffffffff821117610c5e57604052565b90601f8019910116810190811067ffffffffffffffff821117610c5e57604052565b908151915f5b838110610cc6575050015f815290565b8060208092840101518185015201610cb6565b92909160c0949260405194855260208501525f60408501526060840152608083015260a08201522090565b5f546001600160a01b03163303610d1757565b60405163118cdaa760e01b8152336004820152602490fd5b5f80809381935af13d15610d88573d67ffffffffffffffff8111610c5e5760405190610d65601f8201601f191660200183610c8e565b81525f60203d92013e5b15610d7657565b604051630ce8f45160e31b8152600490fd5b610d6f565b9091923415610ea35742811115610e91576001600160a01b0384811694908515610e80578416938415610e6e57610dc79183913486610cd9565b90815f52600260205260ff60405f205416610de181610c03565b80610e4e5750815f52600260205260405f20600160ff1982541617905560035490348201809211610c2e577f127ba86dffa89675eb78a2ca7203c29f865789ebec607b9424ed9f8d3d533e9f92608092600355604051915f835234602084015260408301526060820152a4565b604051630923e0ed60e31b8152600481018490526044916104bc81610c03565b60405163334945f560e11b8152600490fd5b60405162c5dbab60e41b8152600490fd5b6040516371753c7160e01b8152600490fd5b604051631f2a200560e01b8152600490fd5b919092804210610f5a57610ecb91338585610cd9565b91825f52600260205260ff60405f205416610ee581610c03565b60018103610f3a5750610f1190835f52600260205260405f20600360ff19825416179055600354610c21565b6003557fdb5ade4effa253aae9bef95994b76da3fe75eb0d634e715ec4261c6fd55c06f15f80a3565b604051630a31a83360e21b8152600481018590526044916104bc81610c03565b60405163621e25c360e01b8152600490fd5b91907f7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a08411610fee579160209360809260ff5f9560405194855216868401526040830152606082015282805260015afa15610fe3575f516001600160a01b03811615610fd957905f905f90565b505f906001905f90565b6040513d5f823e3d90fd5b5050505f9160039190565b61100281610c03565b8061100b575050565b61101481610c03565b6001810361102e5760405163f645eedf60e01b8152600490fd5b61103781610c03565b600281036110585760405163fce698f760e01b815260048101839052602490fd5b80611064600392610c03565b1461106c5750565b602490604051906335e2f38360e21b82526004820152fdfea26469706673582212200aca56b9bfb6baa57fcb2580c2fc6b19ddbd35088502ad5bc240794942fd0d5564736f6c63430008180033"
+}

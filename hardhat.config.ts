@@ -1,4 +1,5 @@
-import { HardhatUserConfig } from 'hardhat/config';
+import { HardhatUserConfig, subtask } from 'hardhat/config';
+import { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD } from 'hardhat/builtin-tasks/task-names';
 import '@nomicfoundation/hardhat-toolbox';
 import '@nomiclabs/hardhat-ethers';
 import nodeConfig from 'config';
@@ -43,5 +44,23 @@ const config: HardhatUserConfig = {
     outDir: 'typechain-types',
   },
 };
+
+// Apple Silicon without Rosetta cannot run the native solc 0.6.12 binary.
+// Point SOLCJS_PATH at a solc-js 0.6.12 soljson.js to compile with it instead.
+const solcJsPath = process.env['SOLCJS_PATH'];
+if (solcJsPath) {
+  subtask(
+    TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD,
+    async (args: { solcVersion: string }, _hre, runSuper) =>
+      args.solcVersion === '0.6.12'
+        ? {
+            compilerPath: solcJsPath,
+            isSolcJs: true,
+            version: '0.6.12',
+            longVersion: '0.6.12+commit.27d51765',
+          }
+        : runSuper(args)
+  );
+}
 
 export default config;

@@ -13,10 +13,10 @@ To set up the RIF Relay system running locally there are some tools that are req
     -	**Java Development Kit (JDK):** An ARM-compatible version of Java JDK (like OpenJDK for ARM).
     -	**x86_64 JDK:** For compatibility with specific libraries or applications not yet available for ARM, an x86_64 version of Java is also needed. This can be installed using Homebrew under Rosetta 2.
     -	**Docker:** You need to have `docker` and `docker-compose` installed locally. If you don't have these installed, we recommend following the guidelines in the official [Docker documentation](https://docs.docker.com/get-docker/) for installation and updates.
-    -	**Node & NPM:** We use Node version `v18`. It's recommended to manage Node versions with [`nvm`](https://github.com/nvm-sh/nvm). After installing nvm, run these commands to install and switch to Node version 18:
+    -	**Node & NPM:** We use Node version `v24.22.1` (see `.nvmrc`). It's recommended to manage Node versions with [`nvm`](https://github.com/nvm-sh/nvm). After installing nvm, run these commands to install and switch to Node version 24.22.1:
         ```bash
-        nvm install 18
-        nvm use 18
+        nvm install 24.22.1
+        nvm use 24.22.1
         ```
         To use Node without `nvm`, follow the installation instructions on Node's [official website](https://nodejs.org/en/). After installation, verify it by executing `node -v` in your command line, which will display the installed Node version. This step ensures Node is correctly installed on your system.
     - **Ethers:** The interaction with the blockchain is done using [Ethers v5](https://docs.ethers.org/v5/).

@@ -55,7 +55,9 @@ type RegistrationManagerExposed = {
   _ownerAddress: string | undefined;
   _managerAddress: string;
   _delayedEvents: Array<{ block: number; eventData: TypedEvent }>;
-  _extractDuePendingEvents: (currentBlock: number) => TypedEvent[];
+  _getDuePendingEvents: (
+    currentBlock: number
+  ) => Array<{ block: number; eventData: TypedEvent }>;
 } & {
   [key in keyof RegistrationManager]: RegistrationManager[key];
 };
@@ -115,10 +117,13 @@ describe('RegistrationManager', function () {
       expect(managerBalance).to.not.be.equal(expectedBalance);
 
       const { relayManagerAddress } = relayServer.getChainInfo();
-      await relayOwner.sendTransaction({
-        to: relayManagerAddress,
-        value: expectedBalance,
-      });
+      // Vetiver mines asynchronously: wait for the block, or the next scan sees the same one
+      await (
+        await relayOwner.sendTransaction({
+          to: relayManagerAddress,
+          value: expectedBalance,
+        })
+      ).wait();
       latestBlock = await provider.getBlock('latest');
       transactionHashes = await relayServer._worker(latestBlock.number);
       managerBalance = await relayServer.getManagerBalance();
@@ -131,10 +136,12 @@ describe('RegistrationManager', function () {
     it('should wait for stake and fund workers', async function () {
       relayServer = getServerInstance({ relayOwner, serverWorkdirs });
       const { relayManagerAddress } = relayServer.getChainInfo();
-      await relayOwner.sendTransaction({
-        to: relayManagerAddress,
-        value: utils.parseEther('2'),
-      });
+      await (
+        await relayOwner.sendTransaction({
+          to: relayManagerAddress,
+          value: utils.parseEther('2'),
+        })
+      ).wait();
 
       let latestBlock = await provider.getBlock('latest');
       const transactionHashes = await relayServer._worker(latestBlock.number);
@@ -564,6 +571,11 @@ describe('RegistrationManager', function () {
 
         const latestBlock = await provider.getBlock('latest');
 
+        // the unlock waits while a value transfer is pending, so the server
+        // first records the setup's transfers as mined, as each poll does
+        await relayServer.transactionManager.removeConfirmedTransactions(
+          latestBlock.number
+        );
         const receipts = await relayServer._worker(latestBlock.number);
 
         const gasPrice = await provider.getGasPrice();
@@ -588,7 +600,7 @@ describe('RegistrationManager', function () {
     });
   });
 
-  describe('_extractDuePendingEvents', function () {
+  describe('_getDuePendingEvents', function () {
     let relayServer: RelayServer;
     let registrationManager: RegistrationManagerExposed;
 
@@ -611,18 +623,20 @@ describe('RegistrationManager', function () {
       ];
     });
 
-    it('should extract events which are due (lower or equal block number)', function () {
-      const extracted = registrationManager._extractDuePendingEvents(2);
+    it('should return events which are due (lower or equal block number)', function () {
+      const due = registrationManager._getDuePendingEvents(2);
 
-      expect(extracted).to.be.deep.equal([{} as TypedEvent, {} as TypedEvent]);
+      expect(due).to.be.deep.equal([
+        { block: 1, eventData: {} as TypedEvent },
+        { block: 2, eventData: {} as TypedEvent },
+      ]);
     });
 
-    it('should leave future events in the delayedEvents list', function () {
-      registrationManager._extractDuePendingEvents(2);
+    // an event leaves the queue only once it is handled, so a failed one is retried
+    it('should leave every event in the delayedEvents list', function () {
+      registrationManager._getDuePendingEvents(2);
 
-      expect(registrationManager._delayedEvents).to.be.deep.equal([
-        { block: 3, eventData: {} as TypedEvent },
-      ]);
+      expect(registrationManager._delayedEvents).to.have.length(3);
     });
   });
 

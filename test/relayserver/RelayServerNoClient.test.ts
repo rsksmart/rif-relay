@@ -1,7 +1,7 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers';
 import {
-  BoltzSmartWallet,
-  BoltzSmartWalletFactory,
+  SwapSmartWallet,
+  SwapSmartWalletFactory,
   RelayHub,
 } from '@rsksmart/rif-relay-contracts';
 import {
@@ -15,7 +15,7 @@ import {
 import axios, { AxiosResponse } from 'axios';
 import { expect } from 'chai';
 import config from 'config';
-import { Wallet, constants } from 'ethers';
+import { Wallet, constants, utils } from 'ethers';
 import { ethers } from 'hardhat';
 import {
   EnvelopingRequestOptional,
@@ -23,8 +23,7 @@ import {
   prepareHttpRequest,
 } from '../../test/utils/NoClient';
 import {
-  MinimalBoltzSmartWallet,
-  MinimalBoltzSmartWalletFactory,
+  MinimalSwapSmartWalletFactory,
   TestDeployVerifierEverythingAccepted,
   TestSwap,
   TestVerifierEverythingAccepted,
@@ -35,6 +34,7 @@ import {
   assertLog,
   createSmartWalletFactory,
   deployContract,
+  deployMinimalSwapSmartWallet,
   deployRelayHub,
 } from '../../test/utils/TestUtils';
 import { getInitiatedServer } from './ServerTestEnvironments';
@@ -172,13 +172,13 @@ describe('RelayServerNoClient', function () {
     }
 
     describe('using the complete Boltz Smart Wallet', function () {
-      let boltzFactory: BoltzSmartWalletFactory;
+      let boltzFactory: SwapSmartWalletFactory;
 
       let baseRequestFields: EnvelopingRequestOptional;
 
       beforeEach(async function () {
-        const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-          'BoltzSmartWallet'
+        const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+          'SwapSmartWallet'
         );
         boltzFactory = await createSmartWalletFactory(
           smartWalletTemplate,
@@ -196,6 +196,9 @@ describe('RelayServerNoClient', function () {
           amount: claimedValue,
           claimAddress: smartWalletAddress,
           refundAddress: Wallet.createRandom().address,
+          // the server holds a second claim of the same swap (same contract
+          // and preimage) until a scan sees the first one mined
+          preimage: utils.hexlify(utils.randomBytes(32)),
         });
 
         baseRequestFields = {
@@ -232,6 +235,8 @@ describe('RelayServerNoClient', function () {
         const { txHash: hash } = await axios
           .post(`${serverConfig.app.url}/relay`, request)
           .then((response: AxiosResponse<{ txHash: string }>) => response.data);
+        // the server returns once the transaction is broadcast, before it is mined
+        await ethers.provider.waitForTransaction(hash);
 
         const expectedSmartWalletAddress =
           await boltzFactory.getSmartWalletAddress(
@@ -251,15 +256,12 @@ describe('RelayServerNoClient', function () {
     });
 
     describe('using the minimalistic Boltz Smart Wallet', function () {
-      let boltzFactory: MinimalBoltzSmartWalletFactory;
+      let boltzFactory: MinimalSwapSmartWalletFactory;
 
       let baseRequestFields: EnvelopingRequestOptional;
 
       beforeEach(async function () {
-        const smartWalletTemplate =
-          await deployContract<MinimalBoltzSmartWallet>(
-            'MinimalBoltzSmartWallet'
-          );
+        const smartWalletTemplate = await deployMinimalSwapSmartWallet();
         boltzFactory = await createSmartWalletFactory(
           smartWalletTemplate,
           fundedAccount,
@@ -276,6 +278,9 @@ describe('RelayServerNoClient', function () {
           amount: claimedValue,
           claimAddress: smartWalletAddress,
           refundAddress: Wallet.createRandom().address,
+          // the server holds a second claim of the same swap (same contract
+          // and preimage) until a scan sees the first one mined
+          preimage: utils.hexlify(utils.randomBytes(32)),
         });
 
         baseRequestFields = {
@@ -312,6 +317,8 @@ describe('RelayServerNoClient', function () {
         const { txHash: hash } = await axios
           .post(`${serverConfig.app.url}/relay`, request)
           .then((response: AxiosResponse<{ txHash: string }>) => response.data);
+        // the server returns once the transaction is broadcast, before it is mined
+        await ethers.provider.waitForTransaction(hash);
 
         const expectedSmartWalletAddress =
           await boltzFactory.getSmartWalletAddress(

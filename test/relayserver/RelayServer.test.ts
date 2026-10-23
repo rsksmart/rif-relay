@@ -12,16 +12,17 @@ import {
   SmartWallet,
   SmartWalletFactory,
   BoltzDeployVerifier,
-  BoltzSmartWalletFactory,
+  SwapSmartWalletFactory,
   MinimalBoltzDeployVerifier,
-  MinimalBoltzSmartWalletFactory,
+  MinimalSwapSmartWalletFactory,
   BoltzRelayVerifier,
-  BoltzSmartWallet,
-  MinimalBoltzSmartWallet,
+  SwapSmartWallet,
+  MinimalSwapSmartWallet,
   CustomSmartWalletFactory,
   CustomSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
+  REGTEST_MIN_GAS_PRICE,
   createSupportedSmartWallet,
   deployRelayHub,
   SupportedSmartWallet,
@@ -30,6 +31,7 @@ import {
   deployVerifiers,
   generateRandomAddress,
   deployContract,
+  deployMinimalSwapSmartWallet,
   SupportedType,
   SupportedSmartWalletFactory,
   SupportedDeployVerifier,
@@ -49,7 +51,6 @@ import {
   SendTransactionDetails,
   ServerAction,
   ServerConfigParams,
-  SignedTransactionDetails,
 } from '@rsksmart/rif-relay-server';
 import {
   AccountManager,
@@ -181,6 +182,7 @@ describe('RelayServer', function () {
       } = getServerConfig();
 
       setEnvelopingConfig({
+        minGasPrice: REGTEST_MIN_GAS_PRICE,
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
@@ -453,9 +455,9 @@ describe('RelayServer', function () {
     let encodedData: string;
     let smartWalletFactory: SmartWalletFactory;
     let boltzVerifier: BoltzDeployVerifier;
-    let boltzFactory: BoltzSmartWalletFactory;
+    let boltzFactory: SwapSmartWalletFactory;
     let minimalBoltzVerifier: MinimalBoltzDeployVerifier;
-    let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
+    let minimalBoltzFactory: MinimalSwapSmartWalletFactory;
 
     async function prepareVerifier<
       F extends SupportedSmartWalletFactory,
@@ -503,13 +505,13 @@ describe('RelayServer', function () {
       );
 
       ({ factory: boltzFactory, verifier: boltzVerifier } =
-        await prepareVerifier<BoltzSmartWalletFactory, BoltzDeployVerifier>(
+        await prepareVerifier<SwapSmartWalletFactory, BoltzDeployVerifier>(
           fundedAccount,
           'Boltz'
         ));
       ({ factory: minimalBoltzFactory, verifier: minimalBoltzVerifier } =
         await prepareVerifier<
-          MinimalBoltzSmartWalletFactory,
+          MinimalSwapSmartWalletFactory,
           MinimalBoltzDeployVerifier
         >(fundedAccount, 'Boltz'));
 
@@ -530,6 +532,7 @@ describe('RelayServer', function () {
         app: { url: serverUrl },
       } = getServerConfig();
       setEnvelopingConfig({
+        minGasPrice: REGTEST_MIN_GAS_PRICE,
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
@@ -611,7 +614,7 @@ describe('RelayServer', function () {
       let gasPrice: BigNumber;
 
       beforeEach(function () {
-        gasPrice = BigNumber.from(60000000);
+        gasPrice = BigNumber.from(REGTEST_MIN_GAS_PRICE);
       });
 
       it('should estimate the transaction max gas properly without token fee', async function () {
@@ -964,6 +967,7 @@ describe('RelayServer', function () {
         app: { url: serverUrl },
       } = getServerConfig();
       setEnvelopingConfig({
+        minGasPrice: REGTEST_MIN_GAS_PRICE,
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
@@ -976,7 +980,7 @@ describe('RelayServer', function () {
     for (const { description, options } of TYPE_OF_ESTIMATIONS) {
       describe(description, function () {
         describe('with boltz smart wallet', function () {
-          let smartWalletFactory: BoltzSmartWalletFactory;
+          let smartWalletFactory: SwapSmartWalletFactory;
           let recipient: TestRecipient;
           let encodedData: string;
 
@@ -985,8 +989,8 @@ describe('RelayServer', function () {
               SignerWithAddress,
               SignerWithAddress
             ];
-            const smartWalletTemplate: BoltzSmartWallet = await deployContract(
-              'BoltzSmartWallet'
+            const smartWalletTemplate: SwapSmartWallet = await deployContract(
+              'SwapSmartWallet'
             );
             smartWalletFactory = await createSmartWalletFactory(
               smartWalletTemplate,
@@ -1001,7 +1005,7 @@ describe('RelayServer', function () {
           });
 
           describe('relay transaction', function () {
-            let smartWallet: BoltzSmartWallet;
+            let smartWallet: SwapSmartWallet;
 
             beforeEach(async function () {
               const [worker] = (await ethers.getSigners()) as [
@@ -1447,15 +1451,15 @@ describe('RelayServer', function () {
         });
 
         describe('with minimal boltz smart wallet', function () {
-          let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+          let smartWalletFactory: MinimalSwapSmartWalletFactory;
 
           beforeEach(async function () {
             const [, fundedAccount] = (await ethers.getSigners()) as [
               SignerWithAddress,
               SignerWithAddress
             ];
-            const smartWalletTemplate: MinimalBoltzSmartWallet =
-              await deployContract('MinimalBoltzSmartWallet');
+            const smartWalletTemplate: MinimalSwapSmartWallet =
+              await deployMinimalSwapSmartWallet();
             smartWalletFactory = await createSmartWalletFactory(
               smartWalletTemplate,
               fundedAccount,
@@ -2206,6 +2210,7 @@ describe('RelayServer', function () {
         app: { url: serverUrl },
       } = getServerConfig();
       setEnvelopingConfig({
+        minGasPrice: REGTEST_MIN_GAS_PRICE,
         preferredRelays: [serverUrl],
         chainId,
         relayHubAddress: relayHub.address,
@@ -2250,7 +2255,9 @@ describe('RelayServer', function () {
         gasPrice,
         creationBlockNumber,
         serverAction,
-      }: SendTransactionDetails): Promise<SignedTransactionDetails> {
+      }: SendTransactionDetails): Promise<
+        Awaited<ReturnType<typeof sendTransactionOrigin>>
+      > {
         await recipient.setNextRevert();
 
         return await sendTransactionOrigin.call(server.transactionManager, {
@@ -2488,8 +2495,8 @@ describe('RelayServer', function () {
         SignerWithAddress
       ];
       const relayHub = await deployRelayHub();
-      const smartWalletTemplate: BoltzSmartWallet = await deployContract(
-        'BoltzSmartWallet'
+      const smartWalletTemplate: SwapSmartWallet = await deployContract(
+        'SwapSmartWallet'
       );
       const smartWalletFactory = await createSmartWalletFactory(
         smartWalletTemplate,
