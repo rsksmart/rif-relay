@@ -49,7 +49,6 @@ import {
   SendTransactionDetails,
   ServerAction,
   ServerConfigParams,
-  SignedTransactionDetails,
 } from '@rsksmart/rif-relay-server';
 import {
   AccountManager,
@@ -2250,7 +2249,9 @@ describe('RelayServer', function () {
         gasPrice,
         creationBlockNumber,
         serverAction,
-      }: SendTransactionDetails): Promise<SignedTransactionDetails> {
+      }: SendTransactionDetails): Promise<
+        Awaited<ReturnType<typeof sendTransactionOrigin>>
+      > {
         await recipient.setNextRevert();
 
         return await sendTransactionOrigin.call(server.transactionManager, {
