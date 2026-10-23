@@ -23,6 +23,7 @@ import {
   deployRelayHub,
   getSuffixDataAndSignature,
   deployContract,
+  deployMinimalSwapSmartWallet,
   SupportedType,
   SupportedSmartWallet,
   SupportedSmartWalletName,
@@ -90,13 +91,14 @@ async function deployAndSetup(payment: Payment = 'erc20') {
   const token = await deployContract<UtilToken>('UtilToken');
 
   const templateNames: Record<Payment, SupportedSmartWalletName> = {
-    native: 'BoltzSmartWallet',
-    minimalNative: 'MinimalBoltzSmartWallet',
+    native: 'SwapSmartWallet',
+    minimalNative: 'MinimalSwapSmartWallet',
     erc20: 'SmartWallet',
   };
-  const template = await deployContract<SupportedSmartWallet>(
-    templateNames[payment]
-  );
+  const template =
+    payment === 'minimalNative'
+      ? await deployMinimalSwapSmartWallet()
+      : await deployContract<SupportedSmartWallet>(templateNames[payment]);
 
   const relayHub = await deployRelayHub(penalizer.address);
   await setupRelayHub(relayHub);

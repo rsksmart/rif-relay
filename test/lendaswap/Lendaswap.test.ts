@@ -30,16 +30,17 @@ import {
 } from '@rsksmart/rif-relay-server';
 import { RelayHub__factory } from '@rsksmart/rif-relay-contracts';
 import {
-  BoltzSmartWallet,
-  BoltzSmartWalletFactory,
+  SwapSmartWallet,
+  SwapSmartWalletFactory,
   LendaswapDeployVerifier,
   LendaswapRelayVerifier,
-  MinimalBoltzRelayVerifier,
-  MinimalBoltzSmartWalletFactory,
+  MinimalSwapRelayVerifier,
+  MinimalSwapSmartWalletFactory,
   MinimalLendaswapDeployVerifier,
   RelayHub,
 } from 'typechain-types';
 import {
+  REGTEST_MIN_GAS_PRICE,
   createSmartWalletFactory,
   deployContract,
   deployRelayHub,
@@ -126,11 +127,11 @@ type HTLCNative = Contract & {
 
 type ClaimMethod = 'redeem' | 'redeemBySig' | 'redeemAndExecute';
 
-const CLAIM_METHODS: ClaimMethod[] = [
-  'redeem',
-  'redeemBySig',
-  'redeemAndExecute',
-];
+// The verifiers accept only the redeems that pay the smart wallet itself;
+// redeemAndExecute is refused (rif-relay-contracts#181)
+const CLAIM_METHODS: ClaimMethod[] = ['redeem', 'redeemBySig'];
+
+const REFUSED_CLAIM = 'client verification failed';
 
 const provider = ethers.provider;
 
@@ -148,15 +149,15 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
   let chainId: number;
   let originalConfig: ServerConfigParams;
 
-  // Full wallet: BoltzSmartWallet template + Lendaswap verifiers
-  let fullFactory: BoltzSmartWalletFactory;
+  // Full wallet: SwapSmartWallet template + Lendaswap verifiers
+  let fullFactory: SwapSmartWalletFactory;
   let fullDeployVerifier: LendaswapDeployVerifier;
   let fullRelayVerifier: LendaswapRelayVerifier;
 
   // Minimal wallet: MinimalSwapSmartWallet template + minimal verifiers
-  let minimalFactory: MinimalBoltzSmartWalletFactory;
+  let minimalFactory: MinimalSwapSmartWalletFactory;
   let minimalDeployVerifier: MinimalLendaswapDeployVerifier;
-  let minimalRelayVerifier: MinimalBoltzRelayVerifier;
+  let minimalRelayVerifier: MinimalSwapRelayVerifier;
 
   before(async function () {
     originalConfig = config.util.toObject(config) as ServerConfigParams;
@@ -203,6 +204,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
     } = getServerConfig();
     setProvider(provider);
     setEnvelopingConfig({
+      minGasPrice: REGTEST_MIN_GAS_PRICE,
       preferredRelays: [serverUrl],
       chainId,
       relayHubAddress: relayHub.address,
@@ -234,7 +236,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
     }
   });
 
-  describe('full wallet (BoltzSmartWallet + Lendaswap verifiers)', function () {
+  describe('full wallet (SwapSmartWallet + Lendaswap verifiers)', function () {
     describe('deploy + claim', function () {
       for (const method of CLAIM_METHODS) {
         it(`with ${method}, paying the fee from the claimed RBTC`, async function () {
@@ -255,6 +257,22 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
         });
       }
 
+      it('refuses redeemAndExecute', async function () {
+        const index = randomIndex();
+        const wallet = await fullFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          index
+        );
+        const { to, data } = await prepareClaim('redeemAndExecute', wallet);
+
+        await expect(
+          relay(
+            deployRequest(fullFactory, fullDeployVerifier, index, to, data, FEE)
+          )
+        ).to.be.rejectedWith(REFUSED_CLAIM);
+      });
+
       it('estimates the deploy through the server', async function () {
         const index = randomIndex();
         const wallet = await fullFactory.getSmartWalletAddress(
@@ -262,10 +280,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
           constants.AddressZero,
           index
         );
-        const { to, data, swap } = await prepareClaim(
-          'redeemAndExecute',
-          wallet
-        );
+        const { to, data, swap } = await prepareClaim('redeem', wallet);
 
         const estimation = await relayClient.estimateRelayTransaction(
           deployRequest(fullFactory, fullDeployVerifier, index, to, data, 0)
@@ -293,7 +308,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
           verifier: fullDeployVerifier,
           wallet,
           index,
-          method: 'redeemAndExecute',
+          method: 'redeem',
         });
       });
 
@@ -316,6 +331,14 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
           expect(await provider.getBalance(wallet)).to.be.equal(0);
         });
       }
+
+      it('refuses redeemAndExecute', async function () {
+        const { to, data } = await prepareClaim('redeemAndExecute', wallet);
+
+        await expect(
+          relay(relayRequest(wallet, to, data, FEE))
+        ).to.be.rejectedWith(REFUSED_CLAIM);
+      });
     });
   });
 
@@ -339,6 +362,29 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
           });
         });
       }
+
+      it('refuses redeemAndExecute', async function () {
+        const index = randomIndex();
+        const wallet = await minimalFactory.getSmartWalletAddress(
+          gaslessAccount.address,
+          constants.AddressZero,
+          index
+        );
+        const { to, data } = await prepareClaim('redeemAndExecute', wallet);
+
+        await expect(
+          relay(
+            deployRequest(
+              minimalFactory,
+              minimalDeployVerifier,
+              index,
+              to,
+              data,
+              FEE
+            )
+          )
+        ).to.be.rejectedWith('Method not allowed');
+      });
     });
   });
 
@@ -362,26 +408,24 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
         gaslessAccount = existingAccount;
       });
 
-      it('full wallet: deploy + redeemAndExecute', async function () {
+      it('full wallet: deploy + redeemBySig', async function () {
         const index = randomIndex();
         const wallet = await fullFactory.getSmartWalletAddress(
           gaslessAccount.address,
           constants.AddressZero,
           index
         );
-        const { to, data } = await prepareClaim('redeemAndExecute', wallet);
+        const { to, data } = await prepareClaim('redeemBySig', wallet);
 
-        await measure(
-          'NEW USER full deploy + redeemAndExecute',
-          (tokenAmount) =>
-            deployRequest(
-              fullFactory,
-              fullDeployVerifier,
-              index,
-              to,
-              data,
-              tokenAmount
-            )
+        await measure('NEW USER full deploy + redeemBySig', (tokenAmount) =>
+          deployRequest(
+            fullFactory,
+            fullDeployVerifier,
+            index,
+            to,
+            data,
+            tokenAmount
+          )
         );
       });
     });
@@ -422,7 +466,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
           verifier: fullDeployVerifier,
           wallet,
           index,
-          method: 'redeemAndExecute',
+          method: 'redeem',
         });
       });
 
@@ -506,7 +550,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
   }
 
   async function deployFullWalletStack() {
-    const template = await deployContract<BoltzSmartWallet>('BoltzSmartWallet');
+    const template = await deployContract<SwapSmartWallet>('SwapSmartWallet');
     fullFactory = await createSmartWalletFactory(
       template,
       fundedAccount,
@@ -531,14 +575,13 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
     const allowedMethods = [
       htlc.interface.getSighash('redeem'),
       htlc.interface.getSighash('redeemBySig'),
-      coordinator.interface.getSighash('redeemAndExecute'),
     ];
     const template = await (
       await ethers.getContractFactory('MinimalSwapSmartWallet')
     ).deploy(allowedMethods);
 
     minimalFactory = await (
-      await ethers.getContractFactory('MinimalBoltzSmartWalletFactory')
+      await ethers.getContractFactory('MinimalSwapSmartWalletFactory')
     )
       .connect(fundedAccount)
       .deploy(template.address);
@@ -547,7 +590,7 @@ describe('Lendaswap smart wallets through RIF Relay client and server', function
       await ethers.getContractFactory('MinimalLendaswapDeployVerifier')
     ).deploy(minimalFactory.address);
     minimalRelayVerifier = await (
-      await ethers.getContractFactory('MinimalBoltzRelayVerifier')
+      await ethers.getContractFactory('MinimalSwapRelayVerifier')
     ).deploy(minimalFactory.address);
 
     await (await minimalDeployVerifier.acceptContract(htlc.address)).wait();

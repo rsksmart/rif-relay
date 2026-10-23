@@ -1,16 +1,18 @@
 import { expect } from 'chai';
 import {
+  REGTEST_MIN_GAS_PRICE,
   addSwapHash,
   assertLog,
   createSmartWalletFactory,
   createSupportedSmartWallet,
   deployContract,
+  deployMinimalSwapSmartWallet,
   deployRelayHub,
   RSK_URL,
   SupportedSmartWallet,
 } from '../utils/TestUtils';
 import {
-  MinimalBoltzSmartWalletFactory,
+  MinimalSwapSmartWalletFactory,
   RelayHub,
   TestBoltzDeployVerifierEverythingAccepted,
   TestRecipient,
@@ -57,9 +59,9 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import config from 'config';
 import {
-  BoltzSmartWallet,
-  BoltzSmartWalletFactory,
-  MinimalBoltzSmartWallet,
+  SwapSmartWallet,
+  SwapSmartWalletFactory,
+  MinimalSwapSmartWallet,
   SmartWallet,
   SmartWalletFactory,
 } from '@rsksmart/rif-relay-contracts';
@@ -147,6 +149,7 @@ describe('RelayClient', function () {
     } = getServerConfig();
     setProvider(provider);
     setEnvelopingConfig({
+      minGasPrice: REGTEST_MIN_GAS_PRICE,
       preferredRelays: [serverUrl],
       chainId,
       relayHubAddress: relayHub.address,
@@ -339,7 +342,7 @@ describe('RelayClient', function () {
       });
 
       it('with gasPrice', async function () {
-        const forceGasPrice = 200000;
+        const forceGasPrice = 40;
 
         const updatedRelayRequest = {
           ...envelopingRelayRequest,
@@ -488,7 +491,7 @@ describe('RelayClient', function () {
       });
 
       it('with gasPrice', async function () {
-        const forceGasPrice = 200000;
+        const forceGasPrice = 40;
 
         const updatedDeployRequest = {
           ...envelopingDeployRequest,
@@ -542,12 +545,12 @@ describe('RelayClient', function () {
       describe('with contract execution', function () {
         let data: string;
         let swap: TestSwap;
-        let boltzFactory: BoltzSmartWalletFactory;
+        let boltzFactory: SwapSmartWalletFactory;
 
         beforeEach(async function () {
           swap = await deployContract<TestSwap>('TestSwap');
-          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-            'BoltzSmartWallet'
+          const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+            'SwapSmartWallet'
           );
           boltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
@@ -772,6 +775,7 @@ describe('RelayClient', function () {
       badServer = mockServer.listen(mockServerPort);
 
       setEnvelopingConfig({
+        minGasPrice: REGTEST_MIN_GAS_PRICE,
         preferredRelays: [`http://localhost:${mockServerPort}`],
         chainId,
         relayHubAddress: relayHub.address,
@@ -835,11 +839,11 @@ describe('RelayClient', function () {
     }> = [];
 
     describe('with boltz smart wallet', function () {
-      let smartWalletFactory: BoltzSmartWalletFactory;
+      let smartWalletFactory: SwapSmartWalletFactory;
 
       before(async function () {
-        const smartWalletTemplate: BoltzSmartWallet = await deployContract(
-          'BoltzSmartWallet'
+        const smartWalletTemplate: SwapSmartWallet = await deployContract(
+          'SwapSmartWallet'
         );
         smartWalletFactory = await createSmartWalletFactory(
           smartWalletTemplate,
@@ -1096,7 +1100,7 @@ describe('RelayClient', function () {
       });
 
       describe('during a  relay transaction', function () {
-        let smartWallet: BoltzSmartWallet;
+        let smartWallet: SwapSmartWallet;
         let testRecipient: TestRecipient;
         let envelopingRelayRequest: UserDefinedRelayRequest;
         const message = 'hello world';
@@ -1226,11 +1230,11 @@ describe('RelayClient', function () {
     });
 
     describe('with minimal boltz smart wallet', function () {
-      let smartWalletFactory: MinimalBoltzSmartWalletFactory;
+      let smartWalletFactory: MinimalSwapSmartWalletFactory;
 
       before(async function () {
-        const smartWalletTemplate: MinimalBoltzSmartWallet =
-          await deployContract('MinimalBoltzSmartWallet');
+        const smartWalletTemplate: MinimalSwapSmartWallet =
+          await deployMinimalSwapSmartWallet();
         smartWalletFactory = await createSmartWalletFactory(
           smartWalletTemplate,
           fundedAccount,

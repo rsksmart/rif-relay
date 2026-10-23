@@ -14,18 +14,18 @@ import {
   SmartWalletFactory,
   CustomSmartWalletFactory,
   SmartWallet,
-  BoltzSmartWalletFactory,
+  SwapSmartWalletFactory,
   DeployVerifier,
   CustomSmartWalletDeployVerifier,
   BoltzDeployVerifier,
   RelayVerifier,
   BoltzRelayVerifier,
-  MinimalBoltzSmartWalletFactory,
-  BoltzSmartWallet,
+  MinimalSwapSmartWalletFactory,
+  SwapSmartWallet,
   CustomSmartWallet,
   MinimalBoltzDeployVerifier,
-  MinimalBoltzRelayVerifier,
-  MinimalBoltzSmartWallet,
+  MinimalSwapRelayVerifier,
+  MinimalSwapSmartWallet,
 } from '@rsksmart/rif-relay-contracts';
 import {
   defaultEnvironment,
@@ -60,11 +60,16 @@ import nodeConfig from 'config';
 
 import SmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SmartWallet.sol/SmartWallet.json';
 import CustomSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/CustomSmartWallet.sol/CustomSmartWallet.json';
-import BoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/BoltzSmartWallet.sol/BoltzSmartWallet.json';
-import MinimalBoltzSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalBoltzSmartWallet.sol/MinimalBoltzSmartWallet.json';
+import SwapSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/SwapSmartWallet.sol/SwapSmartWallet.json';
+import MinimalSwapSmartWalletJson from '../../artifacts/@rsksmart/rif-relay-contracts/contracts/smartwallet/MinimalSwapSmartWallet.sol/MinimalSwapSmartWallet.json';
 import { TestSwap } from '../../typechain-types';
 
 use(chaiAsPromised);
+
+// The relay server refuses a request whose gasPrice is over 50 times the node's
+// gasPrice. The regtest node's gasPrice is 1 wei, so the client's default
+// minimum (0.06 gwei) is refused; requests use the node's gasPrice instead.
+const REGTEST_MIN_GAS_PRICE = 1;
 
 const ONE_FIELD_IN_BYTES = 32;
 const CHARS_PER_FIELD = 64;
@@ -73,14 +78,14 @@ const PREFIX_HEX = '0x';
 type SupportedSmartWalletName =
   | 'CustomSmartWallet'
   | 'SmartWallet'
-  | 'BoltzSmartWallet'
-  | 'MinimalBoltzSmartWallet';
-type SupportedSmartWallet = CustomSmartWallet | SmartWallet | BoltzSmartWallet;
+  | 'SwapSmartWallet'
+  | 'MinimalSwapSmartWallet';
+type SupportedSmartWallet = CustomSmartWallet | SmartWallet | SwapSmartWallet;
 type SupportedSmartWalletFactory =
   | CustomSmartWalletFactory
   | SmartWalletFactory
-  | BoltzSmartWalletFactory
-  | MinimalBoltzSmartWalletFactory;
+  | SwapSmartWalletFactory
+  | MinimalSwapSmartWalletFactory;
 type SupportedType = 'Custom' | 'Boltz' | 'MinimalBoltz' | 'Default';
 type SupportedDeployVerifier =
   | DeployVerifier
@@ -191,7 +196,7 @@ const deployRelayHub = async (
 
 const deployVerifiers = async <
   C1 extends SupportedDeployVerifier,
-  C2 extends RelayVerifier | BoltzRelayVerifier | MinimalBoltzRelayVerifier
+  C2 extends RelayVerifier | BoltzRelayVerifier | MinimalSwapRelayVerifier
 >(
   smartWalletFactory: SupportedSmartWalletFactory,
   type: SupportedType = 'Default'
@@ -221,12 +226,12 @@ const deployVerifiers = async <
 };
 
 const createSmartWalletFactory = async <T extends SupportedSmartWalletFactory>(
-  template: SupportedSmartWallet | MinimalBoltzSmartWallet,
+  template: SupportedSmartWallet | MinimalSwapSmartWallet,
   owner: Wallet | SignerWithAddress,
   type: SupportedType = 'Default'
 ): Promise<T> => {
   const factory = await ethers.getContractFactory(
-    `${type === 'Default' ? '' : type}SmartWalletFactory`
+    `${CONTRACT_PREFIXES[type]}SmartWalletFactory`
   );
 
   return (await (
@@ -235,7 +240,7 @@ const createSmartWalletFactory = async <T extends SupportedSmartWalletFactory>(
 };
 
 const createSupportedSmartWallet = async <
-  T extends SupportedSmartWallet | MinimalBoltzSmartWallet
+  T extends SupportedSmartWallet | MinimalSwapSmartWallet
 >({
   relayHub,
   sender,
@@ -305,8 +310,8 @@ const createSupportedSmartWallet = async <
   const abis: Record<SupportedType, ContractInterface> = {
     Default: SmartWalletJson.abi,
     Custom: CustomSmartWalletJson.abi,
-    Boltz: BoltzSmartWalletJson.abi,
-    MinimalBoltz: MinimalBoltzSmartWalletJson.abi,
+    Boltz: SwapSmartWalletJson.abi,
+    MinimalBoltz: MinimalSwapSmartWalletJson.abi,
   };
 
   return new Contract(swAddress, abis[type], owner) as T;
@@ -554,14 +559,35 @@ async function getSmartWalletAddress({
       );
 }
 
-async function deployContract<T>(contract: string) {
+async function deployContract<T>(contract: string, ...args: unknown[]) {
   const contractFactory = await ethers.getContractFactory(contract);
 
-  return (await (await contractFactory.deploy()).deployed()) as T;
+  return (await (await contractFactory.deploy(...args)).deployed()) as T;
 }
 
+// Same list as BOLTZ_CLAIM_METHODS in rif-relay-contracts/tasks/deployers.ts
+const BOLTZ_CLAIM_METHODS = [
+  'claim(bytes32,uint256,address,uint256)',
+  'claim(bytes32,uint256,address,address,uint256)',
+].map((signature) => utils.id(signature).slice(0, 10));
+
+// The minimal wallet takes the claim methods it can execute in its constructor
+const deployMinimalSwapSmartWallet = () =>
+  deployContract<MinimalSwapSmartWallet>(
+    'MinimalSwapSmartWallet',
+    BOLTZ_CLAIM_METHODS
+  );
+
+// The Boltz wallets were renamed to Swap in rif-relay-contracts v2.2.1
+const CONTRACT_PREFIXES: Record<SupportedType, string> = {
+  Default: '',
+  Custom: 'Custom',
+  Boltz: 'Swap',
+  MinimalBoltz: 'MinimalSwap',
+};
+
 const getSmartWalletTemplate = (type: SupportedType) =>
-  `${type === 'Default' ? '' : type}SmartWallet`;
+  `${CONTRACT_PREFIXES[type]}SmartWallet`;
 
 type AssertLogParams = {
   filter: EventFilter;
@@ -644,7 +670,9 @@ export {
   createSupportedSmartWallet,
   signEnvelopingRequest,
   RSK_URL,
+  REGTEST_MIN_GAS_PRICE,
   deployContract,
+  deployMinimalSwapSmartWallet,
   getSmartWalletAddress,
   getSmartWalletTemplate,
   assertLog,

@@ -7,10 +7,9 @@ import {
   Penalizer,
   RelayHub,
   SmartWallet,
-  BoltzSmartWalletFactory,
-  BoltzSmartWallet,
-  MinimalBoltzSmartWalletFactory,
-  MinimalBoltzSmartWallet,
+  SwapSmartWalletFactory,
+  SwapSmartWallet,
+  MinimalSwapSmartWalletFactory,
 } from '@rsksmart/rif-relay-contracts';
 import {
   CommonEnvelopingRequestBody,
@@ -39,6 +38,7 @@ import {
   evmMineMany,
   deployRelayHub,
   deployContract,
+  deployMinimalSwapSmartWallet,
   addSwapHash,
 } from './utils/TestUtils';
 import { RelayWorkersAddedEvent } from 'typechain-types/@rsksmart/rif-relay-contracts/contracts/RelayHub';
@@ -983,13 +983,13 @@ describe('RelayHub', function () {
       context('with boltz', function () {
         let data: string;
         let swap: TestSwap;
-        let boltzFactory: BoltzSmartWalletFactory;
+        let boltzFactory: SwapSmartWalletFactory;
         let claimedValue: BigNumber;
         let smartWalletAddress: string;
 
         beforeEach(async function () {
-          const smartWalletTemplate = await deployContract<BoltzSmartWallet>(
-            'BoltzSmartWallet'
+          const smartWalletTemplate = await deployContract<SwapSmartWallet>(
+            'SwapSmartWallet'
           );
           boltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
@@ -1198,15 +1198,12 @@ describe('RelayHub', function () {
       context('with minimal boltz', function () {
         let data: string;
         let swap: TestSwap;
-        let minimalBoltzFactory: MinimalBoltzSmartWalletFactory;
+        let minimalBoltzFactory: MinimalSwapSmartWalletFactory;
         let claimedValue: BigNumber;
         let smartWalletAddress: string;
 
         beforeEach(async function () {
-          const smartWalletTemplate =
-            await deployContract<MinimalBoltzSmartWallet>(
-              'MinimalBoltzSmartWallet'
-            );
+          const smartWalletTemplate = await deployMinimalSwapSmartWallet();
           minimalBoltzFactory = await createSmartWalletFactory(
             smartWalletTemplate,
             owner,
